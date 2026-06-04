@@ -17,7 +17,26 @@ vi.mock('../../app/router.svelte', () => ({
   routerState: {}
 }))
 
-import { createSession, resumeSession, sessionState as rawSessionState } from '$lib/stores/session.svelte'
+import {
+  createSession,
+  rememberRuntimeSession,
+  resumeSession,
+  runtimeSessionIdForStored,
+  selectSession,
+  sessionState as rawSessionState,
+  storedSessionIdForRuntime
+} from '$lib/stores/session.svelte'
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, reject, resolve }
+}
 
 describe('createSession', () => {
   beforeEach(() => {
@@ -25,6 +44,8 @@ describe('createSession', () => {
     rawSessionState.activeSessionId = null
     rawSessionState.storedSessionId = null
     rawSessionState.error = null
+    rawSessionState.runtimeIdsByStoredSessionId = {}
+    rawSessionState.storedSessionIdsByRuntimeId = {}
   })
 
   it('sets activeSessionId to short sid and storedSessionId to persistent key', async () => {
@@ -80,6 +101,67 @@ describe('createSession', () => {
     expect(rawSessionState.error).toBeTruthy()
     expect(rawSessionState.storedSessionId).toBeNull()
   })
+
+  it('closes a newly created live session when route state changes before create resolves', async () => {
+    const pendingCreate = deferred<{
+      info: { model: string }
+      message_count: number
+      messages: []
+      session_id: string
+      stored_session_id: string
+    }>()
+
+    mockRequestGateway.mockImplementation((method: string, params?: Record<string, unknown>) => {
+      if (method === 'session.create') return pendingCreate.promise
+      if (method === 'session.close') return Promise.resolve({ closed: params?.session_id })
+      return Promise.resolve({})
+    })
+
+    const resultPromise = createSession()
+    rawSessionState.storedSessionId = 'operator-clicked-elsewhere'
+    pendingCreate.resolve({
+      session_id: 'stale001',
+      stored_session_id: 'stored-stale',
+      message_count: 0,
+      messages: [],
+      info: { model: 'test-model' }
+    })
+
+    await expect(resultPromise).resolves.toBeNull()
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.close', { session_id: 'stale001' })
+    expect(rawSessionState.activeSessionId).not.toBe('stale001')
+    expect(rawSessionState.storedSessionId).toBe('operator-clicked-elsewhere')
+    expect(mockNavigate).not.toHaveBeenCalledWith('/stored-stale')
+  })
+})
+
+describe('selectSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = 'oldlive1'
+    rawSessionState.storedSessionId = 'old-stored-key'
+    rawSessionState.error = null
+    rawSessionState.runtimeIdsByStoredSessionId = {}
+    rawSessionState.storedSessionIdsByRuntimeId = {}
+  })
+
+  it('selects by stored key without poisoning the live active session id', () => {
+    selectSession('stored_key_abc')
+
+    expect(rawSessionState.storedSessionId).toBe('stored_key_abc')
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(mockNavigate).toHaveBeenCalledWith('/stored_key_abc')
+  })
+
+  it('reuses a cached runtime id when reselecting an already-resumed stored session', () => {
+    rememberRuntimeSession('stored_key_abc', 'liveabc1')
+
+    selectSession('stored_key_abc')
+
+    expect(rawSessionState.storedSessionId).toBe('stored_key_abc')
+    expect(rawSessionState.activeSessionId).toBe('liveabc1')
+    expect(mockNavigate).toHaveBeenCalledWith('/stored_key_abc')
+  })
 })
 
 describe('resumeSession', () => {
@@ -89,6 +171,86 @@ describe('resumeSession', () => {
     rawSessionState.storedSessionId = null
     rawSessionState.error = null
     rawSessionState.resumingSessionId = null
+    rawSessionState.runtimeIdsByStoredSessionId = {}
+    rawSessionState.storedSessionIdsByRuntimeId = {}
+  })
+
+  it('records runtime mappings when a stored session is resumed', async () => {
+    const liveSid = 'mapped01'
+    const storedKey = 'stored-map-1'
+
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: liveSid,
+      resumed: storedKey,
+      message_count: 5,
+      messages: [],
+      info: { model: 'test-model' }
+    })
+
+    await resumeSession(storedKey)
+
+    expect(runtimeSessionIdForStored(storedKey)).toBe(liveSid)
+    expect(storedSessionIdForRuntime(liveSid)).toBe(storedKey)
+  })
+
+  it('reuses a cached runtime id for a stored session without re-resuming the gateway', async () => {
+    rememberRuntimeSession('stored-cached', 'livecache')
+
+    const response = await resumeSession('stored-cached')
+
+    expect(response?.session_id).toBe('livecache')
+    expect(rawSessionState.activeSessionId).toBe('livecache')
+    expect(rawSessionState.storedSessionId).toBe('stored-cached')
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
+  })
+
+  it('ignores stale resume responses when another session became selected first', async () => {
+    const pendingA = deferred<{
+      info: { model: string }
+      message_count: number
+      messages: []
+      resumed: string
+      session_id: string
+    }>()
+    const pendingB = deferred<{
+      info: { model: string }
+      message_count: number
+      messages: []
+      resumed: string
+      session_id: string
+    }>()
+
+    mockRequestGateway.mockImplementation((_method: string, params?: Record<string, unknown>) => {
+      if (params?.session_id === 'stored-A') return pendingA.promise
+      if (params?.session_id === 'stored-B') return pendingB.promise
+      return Promise.resolve({})
+    })
+
+    const resumeA = resumeSession('stored-A')
+    const resumeB = resumeSession('stored-B')
+
+    pendingB.resolve({
+      session_id: 'live-B',
+      resumed: 'stored-B',
+      message_count: 0,
+      messages: [],
+      info: { model: 'b' }
+    })
+    await expect(resumeB).resolves.toMatchObject({ session_id: 'live-B' })
+    expect(rawSessionState.activeSessionId).toBe('live-B')
+    expect(rawSessionState.storedSessionId).toBe('stored-B')
+
+    pendingA.resolve({
+      session_id: 'live-A',
+      resumed: 'stored-A',
+      message_count: 0,
+      messages: [],
+      info: { model: 'a' }
+    })
+    await expect(resumeA).resolves.toBeNull()
+    expect(rawSessionState.activeSessionId).toBe('live-B')
+    expect(rawSessionState.storedSessionId).toBe('stored-B')
+    expect(runtimeSessionIdForStored('stored-A')).toBeNull()
   })
 
   it('sets activeSessionId to response.session_id and storedSessionId to the param', async () => {
@@ -129,13 +291,13 @@ describe('resumeSession', () => {
     expect(mockRequestGateway).not.toHaveBeenCalled()
   })
 
-  it('returns null on gateway error and sets error state', async () => {
+  it('returns null on gateway error, sets error state, and keeps the selected stored route', async () => {
     mockRequestGateway.mockRejectedValueOnce(new Error('not found'))
 
     const result = await resumeSession('bad_id')
 
     expect(result).toBeNull()
     expect(rawSessionState.error).toBeTruthy()
-    expect(rawSessionState.storedSessionId).toBeNull()
+    expect(rawSessionState.storedSessionId).toBe('bad_id')
   })
 })

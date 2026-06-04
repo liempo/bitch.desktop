@@ -6,13 +6,9 @@
   import { routerState } from './router.svelte'
   import { clearLogs, gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
-  import {
-    hydrateSessionMessages,
-    hydrateSessionMessagesFromGateway,
-    startMessageStream,
-    stopMessageStream
-  } from '$lib/stores/messages.svelte'
-  import { createSession, initializeSessions, resumeSession, setActiveSession } from '$lib/stores/session.svelte'
+  import { resumeAndHydrateStoredSession } from '$lib/session-resume'
+  import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
+  import { createSession, initializeSessions, setActiveSession } from '$lib/stores/session.svelte'
 
   let devPanelOpen = $state(false)
   let lastResumedSessionId: string | null = null
@@ -43,24 +39,12 @@
     return () => stopMessageStream()
   })
 
-  async function resumeAndHydrate(sessionId: string): Promise<void> {
-    const response = await resumeSession(sessionId)
-
-    if (!response) return
-
-    // session.resume returns a fresh live session ID (short sid) for
-    // live RPCs.  The URL hash stays on the stored key so page refresh
-    // can re-resume through session.resume (which looks up the DB by
-    // stored key, not short sid).  Hydrate messages under the live sid
-    // because that is what prompt.submit / message stream events key on.
-    const liveId = response.session_id
-    lastResumedSessionId = sessionId
-
-    if (response.messages) {
-      hydrateSessionMessagesFromGateway(liveId, response.messages)
-    } else {
-      await hydrateSessionMessages(liveId)
-    }
+  async function resumeAndHydrate(sessionId: string): Promise<boolean> {
+    // Route/session selection is keyed by the persistent stored id. The shared
+    // helper mirrors upstream Desktop: fetch the stored snapshot first, resume
+    // the live runtime second, and ignore stale completions when the route has
+    // already moved on.
+    return resumeAndHydrateStoredSession(sessionId)
   }
 
   $effect(() => {
@@ -73,8 +57,13 @@
     }
 
     if (routerState.sessionId && routerState.sessionId !== lastResumedSessionId) {
-      lastResumedSessionId = routerState.sessionId
-      void resumeAndHydrate(routerState.sessionId)
+      const requestedSessionId = routerState.sessionId
+      lastResumedSessionId = requestedSessionId
+      void resumeAndHydrate(requestedSessionId).then(applied => {
+        if (!applied && routerState.sessionId === requestedSessionId) {
+          lastResumedSessionId = null
+        }
+      })
     }
   })
 </script>

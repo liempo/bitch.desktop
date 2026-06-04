@@ -8,7 +8,13 @@ import {
   setThreadBusy,
   threadForSession
 } from '$lib/stores/messages.svelte'
-import { createSession, loadSessions, sessionState } from '$lib/stores/session.svelte'
+import {
+  createSession,
+  displaySessionIdFor,
+  loadSessions,
+  runtimeSessionIdForStored,
+  sessionState
+} from '$lib/stores/session.svelte'
 import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } from '$lib/types/hermes'
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'
@@ -116,6 +122,29 @@ let nextAttachmentId = 0
 
 function sessionKey(sessionId: null | string | undefined): string {
   return sessionId?.trim() || NEW_SESSION_KEY
+}
+
+function displaySessionKey(sessionId: null | string | undefined): null | string {
+  const key = sessionId?.trim()
+
+  if (key) {
+    return displaySessionIdFor(key)
+  }
+
+  return sessionState.storedSessionId
+}
+
+function liveSessionKey(sessionId: null | string | undefined): null | string {
+  const key = sessionId?.trim()
+
+  if (key) {
+    if (key === sessionState.activeSessionId) return key
+    return (
+      runtimeSessionIdForStored(key) ?? (key === sessionState.storedSessionId ? sessionState.activeSessionId : null)
+    )
+  }
+
+  return sessionState.activeSessionId
 }
 
 function ensureComposerSession(sessionId: null | string | undefined): ComposerSessionState {
@@ -391,16 +420,18 @@ export async function refreshComposerModels(): Promise<void> {
 }
 
 export async function loadCommandCatalog(sessionId: null | string | undefined): Promise<void> {
-  if (!sessionId) return
+  const displayKey = displaySessionKey(sessionId)
+  const targetSessionId = liveSessionKey(sessionId)
+  if (!displayKey || !targetSessionId) return
 
-  const session = ensureComposerSession(sessionId)
+  const session = ensureComposerSession(displayKey)
   if (session.loadingCommands) return
 
   session.loadingCommands = true
   session.commandError = null
 
   try {
-    const catalog = await requestGateway<CommandsCatalogResponse>('commands.catalog', { session_id: sessionId })
+    const catalog = await requestGateway<CommandsCatalogResponse>('commands.catalog', { session_id: targetSessionId })
     session.commandCatalog = commandPairs(catalog)
     session.commandError = catalog.warning || null
   } catch (error) {
@@ -427,11 +458,12 @@ export function applySlashSuggestion(sessionId: null | string | undefined, comma
 
 export async function executeSlashCommand(sessionId: null | string | undefined, rawCommand: string): Promise<boolean> {
   const command = rawCommand.trim()
-  const composer = ensureComposerSession(sessionId)
+  const displayKey = displaySessionKey(sessionId) ?? sessionId
+  const composer = ensureComposerSession(displayKey)
 
   if (!command.startsWith('/')) return false
 
-  let targetSessionId = sessionState.activeSessionId || sessionId
+  let targetSessionId = liveSessionKey(sessionId)
 
   if (!targetSessionId) {
     targetSessionId = await createSession()
@@ -463,7 +495,7 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
 
 export async function selectComposerModel(sessionId: null | string | undefined, key: string): Promise<boolean> {
   const [provider, model] = key.split('\u0000')
-  const targetSessionId = sessionState.activeSessionId || sessionId
+  const targetSessionId = liveSessionKey(sessionId)
 
   if (!provider || !model || !targetSessionId) {
     composerState.model.error = 'Open a session before switching models.'
@@ -502,20 +534,21 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
 }
 
 export async function interruptComposerSession(sessionId: null | string | undefined): Promise<boolean> {
-  const targetSessionId = sessionState.activeSessionId || sessionId
-  if (!targetSessionId) return false
+  const targetSessionId = liveSessionKey(sessionId)
+  const displayKey = displaySessionKey(sessionId) ?? targetSessionId
+  if (!targetSessionId || !displayKey) return false
 
-  markComposerInterrupted(targetSessionId, true)
-  setThreadBusy(targetSessionId, false)
+  markComposerInterrupted(displayKey, true)
+  setThreadBusy(displayKey, false)
 
   try {
     await requestGateway('session.interrupt', { session_id: targetSessionId })
-    appendSystemMessage(targetSessionId, 'Interrupted by operator.')
+    appendSystemMessage(displayKey, 'Interrupted by operator.')
     return true
   } catch (error) {
     const message = inlineErrorMessage(error, 'Stop failed')
-    ensureComposerSession(targetSessionId).error = message
-    appendAssistantErrorMessage(targetSessionId, message)
+    ensureComposerSession(displayKey).error = message
+    appendAssistantErrorMessage(displayKey, message)
     return false
   }
 }
@@ -548,12 +581,7 @@ export async function submitPrompt(
   composer.submitting = true
   composer.error = null
 
-  let targetSessionId =
-    // Live RPCs (prompt.submit, slash.exec, etc.) require the short
-    // live session ID that keys the gateway's _sessions dict.  The
-    // caller may pass a stored key (from the route hash), so prefer
-    // activeSessionId which always holds the short sid.
-    sessionState.activeSessionId || sessionId
+  let targetSessionId = liveSessionKey(sessionId)
 
   if (!targetSessionId) {
     targetSessionId = await createSession()

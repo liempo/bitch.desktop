@@ -13,7 +13,7 @@ import {
   unpinSession as storeUnpin
 } from '$lib/stores/layout.svelte'
 import type { SessionCreateResponse, SessionInfo, SessionResumeResponse, SessionSearchResult } from '$lib/types/hermes'
-import { navigate, sessionRoute } from '../../app/router.svelte'
+import { navigate, routerState, sessionRoute } from '../../app/router.svelte'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -35,6 +35,12 @@ export interface SessionState {
   /** Persistent stored session key used for session.resume and the
    *  URL hash.  Survives page refresh because the DB indexes by it. */
   storedSessionId: string | null
+  /** Runtime sid by stored key, matching upstream Desktop's
+   *  runtimeIdByStoredSessionIdRef. Used to route background live events
+   *  and to reselect a live session without needless re-resume. */
+  runtimeIdsByStoredSessionId: Record<string, string>
+  /** Stored key by runtime sid. Reverse index for stream event routing. */
+  storedSessionIdsByRuntimeId: Record<string, string>
   error: string | null
   mutatingSessionIds: string[]
   needsInputSessionIds: string[]
@@ -59,6 +65,8 @@ export interface SessionState {
 export const sessionState = $state<SessionState>({
   activeSessionId: null,
   storedSessionId: null,
+  runtimeIdsByStoredSessionId: {},
+  storedSessionIdsByRuntimeId: {},
   error: null,
   mutatingSessionIds: [],
   needsInputSessionIds: [],
@@ -78,6 +86,7 @@ export const sessionState = $state<SessionState>({
 
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 let searchRevision = 0
+let resumeRequestId = 0
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -107,7 +116,7 @@ function removeSessionFromLocalState(sessionId: string): void {
 function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
   const existingKeepers =
     offset === 0
-      ? sessionState.sessions.filter(session => isPinned(session) || session.id === sessionState.activeSessionId)
+      ? sessionState.sessions.filter(session => isPinned(session) || session.id === sessionState.storedSessionId)
       : sessionState.sessions
   const merged = new Map<string, SessionInfo>()
 
@@ -127,6 +136,87 @@ function setSessionFlag(list: string[], sessionId: string, enabled: boolean): vo
     list.push(sessionId)
   } else if (!enabled && index !== -1) {
     list.splice(index, 1)
+  }
+}
+
+function currentRouteToken(): string {
+  return [
+    routerState.route ?? 'unknown',
+    routerState.sessionId ?? '',
+    sessionState.storedSessionId ?? '',
+    sessionState.activeSessionId ?? ''
+  ].join(':')
+}
+
+export function rememberRuntimeSession(
+  storedSessionId: string | null | undefined,
+  runtimeSessionId: string | null | undefined
+): void {
+  const stored = storedSessionId?.trim()
+  const runtime = runtimeSessionId?.trim()
+
+  if (!stored || !runtime) return
+
+  const previousRuntime = sessionState.runtimeIdsByStoredSessionId[stored]
+  if (previousRuntime && previousRuntime !== runtime) {
+    delete sessionState.storedSessionIdsByRuntimeId[previousRuntime]
+  }
+
+  const previousStored = sessionState.storedSessionIdsByRuntimeId[runtime]
+  if (previousStored && previousStored !== stored) {
+    delete sessionState.runtimeIdsByStoredSessionId[previousStored]
+  }
+
+  sessionState.runtimeIdsByStoredSessionId[stored] = runtime
+  sessionState.storedSessionIdsByRuntimeId[runtime] = stored
+}
+
+export function forgetRuntimeSession(storedSessionId: string | null | undefined): void {
+  const stored = storedSessionId?.trim()
+  if (!stored) return
+
+  const runtime = sessionState.runtimeIdsByStoredSessionId[stored]
+  if (runtime) {
+    delete sessionState.storedSessionIdsByRuntimeId[runtime]
+  }
+  delete sessionState.runtimeIdsByStoredSessionId[stored]
+}
+
+export function runtimeSessionIdForStored(storedSessionId: string | null | undefined): string | null {
+  const stored = storedSessionId?.trim()
+  return stored ? (sessionState.runtimeIdsByStoredSessionId[stored] ?? null) : null
+}
+
+export function storedSessionIdForRuntime(runtimeSessionId: string | null | undefined): string | null {
+  const runtime = runtimeSessionId?.trim()
+  return runtime ? (sessionState.storedSessionIdsByRuntimeId[runtime] ?? null) : null
+}
+
+export function displaySessionIdFor(sessionId: string): string {
+  return (
+    storedSessionIdForRuntime(sessionId) ??
+    (sessionId === sessionState.activeSessionId && sessionState.storedSessionId
+      ? sessionState.storedSessionId
+      : sessionId)
+  )
+}
+
+export function beginResumeSession(sessionId: string): number {
+  resumeRequestId += 1
+  sessionState.resumingSessionId = sessionId
+  sessionState.error = null
+  sessionState.storedSessionId = sessionId
+  sessionState.activeSessionId = runtimeSessionIdForStored(sessionId)
+  return resumeRequestId
+}
+
+export function isCurrentResumeRequest(sessionId: string, requestId: number): boolean {
+  return resumeRequestId === requestId && sessionState.storedSessionId === sessionId
+}
+
+function finishResumeSession(sessionId: string, requestId: number): void {
+  if (isCurrentResumeRequest(sessionId, requestId)) {
+    sessionState.resumingSessionId = null
   }
 }
 
@@ -263,6 +353,10 @@ export function clearSearch(): void {
 /* ------------------------------------------------------------------ */
 
 export async function createSession(): Promise<string | null> {
+  const startingActiveSessionId = sessionState.activeSessionId
+  const startingStoredSessionId = sessionState.storedSessionId
+  const startingRouteToken = currentRouteToken()
+
   try {
     const response = await requestGateway<SessionCreateResponse>('session.create', { cols: COLS })
     // Track both IDs per the upstream two-ID pattern:
@@ -273,6 +367,16 @@ export async function createSession(): Promise<string | null> {
     const liveSid = response.session_id
     const storedKey = response.stored_session_id ?? response.session_id
 
+    if (
+      sessionState.activeSessionId !== startingActiveSessionId ||
+      sessionState.storedSessionId !== startingStoredSessionId ||
+      currentRouteToken() !== startingRouteToken
+    ) {
+      await requestGateway('session.close', { session_id: liveSid }).catch(() => undefined)
+      return null
+    }
+
+    rememberRuntimeSession(storedKey, liveSid)
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
     navigate(sessionRoute(storedKey))
@@ -288,31 +392,60 @@ export async function createSession(): Promise<string | null> {
 }
 
 export function selectSession(sessionId: string): void {
-  sessionState.activeSessionId = sessionId
+  // Session list/search IDs are persistent stored keys. Reuse a known live sid
+  // for an already-resumed session; otherwise clear it until session.resume
+  // returns a fresh runtime ID. This mirrors upstream's stored→runtime cache
+  // without letting a previous session's live sid poison new submits.
+  sessionState.storedSessionId = sessionId
+  sessionState.activeSessionId = runtimeSessionIdForStored(sessionId)
   navigate(sessionRoute(sessionId))
 }
 
-export async function resumeSession(sessionId: string): Promise<SessionResumeResponse | null> {
-  if (sessionState.resumingSessionId === sessionId) return null
+export async function resumeSession(sessionId: string, requestId?: number): Promise<SessionResumeResponse | null> {
+  if (requestId === undefined && sessionState.resumingSessionId === sessionId) return null
 
-  sessionState.resumingSessionId = sessionId
+  const activeRequestId = requestId ?? beginResumeSession(sessionId)
+  const cachedRuntimeId = runtimeSessionIdForStored(sessionId)
+
+  if (cachedRuntimeId) {
+    if (!isCurrentResumeRequest(sessionId, activeRequestId)) return null
+
+    sessionState.activeSessionId = cachedRuntimeId
+    sessionState.storedSessionId = sessionId
+    finishResumeSession(sessionId, activeRequestId)
+
+    return {
+      session_id: cachedRuntimeId,
+      resumed: sessionId,
+      message_count: 0,
+      messages: []
+    }
+  }
+
   sessionState.error = null
 
   try {
     const response = await requestGateway<SessionResumeResponse>('session.resume', { session_id: sessionId })
 
+    if (!isCurrentResumeRequest(sessionId, activeRequestId)) {
+      return null
+    }
+
     // The gateway returns a fresh live session ID (short sid) for live
     // operations.  The sessionId param is the stored key (from the URL
     // hash or session.list) — keep it as the persistent reference.
+    rememberRuntimeSession(sessionId, response.session_id)
     sessionState.activeSessionId = response.session_id
     sessionState.storedSessionId = sessionId
     return response
   } catch (error) {
-    sessionState.error = messageFor(error)
-    console.error('Failed to resume session:', error)
+    if (isCurrentResumeRequest(sessionId, activeRequestId)) {
+      sessionState.error = messageFor(error)
+      console.error('Failed to resume session:', error)
+    }
     return null
   } finally {
-    sessionState.resumingSessionId = null
+    finishResumeSession(sessionId, activeRequestId)
   }
 }
 
@@ -356,9 +489,11 @@ export async function archiveSession(sessionId: string, archived = true): Promis
 
     if (archived) {
       removeSessionFromLocalState(sessionId)
+      forgetRuntimeSession(sessionId)
 
-      if (sessionState.activeSessionId === sessionId) {
+      if (sessionState.storedSessionId === sessionId) {
         sessionState.activeSessionId = null
+        sessionState.storedSessionId = null
         navigate('/')
       }
     }
@@ -380,9 +515,11 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
   try {
     await apiDeleteSession(sessionId)
     removeSessionFromLocalState(sessionId)
+    forgetRuntimeSession(sessionId)
 
-    if (sessionState.activeSessionId === sessionId) {
+    if (sessionState.storedSessionId === sessionId) {
       sessionState.activeSessionId = null
+      sessionState.storedSessionId = null
       navigate('/')
     }
 
