@@ -107,7 +107,7 @@ function removeSessionFromLocalState(sessionId: string): void {
 function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
   const existingKeepers =
     offset === 0
-      ? sessionState.sessions.filter(session => isPinned(session) || session.id === sessionState.activeSessionId)
+      ? sessionState.sessions.filter(session => isPinned(session) || session.id === sessionState.storedSessionId)
       : sessionState.sessions
   const merged = new Map<string, SessionInfo>()
 
@@ -288,7 +288,11 @@ export async function createSession(): Promise<string | null> {
 }
 
 export function selectSession(sessionId: string): void {
-  sessionState.activeSessionId = sessionId
+  // Session list/search IDs are persistent stored keys. Clear the live sid
+  // until session.resume returns a fresh runtime ID; otherwise the composer
+  // can accidentally submit to the previously selected live session.
+  sessionState.storedSessionId = sessionId
+  sessionState.activeSessionId = null
   navigate(sessionRoute(sessionId))
 }
 
@@ -357,8 +361,9 @@ export async function archiveSession(sessionId: string, archived = true): Promis
     if (archived) {
       removeSessionFromLocalState(sessionId)
 
-      if (sessionState.activeSessionId === sessionId) {
+      if (sessionState.storedSessionId === sessionId) {
         sessionState.activeSessionId = null
+        sessionState.storedSessionId = null
         navigate('/')
       }
     }
@@ -381,8 +386,9 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
     await apiDeleteSession(sessionId)
     removeSessionFromLocalState(sessionId)
 
-    if (sessionState.activeSessionId === sessionId) {
+    if (sessionState.storedSessionId === sessionId) {
       sessionState.activeSessionId = null
+      sessionState.storedSessionId = null
       navigate('/')
     }
 

@@ -136,7 +136,7 @@
             {#each sessionState.searchResults as result (result.session_id + result.snippet)}
               <SessionRow
                 searchResult={result}
-                active={sessionState.activeSessionId === result.session_id}
+                active={sessionState.storedSessionId === result.session_id}
                 pinned={isPinnedId(searchResultPinId(result))}
                 working={isSessionWorking(result.session_id) || sessionState.resumingSessionId === result.session_id}
                 needsInput={sessionNeedsInput(result.session_id)}
@@ -160,7 +160,7 @@
             {#each pinnedSessions as session (session.id)}
               <SessionRow
                 {session}
-                active={sessionState.activeSessionId === session.id}
+                active={sessionState.storedSessionId === session.id}
                 pinned={true}
                 disabled={sessionDisabled(session)}
                 working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}
@@ -193,7 +193,7 @@
             {#each recentSessions as session (session.id)}
               <SessionRow
                 {session}
-                active={sessionState.activeSessionId === session.id}
+                active={sessionState.storedSessionId === session.id}
                 pinned={false}
                 disabled={sessionDisabled(session)}
                 working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}

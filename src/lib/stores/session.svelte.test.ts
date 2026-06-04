@@ -17,7 +17,12 @@ vi.mock('../../app/router.svelte', () => ({
   routerState: {}
 }))
 
-import { createSession, resumeSession, sessionState as rawSessionState } from '$lib/stores/session.svelte'
+import {
+  createSession,
+  resumeSession,
+  selectSession,
+  sessionState as rawSessionState
+} from '$lib/stores/session.svelte'
 
 describe('createSession', () => {
   beforeEach(() => {
@@ -79,6 +84,23 @@ describe('createSession', () => {
     expect(result).toBeNull()
     expect(rawSessionState.error).toBeTruthy()
     expect(rawSessionState.storedSessionId).toBeNull()
+  })
+})
+
+describe('selectSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = 'oldlive1'
+    rawSessionState.storedSessionId = 'old-stored-key'
+    rawSessionState.error = null
+  })
+
+  it('selects by stored key without poisoning the live active session id', () => {
+    selectSession('stored_key_abc')
+
+    expect(rawSessionState.storedSessionId).toBe('stored_key_abc')
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(mockNavigate).toHaveBeenCalledWith('/stored_key_abc')
   })
 })
 

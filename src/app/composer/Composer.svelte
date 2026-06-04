@@ -61,13 +61,13 @@
   const composer = $derived(composerState.sessions[composerKey] ?? EMPTY_COMPOSER_SESSION)
   const thread = $derived(threadForSession(sessionId))
   const busy = $derived(Boolean(thread?.busy))
-  // Queue and live operations key on the short live session ID (activeSessionId),
-  // NOT on the URL hash (which holds the stored key for page-refresh resilience).
+  // Composer UI state, drafts, and queueing key by the selected stored route id.
+  // The live sid is only for RPC calls and is derived inside composer store helpers.
   const liveSid = $derived(sessionState.activeSessionId)
-  const queueKey = $derived(liveSid?.trim() || null)
+  const queueKey = $derived(sessionId?.trim() || null)
   const queuedPrompts = $derived(queueKey ? (queuedState[queueKey] ?? []) : [])
   const hasDraftPayload = $derived(Boolean(composer.draft.trim() || composer.attachments.length))
-  const canSubmit = $derived(connected && hasDraftPayload && !composer.submitting)
+  const canSubmit = $derived(connected && hasDraftPayload && !composer.submitting && (!sessionId || Boolean(liveSid)))
   const canAttach = $derived(connected && !composer.submitting)
   const commandSuggestions = $derived(sessionId ? slashSuggestions(sessionId, composer.draft) : [])
   const modelOptions = $derived(flattenedModelOptions())
@@ -94,10 +94,11 @@
   })
 
   $effect(() => {
-    if (!connected || !sessionId) return
+    if (!connected || !sessionId || !liveSid) return
 
-    if (loadedCatalogSessionId !== sessionId) {
-      loadedCatalogSessionId = sessionId
+    const catalogKey = `${sessionId}:${liveSid}`
+    if (loadedCatalogSessionId !== catalogKey) {
+      loadedCatalogSessionId = catalogKey
       void loadCommandCatalog(sessionId)
     }
   })
@@ -156,18 +157,19 @@
     if (!connected || !hasDraftPayload || composer.submitting) return
 
     const command = composer.draft.trim()
-    // Use the short live session ID for slash commands and prompt
-    // submission — the gateway's _sess_nowait requires the short sid.
-    const targetId = liveSid
+    // Store helpers keep UI state under the stored route key and send live
+    // RPCs with sessionState.activeSessionId. If a selected session is still
+    // resuming, do not submit into the previously selected live session.
+    if (sessionId && !liveSid) return
 
-    if (command.startsWith('/') && targetId && !busy) {
-      await executeSlashCommand(targetId, command)
+    if (command.startsWith('/') && !busy) {
+      await executeSlashCommand(sessionId, command)
       focusTextarea()
       return
     }
 
     markComposerInterrupted(sessionId, false)
-    await submitPrompt(targetId)
+    await submitPrompt(sessionId)
     focusTextarea()
   }
 
@@ -203,12 +205,12 @@
 
     if (!key) return
 
-    await selectComposerModel(liveSid, key)
+    await selectComposerModel(sessionId, key)
     select.value = ''
   }
 
   async function handleInterrupt(): Promise<void> {
-    await interruptComposerSession(liveSid)
+    await interruptComposerSession(sessionId)
   }
 
   function removeQueueEntry(entry: QueuedPromptEntry): void {

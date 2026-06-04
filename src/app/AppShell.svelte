@@ -50,16 +50,16 @@
 
     // session.resume returns a fresh live session ID (short sid) for
     // live RPCs.  The URL hash stays on the stored key so page refresh
-    // can re-resume through session.resume (which looks up the DB by
-    // stored key, not short sid).  Hydrate messages under the live sid
-    // because that is what prompt.submit / message stream events key on.
-    const liveId = response.session_id
+    // can re-resume through session.resume.  Transcript state is keyed
+    // by that stored key so the selected route, sidebar rows, and stream
+    // updates all read the same visible thread. Live event ids are mapped
+    // back to this stored key by the message store.
     lastResumedSessionId = sessionId
 
     if (response.messages) {
-      hydrateSessionMessagesFromGateway(liveId, response.messages)
+      hydrateSessionMessagesFromGateway(sessionId, response.messages)
     } else {
-      await hydrateSessionMessages(liveId)
+      await hydrateSessionMessages(sessionId)
     }
   }
 

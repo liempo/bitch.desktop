@@ -77,6 +77,12 @@ function createThreadSession(): ThreadSessionState {
   }
 }
 
+function displaySessionId(sessionId: string): string {
+  return sessionId === sessionState.activeSessionId && sessionState.storedSessionId
+    ? sessionState.storedSessionId
+    : sessionId
+}
+
 function ensureThreadSession(sessionId: string): ThreadSessionState {
   messageState.sessions[sessionId] ??= createThreadSession()
   return messageState.sessions[sessionId]
@@ -169,16 +175,17 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
 }
 
 function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): void {
-  const thread = ensureThreadSession(sessionId)
-  thread.messages = messages.map((message, index) => normalizeStoredMessage(sessionId, message, index))
+  const threadId = displaySessionId(sessionId)
+  const thread = ensureThreadSession(threadId)
+  thread.messages = messages.map((message, index) => normalizeStoredMessage(threadId, message, index))
   thread.currentAssistantId = null
   thread.error = null
   thread.hydrated = true
   thread.loading = false
   thread.busy = false
   thread.needsInput = false
-  setSessionWorking(sessionId, false)
-  setSessionNeedsInput(sessionId, false)
+  setSessionWorking(threadId, false)
+  setSessionNeedsInput(threadId, false)
 }
 
 function ensureAssistantMessage(sessionId: string): ThreadMessage {
@@ -390,19 +397,21 @@ function applyRuntimeInfo(sessionId: string, payload: GatewayPayload): void {
 }
 
 function sessionIdForEvent(event: GatewayEvent): string | null {
-  return event.session_id || sessionState.activeSessionId
+  const sessionId = event.session_id || sessionState.activeSessionId
+  return sessionId ? displaySessionId(sessionId) : null
 }
 
 export function threadForSession(sessionId: string | null | undefined): ThreadSessionState | null {
-  return sessionId ? (messageState.sessions[sessionId] ?? null) : null
+  return sessionId ? (messageState.sessions[displaySessionId(sessionId)] ?? null) : null
 }
 
 export function setThreadBusy(sessionId: string, busy: boolean): void {
-  setBusy(sessionId, busy)
+  setBusy(displaySessionId(sessionId), busy)
 }
 
 export function appendUserMessage(sessionId: string, text: string, attachmentLabels: string[] = []): void {
-  const thread = ensureThreadSession(sessionId)
+  const threadId = displaySessionId(sessionId)
+  const thread = ensureThreadSession(threadId)
   const attachments = attachmentLabels.map(label => `- ${label}`).join('\n')
   const attachmentBlock = attachments ? `\n\nAttached images:\n${attachments}` : ''
 
@@ -421,7 +430,7 @@ export function appendSystemMessage(sessionId: string, text: string): void {
   const message = text.trim()
   if (!message) return
 
-  const thread = ensureThreadSession(sessionId)
+  const thread = ensureThreadSession(displaySessionId(sessionId))
   thread.messages.push({
     id: newMessageId('system'),
     role: 'system',
@@ -433,24 +442,26 @@ export function appendSystemMessage(sessionId: string, text: string): void {
 }
 
 export function appendAssistantErrorMessage(sessionId: string, text: string): void {
-  const message = ensureAssistantMessage(sessionId)
+  const threadId = displaySessionId(sessionId)
+  const message = ensureAssistantMessage(threadId)
 
   message.error = text.trim() || 'Hermes reported an error'
   message.pending = false
   message.text = message.text || ''
-  ensureThreadSession(sessionId).currentAssistantId = null
-  setBusy(sessionId, false)
-  setNeedsInput(sessionId, false)
+  ensureThreadSession(threadId).currentAssistantId = null
+  setBusy(threadId, false)
+  setNeedsInput(threadId, false)
 }
 
 export async function hydrateSessionMessages(sessionId: string, seed?: SessionMessage[]): Promise<void> {
-  const thread = ensureThreadSession(sessionId)
+  const threadId = displaySessionId(sessionId)
+  const thread = ensureThreadSession(threadId)
   thread.loading = true
   thread.error = null
 
   try {
-    const messages = seed ?? (await getSessionMessages(sessionId)).messages
-    replaceStoredMessages(sessionId, messages)
+    const messages = seed ?? (await getSessionMessages(threadId)).messages
+    replaceStoredMessages(threadId, messages)
   } catch (error) {
     thread.error = messageFor(error)
     thread.loading = false
