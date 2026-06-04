@@ -3,7 +3,7 @@
   import Composer from './composer/Composer.svelte'
   import Sidebar from './sidebar/Sidebar.svelte'
   import Thread from './thread/Thread.svelte'
-  import { routerState } from './router.svelte'
+  import { navigate, routerState, sessionRoute } from './router.svelte'
   import { clearLogs, gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import {
@@ -46,10 +46,22 @@
   async function resumeAndHydrate(sessionId: string): Promise<void> {
     const response = await resumeSession(sessionId)
 
-    if (response?.messages) {
-      hydrateSessionMessagesFromGateway(sessionId, response.messages)
+    if (!response) return
+
+    // session.resume returns a fresh live session ID (short sid).  Use
+    // it for message hydration and update the URL so the composer and
+    // thread pick up the correct ID for live operations.
+    const liveId = response.session_id
+    lastResumedSessionId = liveId
+
+    if (liveId !== sessionId) {
+      navigate(sessionRoute(liveId))
+    }
+
+    if (response.messages) {
+      hydrateSessionMessagesFromGateway(liveId, response.messages)
     } else {
-      await hydrateSessionMessages(sessionId)
+      await hydrateSessionMessages(liveId)
     }
   }
 
