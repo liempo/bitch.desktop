@@ -6,7 +6,7 @@ const AUTH_HEADER: &str = "X-Hermes-Session-Token";
 const HTTP_TIMEOUT_SECS: u64 = 15;
 
 use futures_util::{SinkExt, StreamExt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{fs, path::PathBuf, sync::Mutex, time::Duration};
 use tauri::Emitter;
@@ -16,6 +16,14 @@ use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValu
 struct GatewayConfig {
     base_url: String,
     token: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DashboardRequest {
+    body: Option<Value>,
+    method: Option<String>,
+    path: String,
 }
 
 struct WsTarget {
@@ -212,6 +220,72 @@ fn http_client() -> Result<reqwest::Client, String> {
         .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .build()
         .map_err(|e| e.to_string())
+}
+
+fn normalize_dashboard_method(method: Option<String>) -> Result<reqwest::Method, String> {
+    let method = method.unwrap_or_else(|| "GET".to_string()).trim().to_ascii_uppercase();
+
+    match method.as_str() {
+        "GET" => Ok(reqwest::Method::GET),
+        "POST" => Ok(reqwest::Method::POST),
+        "PUT" => Ok(reqwest::Method::PUT),
+        "PATCH" => Ok(reqwest::Method::PATCH),
+        "DELETE" => Ok(reqwest::Method::DELETE),
+        other => Err(format!(
+            "dashboard_request only supports GET, POST, PUT, PATCH, and DELETE, got {other}"
+        )),
+    }
+}
+
+fn validate_dashboard_path(path: &str) -> Result<&str, String> {
+    let path = path.trim();
+
+    if !path.starts_with("/api/") {
+        return Err("dashboard_request path must start with /api/".to_string());
+    }
+
+    Ok(path)
+}
+
+async fn dashboard_request_impl(
+    client: &reqwest::Client,
+    config: &GatewayConfig,
+    request: DashboardRequest,
+) -> Result<Value, String> {
+    let path = validate_dashboard_path(&request.path)?;
+    let method = normalize_dashboard_method(request.method)?;
+    let url = build_api_url(&config.base_url, path);
+
+    let mut builder = client
+        .request(method, url)
+        .header(AUTH_HEADER, &config.token)
+        .header("Accept", "application/json");
+
+    if let Some(body) = request.body {
+        builder = builder.json(&body);
+    }
+
+    let response = builder.send().await.map_err(|e| e.to_string())?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| e.to_string())?;
+
+    if !status.is_success() {
+        return Err(format!(
+            "dashboard request returned {status}: {}",
+            summarize_response_body(&text)
+        ));
+    }
+
+    if status == reqwest::StatusCode::NO_CONTENT || text.trim().is_empty() {
+        return Ok(Value::Null);
+    }
+
+    serde_json::from_str::<Value>(&text).map_err(|e| {
+        format!(
+            "dashboard request returned invalid JSON: {e}; body: {}",
+            summarize_response_body(&text)
+        )
+    })
 }
 
 async fn fetch_gateway_status(
@@ -497,6 +571,15 @@ fn clear_ws_state(connection_id: &str) {
         state.sender = None;
         state.connection_id = None;
     }
+}
+
+#[tauri::command]
+async fn dashboard_request(
+    client: tauri::State<'_, reqwest::Client>,
+    request: DashboardRequest,
+) -> Result<Value, String> {
+    let config = resolve_gateway_config()?;
+    dashboard_request_impl(&client, &config, request).await
 }
 
 #[tauri::command]
@@ -803,8 +886,12 @@ async fn close_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), St
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let http_client = http_client().expect("failed to create HTTP client");
+
     tauri::Builder::default()
+        .manage(http_client)
         .invoke_handler(tauri::generate_handler![
+            dashboard_request,
             connect_ws,
             send_ws_message,
             close_ws
