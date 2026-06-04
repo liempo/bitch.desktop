@@ -7,6 +7,8 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+    "dev:local": "bash scripts/dev-local.sh",
+    "setup:rust": "bash scripts/setup-rust-local.sh",
     "build": "tauri build",
     "frontend:dev": "vite --host 127.0.0.1 --port 5173",
     "frontend:build": "vite build",

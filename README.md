@@ -14,10 +14,22 @@ This repository is clean-slate and remote-only.
 
 ## Development
 
+### Using your system Rust toolchain
+
 ```bash
 npm install
 cp .env.example .env
 npm run dev
 ```
 
-Note: Tauri build/dev needs a Rust toolchain on PATH.
+### Using a repo-local Rust toolchain
+
+```bash
+npm install
+cp .env.example .env
+npm run setup:rust
+npm run dev:local
+```
+
+The local setup stores Rust state in `.cargo/` and `.rustup/` inside the repo.
+macOS still needs Xcode Command Line Tools.
