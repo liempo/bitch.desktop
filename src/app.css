@@ -21,3 +21,93 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.bitch-markdown > * + * {
+  margin-top: 0.75rem;
+}
+
+.bitch-markdown h1,
+.bitch-markdown h2,
+.bitch-markdown h3,
+.bitch-markdown h4 {
+  color: #f8fafc;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.bitch-markdown h1 {
+  font-size: 1.1rem;
+}
+
+.bitch-markdown h2 {
+  font-size: 1rem;
+}
+
+.bitch-markdown h3,
+.bitch-markdown h4 {
+  font-size: 0.95rem;
+}
+
+.bitch-markdown a {
+  color: #7dd3fc;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.bitch-markdown code {
+  border-radius: 0.3rem;
+  background: rgb(15 23 42 / 0.85);
+  color: #e2e8f0;
+  font-size: 0.9em;
+  padding: 0.08rem 0.25rem;
+}
+
+.bitch-markdown pre {
+  overflow-x: auto;
+  border: 1px solid rgb(30 41 59);
+  border-radius: 0.75rem;
+  background: rgb(2 6 23 / 0.92);
+  padding: 0.875rem;
+}
+
+.bitch-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.bitch-markdown blockquote {
+  border-left: 2px solid rgb(51 65 85);
+  color: #cbd5e1;
+  padding-left: 0.75rem;
+}
+
+.bitch-markdown ul,
+.bitch-markdown ol {
+  padding-left: 1.25rem;
+}
+
+.bitch-markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.bitch-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+.bitch-markdown th,
+.bitch-markdown td {
+  border: 1px solid rgb(30 41 59);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.bitch-markdown th {
+  background: rgb(15 23 42 / 0.8);
+  color: #cbd5e1;
+}
