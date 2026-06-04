@@ -41,8 +41,8 @@ export interface JsonRpcFrame {
 export type WebSocketLike = WebSocket
 
 type PendingCall = {
-  reject: (_error: Error) => void
-  resolve: (_value: unknown) => void
+  reject: (error: Error) => void
+  resolve: (value: unknown) => void
   timer?: ReturnType<typeof setTimeout>
 }
 
@@ -50,15 +50,18 @@ export interface GatewayClientOptions {
   closedErrorMessage?: string
   connectErrorMessage?: string
   connectTimeoutMs?: number
-  createRequestId?: (_nextId: number) => GatewayRequestId
+  createRequestId?: (nextId: number) => GatewayRequestId
   requestIdPrefix?: string
   requestTimeoutMs?: number
-  socketFactory?: (_url: string) => WebSocketLike
+  socketFactory?: (url: string) => WebSocketLike
   notConnectedErrorMessage?: string
 }
 
 const ANY = '*'
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000
+// A reconnect after sleep/wake must not hang forever in 'connecting' (which
+// keeps the composer disabled and stuck on "Starting Hermes..."). If the open
+// handshake doesn't land in this window, fail to 'error' so callers can retry.
 const DEFAULT_CONNECT_TIMEOUT_MS = 15_000
 
 export class JsonRpcGatewayClient {
@@ -66,8 +69,8 @@ export class JsonRpcGatewayClient {
   private pending = new Map<GatewayRequestId, PendingCall>()
   private socket: WebSocketLike | null = null
   private state: ConnectionState = 'idle'
-  private readonly eventHandlers = new Map<string, Set<(_event: GatewayEvent) => void>>()
-  private readonly stateHandlers = new Set<(_state: ConnectionState) => void>()
+  private readonly eventHandlers = new Map<string, Set<(event: GatewayEvent) => void>>()
+  private readonly stateHandlers = new Set<(state: ConnectionState) => void>()
   private readonly options: Required<Omit<GatewayClientOptions, 'socketFactory'>> &
     Pick<GatewayClientOptions, 'socketFactory'>
 
@@ -76,7 +79,8 @@ export class JsonRpcGatewayClient {
       closedErrorMessage: options.closedErrorMessage ?? 'WebSocket closed',
       connectErrorMessage: options.connectErrorMessage ?? 'WebSocket connection failed',
       connectTimeoutMs: options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
-      createRequestId: options.createRequestId ?? ((nextId: number) => `${options.requestIdPrefix ?? 'r'}${nextId}`),
+      createRequestId:
+        options.createRequestId ?? ((nextId: number) => `${options.requestIdPrefix ?? 'r'}${nextId}`),
       notConnectedErrorMessage: options.notConnectedErrorMessage ?? 'gateway not connected',
       requestIdPrefix: options.requestIdPrefix ?? 'r',
       requestTimeoutMs: options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
@@ -99,12 +103,18 @@ export class JsonRpcGatewayClient {
     this.socket = socket
 
     socket.addEventListener('message', message => {
-      if (this.socket !== socket) return
+      if (this.socket !== socket) {
+        return
+      }
+
       this.handleMessage(message.data)
     })
 
     socket.addEventListener('close', () => {
-      if (this.socket !== socket) return
+      if (this.socket !== socket) {
+        return
+      }
+
       this.socket = null
       this.setState('closed')
       this.rejectAllPending(new Error(this.options.closedErrorMessage))
@@ -115,13 +125,19 @@ export class JsonRpcGatewayClient {
       let timer: ReturnType<typeof setTimeout> | undefined
 
       const cleanup = () => {
-        if (timer !== undefined) clearTimeout(timer)
+        if (timer !== undefined) {
+          clearTimeout(timer)
+        }
+
         socket.removeEventListener('open', onOpen)
         socket.removeEventListener('error', onError)
       }
 
       const onOpen = () => {
-        if (settled || this.socket !== socket) return
+        if (settled || this.socket !== socket) {
+          return
+        }
+
         settled = true
         cleanup()
         this.setState('open')
@@ -129,7 +145,10 @@ export class JsonRpcGatewayClient {
       }
 
       const onError = () => {
-        if (settled || this.socket !== socket) return
+        if (settled || this.socket !== socket) {
+          return
+        }
+
         settled = true
         cleanup()
         this.setState('error')
@@ -141,15 +160,21 @@ export class JsonRpcGatewayClient {
 
       if (this.options.connectTimeoutMs > 0) {
         timer = setTimeout(() => {
-          if (settled) return
+          if (settled) {
+            return
+          }
+
           settled = true
           cleanup()
+          // Drop the half-open socket so the next connect() starts clean
+          // instead of short-circuiting on a zombie 'connecting' state.
           if (this.socket === socket) {
             try {
               socket.close()
             } catch {
               // ignore
             }
+
             this.socket = null
           }
           this.setState('error')
@@ -164,32 +189,37 @@ export class JsonRpcGatewayClient {
     this.socket = null
   }
 
-  on<P = unknown>(type: GatewayEventName, handler: (_event: GatewayEvent<P>) => void): () => void {
+  on<P = unknown>(type: GatewayEventName, handler: (event: GatewayEvent<P>) => void): () => void {
     let handlers = this.eventHandlers.get(type)
+
     if (!handlers) {
       handlers = new Set()
       this.eventHandlers.set(type, handlers)
     }
-    handlers.add(handler as (_event: GatewayEvent) => void)
-    return () => handlers?.delete(handler as (_event: GatewayEvent) => void)
+
+    handlers.add(handler as (event: GatewayEvent) => void)
+
+    return () => handlers?.delete(handler as (event: GatewayEvent) => void)
   }
 
-  onAny(handler: (_event: GatewayEvent) => void): () => void {
+  onAny(handler: (event: GatewayEvent) => void): () => void {
     return this.on(ANY as GatewayEventName, handler)
   }
 
-  onState(handler: (_state: ConnectionState) => void): () => void {
+  onEvent(handler: (event: GatewayEvent) => void): () => void {
+    return this.onAny(handler)
+  }
+
+  onState(handler: (state: ConnectionState) => void): () => void {
     this.stateHandlers.add(handler)
     handler(this.state)
+
     return () => this.stateHandlers.delete(handler)
   }
 
-  request<T>(
-    method: string,
-    params: Record<string, unknown> = {},
-    timeoutMs = this.options.requestTimeoutMs
-  ): Promise<T> {
+  request<T>(method: string, params: Record<string, unknown> = {}, timeoutMs = this.options.requestTimeoutMs): Promise<T> {
     const socket = this.socket
+
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error(this.options.notConnectedErrorMessage))
     }
@@ -240,11 +270,19 @@ export class JsonRpcGatewayClient {
 
     if (frame.id !== undefined && frame.id !== null) {
       const call = this.pending.get(frame.id)
-      if (!call) return
+
+      if (!call) {
+        return
+      }
+
       this.clearPending(frame.id)
 
-      if (frame.error) call.reject(new Error(frame.error.message || 'Hermes RPC failed'))
-      else call.resolve(frame.result)
+      if (frame.error) {
+        call.reject(new Error(frame.error.message || 'Hermes RPC failed'))
+      } else {
+        call.resolve(frame.result)
+      }
+
       return
     }
 
@@ -255,26 +293,44 @@ export class JsonRpcGatewayClient {
 
   private clearPending(id: GatewayRequestId): void {
     const call = this.pending.get(id)
-    if (call?.timer) clearTimeout(call.timer)
+
+    if (call?.timer) {
+      clearTimeout(call.timer)
+    }
+
     this.pending.delete(id)
   }
 
   private dispatchEvent(event: GatewayEvent): void {
-    for (const handler of this.eventHandlers.get(event.type) ?? []) handler(event)
-    for (const handler of this.eventHandlers.get(ANY) ?? []) handler(event)
+    for (const handler of this.eventHandlers.get(event.type) ?? []) {
+      handler(event)
+    }
+
+    for (const handler of this.eventHandlers.get(ANY) ?? []) {
+      handler(event)
+    }
   }
 
   private rejectAllPending(error: Error): void {
     for (const [id, call] of this.pending) {
-      if (call.timer) clearTimeout(call.timer)
+      if (call.timer) {
+        clearTimeout(call.timer)
+      }
+
       call.reject(error)
       this.pending.delete(id)
     }
   }
 
   private setState(state: ConnectionState): void {
-    if (this.state === state) return
+    if (this.state === state) {
+      return
+    }
+
     this.state = state
-    for (const handler of this.stateHandlers) handler(state)
+
+    for (const handler of this.stateHandlers) {
+      handler(state)
+    }
   }
 }
