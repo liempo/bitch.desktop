@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from 'bits-ui'
+  import Composer from './composer/Composer.svelte'
   import Sidebar from './sidebar/Sidebar.svelte'
   import Thread from './thread/Thread.svelte'
   import { routerState } from './router.svelte'
@@ -131,11 +132,7 @@
     </div>
 
     <!-- -- Composer shelf -- -->
-    <div class="border-t border-slate-800 p-4">
-      <div class="flex items-center justify-center rounded-xl border border-dashed border-slate-700 py-8 text-sm text-slate-600">
-        Composer — (Plan 05)
-      </div>
-    </div>
+    <Composer sessionId={routerState.route === 'session' ? routerState.sessionId : null} connected={connectionState === 'open'} />
   </div>
 </div>
 

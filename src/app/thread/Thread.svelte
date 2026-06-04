@@ -105,7 +105,7 @@
         <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-emerald-500/70">Session ready</p>
         <h2 class="mt-3 text-xl font-semibold tracking-tight text-slate-200">No messages yet</h2>
         <p class="mt-3 text-sm leading-6 text-slate-500">
-          History will appear here. Prompt submission lands in Plan 05, because staged rollouts are how we avoid summoning entropy with a purchase order.
+          History will appear here. Type in the composer below; the gateway will receive the message once the chromed courier lane is clear.
         </p>
       </div>
     </div>

@@ -397,6 +397,52 @@ export function threadForSession(sessionId: string | null | undefined): ThreadSe
   return sessionId ? (messageState.sessions[sessionId] ?? null) : null
 }
 
+export function setThreadBusy(sessionId: string, busy: boolean): void {
+  setBusy(sessionId, busy)
+}
+
+export function appendUserMessage(sessionId: string, text: string, attachmentLabels: string[] = []): void {
+  const thread = ensureThreadSession(sessionId)
+  const attachments = attachmentLabels.map(label => `- ${label}`).join('\n')
+  const attachmentBlock = attachments ? `\n\nAttached images:\n${attachments}` : ''
+
+  thread.messages.push({
+    id: newMessageId('user'),
+    role: 'user',
+    text: `${text}${attachmentBlock}`.trim(),
+    timestamp: Date.now(),
+    tools: []
+  })
+  thread.error = null
+  thread.hydrated = true
+}
+
+export function appendSystemMessage(sessionId: string, text: string): void {
+  const message = text.trim()
+  if (!message) return
+
+  const thread = ensureThreadSession(sessionId)
+  thread.messages.push({
+    id: newMessageId('system'),
+    role: 'system',
+    text: message,
+    timestamp: Date.now(),
+    tools: []
+  })
+  thread.hydrated = true
+}
+
+export function appendAssistantErrorMessage(sessionId: string, text: string): void {
+  const message = ensureAssistantMessage(sessionId)
+
+  message.error = text.trim() || 'Hermes reported an error'
+  message.pending = false
+  message.text = message.text || ''
+  ensureThreadSession(sessionId).currentAssistantId = null
+  setBusy(sessionId, false)
+  setNeedsInput(sessionId, false)
+}
+
 export async function hydrateSessionMessages(sessionId: string, seed?: SessionMessage[]): Promise<void> {
   const thread = ensureThreadSession(sessionId)
   thread.loading = true
