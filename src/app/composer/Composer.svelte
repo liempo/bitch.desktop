@@ -29,6 +29,7 @@
     type QueuedPromptEntry
   } from '$lib/stores/composer-queue'
   import { threadForSession } from '$lib/stores/messages.svelte'
+  import { sessionState } from '$lib/stores/session.svelte'
 
   interface Props {
     connected?: boolean
@@ -60,7 +61,10 @@
   const composer = $derived(composerState.sessions[composerKey] ?? EMPTY_COMPOSER_SESSION)
   const thread = $derived(threadForSession(sessionId))
   const busy = $derived(Boolean(thread?.busy))
-  const queueKey = $derived(sessionId?.trim() || null)
+  // Queue and live operations key on the short live session ID (activeSessionId),
+  // NOT on the URL hash (which holds the stored key for page-refresh resilience).
+  const liveSid = $derived(sessionState.activeSessionId)
+  const queueKey = $derived(liveSid?.trim() || null)
   const queuedPrompts = $derived(queueKey ? (queuedState[queueKey] ?? []) : [])
   const hasDraftPayload = $derived(Boolean(composer.draft.trim() || composer.attachments.length))
   const canSubmit = $derived(connected && hasDraftPayload && !composer.submitting)
@@ -152,15 +156,18 @@
     if (!connected || !hasDraftPayload || composer.submitting) return
 
     const command = composer.draft.trim()
+    // Use the short live session ID for slash commands and prompt
+    // submission — the gateway's _sess_nowait requires the short sid.
+    const targetId = liveSid
 
-    if (command.startsWith('/') && sessionId && !busy) {
-      await executeSlashCommand(sessionId, command)
+    if (command.startsWith('/') && targetId && !busy) {
+      await executeSlashCommand(targetId, command)
       focusTextarea()
       return
     }
 
     markComposerInterrupted(sessionId, false)
-    await submitPrompt(sessionId)
+    await submitPrompt(targetId)
     focusTextarea()
   }
 
@@ -196,12 +203,12 @@
 
     if (!key) return
 
-    await selectComposerModel(sessionId, key)
+    await selectComposerModel(liveSid, key)
     select.value = ''
   }
 
   async function handleInterrupt(): Promise<void> {
-    await interruptComposerSession(sessionId)
+    await interruptComposerSession(liveSid)
   }
 
   function removeQueueEntry(entry: QueuedPromptEntry): void {

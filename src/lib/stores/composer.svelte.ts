@@ -431,7 +431,7 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
 
   if (!command.startsWith('/')) return false
 
-  let targetSessionId = sessionId || sessionState.activeSessionId
+  let targetSessionId = sessionState.activeSessionId || sessionId
 
   if (!targetSessionId) {
     targetSessionId = await createSession()
@@ -463,7 +463,7 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
 
 export async function selectComposerModel(sessionId: null | string | undefined, key: string): Promise<boolean> {
   const [provider, model] = key.split('\u0000')
-  const targetSessionId = sessionId || sessionState.activeSessionId
+  const targetSessionId = sessionState.activeSessionId || sessionId
 
   if (!provider || !model || !targetSessionId) {
     composerState.model.error = 'Open a session before switching models.'
@@ -502,7 +502,7 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
 }
 
 export async function interruptComposerSession(sessionId: null | string | undefined): Promise<boolean> {
-  const targetSessionId = sessionId || sessionState.activeSessionId
+  const targetSessionId = sessionState.activeSessionId || sessionId
   if (!targetSessionId) return false
 
   markComposerInterrupted(targetSessionId, true)
@@ -548,7 +548,12 @@ export async function submitPrompt(
   composer.submitting = true
   composer.error = null
 
-  let targetSessionId = sessionId || sessionState.activeSessionId
+  let targetSessionId =
+    // Live RPCs (prompt.submit, slash.exec, etc.) require the short
+    // live session ID that keys the gateway's _sessions dict.  The
+    // caller may pass a stored key (from the route hash), so prefer
+    // activeSessionId which always holds the short sid.
+    sessionState.activeSessionId || sessionId
 
   if (!targetSessionId) {
     targetSessionId = await createSession()
