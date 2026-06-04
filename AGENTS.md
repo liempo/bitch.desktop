@@ -2,8 +2,24 @@
 
 ## Purpose
 
-BITCH Desktop is a minimal Tauri + Svelte client for Hermes remote gateway access.
+BITCH Desktop is a minimal Tauri + Svelte client for Hermes remote dashboard gateway access.
 Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic unless the user explicitly asks.
+
+## Current app shape
+
+- The Svelte renderer creates a `HermesGateway` from `src/lib/hermes.ts`.
+- `HermesGateway` extends the upstream `JsonRpcGatewayClient` and uses `createTauriGatewaySocket` from `src/lib/tauri-gateway-socket.ts`.
+- The Tauri Rust bridge in `src-tauri/src/lib.rs` resolves gateway config, probes `/api/status`, mints a `/api/auth/ws-ticket` when required, attaches `X-Hermes-Session-Token` when appropriate, and proxies WebSocket frames to the renderer.
+- Do not assume the browser can set the auth headers the Hermes gateway expects; keep token-sensitive auth in the Tauri bridge.
+
+## Configuration
+
+The app uses these environment values, usually from `.env` copied from `.env.example`:
+
+- `VITE_BITCH_GATEWAY_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
+- `BITCH_DASHBOARD_API_KEY` — Hermes dashboard session token used by the Tauri bridge.
+
+Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL` or `VITE_BITCH_GATEWAY_WS_URL` unless the runtime code is intentionally changed to use them.
 
 ## Current upstream copy
 
@@ -27,26 +43,36 @@ npm run sync:transport
 That command does a simple file copy only. It does **not** migrate local edits automatically.
 After syncing, inspect the diff and manually migrate any API or behavior changes into the local Tauri bridge and UI.
 
-## Sync workflow expectations
+## Validation expectations
 
-1. Copy the upstream transport file.
-2. Review the diff.
-3. Migrate any local changes by hand.
-4. Run `npm run type-check`, `npm run lint`, and `npm run frontend:build` when the change touches the renderer.
-5. Commit with the repo’s conventional-commit guard.
+When a change touches the renderer, run:
+
+```bash
+npm run type-check
+npm run lint
+npm run frontend:build
+```
+
+When a change touches Rust/Tauri code, use the repo-local wrapper if global Cargo is unavailable:
+
+```bash
+bash scripts/rust-wrapper.sh cargo check --manifest-path src-tauri/Cargo.toml
+```
 
 ## Repo-local Rust setup
 
-If you need dev/build on a machine without global Rust tooling, use the repo-local scripts:
+The Tauri scripts are wrapped so Rust state stays in `.cargo/` and `.rustup/` inside the repo.
 
-- `npm run setup:rust`
-- `npm run dev:local`
+- `npm run setup:rust` — preinstall the repo-local Rust toolchain.
+- `npm run dev` — run Tauri dev through `scripts/rust-wrapper.sh`.
+- `npm run build` — build Tauri through `scripts/rust-wrapper.sh`.
 
-Those scripts keep Rust state in `.cargo/` and `.rustup/` inside the repo.
+macOS still needs Xcode Command Line Tools.
 
 ## Guardrails
 
 - Keep `commitlint.config.cjs` in CommonJS format.
 - Keep Husky hooks simple.
-- Do not assume the browser can set the auth headers the Hermes gateway expects.
-- If upstream Hermes changes the transport API, preserve the upstream file first and adapt the local wrapper afterwards.
+- Keep the repo remote-only; avoid local Hermes bootstrap code unless the user asks for it.
+- Preserve the upstream transport file first when syncing; adapt the local wrapper afterward.
+- Avoid adding test frameworks or debug helpers without maintained tests/scripts that exercise them.

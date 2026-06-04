@@ -1,30 +1,801 @@
-const DEFAULT_GATEWAY_URL: &str = "https://homestation:9119";
+const DEFAULT_GATEWAY_URL: &str = "http://127.0.0.1:9119";
 const DEFAULT_STATUS_PATH: &str = "/api/status";
+const DEFAULT_WS_PATH: &str = "/api/ws";
+const WS_TICKET_PATH: &str = "/api/auth/ws-ticket";
 const AUTH_HEADER: &str = "X-Hermes-Session-Token";
+const HTTP_TIMEOUT_SECS: u64 = 15;
 
-#[tauri::command]
-async fn check_connection() -> Result<(), String> {
-    let gateway_url = std::env::var("BITCH_GATEWAY_URL").unwrap_or_else(|_| DEFAULT_GATEWAY_URL.to_string());
-    let api_key = std::env::var("BITCH_DASHBOARD_API_KEY")
-        .map_err(|_| "BITCH_DASHBOARD_API_KEY not set".to_string())?;
+use futures_util::{SinkExt, StreamExt};
+use serde::Serialize;
+use serde_json::Value;
+use std::{fs, path::PathBuf, sync::Mutex, time::Duration};
+use tauri::Emitter;
+use tokio::sync::mpsc;
+use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 
-    let url = format!("{}{}", gateway_url.trim_end_matches('/'), DEFAULT_STATUS_PATH);
+struct GatewayConfig {
+    base_url: String,
+    token: String,
+}
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
+struct WsTarget {
+    auth_header: Option<String>,
+    url: String,
+}
+
+struct WsProxyState {
+    connection_id: Option<String>,
+    sender: Option<mpsc::UnboundedSender<String>>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WsOpenPayload {
+    connection_id: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WsMessagePayload {
+    connection_id: String,
+    message: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WsErrorPayload {
+    connection_id: String,
+    message: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WsClosePayload {
+    connection_id: String,
+    reason: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WsLogPayload {
+    connection_id: String,
+    level: String,
+    message: String,
+}
+
+static WS_STATE: Mutex<WsProxyState> = Mutex::new(WsProxyState {
+    connection_id: None,
+    sender: None,
+});
+
+fn config_value(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| dotenv_value(name))
+}
+
+fn dotenv_value(name: &str) -> Option<String> {
+    for path in dotenv_candidates() {
+        let Ok(contents) = fs::read_to_string(path) else {
+            continue;
+        };
+
+        if let Some(value) = parse_dotenv_value(&contents, name) {
+            return Some(value);
+        }
+    }
+
+    None
+}
+
+fn dotenv_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        for ancestor in current_dir.ancestors() {
+            candidates.push(ancestor.join(".env"));
+        }
+    }
+
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    candidates.push(manifest_dir.join(".env"));
+
+    if let Some(project_dir) = manifest_dir.parent() {
+        candidates.push(project_dir.join(".env"));
+    }
+
+    candidates
+}
+
+fn parse_dotenv_value(contents: &str, name: &str) -> Option<String> {
+    for line in contents.lines() {
+        let line = line.trim();
+
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let line = line.strip_prefix("export ").unwrap_or(line).trim_start();
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+
+        if key.trim() != name {
+            continue;
+        }
+
+        let mut value = value.trim().to_string();
+
+        if value.len() >= 2 {
+            let quoted_with_single = value.starts_with('\'') && value.ends_with('\'');
+            let quoted_with_double = value.starts_with('"') && value.ends_with('"');
+
+            if quoted_with_single || quoted_with_double {
+                value = value[1..value.len() - 1].to_string();
+            }
+        }
+
+        return Some(value);
+    }
+
+    None
+}
+
+fn normalize_gateway_url(raw_url: &str) -> Result<String, String> {
+    let value = raw_url.trim();
+
+    if value.is_empty() {
+        return Err("Hermes dashboard URL is required".to_string());
+    }
+
+    let mut parsed = url::Url::parse(value).map_err(|e| format!("Invalid dashboard URL: {e}"))?;
+
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err(format!(
+            "Hermes dashboard URL must be http:// or https://, got {}",
+            parsed.scheme()
+        ));
+    }
+
+    parsed.set_fragment(None);
+    parsed.set_query(None);
+
+    let prefix = parsed.path().trim_end_matches('/').to_string();
+    parsed.set_path(&prefix);
+
+    Ok(parsed.as_str().trim_end_matches('/').to_string())
+}
+
+fn resolve_gateway_config() -> Result<GatewayConfig, String> {
+    let raw_base_url =
+        config_value("VITE_BITCH_GATEWAY_URL").unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string());
+    let base_url = normalize_gateway_url(&raw_base_url)?;
+    let token = config_value("BITCH_DASHBOARD_API_KEY").ok_or_else(|| {
+        "BITCH_DASHBOARD_API_KEY is not set in the environment or .env".to_string()
+    })?;
+
+    Ok(GatewayConfig { base_url, token })
+}
+
+fn encode_query_value(value: &str) -> String {
+    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
+}
+
+fn build_api_url(base_url: &str, path: &str) -> String {
+    format!("{}{}", base_url.trim_end_matches('/'), path)
+}
+
+fn build_ws_url(base_url: &str, query_name: &str, query_value: &str) -> Result<String, String> {
+    let parsed = url::Url::parse(base_url).map_err(|e| format!("Invalid dashboard URL: {e}"))?;
+    let scheme = if parsed.scheme() == "https" {
+        "wss"
+    } else {
+        "ws"
+    };
+    let host = parsed
+        .host()
+        .ok_or_else(|| "Dashboard URL must include a host".to_string())?
+        .to_string();
+    let port = parsed.port().map(|p| format!(":{p}")).unwrap_or_default();
+    let prefix = parsed.path().trim_end_matches('/');
+
+    Ok(format!(
+        "{scheme}://{host}{port}{prefix}{DEFAULT_WS_PATH}?{query_name}={}",
+        encode_query_value(query_value)
+    ))
+}
+
+fn http_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())
+}
 
+async fn fetch_gateway_status(
+    client: &reqwest::Client,
+    base_url: &str,
+) -> Result<(Value, reqwest::StatusCode), String> {
+    let url = build_api_url(base_url, DEFAULT_STATUS_PATH);
     let response = client
         .get(url)
-        .header(AUTH_HEADER, api_key)
         .header("Accept", "application/json")
         .send()
         .await
         .map_err(|e| e.to_string())?;
+    let status = response.status();
 
-    if !response.status().is_success() {
-        return Err(format!("gateway returned {}", response.status()));
+    if !status.is_success() {
+        return Err(format!("gateway returned {status}"));
+    }
+
+    let body = response.json::<Value>().await.map_err(|e| e.to_string())?;
+
+    Ok((body, status))
+}
+
+fn status_requires_ws_ticket(status: &Value) -> bool {
+    status
+        .get("auth_required")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn summarize_response_body(text: &str) -> String {
+    let trimmed = text.trim();
+
+    if trimmed.is_empty() {
+        return "empty response".to_string();
+    }
+
+    let mut summary: String = trimmed.chars().take(240).collect();
+
+    if trimmed.chars().count() > 240 {
+        summary.push('…');
+    }
+
+    summary
+}
+
+async fn mint_ws_ticket(
+    client: &reqwest::Client,
+    config: &GatewayConfig,
+) -> Result<String, String> {
+    let url = build_api_url(&config.base_url, WS_TICKET_PATH);
+    let response = client
+        .post(url)
+        .header(AUTH_HEADER, &config.token)
+        .header("Accept", "application/json")
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = response.status();
+    let text = response.text().await.map_err(|e| e.to_string())?;
+
+    if !status.is_success() {
+        return Err(format!(
+            "ws-ticket endpoint returned {status}: {}",
+            summarize_response_body(&text)
+        ));
+    }
+
+    let body = serde_json::from_str::<Value>(&text)
+        .map_err(|e| format!("Invalid JSON from ws-ticket endpoint: {e}"))?;
+    let ticket = body
+        .get("ticket")
+        .and_then(Value::as_str)
+        .filter(|ticket| !ticket.is_empty())
+        .ok_or_else(|| "Gateway did not return a WS ticket".to_string())?;
+
+    Ok(ticket.to_string())
+}
+
+fn redacted_ws_url(ws_url: &str) -> String {
+    let Ok(mut parsed) = url::Url::parse(ws_url) else {
+        return "<invalid ws url>".to_string();
+    };
+
+    let query_name = parsed
+        .query_pairs()
+        .find_map(|(name, _)| {
+            let name = name.into_owned();
+
+            if name == "token" || name == "ticket" {
+                Some(name)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "auth".to_string());
+
+    parsed.set_query(None);
+
+    format!("{}?{query_name}=<redacted>", parsed.as_str())
+}
+
+fn status_field<'a>(status: &'a Value, field: &str) -> &'a str {
+    status
+        .get(field)
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+}
+
+fn emit_ws_log(
+    app: &tauri::AppHandle,
+    connection_id: &str,
+    level: &str,
+    message: impl Into<String>,
+) {
+    let message = message.into();
+    eprintln!("[bitch.desktop][gateway][{connection_id}][{level}] {message}");
+    let _ = app.emit(
+        "ws-log",
+        WsLogPayload {
+            connection_id: connection_id.to_string(),
+            level: level.to_string(),
+            message,
+        },
+    );
+}
+
+async fn resolve_ws_target(
+    app: &tauri::AppHandle,
+    connection_id: &str,
+) -> Result<WsTarget, String> {
+    emit_ws_log(
+        app,
+        connection_id,
+        "debug",
+        "resolving dashboard gateway config",
+    );
+    let config = resolve_gateway_config().map_err(|error| {
+        emit_ws_log(
+            app,
+            connection_id,
+            "error",
+            format!("config error: {error}"),
+        );
+        error
+    })?;
+
+    emit_ws_log(
+        app,
+        connection_id,
+        "debug",
+        format!(
+            "config resolved: base_url={} token_present=true",
+            config.base_url
+        ),
+    );
+
+    let client = http_client().map_err(|error| {
+        emit_ws_log(
+            app,
+            connection_id,
+            "error",
+            format!("HTTP client error: {error}"),
+        );
+        error
+    })?;
+
+    emit_ws_log(
+        app,
+        connection_id,
+        "debug",
+        "GET /api/status without auth header",
+    );
+    let (status, status_code) = fetch_gateway_status(&client, &config.base_url)
+        .await
+        .map_err(|error| {
+            emit_ws_log(
+                app,
+                connection_id,
+                "error",
+                format!("status probe failed: {error}"),
+            );
+            error
+        })?;
+    let auth_required = status_requires_ws_ticket(&status);
+
+    emit_ws_log(
+        app,
+        connection_id,
+        "debug",
+        format!(
+            "status OK: http={} auth_required={} version={} gateway_state={}",
+            status_code.as_u16(),
+            auth_required,
+            status_field(&status, "version"),
+            status_field(&status, "gateway_state")
+        ),
+    );
+
+    if auth_required {
+        emit_ws_log(
+            app,
+            connection_id,
+            "debug",
+            "dashboard requires WS ticket auth; POST /api/auth/ws-ticket with session token header",
+        );
+        let ticket = mint_ws_ticket(&client, &config).await.map_err(|error| {
+            let message = format!(
+                "Gateway requires a dashboard WebSocket ticket, but ticket minting failed: {error}"
+            );
+            emit_ws_log(app, connection_id, "error", &message);
+            message
+        })?;
+        let url = build_ws_url(&config.base_url, "ticket", &ticket).map_err(|error| {
+            emit_ws_log(
+                app,
+                connection_id,
+                "error",
+                format!("WS URL build failed: {error}"),
+            );
+            error
+        })?;
+
+        emit_ws_log(
+            app,
+            connection_id,
+            "debug",
+            format!("WS ticket minted; target={}", redacted_ws_url(&url)),
+        );
+
+        return Ok(WsTarget {
+            auth_header: None,
+            url,
+        });
+    }
+
+    let url = build_ws_url(&config.base_url, "token", &config.token).map_err(|error| {
+        emit_ws_log(
+            app,
+            connection_id,
+            "error",
+            format!("WS URL build failed: {error}"),
+        );
+        error
+    })?;
+
+    emit_ws_log(
+        app,
+        connection_id,
+        "debug",
+        format!(
+            "dashboard uses token auth; target={} header={} will be attached",
+            redacted_ws_url(&url),
+            AUTH_HEADER
+        ),
+    );
+
+    Ok(WsTarget {
+        auth_header: Some(config.token.clone()),
+        url,
+    })
+}
+
+fn emit_ws_error(app: &tauri::AppHandle, connection_id: &str, message: String) {
+    let _ = app.emit(
+        "ws-error",
+        WsErrorPayload {
+            connection_id: connection_id.to_string(),
+            message,
+        },
+    );
+}
+
+fn clear_ws_state(connection_id: &str) {
+    let Ok(mut state) = WS_STATE.lock() else {
+        return;
+    };
+
+    if state.connection_id.as_deref() == Some(connection_id) {
+        state.sender = None;
+        state.connection_id = None;
+    }
+}
+
+#[tauri::command]
+async fn connect_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), String> {
+    emit_ws_log(&app, &connection_id, "debug", "connect_ws command received");
+    let target = resolve_ws_target(&app, &connection_id).await?;
+
+    {
+        let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
+        state.sender = None;
+        state.connection_id = Some(connection_id.clone());
+    }
+    emit_ws_log(
+        &app,
+        &connection_id,
+        "debug",
+        "proxy state prepared; previous connection replaced if present",
+    );
+
+    let (tx, rx) = mpsc::unbounded_channel::<String>();
+
+    {
+        let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
+        state.sender = Some(tx);
+    }
+
+    emit_ws_log(
+        &app,
+        &connection_id,
+        "debug",
+        "spawning native WebSocket proxy task",
+    );
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) =
+            connect_and_listen(target, rx, app_clone.clone(), connection_id.clone()).await
+        {
+            emit_ws_error(&app_clone, &connection_id, error);
+        }
+
+        clear_ws_state(&connection_id);
+    });
+
+    Ok(())
+}
+
+async fn connect_and_listen(
+    target: WsTarget,
+    mut rx: mpsc::UnboundedReceiver<String>,
+    app: tauri::AppHandle,
+    connection_id: String,
+) -> Result<(), String> {
+    emit_ws_log(
+        &app,
+        &connection_id,
+        "debug",
+        format!(
+            "building WebSocket upgrade request for {}",
+            redacted_ws_url(&target.url)
+        ),
+    );
+    let mut request = target.url.as_str().into_client_request().map_err(|e| {
+        let message = format!("Failed to build WebSocket request: {e}");
+        emit_ws_log(&app, &connection_id, "error", &message);
+        message
+    })?;
+
+    if let Some(token) = target.auth_header.as_deref() {
+        emit_ws_log(
+            &app,
+            &connection_id,
+            "debug",
+            format!("attaching {AUTH_HEADER} header to WebSocket upgrade"),
+        );
+        let token_header = HeaderValue::from_str(token).map_err(|e| {
+            let message = format!("Failed to build {AUTH_HEADER} header: {e}");
+            emit_ws_log(&app, &connection_id, "error", &message);
+            message
+        })?;
+        request.headers_mut().insert(AUTH_HEADER, token_header);
+    } else {
+        emit_ws_log(
+            &app,
+            &connection_id,
+            "debug",
+            "no WebSocket auth header attached; using query ticket",
+        );
+    }
+
+    emit_ws_log(&app, &connection_id, "debug", "opening native WebSocket");
+    let (ws_stream, _) = tokio_tungstenite::connect_async(request)
+        .await
+        .map_err(|e| {
+            let message = format!("WebSocket connection failed: {e}");
+            emit_ws_log(&app, &connection_id, "error", &message);
+            message
+        })?;
+
+    emit_ws_log(&app, &connection_id, "info", "WebSocket upgrade succeeded");
+
+    let _ = app.emit(
+        "ws-open",
+        WsOpenPayload {
+            connection_id: connection_id.clone(),
+        },
+    );
+
+    let (mut write, mut read) = ws_stream.split();
+
+    let read_app = app.clone();
+    let read_connection_id = connection_id.clone();
+    let mut read_handle = tokio::spawn(async move {
+        while let Some(msg) = read.next().await {
+            match msg {
+                Ok(Message::Text(text)) => {
+                    emit_ws_log(
+                        &read_app,
+                        &read_connection_id,
+                        "trace",
+                        format!("received text frame: {} bytes", text.len()),
+                    );
+                    let _ = read_app.emit(
+                        "ws-message",
+                        WsMessagePayload {
+                            connection_id: read_connection_id.clone(),
+                            message: text.to_string(),
+                        },
+                    );
+                }
+                Ok(Message::Binary(data)) => {
+                    emit_ws_log(
+                        &read_app,
+                        &read_connection_id,
+                        "trace",
+                        format!("received binary frame: {} bytes", data.len()),
+                    );
+                    let _ = read_app.emit(
+                        "ws-message",
+                        WsMessagePayload {
+                            connection_id: read_connection_id.clone(),
+                            message: String::from_utf8_lossy(&data).to_string(),
+                        },
+                    );
+                }
+                Ok(Message::Close(frame)) => {
+                    let reason = frame
+                        .map(|frame| frame.reason.to_string())
+                        .filter(|reason| !reason.is_empty())
+                        .unwrap_or_else(|| "server closed".to_string());
+                    emit_ws_log(
+                        &read_app,
+                        &read_connection_id,
+                        "warn",
+                        format!("server closed WebSocket: {reason}"),
+                    );
+                    let _ = read_app.emit(
+                        "ws-close",
+                        WsClosePayload {
+                            connection_id: read_connection_id.clone(),
+                            reason,
+                        },
+                    );
+                    break;
+                }
+                Err(e) => {
+                    emit_ws_log(
+                        &read_app,
+                        &read_connection_id,
+                        "error",
+                        format!("WebSocket read error: {e}"),
+                    );
+                    let _ = read_app.emit(
+                        "ws-error",
+                        WsErrorPayload {
+                            connection_id: read_connection_id.clone(),
+                            message: format!("WebSocket error: {e}"),
+                        },
+                    );
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    loop {
+        tokio::select! {
+            maybe_msg = rx.recv() => {
+                let Some(msg) = maybe_msg else {
+                    break;
+                };
+
+                emit_ws_log(
+                    &app,
+                    &connection_id,
+                    "trace",
+                    format!("sending text frame: {} bytes", msg.len()),
+                );
+
+                if let Err(e) = write.send(Message::Text(msg.into())).await {
+                    emit_ws_log(&app, &connection_id, "error", format!("WebSocket send error: {e}"));
+                    let _ = app.emit(
+                        "ws-error",
+                        WsErrorPayload {
+                            connection_id: connection_id.clone(),
+                            message: format!("Send error: {e}"),
+                        },
+                    );
+                    break;
+                }
+            }
+            result = &mut read_handle => {
+                if let Err(e) = result {
+                    let _ = app.emit(
+                        "ws-error",
+                        WsErrorPayload {
+                            connection_id: connection_id.clone(),
+                            message: format!("WebSocket reader failed: {e}"),
+                        },
+                    );
+                }
+                break;
+            }
+        }
+    }
+
+    read_handle.abort();
+    emit_ws_log(
+        &app,
+        &connection_id,
+        "debug",
+        "native WebSocket proxy task ended",
+    );
+    let _ = app.emit(
+        "ws-close",
+        WsClosePayload {
+            connection_id,
+            reason: "disconnected".to_string(),
+        },
+    );
+    Ok(())
+}
+
+#[tauri::command]
+async fn send_ws_message(
+    app: tauri::AppHandle,
+    connection_id: String,
+    message: String,
+) -> Result<(), String> {
+    let state = WS_STATE.lock().map_err(|e| e.to_string())?;
+
+    if state.connection_id.as_deref() != Some(connection_id.as_str()) {
+        emit_ws_log(
+            &app,
+            &connection_id,
+            "warn",
+            "refusing outbound frame for stale WebSocket connection",
+        );
+        return Err("WebSocket connection is not current".to_string());
+    }
+
+    emit_ws_log(
+        &app,
+        &connection_id,
+        "trace",
+        format!("renderer queued outbound frame: {} bytes", message.len()),
+    );
+
+    if let Some(ref sender) = state.sender {
+        sender
+            .send(message)
+            .map_err(|e| format!("Send failed: {e}"))
+    } else {
+        emit_ws_log(
+            &app,
+            &connection_id,
+            "error",
+            "renderer attempted send but WebSocket proxy is not connected",
+        );
+        Err("WebSocket not connected".to_string())
+    }
+}
+
+#[tauri::command]
+async fn close_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), String> {
+    emit_ws_log(&app, &connection_id, "debug", "close_ws command received");
+    let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
+
+    if state.connection_id.as_deref() == Some(connection_id.as_str()) {
+        state.sender = None;
+        state.connection_id = None;
+        emit_ws_log(&app, &connection_id, "debug", "proxy state cleared");
+    } else {
+        emit_ws_log(
+            &app,
+            &connection_id,
+            "debug",
+            "close_ws ignored because connection is no longer current",
+        );
     }
 
     Ok(())
@@ -33,7 +804,11 @@ async fn check_connection() -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![check_connection])
+        .invoke_handler(tauri::generate_handler![
+            connect_ws,
+            send_ws_message,
+            close_ws
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
