@@ -1,0 +1,44 @@
+{
+  "name": "bitch.desktop",
+  "productName": "BITCH Desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal Tauri desktop client for Hermes Agent",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "frontend:dev": "vite --host 127.0.0.1 --port 5173",
+    "frontend:build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "type-check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.5.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0",
+    "@eslint/js": "^9.39.1",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tauri-apps/cli": "^2.5.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-svelte": "^3.19.0",
+    "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.6.2",
+    "svelte": "^5.25.0",
+    "svelte-check": "^4.1.6",
+    "svelte-eslint-parser": "^1.8.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.45.0",
+    "vite": "^6.4.0",
+    "vitest": "^3.2.4"
+  }
+}
