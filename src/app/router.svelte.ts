@@ -11,19 +11,23 @@ export interface RouterState {
 
 /* ---------- reactive state ---------- */
 
-let _hash = $state(window.location.hash.replace(/^#/, '') || '/')
-
-export const routerState: RouterState = $derived(parseHash(_hash))
+export const routerState = $state<RouterState>(parseHash(currentHash()))
 
 /* ---------- listeners ---------- */
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('hashchange', () => {
-    _hash = window.location.hash.replace(/^#/, '') || '/'
-  })
+  window.addEventListener('hashchange', syncRoute)
 }
 
 /* ---------- helpers ---------- */
+
+function currentHash(): string {
+  return typeof window === 'undefined' ? '/' : window.location.hash.replace(/^#/, '') || '/'
+}
+
+function syncRoute(): void {
+  Object.assign(routerState, parseHash(currentHash()))
+}
 
 function parseHash(hash: string): RouterState {
   const path = hash || '/'
@@ -52,8 +56,8 @@ function parseHash(hash: string): RouterState {
  */
 export function navigate(hash: string): void {
   window.location.hash = hash
-  /* Immediately sync so derived state updates without waiting for hashchange */
-  _hash = window.location.hash.replace(/^#/, '') || '/'
+  /* Immediately sync so state updates without waiting for hashchange */
+  syncRoute()
 }
 
 /** Build a hash for a session id */

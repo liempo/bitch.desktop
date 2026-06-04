@@ -16,16 +16,22 @@ let _gateway: HermesGateway | null = null
 let _unlistenLogs: (() => void) | null = null
 let _unsubState: (() => void) | null = null
 
-export let connectionState = $state<ConnectionState>('idle')
-export let connectionDetail = $state('')
-export const logs = $state<UiGatewayLog[]>([])
+export const gatewayState = $state<{
+  connectionState: ConnectionState
+  connectionDetail: string
+  logs: UiGatewayLog[]
+}>({
+  connectionState: 'idle',
+  connectionDetail: '',
+  logs: []
+})
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
 function appendLog(log: GatewaySocketLog): void {
-  logs.push({ ...log, at: new Date().toLocaleTimeString() })
+  gatewayState.logs.push({ ...log, at: new Date().toLocaleTimeString() })
 }
 
 function detailedError(error: unknown): string {
@@ -56,12 +62,12 @@ export async function connectGateway(): Promise<void> {
   const gateway = getGateway()
   const baseUrl = import.meta.env.VITE_BITCH_GATEWAY_URL ?? 'http://127.0.0.1:9119'
 
-  connectionState = 'connecting'
-  connectionDetail = `Connecting to Hermes dashboard at ${baseUrl}`
+  gatewayState.connectionState = 'connecting'
+  gatewayState.connectionDetail = `Connecting to Hermes dashboard at ${baseUrl}`
 
   /* Subscribe to state transitions */
   _unsubState = gateway.onState(state => {
-    connectionState = state as ConnectionState
+    gatewayState.connectionState = state as ConnectionState
   })
 
   /* Subscribe to Tauri bridge logs */
@@ -76,20 +82,20 @@ export async function connectGateway(): Promise<void> {
   /* Connect */
   try {
     await gateway.connect(baseUrl)
-    connectionState = 'open'
-    connectionDetail = 'Dashboard gateway transport ready'
+    gatewayState.connectionState = 'open'
+    gatewayState.connectionDetail = 'Dashboard gateway transport ready'
     appendLog({
       connectionId: 'renderer',
       level: 'info',
-      message: connectionDetail
+      message: gatewayState.connectionDetail
     })
   } catch (error) {
-    connectionState = 'error'
-    connectionDetail = detailedError(error)
+    gatewayState.connectionState = 'error'
+    gatewayState.connectionDetail = detailedError(error)
     appendLog({
       connectionId: 'renderer',
       level: 'error',
-      message: connectionDetail
+      message: gatewayState.connectionDetail
     })
   }
 }
@@ -102,13 +108,13 @@ export function disconnectGateway(): void {
   _unlistenLogs = null
   _gateway?.close()
   _gateway = null
-  connectionState = 'closed'
-  connectionDetail = ''
+  gatewayState.connectionState = 'closed'
+  gatewayState.connectionDetail = ''
 }
 
 /** Clear the in-memory log buffer. */
 export function clearLogs(): void {
-  logs.length = 0
+  gatewayState.logs.length = 0
 }
 
 /**
@@ -122,12 +128,12 @@ export async function requestGateway<T>(method: string, params: Record<string, u
     throw new Error('Hermes gateway is not initialised')
   }
 
-  if (connectionState !== 'open') {
+  if (gatewayState.connectionState !== 'open') {
     throw new Error(
-      connectionState === 'connecting'
+      gatewayState.connectionState === 'connecting'
         ? 'Hermes gateway is still connecting — please wait'
-        : connectionState === 'error'
-          ? `Hermes gateway encountered an error: ${connectionDetail}`
+        : gatewayState.connectionState === 'error'
+          ? `Hermes gateway encountered an error: ${gatewayState.connectionDetail}`
           : 'Hermes gateway is not connected'
     )
   }

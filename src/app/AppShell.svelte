@@ -1,15 +1,14 @@
 <script lang="ts">
   import { Button } from 'bits-ui'
   import { routerState, navigate } from './router.svelte'
-  import {
-    connectionState,
-    connectionDetail,
-    logs,
-    clearLogs
-  } from '$lib/stores/gateway.svelte'
-  import { sidebarOpen, toggleSidebar } from '$lib/stores/layout.svelte'
+  import { gatewayState, clearLogs } from '$lib/stores/gateway.svelte'
+  import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
 
   let devPanelOpen = $state(false)
+  const connectionState = $derived(gatewayState.connectionState)
+  const connectionDetail = $derived(gatewayState.connectionDetail)
+  const logs = $derived(gatewayState.logs)
+  const sidebarOpen = $derived(layoutState.sidebarOpen)
 
   const statusColor: Record<string, string> = {
     idle: 'bg-slate-500',
@@ -23,7 +22,7 @@
 <div class="flex h-full w-full">
   <!-- ===== Sidebar ===== -->
   {#if sidebarOpen}
-    <aside class="flex w-[280px] flex-shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950/50">
+    <aside class="flex w-70 shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950/50">
       <div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Sessions</h2>
         <button
@@ -122,7 +121,7 @@
 
 <!-- ===== Collapsible dev panel (old connectivity log) ===== -->
 {#if devPanelOpen}
-  <aside class="flex w-[420px] flex-shrink-0 flex-col overflow-y-auto border-l border-slate-800 bg-slate-950/80 p-4">
+  <aside class="flex w-105 shrink-0 flex-col overflow-y-auto border-l border-slate-800 bg-slate-950/80 p-4">
     <div class="mb-3 flex items-center justify-between">
       <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
         Gateway log
@@ -157,7 +156,7 @@
             </span>
             <span class="truncate text-slate-600">{log.connectionId}</span>
           </div>
-          <p class="whitespace-pre-wrap break-words leading-5 text-slate-300">{log.message}</p>
+          <p class="whitespace-pre-wrap wrap-break-word leading-5 text-slate-300">{log.message}</p>
         </li>
       {/each}
     </ol>

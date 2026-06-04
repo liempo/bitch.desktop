@@ -25,38 +25,41 @@ function savePins(ids: string[]): void {
 
 /* ---------- reactive state ---------- */
 
-export let sidebarOpen = $state(true)
-export const pinnedSessionIds = $state<string[]>(loadPins())
-
-/* Persist pins on every change */
-$effect(() => {
-  savePins(pinnedSessionIds)
+export const layoutState = $state({
+  sidebarOpen: true,
+  pinnedSessionIds: loadPins()
 })
+
+function persistPins(): void {
+  savePins(layoutState.pinnedSessionIds)
+}
 
 /* ---------- actions ---------- */
 
 export function toggleSidebar(): void {
-  sidebarOpen = !sidebarOpen
+  layoutState.sidebarOpen = !layoutState.sidebarOpen
 }
 
 export function setSidebarOpen(open: boolean): void {
-  sidebarOpen = open
+  layoutState.sidebarOpen = open
 }
 
 export function pinSession(id: string): void {
-  if (!pinnedSessionIds.includes(id)) {
-    pinnedSessionIds.push(id)
+  if (!layoutState.pinnedSessionIds.includes(id)) {
+    layoutState.pinnedSessionIds.push(id)
+    persistPins()
   }
 }
 
 export function unpinSession(id: string): void {
-  const idx = pinnedSessionIds.indexOf(id)
+  const idx = layoutState.pinnedSessionIds.indexOf(id)
 
   if (idx !== -1) {
-    pinnedSessionIds.splice(idx, 1)
+    layoutState.pinnedSessionIds.splice(idx, 1)
+    persistPins()
   }
 }
 
 export function isPinned(id: string): boolean {
-  return pinnedSessionIds.includes(id)
+  return layoutState.pinnedSessionIds.includes(id)
 }
