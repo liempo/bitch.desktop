@@ -1,10 +1,19 @@
 <script lang="ts">
   import { Button } from 'bits-ui'
-  import { routerState, navigate } from './router.svelte'
-  import { gatewayState, clearLogs } from '$lib/stores/gateway.svelte'
+  import Sidebar from './sidebar/Sidebar.svelte'
+  import { routerState } from './router.svelte'
+  import { clearLogs, gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
+  import {
+    createSession,
+    initializeSessions,
+    resumeSession,
+    sessionState,
+    setActiveSession
+  } from '$lib/stores/session.svelte'
 
   let devPanelOpen = $state(false)
+  let lastResumedSessionId: string | null = null
   const connectionState = $derived(gatewayState.connectionState)
   const connectionDetail = $derived(gatewayState.connectionDetail)
   const logs = $derived(gatewayState.logs)
@@ -17,27 +26,33 @@
     closed: 'bg-slate-500',
     error: 'bg-red-500'
   }
+
+  $effect(() => {
+    if (connectionState === 'open') {
+      void initializeSessions()
+    }
+  })
+
+  $effect(() => {
+    if (connectionState !== 'open') return
+
+    if (routerState.route === 'new') {
+      lastResumedSessionId = null
+      setActiveSession(null)
+      return
+    }
+
+    if (routerState.sessionId && routerState.sessionId !== lastResumedSessionId) {
+      lastResumedSessionId = routerState.sessionId
+      void resumeSession(routerState.sessionId)
+    }
+  })
 </script>
 
 <div class="flex h-full w-full">
   <!-- ===== Sidebar ===== -->
   {#if sidebarOpen}
-    <aside class="flex w-70 shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950/50">
-      <div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-        <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Sessions</h2>
-        <button
-          class="rounded-md px-2 py-1 text-xs font-medium text-sky-400 transition hover:bg-sky-500/10 hover:text-sky-300"
-          onclick={() => navigate('/')}
-        >
-          + New
-        </button>
-      </div>
-
-      <!-- session list — filled in by Plan 03 -->
-      <div class="flex flex-1 items-center justify-center p-4 text-center text-sm text-slate-600">
-        Session sidebar<br />(Plan 03)
-      </div>
-    </aside>
+    <Sidebar />
   {/if}
 
   <!-- ===== Main column ===== -->
@@ -96,16 +111,25 @@
             <p class="mt-2 text-sm text-slate-600">
               Select a session from the sidebar or
               <button
-                class="text-sky-400 underline underline-offset-2 hover:text-sky-300"
-                onclick={() => navigate('/')}
+                class="text-sky-400 underline underline-offset-2 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+                onclick={() => void createSession()}
+                disabled={connectionState !== 'open'}
               >create a new one</button>.
             </p>
           </div>
         </div>
       {:else if routerState.route === 'session'}
         <div class="flex flex-1 items-center justify-center text-sm text-slate-600">
-          Session {routerState.sessionId}<br />
-          Message thread — (Plan 04)
+          <div class="text-center">
+            <p>Session {routerState.sessionId}</p>
+            {#if sessionState.resumingSessionId === routerState.sessionId}
+              <p class="mt-2 text-xs text-sky-400">Resuming conversation…</p>
+            {:else if sessionState.error}
+              <p class="mt-2 max-w-md text-xs text-red-300">{sessionState.error}</p>
+            {:else}
+              <p class="mt-2 text-xs">Message thread — (Plan 04)</p>
+            {/if}
+          </div>
         </div>
       {/if}
     </div>
