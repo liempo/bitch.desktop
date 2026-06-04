@@ -258,7 +258,11 @@ export function clearSearch(): void {
 export async function createSession(): Promise<string | null> {
   try {
     const response = await requestGateway<SessionCreateResponse>('session.create', { cols: COLS })
-    const sessionId = response.stored_session_id ?? response.session_id
+    // Use the live session ID (short sid) for all live operations.
+    // The stored_session_id is the persistent DB key used only for
+    // session.list / session.resume; live methods (prompt.submit,
+    // slash.exec, etc.) require the short sid that keys _sessions.
+    const sessionId = response.session_id
 
     sessionState.activeSessionId = sessionId
     navigate(sessionRoute(sessionId))
@@ -287,7 +291,11 @@ export async function resumeSession(sessionId: string): Promise<SessionResumeRes
   try {
     const response = await requestGateway<SessionResumeResponse>('session.resume', { session_id: sessionId })
 
-    sessionState.activeSessionId = sessionId
+    // The gateway returns a fresh live session ID (short sid) in the
+    // response.  Use it for all live operations — the sessionId param
+    // is the stored key (from session.list) which only works for
+    // session.resume itself.
+    sessionState.activeSessionId = response.session_id
     return response
   } catch (error) {
     sessionState.error = messageFor(error)

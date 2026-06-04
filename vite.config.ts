@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
@@ -16,5 +17,9 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true
+  },
+  test: {
+    include: ['src/**/*.{test,spec}.ts'],
+    environment: 'node'
   }
 })
