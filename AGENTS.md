@@ -74,5 +74,7 @@ macOS still needs Xcode Command Line Tools.
 - Keep `commitlint.config.cjs` in CommonJS format.
 - Keep Husky hooks simple.
 - Keep the repo remote-only; avoid local Hermes bootstrap code unless the user asks for it.
+- Use Bits UI for Svelte renderer UI primitives and components whenever you add or refactor interface elements.
+- Use Tailwind utility classes and layers for renderer styling; avoid bespoke CSS rules unless you need a global base reset or a shared theme token.
 - Preserve the upstream transport file first when syncing; adapt the local wrapper afterward.
 - Avoid adding test frameworks or debug helpers without maintained tests/scripts that exercise them.

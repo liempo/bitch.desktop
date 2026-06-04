@@ -9,6 +9,7 @@ This repo is remote-only: it does not bootstrap or run a local Hermes server. Th
 - Tauri v2
 - Svelte 5
 - TypeScript + Vite
+- Tailwind CSS for renderer styling
 - Rust gateway bridge for status probing, WebSocket ticket minting, auth headers, and native WebSocket proxying
 - Hermes JSON-RPC gateway transport copied from upstream
 
