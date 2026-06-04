@@ -8,7 +8,13 @@ import {
   setThreadBusy,
   threadForSession
 } from '$lib/stores/messages.svelte'
-import { createSession, loadSessions, sessionState } from '$lib/stores/session.svelte'
+import {
+  createSession,
+  displaySessionIdFor,
+  loadSessions,
+  runtimeSessionIdForStored,
+  sessionState
+} from '$lib/stores/session.svelte'
 import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } from '$lib/types/hermes'
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'
@@ -121,15 +127,24 @@ function sessionKey(sessionId: null | string | undefined): string {
 function displaySessionKey(sessionId: null | string | undefined): null | string {
   const key = sessionId?.trim()
 
-  if (key && key !== sessionState.activeSessionId) {
-    return key
+  if (key) {
+    return displaySessionIdFor(key)
   }
 
-  return sessionState.storedSessionId ?? key ?? null
+  return sessionState.storedSessionId
 }
 
 function liveSessionKey(sessionId: null | string | undefined): null | string {
-  return sessionState.activeSessionId ?? sessionId?.trim() ?? null
+  const key = sessionId?.trim()
+
+  if (key) {
+    if (key === sessionState.activeSessionId) return key
+    return (
+      runtimeSessionIdForStored(key) ?? (key === sessionState.storedSessionId ? sessionState.activeSessionId : null)
+    )
+  }
+
+  return sessionState.activeSessionId
 }
 
 function ensureComposerSession(sessionId: null | string | undefined): ComposerSessionState {

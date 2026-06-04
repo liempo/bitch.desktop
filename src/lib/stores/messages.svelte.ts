@@ -1,6 +1,12 @@
 import { getSessionMessages } from '$lib/dashboard-api'
 import { getGateway } from '$lib/stores/gateway.svelte'
-import { loadSessions, sessionState, setSessionNeedsInput, setSessionWorking } from '$lib/stores/session.svelte'
+import {
+  loadSessions,
+  sessionState,
+  setSessionNeedsInput,
+  setSessionWorking,
+  displaySessionIdFor
+} from '$lib/stores/session.svelte'
 import type { GatewayEvent } from '$lib/json-rpc-gateway'
 import { compactWhitespace, coerceGatewayText, coerceThinkingText } from '$lib/chat-runtime'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
@@ -78,9 +84,7 @@ function createThreadSession(): ThreadSessionState {
 }
 
 function displaySessionId(sessionId: string): string {
-  return sessionId === sessionState.activeSessionId && sessionState.storedSessionId
-    ? sessionState.storedSessionId
-    : sessionId
+  return displaySessionIdFor(sessionId)
 }
 
 function ensureThreadSession(sessionId: string): ThreadSessionState {

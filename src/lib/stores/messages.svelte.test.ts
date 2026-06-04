@@ -19,7 +19,7 @@ import {
   messageState,
   threadForSession
 } from '$lib/stores/messages.svelte'
-import { sessionState } from '$lib/stores/session.svelte'
+import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 
 const storedKey = 'stored-session-key'
@@ -31,6 +31,8 @@ function resetState(): void {
   sessionState.storedSessionId = null
   sessionState.workingSessionIds = []
   sessionState.needsInputSessionIds = []
+  sessionState.runtimeIdsByStoredSessionId = {}
+  sessionState.storedSessionIdsByRuntimeId = {}
 }
 
 function storedMessage(text: string): SessionMessage {
@@ -78,6 +80,28 @@ describe('message session id mapping', () => {
     expect(thread?.messages[0]?.text).toBe('streamed answer')
     expect(sessionState.workingSessionIds).toContain(storedKey)
     expect(sessionState.workingSessionIds).not.toContain(liveSid)
+  })
+
+  it('maps background runtime events through the stored-runtime cache, not just the active pair', () => {
+    sessionState.activeSessionId = 'current-live'
+    sessionState.storedSessionId = 'current-stored'
+    rememberRuntimeSession('background-stored', 'background-live')
+
+    handleGatewayEvent({
+      session_id: 'background-live',
+      type: 'message.start',
+      payload: {}
+    })
+    handleGatewayEvent({
+      session_id: 'background-live',
+      type: 'message.delta',
+      payload: { text: 'background output' }
+    })
+
+    expect(threadForSession('background-stored')?.messages.map(message => message.text)).toEqual(['background output'])
+    expect(messageState.sessions['background-live']).toBeUndefined()
+    expect(sessionState.workingSessionIds).toContain('background-stored')
+    expect(sessionState.workingSessionIds).not.toContain('background-live')
   })
 
   it('renders optimistic user messages in the stored visible thread even when submit uses the live sid', () => {
