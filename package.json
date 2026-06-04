@@ -7,7 +7,9 @@
   "type": "module",
   "scripts": {
     "dev": "bash scripts/rust-wrapper.sh tauri dev",
+    "dev:local": "bash scripts/dev-local.sh",
     "setup:rust": "bash scripts/rust-setup.sh",
+    "sync:transport": "bash scripts/sync-hermes-transport.sh",
     "build": "bash scripts/rust-wrapper.sh tauri build",
     "frontend:dev": "vite --host 127.0.0.1 --port 5173",
     "frontend:build": "vite build",
