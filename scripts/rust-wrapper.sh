@@ -8,8 +8,8 @@ export PATH="$CARGO_HOME/bin:$PATH"
 
 if [ ! -x "$CARGO_HOME/bin/cargo" ]; then
   echo "local cargo not found; bootstrapping local Rust toolchain..."
-  source "$ROOT/scripts/setup-rust-local.sh"
+  source "$ROOT/scripts/rust-setup.sh"
 fi
 
 cd "$ROOT"
-npm run dev
+exec "$@"

@@ -1,5 +1,5 @@
 [package]
-name = "bitch.desktop"
+name = "bitch"
 version = "0.1.0"
 description = "BITCH Desktop"
 authors = ["liempo"]
