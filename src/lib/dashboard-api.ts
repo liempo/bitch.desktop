@@ -28,20 +28,17 @@ export async function dashboardRequest<T>({ path, method = 'GET', body }: Dashbo
 
 export async function listSessions(
   limit = DEFAULT_LIMIT,
+  offset = 0,
   minMessages = 0,
   archived: 'exclude' | 'include' | 'only' = 'exclude',
   order: 'created' | 'recent' = 'recent'
 ): Promise<PaginatedSessions> {
   const safeLimit = Math.max(0, limit)
-  const result = await dashboardRequest<PaginatedSessions>({
-    path: `/api/sessions?limit=${safeLimit}&offset=0&min_messages=${Math.max(0, minMessages)}&archived=${archived}&order=${order}`
-  })
+  const safeOffset = Math.max(0, offset)
 
-  return {
-    ...result,
-    offset: 0,
-    sessions: result.sessions.slice(0, safeLimit)
-  }
+  return dashboardRequest<PaginatedSessions>({
+    path: `/api/sessions?limit=${safeLimit}&offset=${safeOffset}&min_messages=${Math.max(0, minMessages)}&archived=${archived}&order=${order}`
+  })
 }
 
 export function searchSessions(query: string): Promise<SessionSearchResponse> {
