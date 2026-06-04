@@ -14,7 +14,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "preserve"
+    "paths": {
+      "$lib": ["./src/lib"],
+      "$lib/*": ["./src/lib/*"]
+    },
+    "types": ["svelte"]
   },
   "include": ["src"]
 }
