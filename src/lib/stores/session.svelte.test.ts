@@ -1,7 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-// vi.mock calls are hoisted — the factory functions run before module
-// imports.  Use vi.hoisted() so mock state is available at hoist time.
 const { mockRequestGateway, mockNavigate, mockSessionRoute } = vi.hoisted(() => ({
   mockRequestGateway: vi.fn(),
   mockNavigate: vi.fn(),
@@ -21,17 +19,15 @@ vi.mock('../../app/router.svelte', () => ({
 
 import { createSession, resumeSession, sessionState as rawSessionState } from '$lib/stores/session.svelte'
 
-// All mocks are set up via vi.hoisted above.
-
 describe('createSession', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset reactive state
     rawSessionState.activeSessionId = null
+    rawSessionState.storedSessionId = null
     rawSessionState.error = null
   })
 
-  it('uses response.session_id for the active session (not stored_session_id)', async () => {
+  it('sets activeSessionId to short sid and storedSessionId to persistent key', async () => {
     const liveSid = 'abc12345'
     const storedKey = 'sess_key_XYZ'
 
@@ -45,22 +41,19 @@ describe('createSession', () => {
 
     const result = await createSession()
 
+    // Returns the short sid for callers that need it (e.g. submitPrompt)
     expect(result).toBe(liveSid)
     expect(result).not.toBe(storedKey)
-    expect(rawSessionState.activeSessionId).toBe(liveSid)
-    expect(rawSessionState.activeSessionId).not.toBe(storedKey)
 
-    // Verify the right method was called
-    expect(mockRequestGateway).toHaveBeenCalledWith(
-      'session.create',
-      expect.objectContaining({ cols: expect.any(Number) })
-    )
+    // Both IDs tracked
+    expect(rawSessionState.activeSessionId).toBe(liveSid)
+    expect(rawSessionState.storedSessionId).toBe(storedKey)
+
+    // URL navigates to stored key (survives page refresh)
+    expect(mockNavigate).toHaveBeenCalledWith('/' + storedKey)
   })
 
-  it('falls back to session_id when stored_session_id is absent', async () => {
-    // session.create always returns session_id; stored_session_id is absent
-    // only in older gateway versions.  Our code now prefers session_id
-    // regardless, so absence of stored_session_id is a no-op.
+  it('falls back to session_id for stored key when stored_session_id is absent', async () => {
     const liveSid = 'deadbeef'
 
     mockRequestGateway.mockResolvedValueOnce({
@@ -71,19 +64,21 @@ describe('createSession', () => {
       info: { model: 'test-model' }
     })
 
-    const result = await createSession()
+    await createSession()
 
-    expect(result).toBe(liveSid)
     expect(rawSessionState.activeSessionId).toBe(liveSid)
+    expect(rawSessionState.storedSessionId).toBe(liveSid)
+    expect(mockNavigate).toHaveBeenCalledWith('/' + liveSid)
   })
 
-  it('returns null on gateway error', async () => {
+  it('returns null on gateway error and sets error state', async () => {
     mockRequestGateway.mockRejectedValueOnce(new Error('gateway down'))
 
     const result = await createSession()
 
     expect(result).toBeNull()
     expect(rawSessionState.error).toBeTruthy()
+    expect(rawSessionState.storedSessionId).toBeNull()
   })
 })
 
@@ -91,11 +86,12 @@ describe('resumeSession', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     rawSessionState.activeSessionId = null
+    rawSessionState.storedSessionId = null
     rawSessionState.error = null
     rawSessionState.resumingSessionId = null
   })
 
-  it('sets activeSessionId to response.session_id (not the param)', async () => {
+  it('sets activeSessionId to response.session_id and storedSessionId to the param', async () => {
     const liveSid = 'newlive01'
     const storedKey = 'stored_key_abc'
 
@@ -114,7 +110,10 @@ describe('resumeSession', () => {
     expect(rawSessionState.activeSessionId).toBe(liveSid)
     expect(rawSessionState.activeSessionId).not.toBe(storedKey)
 
-    // The gateway call should pass the stored key (the param)
+    // The stored key is preserved for re-resume on page refresh
+    expect(rawSessionState.storedSessionId).toBe(storedKey)
+
+    // The gateway call passes the stored key (the param)
     expect(mockRequestGateway).toHaveBeenCalledWith(
       'session.resume',
       expect.objectContaining({ session_id: storedKey })
@@ -137,5 +136,6 @@ describe('resumeSession', () => {
 
     expect(result).toBeNull()
     expect(rawSessionState.error).toBeTruthy()
+    expect(rawSessionState.storedSessionId).toBeNull()
   })
 })

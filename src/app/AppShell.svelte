@@ -3,7 +3,7 @@
   import Composer from './composer/Composer.svelte'
   import Sidebar from './sidebar/Sidebar.svelte'
   import Thread from './thread/Thread.svelte'
-  import { navigate, routerState, sessionRoute } from './router.svelte'
+  import { routerState } from './router.svelte'
   import { clearLogs, gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import {
@@ -48,15 +48,13 @@
 
     if (!response) return
 
-    // session.resume returns a fresh live session ID (short sid).  Use
-    // it for message hydration and update the URL so the composer and
-    // thread pick up the correct ID for live operations.
+    // session.resume returns a fresh live session ID (short sid) for
+    // live RPCs.  The URL hash stays on the stored key so page refresh
+    // can re-resume through session.resume (which looks up the DB by
+    // stored key, not short sid).  Hydrate messages under the live sid
+    // because that is what prompt.submit / message stream events key on.
     const liveId = response.session_id
-    lastResumedSessionId = liveId
-
-    if (liveId !== sessionId) {
-      navigate(sessionRoute(liveId))
-    }
+    lastResumedSessionId = sessionId
 
     if (response.messages) {
       hydrateSessionMessagesFromGateway(liveId, response.messages)
