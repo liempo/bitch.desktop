@@ -20,9 +20,11 @@ const DEFAULT_LIMIT = 40
 
 export async function dashboardRequest<T>({ path, method = 'GET', body }: DashboardRequestOptions): Promise<T> {
   return invoke<T>('dashboard_request', {
-    body,
-    method,
-    path
+    request: {
+      body,
+      method,
+      path
+    }
   })
 }
 
