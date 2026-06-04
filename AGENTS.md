@@ -59,6 +59,44 @@ When a change touches Rust/Tauri code, use the repo-local wrapper if global Carg
 bash scripts/rust-wrapper.sh cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+When a change adds or updates dependencies (npm or Cargo), run the security checks below and fix findings before finishing the task.
+
+## Dependency security
+
+The repo must stay at **zero reported vulnerabilities** for both JavaScript and Rust dependency trees.
+
+### npm
+
+Run a clean audit after any `package.json` / lockfile change:
+
+```bash
+npm audit
+```
+
+- Do not merge or ship work that leaves `npm audit` reporting moderate, high, or critical issues.
+- Prefer upgrading or replacing affected packages over `--force` or audit suppressions.
+- If a finding is a false positive or has no fix yet, document the exception in the PR with upstream links and a removal plan; do not silently ignore audit output.
+
+### Rust
+
+Use the repo-local Cargo wrapper and `cargo-audit` (install once if missing: `cargo install cargo-audit`):
+
+```bash
+bash scripts/rust-wrapper.sh cargo audit --manifest-path src-tauri/Cargo.toml
+```
+
+- Treat `cargo audit` advisories like `npm audit` findings: resolve to zero, or document a time-bounded exception with rationale.
+- After dependency bumps in `src-tauri/Cargo.toml`, re-run `cargo check` and `cargo audit` together.
+
+## Testing
+
+Write tests when they materially improve stability — especially for gateway wiring, auth/session handling, JSON-RPC transport behavior, and Tauri bridge logic that is easy to regress.
+
+- Add or extend tests alongside behavior changes; do not land features or fixes without coverage when a reasonable automated check exists.
+- Prefer focused unit tests on pure TypeScript/Rust helpers; use integration-style checks only where they catch real cross-layer failures.
+- Keep tests runnable in CI: document the command in the PR if a new script is added (for example `npm test` or `bash scripts/rust-wrapper.sh cargo test --manifest-path src-tauri/Cargo.toml`).
+- Do not add test frameworks or debug-only harnesses unless the tests they enable are maintained and run as part of normal validation.
+
 ## Repo-local Rust setup
 
 The Tauri scripts are wrapped so Rust state stays in `.cargo/` and `.rustup/` inside the repo.
@@ -77,4 +115,5 @@ macOS still needs Xcode Command Line Tools.
 - Use Bits UI for Svelte renderer UI primitives and components whenever you add or refactor interface elements.
 - Use Tailwind utility classes and layers for renderer styling; avoid bespoke CSS rules unless you need a global base reset or a shared theme token.
 - Preserve the upstream transport file first when syncing; adapt the local wrapper afterward.
-- Avoid adding test frameworks or debug helpers without maintained tests/scripts that exercise them.
+- Keep `npm audit` and `cargo audit` at zero vulnerabilities; dependency changes are incomplete until both pass.
+- Add tests that improve stability; skip only when automation cannot meaningfully exercise the change.
