@@ -1,16 +1,17 @@
 <script lang="ts">
   import { Button } from 'bits-ui'
   import Sidebar from './sidebar/Sidebar.svelte'
+  import Thread from './thread/Thread.svelte'
   import { routerState } from './router.svelte'
   import { clearLogs, gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import {
-    createSession,
-    initializeSessions,
-    resumeSession,
-    sessionState,
-    setActiveSession
-  } from '$lib/stores/session.svelte'
+    hydrateSessionMessages,
+    hydrateSessionMessagesFromGateway,
+    startMessageStream,
+    stopMessageStream
+  } from '$lib/stores/messages.svelte'
+  import { createSession, initializeSessions, resumeSession, setActiveSession } from '$lib/stores/session.svelte'
 
   let devPanelOpen = $state(false)
   let lastResumedSessionId: string | null = null
@@ -36,6 +37,24 @@
   $effect(() => {
     if (connectionState !== 'open') return
 
+    startMessageStream()
+
+    return () => stopMessageStream()
+  })
+
+  async function resumeAndHydrate(sessionId: string): Promise<void> {
+    const response = await resumeSession(sessionId)
+
+    if (response?.messages) {
+      hydrateSessionMessagesFromGateway(sessionId, response.messages)
+    } else {
+      await hydrateSessionMessages(sessionId)
+    }
+  }
+
+  $effect(() => {
+    if (connectionState !== 'open') return
+
     if (routerState.route === 'new') {
       lastResumedSessionId = null
       setActiveSession(null)
@@ -44,7 +63,7 @@
 
     if (routerState.sessionId && routerState.sessionId !== lastResumedSessionId) {
       lastResumedSessionId = routerState.sessionId
-      void resumeSession(routerState.sessionId)
+      void resumeAndHydrate(routerState.sessionId)
     }
   })
 </script>
@@ -104,34 +123,11 @@
 
     <!-- -- Content area -- -->
     <div class="flex flex-1 flex-col overflow-hidden">
-      {#if routerState.route === 'new'}
-        <div class="flex flex-1 items-center justify-center">
-          <div class="text-center">
-            <h1 class="text-xl font-semibold text-slate-400">BITCH Desktop</h1>
-            <p class="mt-2 text-sm text-slate-600">
-              Select a session from the sidebar or
-              <button
-                class="text-sky-400 underline underline-offset-2 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-                onclick={() => void createSession()}
-                disabled={connectionState !== 'open'}
-              >create a new one</button>.
-            </p>
-          </div>
-        </div>
-      {:else if routerState.route === 'session'}
-        <div class="flex flex-1 items-center justify-center text-sm text-slate-600">
-          <div class="text-center">
-            <p>Session {routerState.sessionId}</p>
-            {#if sessionState.resumingSessionId === routerState.sessionId}
-              <p class="mt-2 text-xs text-sky-400">Resuming conversation…</p>
-            {:else if sessionState.error}
-              <p class="mt-2 max-w-md text-xs text-red-300">{sessionState.error}</p>
-            {:else}
-              <p class="mt-2 text-xs">Message thread — (Plan 04)</p>
-            {/if}
-          </div>
-        </div>
-      {/if}
+      <Thread
+        sessionId={routerState.route === 'session' ? routerState.sessionId : null}
+        canCreate={connectionState === 'open'}
+        onCreate={createSession}
+      />
     </div>
 
     <!-- -- Composer shelf -- -->
