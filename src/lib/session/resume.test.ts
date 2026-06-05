@@ -7,7 +7,7 @@ const { mockGetSessionMessages, mockNavigate, mockRequestGateway, mockSessionRou
   mockSessionRoute: vi.fn((id: string) => `/${id}`)
 }))
 
-vi.mock('$lib/dashboard-api', () => ({
+vi.mock('$lib/api/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages,
   listSessions: vi.fn(),
   searchSessions: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock('../app/router.svelte', () => ({
   routerState: {}
 }))
 
-import { resumeAndHydrateStoredSession } from '$lib/session-resume'
+import { resumeAndHydrateStoredSession } from '$lib/session/resume'
 import { messageState, threadForSession } from '$lib/stores/messages.svelte'
 import { sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'

@@ -1,3 +1,15 @@
+export interface AudioTranscriptionResponse {
+  ok: boolean
+  provider?: string
+  transcript: string
+}
+
+export interface AudioSpeakResponse {
+  data_url: string
+  mime_type: string
+  ok: boolean
+}
+
 export interface UsageStats {
   calls: number
   context_max?: number

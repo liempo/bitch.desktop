@@ -9,7 +9,7 @@
   import { routerState } from './router.svelte'
   import { clearLogs, gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
-  import { resumeAndHydrateStoredSession } from '$lib/session-resume'
+  import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
   import { createSession, initializeSessions, setActiveSession } from '$lib/stores/session.svelte'
 

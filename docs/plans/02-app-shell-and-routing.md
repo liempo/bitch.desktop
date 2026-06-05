@@ -22,7 +22,7 @@ gateway. The old connectivity log moves behind a collapsible dev panel.
 ## Behavior
 
 - **Boot:** on mount, connect the gateway (existing
-  [`HermesGateway`](../../src/lib/hermes.ts) + Tauri socket). Surface
+  [`HermesGateway`](../../src/lib/gateway/hermes.ts) + Tauri socket). Surface
   `connectionState` (`idle`/`connecting`/`open`/`closed`/`error`) as a rune.
 - **`requestGateway`:** thin wrapper around `gateway.request` with a friendly
   error message when not connected (mirrors upstream `use-gateway-request`).

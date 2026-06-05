@@ -4,7 +4,7 @@ const { mockRequestGateway } = vi.hoisted(() => ({
   mockRequestGateway: vi.fn()
 }))
 
-vi.mock('$lib/dashboard-api', () => ({
+vi.mock('$lib/api/dashboard', () => ({
   getGlobalModelInfo: vi.fn(),
   getModelOptions: vi.fn(),
   listSessions: vi.fn()

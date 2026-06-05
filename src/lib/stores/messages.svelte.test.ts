@@ -4,7 +4,7 @@ const { mockGetSessionMessages } = vi.hoisted(() => ({
   mockGetSessionMessages: vi.fn()
 }))
 
-vi.mock('$lib/dashboard-api', () => ({
+vi.mock('$lib/api/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages
 }))
 

@@ -1,4 +1,4 @@
-import { getSessionMessages } from '$lib/dashboard-api'
+import { getSessionMessages } from '$lib/api/dashboard'
 import { getGateway } from '$lib/stores/gateway.svelte'
 import {
   loadSessions,
@@ -14,8 +14,8 @@ import {
   setSecretRequest,
   setSudoRequest
 } from '$lib/stores/prompts.svelte'
-import type { GatewayEvent } from '$lib/json-rpc-gateway'
-import { compactWhitespace, coerceGatewayText, coerceThinkingText } from '$lib/chat-runtime'
+import type { GatewayEvent } from '$lib/gateway/json-rpc-gateway'
+import { compactWhitespace, coerceGatewayText, coerceThinkingText } from '$lib/messages/chat-runtime'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'

@@ -1,5 +1,5 @@
-import { getGlobalModelInfo, getModelOptions } from '$lib/dashboard-api'
-import { compactWhitespace } from '$lib/chat-runtime'
+import { getGlobalModelInfo, getModelOptions } from '$lib/api/dashboard'
+import { compactWhitespace } from '$lib/messages/chat-runtime'
 import { requestGateway } from '$lib/stores/gateway.svelte'
 import {
   appendAssistantErrorMessage,

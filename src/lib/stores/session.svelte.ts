@@ -4,7 +4,7 @@ import {
   renameSession as apiRenameSession,
   setSessionArchived as apiSetSessionArchived,
   deleteSession as apiDeleteSession
-} from '$lib/dashboard-api'
+} from '$lib/api/dashboard'
 import { gatewayState, requestGateway } from '$lib/stores/gateway.svelte'
 import {
   isPinned as isStoredPin,

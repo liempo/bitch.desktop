@@ -7,8 +7,8 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 
 ## Current app shape
 
-- The Svelte renderer creates a `HermesGateway` from `src/lib/hermes.ts`.
-- `HermesGateway` extends the upstream `JsonRpcGatewayClient` and uses `createTauriGatewaySocket` from `src/lib/tauri-gateway-socket.ts`.
+- The Svelte renderer creates a `HermesGateway` from `src/lib/gateway/hermes.ts`.
+- `HermesGateway` extends the upstream `JsonRpcGatewayClient` and uses `createTauriGatewaySocket` from `src/lib/gateway/tauri-gateway-socket.ts`.
 - The Tauri Rust bridge in `src-tauri/src/lib.rs` resolves gateway config, probes `/api/status`, mints a `/api/auth/ws-ticket` when required, attaches `X-Hermes-Session-Token` when appropriate, and proxies WebSocket frames to the renderer.
 - Do not assume the browser can set the auth headers the Hermes gateway expects; keep token-sensitive auth in the Tauri bridge.
 
@@ -25,7 +25,7 @@ Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL` or `VITE_
 
 The only file currently copied verbatim from the official Hermes repo is:
 
-- `src/lib/json-rpc-gateway.ts` ← copied from `NousResearch/hermes-agent`:
+- `src/lib/gateway/json-rpc-gateway.ts` ← copied from `NousResearch/hermes-agent`:
   `apps/shared/src/json-rpc-gateway.ts`
 
 Everything else in this repo is local glue or Tauri-specific wiring unless the file header says otherwise.

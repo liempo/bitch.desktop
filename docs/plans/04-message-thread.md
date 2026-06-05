@@ -18,7 +18,7 @@
    - `status.update`, `session.info` → update model / running / usage metadata.
    - `error` `{message}` → attach an inline error to the assistant message.
 3. Normalize stored `SessionMessage` content via `coerceGatewayText` (ported from
-   `chat-runtime.ts`).
+   `messages/chat-runtime.ts`).
 
 ## Store ([`src/lib/stores/messages.svelte.ts`](../../src/lib/stores/messages.svelte.ts))
 

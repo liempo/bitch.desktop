@@ -52,9 +52,9 @@ flowchart TB
 | 04   | [`04-message-thread.md`](04-message-thread.md)               | 01, 02, 03 |
 | 05   | [`05-rich-composer.md`](05-rich-composer.md)                 | 02, 03, 04 |
 | 06   | [`06-interactive-prompts.md`](06-interactive-prompts.md)     | 04, 05     |
-| 07   | [`07-deferred-features.md`](07-deferred-features.md)         | 06         |
+| 07   | [`roadmap.md`](roadmap.md)                                   | 06         |
 
-Recommended order: **01 → 02 → 03 → 04 → 05 → 06** (07 is documentation only).
+Recommended order: **01 → 02 → 03 → 04 → 05 → 06 → 07**.
 
 ## Feature parity matrix
 
@@ -75,7 +75,7 @@ Recommended order: **01 → 02 → 03 → 04 → 05 → 06** (07 is documentatio
 - **State:** Svelte 5 runes (`$state`, `$derived`) in `.svelte.ts` stores. No
   nanostores; the upstream nanostore atoms are hand-ported to runes.
 - **Upstream sync:** keep copying only
-  [`json-rpc-gateway.ts`](../../src/lib/json-rpc-gateway.ts) via
+  [`json-rpc-gateway.ts`](../../src/lib/gateway/json-rpc-gateway.ts) via
   `npm run sync:transport`; hand-port everything else.
 - **Auth:** never expose `BITCH_DASHBOARD_API_KEY` to Vite; all REST goes through
   the Tauri `dashboard_request` command.
@@ -124,12 +124,12 @@ Repo: [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) 
 
 ### Shared / transport
 
-| Role                       | Upstream                                                                                                          | BITCH local                                                        |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| JSON-RPC client + events   | [json-rpc-gateway.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/shared/src/json-rpc-gateway.ts) | [`src/lib/json-rpc-gateway.ts`](../../src/lib/json-rpc-gateway.ts) |
-| Gateway subclass           | [hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/hermes.ts)                    | [`src/lib/hermes.ts`](../../src/lib/hermes.ts)                     |
-| Chat message normalization | [chat-runtime.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/lib/chat-runtime.ts)    | `src/lib/chat-runtime.ts`                                          |
-| API / session types        | [types/hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/types/hermes.ts)        | `src/lib/types/hermes.ts`                                          |
+| Role                       | Upstream                                                                                                          | BITCH local                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| JSON-RPC client + events   | [json-rpc-gateway.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/shared/src/json-rpc-gateway.ts) | [`src/lib/gateway/json-rpc-gateway.ts`](../../src/lib/gateway/json-rpc-gateway.ts) |
+| Gateway subclass           | [hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/hermes.ts)                    | [`src/lib/gateway/hermes.ts`](../../src/lib/gateway/hermes.ts)                     |
+| Chat message normalization | [chat-runtime.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/lib/chat-runtime.ts)    | `src/lib/messages/chat-runtime.ts`                                                 |
+| API / session types        | [types/hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/types/hermes.ts)        | `src/lib/types/hermes.ts`                                                          |
 
 ### Electron bridge (→ Tauri in plan 01)
 

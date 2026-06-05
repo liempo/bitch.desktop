@@ -1,4 +1,4 @@
-import { getSessionMessages } from '$lib/dashboard-api'
+import { getSessionMessages } from '$lib/api/dashboard'
 import { hydrateSessionMessagesFromGateway } from '$lib/stores/messages.svelte'
 import { beginResumeSession, isCurrentResumeRequest, resumeSession, sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
