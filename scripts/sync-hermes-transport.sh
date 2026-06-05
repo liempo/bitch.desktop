@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_URL="https://raw.githubusercontent.com/NousResearch/hermes-agent/main/apps/shared/src/json-rpc-gateway.ts"
-DEST="$ROOT/src/lib/json-rpc-gateway.ts"
+DEST="$ROOT/src/lib/gateway/json-rpc-gateway.ts"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 

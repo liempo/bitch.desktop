@@ -47,6 +47,6 @@ macOS still needs Xcode Command Line Tools.
 - `npm run frontend:build` — build the Vite renderer only.
 - `npm run type-check` — run `svelte-check`.
 - `npm run lint` — lint renderer source.
-- `npm run sync:transport` — refresh `src/lib/json-rpc-gateway.ts` from upstream Hermes.
+- `npm run sync:transport` — refresh `src/lib/gateway/json-rpc-gateway.ts` from upstream Hermes.
 
 After syncing the upstream transport, inspect the diff and manually adapt the local Tauri bridge/UI if the transport API changed.

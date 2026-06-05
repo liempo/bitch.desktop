@@ -6,7 +6,7 @@ import type {
   PaginatedSessions,
   SessionMessagesResponse,
   SessionSearchResponse
-} from './types/hermes'
+} from '$lib/types/hermes'
 
 export type DashboardRequestMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
 

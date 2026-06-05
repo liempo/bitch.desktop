@@ -1,6 +1,6 @@
-import { HermesGateway } from '$lib/hermes'
-import { consumeLastTauriGatewaySocketError, listenToTauriGatewaySocketLogs } from '$lib/tauri-gateway-socket'
-import type { GatewaySocketLog } from '$lib/tauri-gateway-socket'
+import { HermesGateway } from '$lib/gateway/hermes'
+import { consumeLastTauriGatewaySocketError, listenToTauriGatewaySocketLogs } from '$lib/gateway/tauri-gateway-socket'
+import type { GatewaySocketLog } from '$lib/gateway/tauri-gateway-socket'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
