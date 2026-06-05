@@ -111,3 +111,13 @@ body {
   background: rgb(15 23 42 / 0.8);
   color: #cbd5e1;
 }
+
+/* Streaming shimmer — applied to markdown while assistant is pending */
+.bitch-markdown.streaming {
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+/* Thinking preview gradient fade */
+.mask-b-from-80\% {
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
@@ -14,9 +14,13 @@
 
   let scrollElement: HTMLElement | null = $state(null)
   let stickToBottom = $state(true)
+  let elapsed = $state(0)
+  let timerInterval: ReturnType<typeof setInterval> | null = null
 
   const thread = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(thread?.messages ?? [])
+  const busy = $derived(thread?.busy ?? false)
+
   const scrollSignature = $derived(
     messages
       .map(message =>
@@ -31,6 +35,21 @@
       )
       .join('\n')
   )
+
+  // Elapsed timer while Hermes is working
+  $effect(() => {
+    if (busy) {
+      elapsed = 0
+      timerInterval = setInterval(() => (elapsed += 1), 1000)
+    } else {
+      if (timerInterval) clearInterval(timerInterval)
+      timerInterval = null
+    }
+  })
+
+  onDestroy(() => {
+    if (timerInterval) clearInterval(timerInterval)
+  })
 
   $effect(() => {
     const signature = scrollSignature
@@ -53,13 +72,19 @@
 
   function scrollToBottom(): void {
     if (!scrollElement) return
-
     scrollElement.scrollTop = scrollElement.scrollHeight
   }
 
   function handleCreate(): void {
     if (!canCreate) return
     void onCreate()
+  }
+
+  function formatElapsed(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}m ${secs}s`
   }
 </script>
 
@@ -120,10 +145,14 @@
         <ClarifyCard {sessionId} />
       {/if}
 
-      {#if thread?.busy}
-        <div class="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-3 text-xs text-slate-500">
-          <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
-          <span>Hermes is working…</span>
+      {#if busy}
+        <div
+          class="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-3 text-xs text-slate-500"
+          aria-label="Hermes is working"
+          role="status"
+        >
+          <span class="inline-block h-3 w-3 animate-pulse rounded-[2px] bg-slate-600"></span>
+          <span class="tabular-nums">{formatElapsed(elapsed)}</span>
         </div>
       {/if}
     </div>
