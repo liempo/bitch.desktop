@@ -19,6 +19,13 @@ import {
   messageState,
   threadForSession
 } from '$lib/stores/messages.svelte'
+import {
+  promptsState,
+  setApprovalRequest,
+  setClarifyRequest,
+  setSecretRequest,
+  setSudoRequest
+} from '$lib/stores/prompts.svelte'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 
@@ -33,6 +40,12 @@ function resetState(): void {
   sessionState.needsInputSessionIds = []
   sessionState.runtimeIdsByStoredSessionId = {}
   sessionState.storedSessionIdsByRuntimeId = {}
+  promptsState.clarifyRequests = {}
+  promptsState.approvalRequest = null
+  promptsState.sudoRequest = null
+  promptsState.secretRequest = null
+  promptsState.error = null
+  promptsState.submitting = null
 }
 
 function storedMessage(text: string): SessionMessage {
@@ -112,5 +125,75 @@ describe('message session id mapping', () => {
 
     expect(threadForSession(storedKey)?.messages.map(message => message.text)).toEqual(['operator payload'])
     expect(Object.keys(messageState.sessions)).toEqual([storedKey])
+  })
+
+  it('stores interactive prompt events under the visible stored session key', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { choices: ['red', 'blue'], question: 'Pick a color', request_id: 'clarify-1' },
+      session_id: liveSid,
+      type: 'clarify.request'
+    })
+    handleGatewayEvent({
+      payload: { command: 'rm demo', description: 'dangerous command' },
+      session_id: liveSid,
+      type: 'approval.request'
+    })
+    handleGatewayEvent({
+      payload: { request_id: 'sudo-1' },
+      session_id: liveSid,
+      type: 'sudo.request'
+    })
+    handleGatewayEvent({
+      payload: { env_var: 'TOKEN', prompt: 'Enter token', request_id: 'secret-1' },
+      session_id: liveSid,
+      type: 'secret.request'
+    })
+
+    expect(promptsState.clarifyRequests[storedKey]).toMatchObject({
+      choices: ['red', 'blue'],
+      question: 'Pick a color',
+      requestId: 'clarify-1',
+      sessionId: storedKey
+    })
+    expect(promptsState.approvalRequest).toMatchObject({
+      command: 'rm demo',
+      description: 'dangerous command',
+      sessionId: storedKey
+    })
+    expect(promptsState.sudoRequest).toEqual({ requestId: 'sudo-1' })
+    expect(promptsState.secretRequest).toEqual({ envVar: 'TOKEN', prompt: 'Enter token', requestId: 'secret-1' })
+    expect(sessionState.needsInputSessionIds).toContain(storedKey)
+  })
+
+  it('clears blocking prompts when a turn completes or errors', () => {
+    setClarifyRequest({ choices: null, question: 'Q', requestId: 'clarify-1', sessionId: storedKey })
+    setApprovalRequest({ command: 'cmd', description: 'desc', sessionId: storedKey })
+    setSudoRequest({ requestId: 'sudo-1' })
+    setSecretRequest({ envVar: 'TOKEN', prompt: 'Token', requestId: 'secret-1' })
+    sessionState.needsInputSessionIds = [storedKey]
+
+    handleGatewayEvent({ payload: { text: 'done' }, session_id: storedKey, type: 'message.complete' })
+
+    expect(promptsState.clarifyRequests).toEqual({})
+    expect(promptsState.approvalRequest).toBeNull()
+    expect(promptsState.sudoRequest).toBeNull()
+    expect(promptsState.secretRequest).toBeNull()
+    expect(sessionState.needsInputSessionIds).not.toContain(storedKey)
+
+    setClarifyRequest({ choices: null, question: 'Q', requestId: 'clarify-2', sessionId: storedKey })
+    setApprovalRequest({ command: 'cmd', description: 'desc', sessionId: storedKey })
+    setSudoRequest({ requestId: 'sudo-2' })
+    setSecretRequest({ envVar: 'TOKEN', prompt: 'Token', requestId: 'secret-2' })
+    sessionState.needsInputSessionIds = [storedKey]
+
+    handleGatewayEvent({ payload: { message: 'boom' }, session_id: storedKey, type: 'error' })
+
+    expect(promptsState.clarifyRequests).toEqual({})
+    expect(promptsState.approvalRequest).toBeNull()
+    expect(promptsState.sudoRequest).toBeNull()
+    expect(promptsState.secretRequest).toBeNull()
+    expect(sessionState.needsInputSessionIds).not.toContain(storedKey)
   })
 })

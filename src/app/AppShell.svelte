@@ -1,6 +1,9 @@
 <script lang="ts">
   import { Button } from 'bits-ui'
   import Composer from './composer/Composer.svelte'
+  import ApprovalBar from './prompts/ApprovalBar.svelte'
+  import SecretModal from './prompts/SecretModal.svelte'
+  import SudoModal from './prompts/SudoModal.svelte'
   import Sidebar from './sidebar/Sidebar.svelte'
   import Thread from './thread/Thread.svelte'
   import { routerState } from './router.svelte'
@@ -16,6 +19,7 @@
   const connectionDetail = $derived(gatewayState.connectionDetail)
   const logs = $derived(gatewayState.logs)
   const sidebarOpen = $derived(layoutState.sidebarOpen)
+  const selectedSessionId = $derived(routerState.route === 'session' ? routerState.sessionId : null)
 
   const statusColor: Record<string, string> = {
     idle: 'bg-slate-500',
@@ -123,17 +127,17 @@
 
     <!-- -- Content area -- -->
     <div class="flex flex-1 flex-col overflow-hidden">
-      <Thread
-        sessionId={routerState.route === 'session' ? routerState.sessionId : null}
-        canCreate={connectionState === 'open'}
-        onCreate={createSession}
-      />
+      <Thread sessionId={selectedSessionId} canCreate={connectionState === 'open'} onCreate={createSession} />
     </div>
 
     <!-- -- Composer shelf -- -->
-    <Composer sessionId={routerState.route === 'session' ? routerState.sessionId : null} connected={connectionState === 'open'} />
+    <ApprovalBar sessionId={selectedSessionId} />
+    <Composer sessionId={selectedSessionId} connected={connectionState === 'open'} />
   </div>
 </div>
+
+<SudoModal />
+<SecretModal />
 
 <!-- ===== Collapsible dev panel (old connectivity log) ===== -->
 {#if devPanelOpen}

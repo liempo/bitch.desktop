@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte'
+  import ClarifyCard from '../prompts/ClarifyCard.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
 
@@ -114,6 +115,10 @@
       {#each messages as message (message.id)}
         <Message {message} />
       {/each}
+
+      {#if sessionId}
+        <ClarifyCard {sessionId} />
+      {/if}
 
       {#if thread?.busy}
         <div class="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-3 text-xs text-slate-500">

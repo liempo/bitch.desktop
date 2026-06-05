@@ -7,6 +7,13 @@ import {
   setSessionWorking,
   displaySessionIdFor
 } from '$lib/stores/session.svelte'
+import {
+  clearAllPrompts,
+  setApprovalRequest,
+  setClarifyRequest,
+  setSecretRequest,
+  setSudoRequest
+} from '$lib/stores/prompts.svelte'
 import type { GatewayEvent } from '$lib/json-rpc-gateway'
 import { compactWhitespace, coerceGatewayText, coerceThinkingText } from '$lib/chat-runtime'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
@@ -98,6 +105,56 @@ function messageFor(error: unknown): string {
 
 function payloadRecord(payload: unknown): GatewayPayload {
   return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as GatewayPayload) : {}
+}
+
+function stringList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+
+  const choices = value.filter((choice): choice is string => typeof choice === 'string')
+  return choices.length > 0 ? choices : null
+}
+
+function payloadString(payload: GatewayPayload, key: string): string {
+  const value = payload[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: string, payload: GatewayPayload): void {
+  if (eventType === 'clarify.request') {
+    const requestId = payloadString(payload, 'request_id')
+    const question = payloadString(payload, 'question')
+
+    if (requestId && question) {
+      setClarifyRequest({
+        choices: stringList(payload.choices),
+        question,
+        requestId,
+        sessionId
+      })
+    }
+  } else if (eventType === 'approval.request') {
+    setApprovalRequest({
+      command: payloadString(payload, 'command'),
+      description: payloadString(payload, 'description') || 'dangerous command',
+      sessionId
+    })
+  } else if (eventType === 'sudo.request') {
+    const requestId = payloadString(payload, 'request_id')
+
+    if (requestId) {
+      setSudoRequest({ requestId })
+    }
+  } else if (eventType === 'secret.request') {
+    const requestId = payloadString(payload, 'request_id')
+
+    if (requestId) {
+      setSecretRequest({
+        envVar: payloadString(payload, 'env_var'),
+        prompt: payloadString(payload, 'prompt'),
+        requestId
+      })
+    }
+  }
 }
 
 function firstText(...values: unknown[]): string {
@@ -514,14 +571,19 @@ export function handleGatewayEvent(event: GatewayEvent): void {
     setNeedsInput(sessionId, false)
   } else if (event.type === 'message.complete') {
     completeAssistantMessage(sessionId, firstText(payload.text, payload.rendered), usageFrom(payload))
+    clearAllPrompts()
+    setNeedsInput(sessionId, false)
   } else if (
     event.type === 'clarify.request' ||
     event.type === 'approval.request' ||
     event.type === 'sudo.request' ||
     event.type === 'secret.request'
   ) {
+    recordInteractivePrompt(event.type, sessionId, payload)
     setNeedsInput(sessionId, true)
   } else if (event.type === 'error') {
+    clearAllPrompts()
+    setNeedsInput(sessionId, false)
     failAssistantMessage(sessionId, firstText(payload.message, payload.error) || 'Hermes reported an error')
   }
 }
