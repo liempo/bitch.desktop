@@ -30,7 +30,7 @@
           message.reasoning,
           message.pending ? 'pending' : 'done',
           message.error ?? '',
-          message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.error ?? ''}`).join(',')
+          message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.context ?? ''}:${tool.error ?? ''}`).join(',')
         ].join('|')
       )
       .join('\n')

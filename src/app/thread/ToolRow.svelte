@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { ThreadToolRow } from '$lib/stores/messages.svelte'
+  import { onDestroy } from 'svelte'
+  import type { ThreadToolRow, ThreadToolStatus } from '$lib/stores/messages.svelte'
 
   interface Props {
     tool: ThreadToolRow
@@ -8,14 +9,99 @@
   let { tool }: Props = $props()
 
   let expanded = $state(false)
+  let elapsed = $state(0)
+  let timerInterval: ReturnType<typeof setInterval> | null = null
 
   const running = $derived(tool.status === 'running')
   const complete = $derived(tool.status === 'complete')
   const hasError = $derived(Boolean(tool.error))
   const hasDetail = $derived(Boolean(tool.input || tool.output || tool.error))
+  const contextPreview = $derived(previewText(tool.context))
+  const statusLabel = $derived(toolStatusLabel(tool.name, tool.status, hasError, Boolean(contextPreview)))
+  const fallbackSummary = $derived(!contextPreview && tool.summary && !hasDetail ? tool.summary : '')
+  const elapsedText = $derived(formatElapsed(elapsed))
+
+  $effect(() => {
+    if (!running) {
+      elapsed = 0
+      return
+    }
+
+    elapsed = 0
+    timerInterval = setInterval(() => {
+      elapsed += 1
+    }, 1000)
+
+    return () => {
+      if (timerInterval) clearInterval(timerInterval)
+      timerInterval = null
+    }
+  })
+
+  onDestroy(() => {
+    if (timerInterval) clearInterval(timerInterval)
+  })
 
   function toggle(): void {
     if (hasDetail) expanded = !expanded
+  }
+
+  function previewText(value: string | undefined): string {
+    const text = value?.replace(/\s+/g, ' ').trim() ?? ''
+
+    if (text.length <= 160) return text
+    return `${text.slice(0, 157)}…`
+  }
+
+  function formatElapsed(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}m ${secs}s`
+  }
+
+  function humanizeToolName(name: string): string {
+    const normalized = name.replace(/[_-]+/g, ' ').trim()
+    if (!normalized) return 'tool'
+
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+  }
+
+  function toolStatusLabel(
+    name: string,
+    status: ThreadToolStatus,
+    error: boolean,
+    hasContext: boolean
+  ): string {
+    if (error) return 'Tool failed'
+
+    const key = name.toLowerCase()
+
+    if (status === 'running') {
+      if (key === 'terminal') return hasContext ? 'Running' : 'Running command'
+      if (key === 'execute_code') return 'Running code'
+      if (key === 'web_search') return 'Searching web'
+      if (key === 'web_extract') return 'Reading web page'
+      if (key === 'browser_navigate') return 'Opening page'
+      if (key === 'read_file') return 'Reading file'
+      if (key === 'write_file') return 'Writing file'
+      if (key === 'patch') return 'Editing file'
+      if (key === 'delegate_task') return 'Running subagent'
+      if (key === 'image_generate') return 'Generating image'
+      return `Running ${humanizeToolName(name)}`
+    }
+
+    if (key === 'terminal') return 'Ran command'
+    if (key === 'execute_code') return 'Ran code'
+    if (key === 'web_search') return 'Searched web'
+    if (key === 'web_extract') return 'Read web page'
+    if (key === 'browser_navigate') return 'Opened page'
+    if (key === 'read_file') return 'Read file'
+    if (key === 'write_file') return 'Wrote file'
+    if (key === 'patch') return 'Edited file'
+    if (key === 'delegate_task') return 'Subagent finished'
+    if (key === 'image_generate') return 'Generated image'
+    return `${humanizeToolName(name)} complete`
   }
 </script>
 
@@ -53,26 +139,28 @@
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       {:else if complete}
-        <svg
-          class="h-3.5 w-3.5 text-emerald-400/70"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          aria-label="Complete"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
+        <span class="h-2 w-2 rounded-[2px] bg-slate-600/80" aria-label="Complete"></span>
       {/if}
     </span>
 
-    <!-- Tool name + summary -->
+    <!-- Tool title + gateway context preview -->
     <span class="min-w-0 flex-1">
-      <span class="font-medium text-slate-300">{tool.name}</span>
-      {#if tool.summary && !hasDetail}
-        <span class="ml-1.5 text-slate-500">· {tool.summary}</span>
+      <span class="flex min-w-0 items-baseline gap-1.5">
+        <span class="shrink-0 font-medium {running ? 'animate-pulse text-slate-400' : 'text-slate-300'}">
+          {statusLabel}
+        </span>
+        {#if contextPreview}
+          <span class="truncate text-slate-500">· {contextPreview}</span>
+        {/if}
+      </span>
+      {#if fallbackSummary}
+        <span class="mt-0.5 block truncate text-slate-500">{fallbackSummary}</span>
       {/if}
     </span>
+
+    {#if running}
+      <span class="shrink-0 tabular-nums text-slate-600">{elapsedText}</span>
+    {/if}
 
     <!-- Chevron for expandable -->
     {#if hasDetail}
@@ -91,7 +179,7 @@
 
   <!-- Expanded detail -->
   {#if expanded && hasDetail}
-    <div class="border-t border-slate-800/50 px-3 py-2 space-y-2">
+    <div class="space-y-2 border-t border-slate-800/50 px-3 py-2">
       {#if tool.summary}
         <p class="whitespace-pre-wrap wrap-break-word leading-5 text-slate-400">{tool.summary}</p>
       {/if}

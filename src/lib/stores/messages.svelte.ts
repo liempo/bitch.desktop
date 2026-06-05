@@ -22,6 +22,7 @@ export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'
 
 export interface ThreadToolRow {
+  context?: string
   error?: string
   id: string
   input?: string
@@ -215,6 +216,7 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
       timestamp: message.timestamp,
       tools: [
         {
+          context: firstText(message.context) || undefined,
           id: message.tool_call_id || `stored-tool-${sessionId}-${index}`,
           name,
           output: text,
@@ -337,10 +339,15 @@ function toolSummary(payload: GatewayPayload): string {
   )
 }
 
+function toolContext(payload: GatewayPayload): string {
+  return firstText(payload.context, payload.args_text, payload.command, payload.query, payload.url, payload.path)
+}
+
 function upsertToolRow(sessionId: string, payload: GatewayPayload, status: ThreadToolStatus): void {
   const message = ensureAssistantMessage(sessionId)
   const name = toolName(payload)
   const id = payloadId(payload) || newToolId(name)
+  const context = toolContext(payload)
   const summary = toolSummary(payload)
   const input = firstText(payload.args, payload.input)
   const output = firstText(payload.output, payload.result)
@@ -348,6 +355,7 @@ function upsertToolRow(sessionId: string, payload: GatewayPayload, status: Threa
   const existing = message.tools.find(tool => tool.id === id)
 
   if (existing) {
+    existing.context = context || existing.context
     existing.error = error || existing.error
     existing.input = input || existing.input
     existing.name = name || existing.name
@@ -356,6 +364,7 @@ function upsertToolRow(sessionId: string, payload: GatewayPayload, status: Threa
     existing.summary = summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running…')
   } else {
     message.tools.push({
+      context: context || undefined,
       error: error || undefined,
       id,
       input: input || undefined,
