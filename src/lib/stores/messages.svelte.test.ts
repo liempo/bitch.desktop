@@ -167,6 +167,37 @@ describe('message session id mapping', () => {
     expect(sessionState.needsInputSessionIds).toContain(storedKey)
   })
 
+  it('keeps gateway tool context on running rows and preserves it after completion', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+
+    const runningTool = threadForSession(storedKey)?.messages[0]?.tools[0]
+    expect(runningTool).toMatchObject({
+      context: 'npm run test',
+      id: 'tool-1',
+      name: 'terminal',
+      status: 'running',
+      summary: 'Running…'
+    })
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'tests passed', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+      context: 'npm run test',
+      output: 'tests passed',
+      status: 'complete'
+    })
+  })
+
   it('clears blocking prompts when a turn completes or errors', () => {
     setClarifyRequest({ choices: null, question: 'Q', requestId: 'clarify-1', sessionId: storedKey })
     setApprovalRequest({ command: 'cmd', description: 'desc', sessionId: storedKey })
