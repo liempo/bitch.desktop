@@ -73,6 +73,42 @@ export function coerceThinkingText(value: unknown): string {
   return EMPTY_THINKING_PLACEHOLDER_RE.test(raw) ? '' : raw
 }
 
+/**
+ * Extract discrete reasoning blocks from a stored payload. If the server stores
+ * reasoning as an array (e.g. codex_reasoning_items or reasoning_details),
+ * preserve each item as its own block instead of joining them into one string.
+ */
+export function coerceThinkingBlocks(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    const blocks = value
+      .map(item => {
+        if (typeof item === 'string') {
+          return coerceThinkingText(item)
+        }
+        if (item && typeof item === 'object') {
+          const row = item as Record<string, unknown>
+          if (typeof row.text === 'string') {
+            return coerceThinkingText(row.text)
+          }
+          if (typeof row.output_text === 'string') {
+            return coerceThinkingText(row.output_text)
+          }
+          if (typeof row.reasoning === 'string') {
+            return coerceThinkingText(row.reasoning)
+          }
+        }
+        return ''
+      })
+      .filter(block => block.length > 0)
+
+    return blocks
+  }
+
+  const single = coerceThinkingText(value)
+
+  return single ? [single] : []
+}
+
 export function compactWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }

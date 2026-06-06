@@ -15,7 +15,12 @@ import {
   setSudoRequest
 } from '$lib/stores/prompts.svelte'
 import type { GatewayEvent } from '$lib/gateway/json-rpc-gateway'
-import { compactWhitespace, coerceGatewayText, coerceThinkingText } from '$lib/messages/chat-runtime'
+import {
+  compactWhitespace,
+  coerceGatewayText,
+  coerceThinkingBlocks,
+  coerceThinkingText
+} from '$lib/messages/chat-runtime'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
@@ -36,7 +41,9 @@ export interface ThreadMessage {
   error?: string
   id: string
   pending?: boolean
-  reasoning?: string
+  /** Discrete reasoning/thinking blocks. Each block renders as its own
+   *  collapsible disclosure so long reasoning stays scannable. */
+  reasoning?: string[]
   role: ThreadMessageRole
   text: string
   timestamp?: number
@@ -78,6 +85,7 @@ export const messageState = $state<MessageStoreState>({
 let gatewayUnsubscribe: (() => void) | null = null
 let nextMessageId = 0
 let nextToolId = 0
+const lastReasoningAt = new Map<string, number>()
 
 function createThreadSession(): ThreadSessionState {
   return {
@@ -200,7 +208,12 @@ function newToolId(name: string): string {
 
 function normalizeStoredMessage(sessionId: string, message: SessionMessage, index: number): ThreadMessage {
   const text = firstText(message.text, message.content)
-  const reasoning = coerceThinkingText(message.reasoning ?? message.reasoning_content ?? message.reasoning_details)
+  const reasoning =
+    coerceThinkingBlocks(message.codex_reasoning_items).length > 0
+      ? coerceThinkingBlocks(message.codex_reasoning_items)
+      : coerceThinkingBlocks(message.reasoning_details).length > 0
+        ? coerceThinkingBlocks(message.reasoning_details)
+        : coerceThinkingBlocks(message.reasoning ?? message.reasoning_content)
   const role: ThreadMessageRole =
     message.role === 'assistant' || message.role === 'system' || message.role === 'tool' || message.role === 'user'
       ? message.role
@@ -264,7 +277,7 @@ function ensureAssistantMessage(sessionId: string): ThreadMessage {
   const message: ThreadMessage = {
     id: newMessageId('assistant-stream'),
     pending: true,
-    reasoning: '',
+    reasoning: [],
     role: 'assistant',
     text: '',
     tools: []
@@ -286,7 +299,7 @@ function beginAssistantMessage(sessionId: string): void {
     const message: ThreadMessage = {
       id: newMessageId('assistant-stream'),
       pending: true,
-      reasoning: '',
+      reasoning: [],
       role: 'assistant',
       text: '',
       tools: []
@@ -310,12 +323,29 @@ function appendAssistantDelta(sessionId: string, delta: string): void {
   setBusy(sessionId, true)
 }
 
+const REASONING_GAP_MS = 1500
+
 function appendReasoningDelta(sessionId: string, delta: string, replace = false): void {
   if (!delta) return
 
   const message = ensureAssistantMessage(sessionId)
   message.pending = true
-  message.reasoning = replace ? delta : `${message.reasoning ?? ''}${delta}`
+  const blocks = message.reasoning ?? []
+  const now = Date.now()
+  const lastAt = lastReasoningAt.get(sessionId) ?? 0
+  const gap = now - lastAt
+
+  if (replace) {
+    message.reasoning = [delta]
+  } else if (blocks.length === 0 || gap > REASONING_GAP_MS) {
+    blocks.push(delta)
+    message.reasoning = blocks
+  } else {
+    blocks[blocks.length - 1] = `${blocks[blocks.length - 1]}${delta}`
+    message.reasoning = blocks
+  }
+
+  lastReasoningAt.set(sessionId, now)
   setBusy(sessionId, true)
 }
 
@@ -583,7 +613,7 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   } else if (event.type === 'message.delta') {
     appendAssistantDelta(sessionId, coerceGatewayText(payload.text))
   } else if (event.type === 'thinking.delta') {
-    // Spinner status only. The thread's pending indicator already handles it.
+    appendReasoningDelta(sessionId, coerceThinkingText(payload.text))
   } else if (event.type === 'reasoning.delta') {
     appendReasoningDelta(sessionId, coerceThinkingText(payload.text))
   } else if (event.type === 'reasoning.available') {

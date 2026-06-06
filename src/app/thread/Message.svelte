@@ -19,7 +19,7 @@
 
   const hasContent = $derived(
     message.text.trim().length > 0 ||
-      (message.reasoning?.trim().length ?? 0) > 0 ||
+      (message.reasoning?.some(block => block.trim().length > 0) ?? false) ||
       message.tools.length > 0
   )
 
@@ -90,8 +90,10 @@
   >
     <div class="min-w-0 overflow-hidden text-pretty text-sm leading-6 text-ink">
       <!-- Thinking / Reasoning -->
-      {#if message.reasoning}
-        <Reasoning text={message.reasoning} pending={isRunning} />
+      {#if message.reasoning && message.reasoning.length > 0}
+        {#each message.reasoning as block, index (index)}
+          <Reasoning text={block} pending={isRunning && index === message.reasoning.length - 1} />
+        {/each}
       {/if}
 
       <!-- Tool calls -->
