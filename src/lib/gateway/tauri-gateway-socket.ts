@@ -20,11 +20,6 @@ interface WsClosePayload extends WsEventPayload {
   reason: string
 }
 
-export interface GatewaySocketLog extends WsEventPayload {
-  level: string
-  message: string
-}
-
 let lastBridgeError: string | null = null
 
 const SOCKET_EVENT_NAMES = new Set<SocketEventName>(['close', 'error', 'message', 'open'])
@@ -274,11 +269,4 @@ export function consumeLastTauriGatewaySocketError(): string | null {
   const message = lastBridgeError
   lastBridgeError = null
   return message
-}
-
-export function listenToTauriGatewaySocketLogs(handler: (log: GatewaySocketLog) => void): Promise<UnlistenFn> {
-  return listen<GatewaySocketLog>('ws-log', event => {
-    handler(event.payload)
-    browserLog(event.payload.level, event.payload.message)
-  })
 }

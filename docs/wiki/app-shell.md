@@ -17,7 +17,7 @@ src/
 ```
 
 `src/App.svelte` becomes a thin host that mounts `AppShell` and boots the
-gateway. The old connectivity log moves behind a collapsible dev panel.
+gateway.
 
 ## Behavior
 

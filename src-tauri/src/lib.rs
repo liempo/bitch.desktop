@@ -63,14 +63,6 @@ struct WsClosePayload {
     reason: String,
 }
 
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WsLogPayload {
-    connection_id: String,
-    level: String,
-    message: String,
-}
-
 static WS_STATE: Mutex<WsProxyState> = Mutex::new(WsProxyState {
     connection_id: None,
     sender: None,
@@ -223,7 +215,10 @@ fn http_client() -> Result<reqwest::Client, String> {
 }
 
 fn normalize_dashboard_method(method: Option<String>) -> Result<reqwest::Method, String> {
-    let method = method.unwrap_or_else(|| "GET".to_string()).trim().to_ascii_uppercase();
+    let method = method
+        .unwrap_or_else(|| "GET".to_string())
+        .trim()
+        .to_ascii_uppercase();
 
     match method.as_str() {
         "GET" => Ok(reqwest::Method::GET),
@@ -398,46 +393,19 @@ fn status_field<'a>(status: &'a Value, field: &str) -> &'a str {
         .unwrap_or("unknown")
 }
 
-fn emit_ws_log(
-    app: &tauri::AppHandle,
-    connection_id: &str,
-    level: &str,
-    message: impl Into<String>,
-) {
+fn log_gateway(connection_id: &str, level: &str, message: impl Into<String>) {
     let message = message.into();
     eprintln!("[bitch.desktop][gateway][{connection_id}][{level}] {message}");
-    let _ = app.emit(
-        "ws-log",
-        WsLogPayload {
-            connection_id: connection_id.to_string(),
-            level: level.to_string(),
-            message,
-        },
-    );
 }
 
-async fn resolve_ws_target(
-    app: &tauri::AppHandle,
-    connection_id: &str,
-) -> Result<WsTarget, String> {
-    emit_ws_log(
-        app,
-        connection_id,
-        "debug",
-        "resolving dashboard gateway config",
-    );
+async fn resolve_ws_target(connection_id: &str) -> Result<WsTarget, String> {
+    log_gateway(connection_id, "debug", "resolving dashboard gateway config");
     let config = resolve_gateway_config().map_err(|error| {
-        emit_ws_log(
-            app,
-            connection_id,
-            "error",
-            format!("config error: {error}"),
-        );
+        log_gateway(connection_id, "error", format!("config error: {error}"));
         error
     })?;
 
-    emit_ws_log(
-        app,
+    log_gateway(
         connection_id,
         "debug",
         format!(
@@ -447,8 +415,7 @@ async fn resolve_ws_target(
     );
 
     let client = http_client().map_err(|error| {
-        emit_ws_log(
-            app,
+        log_gateway(
             connection_id,
             "error",
             format!("HTTP client error: {error}"),
@@ -456,8 +423,7 @@ async fn resolve_ws_target(
         error
     })?;
 
-    emit_ws_log(
-        app,
+    log_gateway(
         connection_id,
         "debug",
         "GET /api/status without auth header",
@@ -465,8 +431,7 @@ async fn resolve_ws_target(
     let (status, status_code) = fetch_gateway_status(&client, &config.base_url)
         .await
         .map_err(|error| {
-            emit_ws_log(
-                app,
+            log_gateway(
                 connection_id,
                 "error",
                 format!("status probe failed: {error}"),
@@ -475,8 +440,7 @@ async fn resolve_ws_target(
         })?;
     let auth_required = status_requires_ws_ticket(&status);
 
-    emit_ws_log(
-        app,
+    log_gateway(
         connection_id,
         "debug",
         format!(
@@ -489,8 +453,7 @@ async fn resolve_ws_target(
     );
 
     if auth_required {
-        emit_ws_log(
-            app,
+        log_gateway(
             connection_id,
             "debug",
             "dashboard requires WS ticket auth; POST /api/auth/ws-ticket with session token header",
@@ -499,12 +462,11 @@ async fn resolve_ws_target(
             let message = format!(
                 "Gateway requires a dashboard WebSocket ticket, but ticket minting failed: {error}"
             );
-            emit_ws_log(app, connection_id, "error", &message);
+            log_gateway(connection_id, "error", &message);
             message
         })?;
         let url = build_ws_url(&config.base_url, "ticket", &ticket).map_err(|error| {
-            emit_ws_log(
-                app,
+            log_gateway(
                 connection_id,
                 "error",
                 format!("WS URL build failed: {error}"),
@@ -512,8 +474,7 @@ async fn resolve_ws_target(
             error
         })?;
 
-        emit_ws_log(
-            app,
+        log_gateway(
             connection_id,
             "debug",
             format!("WS ticket minted; target={}", redacted_ws_url(&url)),
@@ -526,8 +487,7 @@ async fn resolve_ws_target(
     }
 
     let url = build_ws_url(&config.base_url, "token", &config.token).map_err(|error| {
-        emit_ws_log(
-            app,
+        log_gateway(
             connection_id,
             "error",
             format!("WS URL build failed: {error}"),
@@ -535,8 +495,7 @@ async fn resolve_ws_target(
         error
     })?;
 
-    emit_ws_log(
-        app,
+    log_gateway(
         connection_id,
         "debug",
         format!(
@@ -584,16 +543,15 @@ async fn dashboard_request(
 
 #[tauri::command]
 async fn connect_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), String> {
-    emit_ws_log(&app, &connection_id, "debug", "connect_ws command received");
-    let target = resolve_ws_target(&app, &connection_id).await?;
+    log_gateway(&connection_id, "debug", "connect_ws command received");
+    let target = resolve_ws_target(&connection_id).await?;
 
     {
         let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
         state.sender = None;
         state.connection_id = Some(connection_id.clone());
     }
-    emit_ws_log(
-        &app,
+    log_gateway(
         &connection_id,
         "debug",
         "proxy state prepared; previous connection replaced if present",
@@ -606,8 +564,7 @@ async fn connect_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), 
         state.sender = Some(tx);
     }
 
-    emit_ws_log(
-        &app,
+    log_gateway(
         &connection_id,
         "debug",
         "spawning native WebSocket proxy task",
@@ -632,8 +589,7 @@ async fn connect_and_listen(
     app: tauri::AppHandle,
     connection_id: String,
 ) -> Result<(), String> {
-    emit_ws_log(
-        &app,
+    log_gateway(
         &connection_id,
         "debug",
         format!(
@@ -643,42 +599,40 @@ async fn connect_and_listen(
     );
     let mut request = target.url.as_str().into_client_request().map_err(|e| {
         let message = format!("Failed to build WebSocket request: {e}");
-        emit_ws_log(&app, &connection_id, "error", &message);
+        log_gateway(&connection_id, "error", &message);
         message
     })?;
 
     if let Some(token) = target.auth_header.as_deref() {
-        emit_ws_log(
-            &app,
+        log_gateway(
             &connection_id,
             "debug",
             format!("attaching {AUTH_HEADER} header to WebSocket upgrade"),
         );
         let token_header = HeaderValue::from_str(token).map_err(|e| {
             let message = format!("Failed to build {AUTH_HEADER} header: {e}");
-            emit_ws_log(&app, &connection_id, "error", &message);
+            log_gateway(&connection_id, "error", &message);
             message
         })?;
         request.headers_mut().insert(AUTH_HEADER, token_header);
     } else {
-        emit_ws_log(
-            &app,
+        log_gateway(
             &connection_id,
             "debug",
             "no WebSocket auth header attached; using query ticket",
         );
     }
 
-    emit_ws_log(&app, &connection_id, "debug", "opening native WebSocket");
+    log_gateway(&connection_id, "debug", "opening native WebSocket");
     let (ws_stream, _) = tokio_tungstenite::connect_async(request)
         .await
         .map_err(|e| {
             let message = format!("WebSocket connection failed: {e}");
-            emit_ws_log(&app, &connection_id, "error", &message);
+            log_gateway(&connection_id, "error", &message);
             message
         })?;
 
-    emit_ws_log(&app, &connection_id, "info", "WebSocket upgrade succeeded");
+    log_gateway(&connection_id, "info", "WebSocket upgrade succeeded");
 
     let _ = app.emit(
         "ws-open",
@@ -695,8 +649,7 @@ async fn connect_and_listen(
         while let Some(msg) = read.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
-                    emit_ws_log(
-                        &read_app,
+                    log_gateway(
                         &read_connection_id,
                         "trace",
                         format!("received text frame: {} bytes", text.len()),
@@ -710,8 +663,7 @@ async fn connect_and_listen(
                     );
                 }
                 Ok(Message::Binary(data)) => {
-                    emit_ws_log(
-                        &read_app,
+                    log_gateway(
                         &read_connection_id,
                         "trace",
                         format!("received binary frame: {} bytes", data.len()),
@@ -729,8 +681,7 @@ async fn connect_and_listen(
                         .map(|frame| frame.reason.to_string())
                         .filter(|reason| !reason.is_empty())
                         .unwrap_or_else(|| "server closed".to_string());
-                    emit_ws_log(
-                        &read_app,
+                    log_gateway(
                         &read_connection_id,
                         "warn",
                         format!("server closed WebSocket: {reason}"),
@@ -745,8 +696,7 @@ async fn connect_and_listen(
                     break;
                 }
                 Err(e) => {
-                    emit_ws_log(
-                        &read_app,
+                    log_gateway(
                         &read_connection_id,
                         "error",
                         format!("WebSocket read error: {e}"),
@@ -772,15 +722,13 @@ async fn connect_and_listen(
                     break;
                 };
 
-                emit_ws_log(
-                    &app,
-                    &connection_id,
+                log_gateway(&connection_id,
                     "trace",
                     format!("sending text frame: {} bytes", msg.len()),
                 );
 
                 if let Err(e) = write.send(Message::Text(msg.into())).await {
-                    emit_ws_log(&app, &connection_id, "error", format!("WebSocket send error: {e}"));
+                    log_gateway(&connection_id, "error", format!("WebSocket send error: {e}"));
                     let _ = app.emit(
                         "ws-error",
                         WsErrorPayload {
@@ -807,12 +755,7 @@ async fn connect_and_listen(
     }
 
     read_handle.abort();
-    emit_ws_log(
-        &app,
-        &connection_id,
-        "debug",
-        "native WebSocket proxy task ended",
-    );
+    log_gateway(&connection_id, "debug", "native WebSocket proxy task ended");
     let _ = app.emit(
         "ws-close",
         WsClosePayload {
@@ -824,16 +767,11 @@ async fn connect_and_listen(
 }
 
 #[tauri::command]
-async fn send_ws_message(
-    app: tauri::AppHandle,
-    connection_id: String,
-    message: String,
-) -> Result<(), String> {
+async fn send_ws_message(connection_id: String, message: String) -> Result<(), String> {
     let state = WS_STATE.lock().map_err(|e| e.to_string())?;
 
     if state.connection_id.as_deref() != Some(connection_id.as_str()) {
-        emit_ws_log(
-            &app,
+        log_gateway(
             &connection_id,
             "warn",
             "refusing outbound frame for stale WebSocket connection",
@@ -841,8 +779,7 @@ async fn send_ws_message(
         return Err("WebSocket connection is not current".to_string());
     }
 
-    emit_ws_log(
-        &app,
+    log_gateway(
         &connection_id,
         "trace",
         format!("renderer queued outbound frame: {} bytes", message.len()),
@@ -853,8 +790,7 @@ async fn send_ws_message(
             .send(message)
             .map_err(|e| format!("Send failed: {e}"))
     } else {
-        emit_ws_log(
-            &app,
+        log_gateway(
             &connection_id,
             "error",
             "renderer attempted send but WebSocket proxy is not connected",
@@ -864,17 +800,16 @@ async fn send_ws_message(
 }
 
 #[tauri::command]
-async fn close_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), String> {
-    emit_ws_log(&app, &connection_id, "debug", "close_ws command received");
+async fn close_ws(connection_id: String) -> Result<(), String> {
+    log_gateway(&connection_id, "debug", "close_ws command received");
     let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
 
     if state.connection_id.as_deref() == Some(connection_id.as_str()) {
         state.sender = None;
         state.connection_id = None;
-        emit_ws_log(&app, &connection_id, "debug", "proxy state cleared");
+        log_gateway(&connection_id, "debug", "proxy state cleared");
     } else {
-        emit_ws_log(
-            &app,
+        log_gateway(
             &connection_id,
             "debug",
             "close_ws ignored because connection is no longer current",

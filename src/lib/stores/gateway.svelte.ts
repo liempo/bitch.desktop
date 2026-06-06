@@ -1,38 +1,26 @@
 import { HermesGateway } from '$lib/gateway/hermes'
-import { consumeLastTauriGatewaySocketError, listenToTauriGatewaySocketLogs } from '$lib/gateway/tauri-gateway-socket'
-import type { GatewaySocketLog } from '$lib/gateway/tauri-gateway-socket'
+import { consumeLastTauriGatewaySocketError } from '$lib/gateway/tauri-gateway-socket'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
-
-export interface UiGatewayLog extends GatewaySocketLog {
-  at: string
-}
 
 /* ------------------------------------------------------------------ */
 /*  Reactive state                                                     */
 /* ------------------------------------------------------------------ */
 
 let _gateway: HermesGateway | null = null
-let _unlistenLogs: (() => void) | null = null
 let _unsubState: (() => void) | null = null
 
 export const gatewayState = $state<{
   connectionState: ConnectionState
   connectionDetail: string
-  logs: UiGatewayLog[]
 }>({
   connectionState: 'idle',
-  connectionDetail: '',
-  logs: []
+  connectionDetail: ''
 })
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
 /* ------------------------------------------------------------------ */
-
-function appendLog(log: GatewaySocketLog): void {
-  gatewayState.logs.push({ ...log, at: new Date().toLocaleTimeString() })
-}
 
 function detailedError(error: unknown): string {
   const base = error instanceof Error ? error.message : String(error)
@@ -57,7 +45,7 @@ export function getGateway(): HermesGateway {
   return _gateway
 }
 
-/** Connect the gateway and start listening for state/log events. */
+/** Connect the gateway and start listening for state events. */
 export async function connectGateway(): Promise<void> {
   const gateway = getGateway()
   const baseUrl = import.meta.env.VITE_BITCH_GATEWAY_URL ?? 'http://127.0.0.1:9119'
@@ -65,38 +53,17 @@ export async function connectGateway(): Promise<void> {
   gatewayState.connectionState = 'connecting'
   gatewayState.connectionDetail = `Connecting to Hermes dashboard at ${baseUrl}`
 
-  /* Subscribe to state transitions */
   _unsubState = gateway.onState(state => {
     gatewayState.connectionState = state as ConnectionState
   })
 
-  /* Subscribe to Tauri bridge logs */
-  try {
-    _unlistenLogs = await listenToTauriGatewaySocketLogs(log => {
-      appendLog(log)
-    })
-  } catch {
-    /* log listener is optional */
-  }
-
-  /* Connect */
   try {
     await gateway.connect(baseUrl)
     gatewayState.connectionState = 'open'
     gatewayState.connectionDetail = 'Dashboard gateway transport ready'
-    appendLog({
-      connectionId: 'renderer',
-      level: 'info',
-      message: gatewayState.connectionDetail
-    })
   } catch (error) {
     gatewayState.connectionState = 'error'
     gatewayState.connectionDetail = detailedError(error)
-    appendLog({
-      connectionId: 'renderer',
-      level: 'error',
-      message: gatewayState.connectionDetail
-    })
   }
 }
 
@@ -104,17 +71,10 @@ export async function connectGateway(): Promise<void> {
 export function disconnectGateway(): void {
   _unsubState?.()
   _unsubState = null
-  _unlistenLogs?.()
-  _unlistenLogs = null
   _gateway?.close()
   _gateway = null
   gatewayState.connectionState = 'closed'
   gatewayState.connectionDetail = ''
-}
-
-/** Clear the in-memory log buffer. */
-export function clearLogs(): void {
-  gatewayState.logs.length = 0
 }
 
 /**
