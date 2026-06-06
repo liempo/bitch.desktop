@@ -14,17 +14,8 @@
 
   let lastResumedSessionId: string | null = null
   const connectionState = $derived(gatewayState.connectionState)
-  const connectionDetail = $derived(gatewayState.connectionDetail)
   const sidebarOpen = $derived(layoutState.sidebarOpen)
   const selectedSessionId = $derived(routerState.route === 'session' ? routerState.sessionId : null)
-
-  const statusColor: Record<string, string> = {
-    idle: 'bg-slate-500',
-    connecting: 'bg-amber-500',
-    open: 'bg-emerald-500',
-    closed: 'bg-slate-500',
-    error: 'bg-red-500'
-  }
 
   $effect(() => {
     if (connectionState === 'open') {
@@ -78,40 +69,24 @@
   <!-- ===== Main column ===== -->
   <div class="flex flex-1 flex-col">
     <!-- -- Top bar -- -->
-    <header class="flex h-11 items-center justify-between border-b border-slate-800 px-4">
-      <div class="flex items-center gap-3">
-        <!-- Connection indicator -->
-        <span
-          class="inline-block h-2 w-2 rounded-full {statusColor[connectionState] ?? 'bg-slate-500'}"
-        ></span>
-        <span class="text-xs font-medium uppercase tracking-[0.15em] text-slate-500">
-          {connectionState}
-        </span>
-        {#if connectionState === 'error' || connectionState === 'connecting'}
-          <span class="max-w-80 truncate text-xs text-slate-500">{connectionDetail}</span>
-        {/if}
-      </div>
-
-      <div class="flex items-center gap-2">
-        <!-- Sidebar toggle -->
-        <button
-          class="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-          onclick={toggleSidebar}
-          aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-        >
-          <svg
-            class="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-          ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d={sidebarOpen ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
-            /></svg>
-        </button>
-      </div>
+    <header class="flex h-11 items-center justify-end border-b border-slate-800 px-4">
+      <button
+        class="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+        onclick={toggleSidebar}
+        aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+      >
+        <svg
+          class="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d={sidebarOpen ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
+          /></svg>
+      </button>
     </header>
 
     <!-- -- Content area -- -->
