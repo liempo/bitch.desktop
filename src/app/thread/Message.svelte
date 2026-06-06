@@ -19,9 +19,7 @@
 
   const hasContent = $derived(
     message.text.trim().length > 0 ||
-      (message.parts?.some(
-        p => (p.type === 'reasoning' && p.text.trim().length > 0) || p.type === 'tool'
-      ) ?? false) ||
+      (message.reasoning?.some(block => block.trim().length > 0) ?? false) ||
       message.tools.length > 0
   )
 
@@ -84,32 +82,33 @@
     </div>
   </div>
 {:else if assistant}
-  <!-- Assistant message — rendered in chronological arrival order -->
+  <!-- Assistant message — content-first, action bar on hover -->
   <div
     class="group/msg relative mx-auto w-full max-w-3xl px-4 py-2"
     data-role="assistant"
     data-streaming={isRunning ? 'true' : undefined}
   >
     <div class="min-w-0 overflow-hidden text-pretty text-sm leading-6 text-ink">
-      {#if message.parts && message.parts.length > 0}
-        {#each message.parts as part, index (index)}
-          {#if part.type === 'reasoning'}
-            <Reasoning
-              text={part.text}
-              pending={isRunning && index === message.parts.length - 1}
-            />
-          {:else if part.type === 'tool'}
-            {@const toolRow = message.tools.find(t => t.id === part.toolId)}
-            {#if toolRow}
-              <div class="mt-1.5">
-                <Tool tool={toolRow} />
-              </div>
-            {/if}
-          {:else if part.type === 'text'}
-            <Markdown text={part.text} streaming={isRunning} />
-          {/if}
+      <!-- Thinking / Reasoning -->
+      {#if message.reasoning && message.reasoning.length > 0}
+        {#each message.reasoning as block, index (index)}
+          <Reasoning text={block} pending={isRunning && index === message.reasoning.length - 1} />
         {/each}
-      {:else if isRunning && !message.error}
+      {/if}
+
+      <!-- Tool calls -->
+      {#if message.tools.length > 0}
+        <div class="mt-1.5">
+          {#each message.tools as toolRow (toolRow.id)}
+            <Tool tool={toolRow} />
+          {/each}
+        </div>
+      {/if}
+
+      <!-- Content -->
+      {#if message.text}
+        <Markdown text={message.text} streaming={isRunning} />
+      {:else if isRunning && !message.error && message.tools.length === 0}
         <div class="flex items-center gap-2 text-sm text-ink-muted">
           <span class="h-2 w-2 animate-pulse rounded-full bg-success"></span>
           <span>Thinking…</span>
