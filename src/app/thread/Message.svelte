@@ -20,7 +20,17 @@
   const hasContent = $derived(
     message.text.trim().length > 0 ||
       (message.reasoning?.some(block => block.trim().length > 0) ?? false) ||
-      message.tools.length > 0
+      message.tools.length > 0 ||
+      (message.parts?.length ?? 0) > 0
+  )
+
+  const parts = $derived(message.parts ?? [])
+  const usesParts = $derived(parts.length > 0)
+  const toolStatusSignature = $derived(
+    parts
+      .filter((part): part is Extract<typeof part, { type: 'tool' }> => part.type === 'tool')
+      .map(part => `${part.tool.id}:${part.tool.status}:${part.tool.output ?? ''}`)
+      .join('|')
   )
 
   const isRunning = $derived(message.pending === true)
@@ -89,26 +99,47 @@
     data-streaming={isRunning ? 'true' : undefined}
   >
     <div class="min-w-0 overflow-hidden text-pretty text-sm leading-6 text-ink">
-      <!-- Thinking / Reasoning -->
-      {#if message.reasoning && message.reasoning.length > 0}
-        {#each message.reasoning as block, index (index)}
-          <Reasoning text={block} pending={isRunning && index === message.reasoning.length - 1} />
+      {#if usesParts}
+        {#key toolStatusSignature}
+          {#each parts as part, index (part.type === 'tool' ? `${part.tool.id}:${part.tool.status}` : index)}
+          {#if part.type === 'reasoning'}
+            <Reasoning text={part.text} pending={isRunning && index === parts.length - 1} />
+          {:else if part.type === 'tool'}
+            <div class="mt-1.5">
+              <Tool tool={part.tool} />
+            </div>
+          {:else if part.type === 'text'}
+            <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} />
+          {/if}
         {/each}
-      {/if}
-
-      <!-- Tool calls -->
-      {#if message.tools.length > 0}
-        <div class="mt-1.5">
-          {#each message.tools as toolRow (toolRow.id)}
-            <Tool tool={toolRow} />
+        {/key}
+      {:else}
+        <!-- Legacy fallback when parts is absent -->
+        {#if message.reasoning && message.reasoning.length > 0}
+          {#each message.reasoning as block, index (index)}
+            <Reasoning text={block} pending={isRunning && index === message.reasoning.length - 1} />
           {/each}
-        </div>
+        {/if}
+
+        {#if message.tools.length > 0}
+          <div class="mt-1.5">
+            {#each message.tools as toolRow (toolRow.id)}
+              <Tool tool={toolRow} />
+            {/each}
+          </div>
+        {/if}
+
+        {#if message.text}
+          <Markdown text={message.text} streaming={isRunning} />
+        {/if}
       {/if}
 
-      <!-- Content -->
-      {#if message.text}
-        <Markdown text={message.text} streaming={isRunning} />
-      {:else if isRunning && !message.error && message.tools.length === 0}
+      {#if !usesParts && isRunning && !message.error && message.tools.length === 0 && !message.text && !(message.reasoning && message.reasoning.length > 0)}
+        <div class="flex items-center gap-2 text-sm text-ink-muted">
+          <span class="h-2 w-2 animate-pulse rounded-full bg-success"></span>
+          <span>Thinking…</span>
+        </div>
+      {:else if usesParts && isRunning && !message.error && parts.length === 0}
         <div class="flex items-center gap-2 text-sm text-ink-muted">
           <span class="h-2 w-2 animate-pulse rounded-full bg-success"></span>
           <span>Thinking…</span>

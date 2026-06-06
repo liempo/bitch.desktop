@@ -37,9 +37,17 @@ export interface ThreadTool {
   summary: string
 }
 
+export type ThreadMessagePart =
+  | { type: 'reasoning'; text: string }
+  | { type: 'text'; text: string }
+  | { type: 'tool'; tool: ThreadTool }
+
 export interface ThreadMessage {
   error?: string
   id: string
+  /** Chronological render order for assistant content. When present, the UI
+   *  renders from this array instead of the legacy reasoning/tools/text buckets. */
+  parts?: ThreadMessagePart[]
   pending?: boolean
   /** Discrete reasoning/thinking blocks. Each block renders as its own
    *  collapsible disclosure so long reasoning stays scannable. */
@@ -206,6 +214,41 @@ function newToolId(name: string): string {
   return `${name || 'tool'}-${Date.now()}-${nextToolId}`
 }
 
+function ensureParts(message: ThreadMessage): ThreadMessagePart[] {
+  message.parts ??= []
+  return message.parts
+}
+
+function buildAssistantPartsFromBuckets(reasoning: string[], text: string): ThreadMessagePart[] {
+  const parts: ThreadMessagePart[] = []
+
+  for (const block of reasoning) {
+    if (block.trim()) {
+      parts.push({ type: 'reasoning', text: block })
+    }
+  }
+
+  if (text.trim()) {
+    parts.push({ type: 'text', text })
+  }
+
+  return parts
+}
+
+function storedToolFromMessage(sessionId: string, message: SessionMessage, index: number): ThreadTool {
+  const text = firstText(message.text, message.content)
+  const name = message.tool_name || message.name || 'tool'
+
+  return {
+    context: firstText(message.context) || undefined,
+    id: message.tool_call_id || `stored-tool-${sessionId}-${index}`,
+    name,
+    output: text,
+    status: 'complete',
+    summary: text || 'Tool completed'
+  }
+}
+
 function normalizeStoredMessage(sessionId: string, message: SessionMessage, index: number): ThreadMessage {
   const text = firstText(message.text, message.content)
   const reasoning =
@@ -220,28 +263,20 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
       : 'assistant'
 
   if (role === 'tool') {
-    const name = message.tool_name || message.name || 'tool'
+    const tool = storedToolFromMessage(sessionId, message, index)
 
     return {
       id: `stored-${sessionId}-${index}`,
       role,
       text: '',
       timestamp: message.timestamp,
-      tools: [
-        {
-          context: firstText(message.context) || undefined,
-          id: message.tool_call_id || `stored-tool-${sessionId}-${index}`,
-          name,
-          output: text,
-          status: 'complete',
-          summary: text || 'Tool completed'
-        }
-      ]
+      tools: [tool]
     }
   }
 
   return {
     id: `stored-${sessionId}-${index}`,
+    parts: buildAssistantPartsFromBuckets(reasoning, text),
     reasoning,
     role,
     text,
@@ -253,7 +288,38 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
 function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): void {
   const threadId = displaySessionId(sessionId)
   const thread = ensureThreadSession(threadId)
-  thread.messages = messages.map((message, index) => normalizeStoredMessage(threadId, message, index))
+  const result: ThreadMessage[] = []
+  let lastAssistant: ThreadMessage | null = null
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const normalized = normalizeStoredMessage(threadId, messages[index], index)
+
+    if (normalized.role === 'tool') {
+      const tool = normalized.tools[0]
+
+      if (lastAssistant && tool) {
+        lastAssistant.tools.push(tool)
+        ensureParts(lastAssistant).push({ type: 'tool', tool })
+      } else if (tool) {
+        result.push({
+          ...normalized,
+          parts: [{ type: 'tool', tool }]
+        })
+      }
+
+      continue
+    }
+
+    if (normalized.role === 'assistant') {
+      lastAssistant = normalized
+    } else {
+      lastAssistant = null
+    }
+
+    result.push(normalized)
+  }
+
+  thread.messages = result
   thread.currentAssistantId = null
   thread.error = null
   thread.hydrated = true
@@ -276,6 +342,7 @@ function ensureAssistantMessage(sessionId: string): ThreadMessage {
 
   const message: ThreadMessage = {
     id: newMessageId('assistant-stream'),
+    parts: [],
     pending: true,
     reasoning: [],
     role: 'assistant',
@@ -298,6 +365,7 @@ function beginAssistantMessage(sessionId: string): void {
   if (!existing) {
     const message: ThreadMessage = {
       id: newMessageId('assistant-stream'),
+      parts: [],
       pending: true,
       reasoning: [],
       role: 'assistant',
@@ -320,6 +388,16 @@ function appendAssistantDelta(sessionId: string, delta: string): void {
   const message = ensureAssistantMessage(sessionId)
   message.pending = true
   message.text += delta
+
+  const parts = ensureParts(message)
+  const lastPart = parts[parts.length - 1]
+
+  if (lastPart?.type === 'text') {
+    lastPart.text += delta
+  } else {
+    parts.push({ type: 'text', text: delta })
+  }
+
   setBusy(sessionId, true)
 }
 
@@ -330,6 +408,7 @@ function appendReasoningDelta(sessionId: string, delta: string, replace = false)
 
   const message = ensureAssistantMessage(sessionId)
   message.pending = true
+  const parts = ensureParts(message)
   const blocks = message.reasoning ?? []
   const now = Date.now()
   const lastAt = lastReasoningAt.get(sessionId) ?? 0
@@ -337,20 +416,163 @@ function appendReasoningDelta(sessionId: string, delta: string, replace = false)
 
   if (replace) {
     message.reasoning = [delta]
+    message.parts = [{ type: 'reasoning', text: delta }, ...parts.filter(part => part.type !== 'reasoning')]
   } else if (blocks.length === 0 || gap > REASONING_GAP_MS) {
     blocks.push(delta)
     message.reasoning = blocks
+    parts.push({ type: 'reasoning', text: delta })
   } else {
     blocks[blocks.length - 1] = `${blocks[blocks.length - 1]}${delta}`
     message.reasoning = blocks
+
+    const lastPart = parts[parts.length - 1]
+
+    if (lastPart?.type === 'reasoning') {
+      lastPart.text = `${lastPart.text}${delta}`
+    } else {
+      parts.push({ type: 'reasoning', text: delta })
+    }
   }
 
   lastReasoningAt.set(sessionId, now)
   setBusy(sessionId, true)
 }
 
-function toolName(payload: GatewayPayload): string {
-  return firstText(payload.name, payload.tool_name, payload.tool) || 'tool'
+function toolStableId(payload: GatewayPayload): string {
+  return firstText(payload.tool_id, payload.tool_call_id, payload.toolCallId, payload.id)
+}
+
+function toolMatchValues(payload: GatewayPayload): string[] {
+  const values = [
+    toolContext(payload),
+    firstText(payload.preview, payload.query),
+    firstText(payload.args, payload.input)
+  ]
+
+  return [...new Set(values.map(value => value.trim().toLowerCase()).filter(Boolean))]
+}
+
+function toolStoredMatchValues(tool: ThreadTool): string[] {
+  const values = [tool.context ?? '', tool.input ?? '']
+
+  return [...new Set(values.map(value => value.trim().toLowerCase()).filter(Boolean))]
+}
+
+function hasToolMatchOverlap(left: string[], right: string[]): boolean {
+  if (!left.length || !right.length) {
+    return false
+  }
+
+  const rightSet = new Set(right)
+
+  return left.some(value => rightSet.has(value))
+}
+
+function pickPendingTool(
+  pending: ThreadTool[],
+  status: ThreadToolStatus,
+  matchValues: string[]
+): ThreadTool | undefined {
+  if (pending.length === 0) {
+    return undefined
+  }
+
+  if (matchValues.length > 0) {
+    const contextual = pending.find(tool => hasToolMatchOverlap(matchValues, toolStoredMatchValues(tool)))
+
+    if (contextual) {
+      return contextual
+    }
+  }
+
+  if (pending.length === 1) {
+    return pending[0]
+  }
+
+  return status === 'complete' ? pending[0] : pending[pending.length - 1]
+}
+
+function commitMessage(
+  sessionId: string,
+  messageId: string,
+  transform: (message: ThreadMessage) => ThreadMessage
+): void {
+  const thread = ensureThreadSession(sessionId)
+  const index = thread.messages.findIndex(message => message.id === messageId)
+
+  if (index < 0) {
+    return
+  }
+
+  thread.messages[index] = transform(thread.messages[index])
+  thread.messages = [...thread.messages]
+}
+
+function findToolInThread(
+  sessionId: string,
+  payload: GatewayPayload,
+  status: ThreadToolStatus
+): { message: ThreadMessage; tool: ThreadTool } | undefined {
+  const stableId = toolStableId(payload)
+  const payloadName = firstText(payload.name, payload.tool_name, payload.tool)
+  const name = payloadName || 'tool'
+  const matchValues = toolMatchValues(payload)
+  const thread = ensureThreadSession(sessionId)
+  const orderedMessages: ThreadMessage[] = []
+
+  if (thread.currentAssistantId) {
+    const current = thread.messages.find(
+      message => message.id === thread.currentAssistantId && message.role === 'assistant'
+    )
+
+    if (current) {
+      orderedMessages.push(current)
+    }
+  }
+
+  for (let index = thread.messages.length - 1; index >= 0; index -= 1) {
+    const message = thread.messages[index]
+
+    if (message.role !== 'assistant') continue
+    if (orderedMessages.some(item => item.id === message.id)) continue
+
+    orderedMessages.push(message)
+  }
+
+  for (const message of orderedMessages) {
+    if (stableId) {
+      const byId = message.tools.find(item => item.id === stableId)
+
+      if (byId) {
+        return { message, tool: byId }
+      }
+    }
+
+    const pending = message.tools.filter(item => item.status === 'running')
+    const pendingSameName = payloadName ? pending.filter(item => item.name === name) : []
+    const candidates = pendingSameName.length > 0 ? pendingSameName : status === 'complete' ? pending : pendingSameName
+    const tool = pickPendingTool(candidates, status, matchValues)
+
+    if (tool) {
+      return { message, tool }
+    }
+  }
+
+  return undefined
+}
+
+function toolStatusFromEvent(eventType: GatewayEvent['type'], payload: GatewayPayload): ThreadToolStatus {
+  if (eventType === 'tool.complete') {
+    return 'complete'
+  }
+
+  const status = payloadString(payload, 'status').toLowerCase()
+
+  if (status === 'completed' || status === 'complete' || status === 'done' || status === 'success') {
+    return 'complete'
+  }
+
+  return 'running'
 }
 
 function toolSummary(payload: GatewayPayload): string {
@@ -370,26 +592,9 @@ function toolContext(payload: GatewayPayload): string {
 }
 
 function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadToolStatus): void {
-  const message = ensureAssistantMessage(sessionId)
-  const name = toolName(payload)
-  const stableId = firstText(payload.tool_id, payload.tool_call_id, payload.id)
-
-  // Try exact ID match first.
-  let existing = stableId ? message.tools.find(tool => tool.id === stableId) : undefined
-
-  // If the payload has a stable ID but no existing tool carries it, fall back
-  // to matching a running tool by name. This handles live streams that start
-  // without an id and later complete with one, preventing phantom duplicates.
-  // Matches upstream hermes/desktop behaviour in findToolPartIndex.
-  if (!existing) {
-    const pendingSameName = message.tools.filter(tool => tool.status === 'running' && tool.name === name)
-
-    if (pendingSameName.length > 0) {
-      // Complete events resolve oldest-first (parallel tools). Running events
-      // update the most-recent pending same-name tool.
-      existing = status === 'complete' ? pendingSameName[0] : pendingSameName[pendingSameName.length - 1]
-    }
-  }
+  const payloadName = firstText(payload.name, payload.tool_name, payload.tool)
+  const name = payloadName || 'tool'
+  const match = findToolInThread(sessionId, payload, status)
 
   const context = toolContext(payload)
   const summary = toolSummary(payload)
@@ -397,18 +602,31 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
   const output = firstText(payload.output, payload.result)
   const error = firstText(payload.error)
 
-  if (existing) {
-    existing.context = context || existing.context
-    existing.error = error || existing.error
-    existing.input = input || existing.input
-    existing.name = name || existing.name
-    existing.output = output || existing.output
-    existing.status = status
-    existing.summary = summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running…')
-  } else {
-    const id = stableId || newToolId(name)
+  if (match) {
+    const { message, tool: existing } = match
+    const updated: ThreadTool = {
+      ...existing,
+      context: context || existing.context,
+      error: error || existing.error,
+      input: input || existing.input,
+      name: payloadName || existing.name,
+      output: output || existing.output,
+      status,
+      summary: summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running…')
+    }
 
-    message.tools.push({
+    commitMessage(sessionId, message.id, current => ({
+      ...current,
+      pending: status === 'running' || current.pending,
+      tools: current.tools.map(tool => (tool.id === updated.id ? updated : tool)),
+      parts: current.parts?.map(part =>
+        part.type === 'tool' && part.tool.id === updated.id ? { type: 'tool', tool: updated } : part
+      )
+    }))
+  } else {
+    const message = ensureAssistantMessage(sessionId)
+    const id = toolStableId(payload) || newToolId(name)
+    const tool: ThreadTool = {
       context: context || undefined,
       error: error || undefined,
       id,
@@ -417,11 +635,19 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
       output: output || undefined,
       status,
       summary: summary || (status === 'complete' ? 'Tool completed' : 'Running…')
-    })
+    }
+
+    commitMessage(sessionId, message.id, current => ({
+      ...current,
+      pending: status === 'running' || current.pending,
+      tools: [...current.tools, tool],
+      parts: [...(current.parts ?? []), { type: 'tool', tool }]
+    }))
   }
 
-  message.pending = status === 'running' || message.pending
-  setBusy(sessionId, true)
+  if (status === 'running') {
+    setBusy(sessionId, true)
+  }
 }
 
 function completeAssistantMessage(sessionId: string, text: string, usage?: Partial<UsageStats>): void {
@@ -445,6 +671,24 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
 
       if (!previous || previous !== next) {
         message.text = finalText
+
+        const parts = ensureParts(message)
+        let lastTextPart: Extract<ThreadMessagePart, { type: 'text' }> | null = null
+
+        for (let index = parts.length - 1; index >= 0; index -= 1) {
+          const part = parts[index]
+
+          if (part.type === 'text') {
+            lastTextPart = part
+            break
+          }
+        }
+
+        if (lastTextPart) {
+          lastTextPart.text = finalText
+        } else {
+          parts.push({ type: 'text', text: finalText })
+        }
       }
     }
 
@@ -623,7 +867,7 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   } else if (event.type === 'reasoning.available') {
     appendReasoningDelta(sessionId, coerceThinkingText(payload.text), true)
   } else if (event.type === 'tool.start' || event.type === 'tool.progress' || event.type === 'tool.generating') {
-    upsertTool(sessionId, payload, 'running')
+    upsertTool(sessionId, payload, toolStatusFromEvent(event.type, payload))
     // Finalize the current reasoning block when a tool starts so reasoning
     // before and after the tool are rendered as separate blocks.
     lastReasoningAt.delete(sessionId)

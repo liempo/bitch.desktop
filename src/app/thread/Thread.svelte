@@ -30,7 +30,14 @@
           message.reasoning,
           message.pending ? 'pending' : 'done',
           message.error ?? '',
-          message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.context ?? ''}:${tool.error ?? ''}`).join(',')
+          message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.context ?? ''}:${tool.error ?? ''}`).join(','),
+          message.parts
+            ?.map(part => {
+              if (part.type === 'reasoning') return `reasoning:${part.text.length}`
+              if (part.type === 'tool') return `tool:${part.tool.id}:${part.tool.status}`
+              return `text:${part.text.length}`
+            })
+            .join(',') ?? ''
         ].join('|')
       )
       .join('\n')

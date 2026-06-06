@@ -391,6 +391,201 @@ describe('message session id mapping', () => {
     expect(reasoning?.[1]).toBe('post-text reasoning')
   })
 
+  it('builds chronological parts during live streaming', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+    handleGatewayEvent({
+      payload: { text: 'thinking first' },
+      session_id: liveSid,
+      type: 'reasoning.delta'
+    })
+    handleGatewayEvent({
+      payload: { name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { text: 'final answer' },
+      session_id: liveSid,
+      type: 'message.delta'
+    })
+
+    const parts = threadForSession(storedKey)?.messages[0]?.parts
+    expect(parts).toHaveLength(3)
+    expect(parts?.[0]).toMatchObject({ type: 'reasoning', text: 'thinking first' })
+    expect(parts?.[1]).toMatchObject({ type: 'tool', tool: { id: 'tool-1', name: 'terminal', status: 'running' } })
+    expect(parts?.[2]).toMatchObject({ type: 'text', text: 'final answer' })
+  })
+
+  it('completes a running tool after message.complete clears the current assistant pointer', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { text: 'All done.' },
+      session_id: liveSid,
+      type: 'message.complete'
+    })
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'tests passed', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages).toHaveLength(1)
+    expect(thread?.messages[0]?.tools).toHaveLength(1)
+    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+      id: 'tool-1',
+      output: 'tests passed',
+      status: 'complete'
+    })
+    expect(thread?.messages[0]?.parts?.[0]).toMatchObject({
+      type: 'tool',
+      tool: { id: 'tool-1', status: 'complete' }
+    })
+  })
+
+  it('bumps parts when an existing tool is updated in place', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+
+    const thread = threadForSession(storedKey)
+    const messagesBefore = thread?.messages
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'done', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(thread?.messages).not.toBe(messagesBefore)
+    expect(thread?.messages[0]?.tools[0]?.status).toBe('complete')
+    expect(thread?.messages[0]?.parts?.[0]).toMatchObject({
+      type: 'tool',
+      tool: { id: 'tool-1', status: 'complete', output: 'done' }
+    })
+  })
+
+  it('completes the sole running tool when completion payload omits the tool name', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { output: 'tests passed', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+      id: 'tool-1',
+      name: 'terminal',
+      output: 'tests passed',
+      status: 'complete'
+    })
+  })
+
+  it('marks tool.progress payloads with completed status as complete', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', toolCallId: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { output: 'done', status: 'completed', toolCallId: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.progress'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+      id: 'tool-1',
+      output: 'done',
+      status: 'complete'
+    })
+  })
+
+  it('merges stored tool messages into the preceding assistant with parts', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: 'Let me check that.',
+        role: 'assistant',
+        text: 'Let me check that.',
+        timestamp: 100
+      } as SessionMessage,
+      {
+        content: 'file contents here',
+        role: 'tool',
+        tool_call_id: 'call-1',
+        tool_name: 'read_file',
+        timestamp: 101
+      } as SessionMessage
+    ])
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages).toHaveLength(1)
+
+    const assistant = thread?.messages[0]
+    expect(assistant?.role).toBe('assistant')
+    expect(assistant?.tools).toHaveLength(1)
+    expect(assistant?.tools[0]).toMatchObject({
+      id: 'call-1',
+      name: 'read_file',
+      output: 'file contents here',
+      status: 'complete'
+    })
+    expect(assistant?.parts).toHaveLength(2)
+    expect(assistant?.parts?.[0]).toMatchObject({ type: 'text', text: 'Let me check that.' })
+    expect(assistant?.parts?.[1]).toMatchObject({
+      type: 'tool',
+      tool: { id: 'call-1', name: 'read_file', status: 'complete' }
+    })
+  })
+
+  it('keeps orphaned stored tool messages as standalone rows', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: 'orphan output',
+        role: 'tool',
+        tool_call_id: 'orphan-1',
+        tool_name: 'terminal',
+        timestamp: 100
+      } as SessionMessage
+    ])
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages).toHaveLength(1)
+    expect(thread?.messages[0]?.role).toBe('tool')
+    expect(thread?.messages[0]?.parts).toEqual([
+      {
+        type: 'tool',
+        tool: expect.objectContaining({ id: 'orphan-1', name: 'terminal', status: 'complete' })
+      }
+    ])
+  })
+
   it('clears blocking prompts when a turn completes or errors', () => {
     setClarifyRequest({ choices: null, question: 'Q', requestId: 'clarify-1', sessionId: storedKey })
     setApprovalRequest({ command: 'cmd', description: 'desc', sessionId: storedKey })
