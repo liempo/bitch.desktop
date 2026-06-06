@@ -89,7 +89,7 @@
 </script>
 
 <section
-  class="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.08),_transparent_36rem)]"
+  class="flex-1 overflow-y-auto"
   bind:this={scrollElement}
   onscroll={handleScroll}
   aria-label="Message thread"
@@ -97,13 +97,13 @@
   {#if !sessionId}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
       <div class="max-w-md text-center">
-        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-sky-500/70">Remote Hermes client</p>
-        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-200">BITCH Desktop</h1>
-        <p class="mt-3 text-sm leading-6 text-slate-500">
+        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-primary/70">Remote Hermes client</p>
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-ink">BITCH Desktop</h1>
+        <p class="mt-3 text-sm leading-6 text-ink-muted">
           Select a session from the sidebar or start a new chat. The chrome is installed; the operator still has to feed it work.
         </p>
         <button
-          class="mt-6 rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200 transition hover:border-sky-300/60 hover:bg-sky-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+          class="mt-6 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition hover:border-primary/60 hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40"
           type="button"
           onclick={handleCreate}
           disabled={!canCreate}
@@ -114,23 +114,23 @@
     </div>
   {:else if thread?.loading && messages.length === 0}
     <div class="mx-auto w-full max-w-3xl space-y-4 px-4 py-8" aria-label="Loading transcript">
-      <div class="h-20 animate-pulse rounded-2xl bg-slate-900/70"></div>
-      <div class="h-28 animate-pulse rounded-2xl bg-slate-900/50"></div>
-      <div class="h-20 animate-pulse rounded-2xl bg-slate-900/70"></div>
+      <div class="h-20 animate-pulse rounded-2xl bg-surface-raised/70"></div>
+      <div class="h-28 animate-pulse rounded-2xl bg-surface-raised/50"></div>
+      <div class="h-20 animate-pulse rounded-2xl bg-surface-raised/70"></div>
     </div>
   {:else if thread?.error && messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <div class="max-w-lg rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-sm leading-6 text-red-200">
+      <div class="max-w-lg rounded-2xl border border-danger/30 bg-danger/10 p-5 text-sm leading-6 text-danger">
         <p class="font-semibold">Could not load the transcript.</p>
-        <p class="mt-2 text-red-200/80">{thread.error}</p>
+        <p class="mt-2 text-danger/80">{thread.error}</p>
       </div>
     </div>
   {:else if messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
       <div class="max-w-md text-center">
-        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-emerald-500/70">Session ready</p>
-        <h2 class="mt-3 text-xl font-semibold tracking-tight text-slate-200">No messages yet</h2>
-        <p class="mt-3 text-sm leading-6 text-slate-500">
+        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-success/70">Session ready</p>
+        <h2 class="mt-3 text-xl font-semibold tracking-tight text-ink">No messages yet</h2>
+        <p class="mt-3 text-sm leading-6 text-ink-muted">
           History will appear here. Type in the composer below; the gateway will receive the message once the chromed courier lane is clear.
         </p>
       </div>
@@ -147,11 +147,11 @@
 
       {#if busy}
         <div
-          class="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-3 text-xs text-slate-500"
+          class="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-3 text-xs text-ink-muted"
           aria-label="Hermes is working"
           role="status"
         >
-          <span class="inline-block h-3 w-3 animate-pulse rounded-[2px] bg-slate-600"></span>
+          <span class="inline-block h-3 w-3 animate-pulse rounded-sm bg-ink-muted"></span>
           <span class="tabular-nums">{formatElapsed(elapsed)}</span>
         </div>
       {/if}

@@ -21,7 +21,7 @@ import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'
 
-export interface ThreadToolRow {
+export interface ThreadTool {
   context?: string
   error?: string
   id: string
@@ -40,7 +40,7 @@ export interface ThreadMessage {
   role: ThreadMessageRole
   text: string
   timestamp?: number
-  tools: ThreadToolRow[]
+  tools: ThreadTool[]
   usage?: Partial<UsageStats>
 }
 
@@ -319,10 +319,6 @@ function appendReasoningDelta(sessionId: string, delta: string, replace = false)
   setBusy(sessionId, true)
 }
 
-function payloadId(payload: GatewayPayload): string {
-  return firstText(payload.tool_id, payload.tool_call_id, payload.id)
-}
-
 function toolName(payload: GatewayPayload): string {
   return firstText(payload.name, payload.tool_name, payload.tool) || 'tool'
 }
@@ -343,16 +339,33 @@ function toolContext(payload: GatewayPayload): string {
   return firstText(payload.context, payload.args_text, payload.command, payload.query, payload.url, payload.path)
 }
 
-function upsertToolRow(sessionId: string, payload: GatewayPayload, status: ThreadToolStatus): void {
+function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadToolStatus): void {
   const message = ensureAssistantMessage(sessionId)
   const name = toolName(payload)
-  const id = payloadId(payload) || newToolId(name)
+  const stableId = firstText(payload.tool_id, payload.tool_call_id, payload.id)
+
+  // Try exact ID match first.
+  let existing = stableId ? message.tools.find(tool => tool.id === stableId) : undefined
+
+  // If the payload has a stable ID but no existing tool carries it, fall back
+  // to matching a running tool by name. This handles live streams that start
+  // without an id and later complete with one, preventing phantom duplicates.
+  // Matches upstream hermes/desktop behaviour in findToolPartIndex.
+  if (!existing) {
+    const pendingSameName = message.tools.filter(tool => tool.status === 'running' && tool.name === name)
+
+    if (pendingSameName.length > 0) {
+      // Complete events resolve oldest-first (parallel tools). Running events
+      // update the most-recent pending same-name tool.
+      existing = status === 'complete' ? pendingSameName[0] : pendingSameName[pendingSameName.length - 1]
+    }
+  }
+
   const context = toolContext(payload)
   const summary = toolSummary(payload)
   const input = firstText(payload.args, payload.input)
   const output = firstText(payload.output, payload.result)
   const error = firstText(payload.error)
-  const existing = message.tools.find(tool => tool.id === id)
 
   if (existing) {
     existing.context = context || existing.context
@@ -363,6 +376,8 @@ function upsertToolRow(sessionId: string, payload: GatewayPayload, status: Threa
     existing.status = status
     existing.summary = summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running…')
   } else {
+    const id = stableId || newToolId(name)
+
     message.tools.push({
       context: context || undefined,
       error: error || undefined,
@@ -574,9 +589,9 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   } else if (event.type === 'reasoning.available') {
     appendReasoningDelta(sessionId, coerceThinkingText(payload.text), true)
   } else if (event.type === 'tool.start' || event.type === 'tool.progress' || event.type === 'tool.generating') {
-    upsertToolRow(sessionId, payload, 'running')
+    upsertTool(sessionId, payload, 'running')
   } else if (event.type === 'tool.complete') {
-    upsertToolRow(sessionId, payload, 'complete')
+    upsertTool(sessionId, payload, 'complete')
     setNeedsInput(sessionId, false)
   } else if (event.type === 'message.complete') {
     completeAssistantMessage(sessionId, firstText(payload.text, payload.rendered), usageFrom(payload))

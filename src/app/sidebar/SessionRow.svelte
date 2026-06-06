@@ -77,54 +77,58 @@
   }
 </script>
 
-<div
-  class={`group flex items-start gap-2 rounded-xl border px-2 py-2 transition ${
-    active
-      ? 'border-sky-500/50 bg-sky-500/10 shadow-sm shadow-sky-500/10'
-      : 'border-transparent hover:border-slate-800 hover:bg-slate-900/70'
-  }`}
->
-  <button
-    class="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-    type="button"
-    onclick={handleSelect}
-    {disabled}
+{#snippet row()}
+  <div
+    class={`group flex items-start rounded-xl border px-2 py-2 transition ${
+      active
+        ? 'border-primary/50 bg-primary/10 shadow-sm shadow-primary/10'
+        : 'border-transparent hover:border-line hover:bg-surface-raised/70'
+    }`}
   >
-    <div class="flex items-center gap-2">
-      {#if pinned}
-        <svg class="h-3 w-3 shrink-0 text-sky-400" fill="currentColor" viewBox="0 0 20 20" aria-label="Pinned">
-          <path d="M9.828 2.172a2 2 0 0 1 2.828 0l5.172 5.172a2 2 0 0 1-2.239 3.221l-2.175 2.176v3.088a1 1 0 0 1-1.707.707L8.5 13.328l-3.086 3.086a1 1 0 0 1-1.414-1.414l3.086-3.086-3.207-3.207a1 1 0 0 1 .707-1.707h3.088L9.85 4.825a2 2 0 0 1-.022-2.653Z" />
-        </svg>
-      {/if}
-      <p class="truncate text-sm font-medium text-slate-200">{title}</p>
-      {#if working}
-        <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400" aria-label="Working"></span>
-      {/if}
-      {#if needsInput}
-        <span class="shrink-0 rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-amber-300">
-          input
-        </span>
-      {/if}
-    </div>
+    <button
+      class="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50"
+      type="button"
+      onclick={handleSelect}
+      {disabled}
+    >
+      <div class="flex items-center gap-2">
+        {#if pinned}
+          <svg class="h-3 w-3 shrink-0 text-primary" fill="currentColor" viewBox="0 0 20 20" aria-label="Pinned">
+            <path d="M9.828 2.172a2 2 0 0 1 2.828 0l5.172 5.172a2 2 0 0 1-2.239 3.221l-2.175 2.176v3.088a1 1 0 0 1-1.707.707L8.5 13.328l-3.086 3.086a1 1 0 0 1-1.414-1.414l3.086-3.086-3.207-3.207a1 1 0 0 1 .707-1.707h3.088L9.85 4.825a2 2 0 0 1-.022-2.653Z" />
+          </svg>
+        {/if}
+        <p class="truncate text-sm font-medium text-ink">{title}</p>
+        {#if working}
+          <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-success" aria-label="Working"></span>
+        {/if}
+        {#if needsInput}
+          <span class="shrink-0 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-warning">
+            input
+          </span>
+        {/if}
+      </div>
 
-    <p class="mt-1 line-clamp-2 text-xs leading-4 text-slate-500">{preview}</p>
+      <p class="mt-1 line-clamp-2 text-xs leading-4 text-ink-muted">{preview}</p>
 
-    {#if subtitle}
-      <p class="mt-1 truncate text-[0.65rem] uppercase tracking-[0.16em] text-slate-600">{subtitle}</p>
-    {/if}
-  </button>
+      {#if subtitle}
+        <p class="mt-1 truncate text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted/70">{subtitle}</p>
+      {/if}
+    </button>
+  </div>
+{/snippet}
 
-  {#if session}
-    <div class="shrink-0 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-      <SessionActionsMenu
-        {session}
-        {pinned}
-        {disabled}
-        onArchive={() => onArchive(session)}
-        onDelete={() => onDelete(session)}
-        onRename={(nextTitle) => onRename(session, nextTitle)}
-        onTogglePin={() => onTogglePin(session)}
-      />
-    </div>
-  {/if}
-</div>
+{#if session}
+  <SessionActionsMenu
+    {session}
+    {pinned}
+    {disabled}
+    onArchive={() => onArchive(session)}
+    onDelete={() => onDelete(session)}
+    onRename={(nextTitle) => onRename(session, nextTitle)}
+    onTogglePin={() => onTogglePin(session)}
+  >
+    {@render row()}
+  </SessionActionsMenu>
+{:else}
+  {@render row()}
+{/if}

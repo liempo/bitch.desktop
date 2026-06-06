@@ -22,7 +22,7 @@
 </script>
 
 <button
-  class="inline-flex items-center justify-center rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-300 disabled:opacity-50"
+  class="inline-flex items-center justify-center rounded-md p-1 text-ink-muted transition-colors hover:bg-surface-raised/50 hover:text-ink disabled:opacity-50"
   onclick={copy}
   disabled={!text}
   aria-label={copied ? 'Copied' : 'Copy message'}
@@ -30,7 +30,7 @@
   type="button"
 >
   {#if copied}
-    <svg class="h-3.5 w-3.5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="h-3.5 w-3.5 text-success" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   {:else}

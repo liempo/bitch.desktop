@@ -1,123 +1,515 @@
 @import 'tailwindcss';
 
-html,
-body,
-#app {
-  width: 100%;
-  height: 100%;
+/* ------------------------------------------------------------------ */
+/* BITCHes HUD theme                                                  */
+/*                                                                    */
+/* Mirrors liempo/bitches: black canvas, monospace CyberpunkSysMon    */
+/* HUD typography, cyan/pink/purple accents, thin boxy panel chrome.  */
+/* Existing Tailwind utility classes are remapped here so this stays a */
+/* theme-only pass rather than a structural UI rewrite.                */
+/* ------------------------------------------------------------------ */
+
+@theme inline {
+  --color-canvas: var(--bits-canvas);
+  --color-surface: var(--bits-surface);
+  --color-surface-raised: var(--bits-surface-raised);
+  --color-overlay: var(--bits-overlay);
+
+  --color-ink: var(--bits-ink);
+  --color-ink-muted: var(--bits-ink-muted);
+  --color-ink-bright: var(--bits-ink-bright);
+
+  --color-primary: var(--bits-primary);
+  --color-primary-ink: var(--bits-primary-ink);
+  --color-danger: var(--bits-danger);
+  --color-success: var(--bits-success);
+  --color-warning: var(--bits-warning);
+  --color-secondary: var(--bits-secondary);
+
+  --color-line: var(--bits-line);
+  --color-line-strong: var(--bits-line-strong);
+  --color-focus: var(--bits-focus);
+  --color-input: var(--bits-input);
+
+  --color-chat-scroll: var(--bits-chat-scroll);
+  --color-message-bg: var(--bits-message-bg);
+  --color-tool-bg: var(--bits-tool-bg);
+  --color-composer-bg: var(--bits-composer-bg);
+  --color-reasoning-header-bg: var(--bits-reasoning-header-bg);
+
+  --font-sans: var(--bits-font-mono);
+  --font-mono: var(--bits-font-mono);
+  --font-hud: var(--bits-font-hud);
+
+  --radius-panel: var(--bits-radius-panel);
+  --radius-control: var(--bits-radius-control);
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: var(--bits-radius-control);
+  --radius-lg: var(--bits-radius-control);
+  --radius-xl: var(--bits-radius-panel);
+  --radius-2xl: var(--bits-radius-panel);
+  --radius-3xl: var(--bits-radius-panel);
+
+  --shadow-glow-strong: var(--bits-shadow-glow-strong);
+
+  /* Palette remap for existing utilities. */
+  --color-slate-50: var(--bits-ink-bright);
+  --color-slate-100: var(--bits-ink-bright);
+  --color-slate-200: var(--bits-ink);
+  --color-slate-300: color-mix(in oklab, var(--bits-ink) 88%, var(--bits-ink-muted));
+  --color-slate-400: color-mix(in oklab, var(--bits-ink) 64%, var(--bits-ink-muted));
+  --color-slate-500: var(--bits-ink-muted);
+  --color-slate-600: color-mix(in oklab, var(--bits-ink-muted) 70%, var(--bits-canvas));
+  --color-slate-700: var(--bits-line-strong);
+  --color-slate-800: var(--bits-line);
+  --color-slate-900: var(--bits-surface-raised);
+  --color-slate-950: var(--bits-canvas);
+
+  --color-sky-50: color-mix(in oklab, white 94%, var(--bits-primary));
+  --color-sky-100: color-mix(in oklab, white 82%, var(--bits-primary));
+  --color-sky-200: color-mix(in oklab, white 62%, var(--bits-primary));
+  --color-sky-300: color-mix(in oklab, white 38%, var(--bits-primary));
+  --color-sky-400: var(--bits-primary);
+  --color-sky-500: var(--bits-primary);
+  --color-sky-600: color-mix(in oklab, var(--bits-primary) 82%, var(--bits-canvas));
+
+  --color-emerald-50: color-mix(in oklab, white 92%, var(--bits-success));
+  --color-emerald-100: color-mix(in oklab, white 74%, var(--bits-success));
+  --color-emerald-200: color-mix(in oklab, white 56%, var(--bits-success));
+  --color-emerald-300: color-mix(in oklab, white 34%, var(--bits-success));
+  --color-emerald-400: var(--bits-success);
+  --color-emerald-500: var(--bits-success);
+
+  --color-amber-50: color-mix(in oklab, white 90%, var(--bits-warning));
+  --color-amber-100: color-mix(in oklab, white 74%, var(--bits-warning));
+  --color-amber-200: color-mix(in oklab, white 56%, var(--bits-warning));
+  --color-amber-300: color-mix(in oklab, white 32%, var(--bits-warning));
+  --color-amber-400: var(--bits-warning);
+  --color-amber-500: var(--bits-warning);
+
+  --color-red-50: color-mix(in oklab, white 90%, var(--bits-danger));
+  --color-red-100: color-mix(in oklab, white 74%, var(--bits-danger));
+  --color-red-200: color-mix(in oklab, white 56%, var(--bits-danger));
+  --color-red-300: color-mix(in oklab, white 32%, var(--bits-danger));
+  --color-red-400: var(--bits-danger);
+  --color-red-500: var(--bits-danger);
+  --color-rose-300: color-mix(in oklab, white 32%, var(--bits-danger));
+  --color-rose-400: var(--bits-danger);
+  --color-rose-500: var(--bits-danger);
+
+  --color-purple-50: color-mix(in oklab, white 90%, var(--bits-secondary));
+  --color-purple-100: color-mix(in oklab, white 74%, var(--bits-secondary));
+  --color-purple-200: color-mix(in oklab, white 56%, var(--bits-secondary));
+  --color-purple-300: color-mix(in oklab, white 32%, var(--bits-secondary));
+  --color-purple-400: var(--bits-secondary);
+  --color-purple-500: var(--bits-secondary);
 }
 
-body {
-  background: #020617;
-  color: #f8fafc;
+:root,
+[data-theme='default'] {
+  --bits-canvas: #000000;
+  --bits-surface: #000000;
+  --bits-surface-raised: #050505;
+  --bits-overlay: rgba(0, 0, 0, 0.85);
+
+  --bits-ink: #f8f8f2;
+  --bits-ink-muted: #6272a4;
+  --bits-ink-bright: #ffffff;
+
+  --bits-primary: #8be9fd;
+  --bits-primary-ink: #000000;
+  --bits-danger: #ff5555;
+  --bits-success: #50fa7b;
+  --bits-warning: #ff79c6;
+  --bits-secondary: #bd93f9;
+
+  --bits-line: #333333;
+  --bits-line-strong: #555555;
+  --bits-focus: #8be9fd;
+  --bits-input: #050505;
+
+  --bits-font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --bits-font-hud: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', ui-monospace, monospace;
+
+  --bits-radius-panel: 6px;
+  --bits-radius-control: 4px;
+  --bits-shadow-glow-strong: 0 0 0 1px #555555;
+
+  --bits-chat-scroll: rgba(0, 0, 0, 0.2);
+  --bits-message-bg: rgba(0, 0, 0, 0.3);
+  --bits-tool-bg: rgba(0, 0, 0, 0.4);
+  --bits-composer-bg: rgba(0, 0, 0, 0.4);
+  --bits-reasoning-header-bg: color-mix(in oklab, var(--bits-warning) 8%, transparent);
+
   color-scheme: dark;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-.bitch-markdown > * + * {
-  margin-top: 0.75rem;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    width: 100%;
+    height: 100%;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+
+  label:not(.sr-only) {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--color-ink-muted);
+    font-family: var(--font-hud);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    color: var(--color-ink-bright);
+    background-color: var(--color-input);
+  }
+
+  input[type='checkbox'] {
+    accent-color: var(--color-primary);
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-primary) 30%, transparent);
+    color: var(--color-ink-bright);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-primary) 20%, transparent);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-primary) 40%, transparent);
+  }
 }
 
-.bitch-markdown h1,
-.bitch-markdown h2,
-.bitch-markdown h3,
-.bitch-markdown h4 {
-  color: #f8fafc;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
+@layer components {
+  .bitch-markdown > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .bitch-markdown :where(h1, h2, h3, h4, h5, h6) {
+    margin-block: 0.85rem 0.45rem;
+    color: var(--color-primary);
+    font-family: var(--font-hud);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+
+  .bitch-markdown
+    :where(h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, h6:first-child) {
+    margin-block-start: 0;
+  }
+
+  .bitch-markdown h1 {
+    font-size: 1.22rem;
+  }
+
+  .bitch-markdown h2 {
+    font-size: 1.12rem;
+  }
+
+  .bitch-markdown :where(h3, h4, h5, h6) {
+    font-size: 1rem;
+  }
+
+  .bitch-markdown a {
+    color: var(--color-primary);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--color-primary) 55%, transparent);
+    text-underline-offset: 0.18em;
+  }
+
+  .bitch-markdown a:hover {
+    color: var(--color-ink-bright);
+    text-decoration-color: var(--color-ink-bright);
+  }
+
+  .bitch-markdown code {
+    border: 1px solid color-mix(in oklab, var(--color-primary) 28%, transparent);
+    border-radius: var(--radius-control);
+    background: var(--color-tool-bg);
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    padding: 0.06rem 0.28rem;
+  }
+
+  .bitch-markdown pre {
+    overflow-x: auto;
+    border: 1px solid var(--color-line);
+    border-radius: 0;
+    background: var(--color-tool-bg);
+    padding: 0.75rem;
+  }
+
+  .bitch-markdown pre code {
+    display: block;
+    min-width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink-bright);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    padding: 0;
+    tab-size: 2;
+    white-space: pre;
+  }
+
+  .bitch-markdown blockquote {
+    border-left: 2px solid var(--color-line-strong);
+    color: var(--color-ink-muted);
+    padding-left: 0.8rem;
+  }
+
+  .bitch-markdown ul,
+  .bitch-markdown ol {
+    padding-left: 1.35rem;
+  }
+
+  .bitch-markdown li + li {
+    margin-top: 0.2rem;
+  }
+
+  .bitch-markdown hr {
+    margin-block: 0.9rem;
+    border: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .bitch-markdown table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+
+  .bitch-markdown th,
+  .bitch-markdown td {
+    border: 1px solid var(--color-line);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .bitch-markdown th {
+    background: color-mix(in oklab, var(--color-primary) 8%, transparent);
+    color: var(--color-primary);
+    font-family: var(--font-hud);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .bitch-markdown.streaming {
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+
+  .bitch-markdown :where(.hljs-comment, .hljs-quote) {
+    color: var(--color-ink-muted);
+  }
+
+  .bitch-markdown :where(.hljs-keyword, .hljs-selector-tag, .hljs-subst) {
+    color: var(--color-warning);
+  }
+
+  .bitch-markdown :where(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-tag .hljs-attr) {
+    color: var(--color-primary);
+  }
+
+  .bitch-markdown :where(.hljs-string, .hljs-doctag) {
+    color: var(--color-success);
+  }
+
+  .bitch-markdown :where(.hljs-title, .hljs-section, .hljs-selector-id) {
+    color: var(--color-ink-bright);
+  }
+
+  .bitch-markdown :where(.hljs-type, .hljs-class .hljs-title) {
+    color: var(--color-secondary);
+  }
+
+  .bitch-markdown :where(.hljs-attribute, .hljs-name, .hljs-selector-class) {
+    color: var(--color-warning);
+  }
+
+  .bitch-markdown :where(.hljs-regexp, .hljs-link, .hljs-deletion) {
+    color: var(--color-danger);
+  }
+
+  .bitch-markdown :where(.hljs-symbol, .hljs-bullet) {
+    color: var(--color-primary);
+  }
+
+  .bitch-markdown :where(.hljs-built_in, .hljs-builtin-name, .hljs-addition) {
+    color: var(--color-success);
+  }
+
+  .bitch-markdown :where(.hljs-meta) {
+    color: var(--color-ink-muted);
+  }
+
+  .bitch-markdown :where(.hljs-emphasis) {
+    font-style: italic;
+  }
+
+  .bitch-markdown :where(.hljs-strong) {
+    font-weight: 700;
+  }
+
+  .bitch-button {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink-muted);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    text-transform: uppercase;
+    transition:
+      color 120ms ease,
+      opacity 120ms ease;
+  }
+
+  .bitch-button:hover:not(:disabled) {
+    color: var(--color-ink-bright);
+  }
+
+  .bitch-button:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .bitch-button:disabled {
+    color: var(--color-ink-muted);
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .bitch-button-primary {
+    color: var(--color-primary);
+  }
+
+  .bitch-button-success {
+    color: var(--color-success);
+  }
+
+  .bitch-button-danger {
+    color: var(--color-danger);
+  }
+
+  .bitch-icon-button {
+    width: 1.75rem;
+    padding: 0;
+  }
+
+  .bitch-icon-button :where(svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .bitch-button-stop-glyph {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 1px;
+    background: currentColor;
+  }
+
+  .bitch-control-select {
+    width: auto;
+    max-width: 14rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink-muted);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    outline: none;
+    padding: 0.25rem 1.25rem 0.25rem 0.5rem;
+    text-transform: uppercase;
+    transition:
+      color 120ms ease,
+      opacity 120ms ease;
+  }
+
+  .bitch-control-select:hover:not(:disabled),
+  .bitch-control-select:focus {
+    color: var(--color-ink-bright);
+  }
+
+  .bitch-control-select:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .bitch-control-select:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
 }
 
-.bitch-markdown h1 {
-  font-size: 1.1rem;
-}
-
-.bitch-markdown h2 {
-  font-size: 1rem;
-}
-
-.bitch-markdown h3,
-.bitch-markdown h4 {
-  font-size: 0.95rem;
-}
-
-.bitch-markdown a {
-  color: #7dd3fc;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
-}
-
-.bitch-markdown code {
-  border-radius: 0.3rem;
-  background: rgb(15 23 42 / 0.85);
-  color: #e2e8f0;
-  font-size: 0.9em;
-  padding: 0.08rem 0.25rem;
-}
-
-.bitch-markdown pre {
-  overflow-x: auto;
-  border: 1px solid rgb(30 41 59);
-  border-radius: 0.75rem;
-  background: rgb(2 6 23 / 0.92);
-  padding: 0.875rem;
-}
-
-.bitch-markdown pre code {
-  background: transparent;
-  padding: 0;
-}
-
-.bitch-markdown blockquote {
-  border-left: 2px solid rgb(51 65 85);
-  color: #cbd5e1;
-  padding-left: 0.75rem;
-}
-
-.bitch-markdown ul,
-.bitch-markdown ol {
-  padding-left: 1.25rem;
-}
-
-.bitch-markdown li + li {
-  margin-top: 0.25rem;
-}
-
-.bitch-markdown table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85em;
-}
-
-.bitch-markdown th,
-.bitch-markdown td {
-  border: 1px solid rgb(30 41 59);
-  padding: 0.35rem 0.5rem;
-  text-align: left;
-  vertical-align: top;
-}
-
-.bitch-markdown th {
-  background: rgb(15 23 42 / 0.8);
-  color: #cbd5e1;
-}
-
-/* Streaming shimmer — applied to markdown while assistant is pending */
-.bitch-markdown.streaming {
-  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-}
-
-/* Thinking preview gradient fade */
 .mask-b-from-80\% {
   mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }

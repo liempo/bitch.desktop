@@ -45,16 +45,16 @@
 </script>
 
 {#if text.trim() || pending}
-  <div class="text-xs text-slate-500" data-slot="thinking-disclosure">
+  <div class="text-xs text-ink-muted" data-slot="thinking-disclosure">
     <!-- Disclosure header -->
     <button
-      class="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-slate-800/50"
+      class="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-surface-raised/50"
       onclick={toggle}
       type="button"
       aria-expanded={open}
     >
       <svg
-        class="h-3 w-3 shrink-0 text-slate-600 transition-transform {open ? 'rotate-90' : ''}"
+        class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {open ? 'rotate-90' : ''}"
         fill="none"
         stroke="currentColor"
         stroke-width="2"
@@ -64,14 +64,14 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
       </svg>
       <span
-        class="font-medium uppercase tracking-[0.14em] text-slate-400 {pending
+        class="font-medium uppercase tracking-[0.14em] text-ink-muted {pending
           ? 'animate-pulse'
           : ''}"
       >
         Thinking
       </span>
       {#if pending}
-        <span class="tabular-nums text-[0.65rem] text-slate-600">{formatElapsed(elapsed)}</span>
+        <span class="tabular-nums text-[0.65rem] text-ink-muted/70">{formatElapsed(elapsed)}</span>
       {/if}
     </button>
 
@@ -82,7 +82,7 @@
           ? 'mask-b-from-80%'
           : ''} pb-1"
       >
-        <div class="whitespace-pre-wrap wrap-break-word px-1 leading-5 text-slate-500/80">
+        <div class="whitespace-pre-wrap wrap-break-word px-1 leading-5 text-ink-muted/80">
           {text}
         </div>
       </div>

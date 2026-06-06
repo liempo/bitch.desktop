@@ -198,6 +198,138 @@ describe('message session id mapping', () => {
     })
   })
 
+  it('updates a running tool in place when gateway events omit tool_id', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages[0]?.tools).toHaveLength(1)
+    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+      context: 'npm run test',
+      name: 'terminal',
+      status: 'running'
+    })
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'tests passed' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(thread?.messages[0]?.tools).toHaveLength(1)
+    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+      context: 'npm run test',
+      name: 'terminal',
+      output: 'tests passed',
+      status: 'complete'
+    })
+  })
+
+  it('matches missing-tool_id events by name without touching other running tools', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'task A', name: 'delegate_task' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages[0]?.tools).toHaveLength(2)
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'tests passed' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    const tools = thread?.messages[0]?.tools ?? []
+    expect(tools.find(tool => tool.name === 'terminal')?.status).toBe('complete')
+    expect(tools.find(tool => tool.name === 'delegate_task')?.status).toBe('running')
+  })
+
+  it('falls back to name match when a stable id is present but not yet known', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    // Live stream starts without a tool_id — synthetic id minted locally.
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+
+    const thread = threadForSession(storedKey)
+    const syntheticId = thread?.messages[0]?.tools[0]?.id
+    expect(syntheticId).toBeDefined()
+
+    // Later events carry a real tool_id that the local row has never seen.
+    // Upstream findToolPartIndex falls through to name matching so the
+    // synthetic row is updated in place instead of appending a duplicate.
+    handleGatewayEvent({
+      payload: { context: 'npm test', name: 'terminal', tool_id: 'real-tool-id' },
+      session_id: liveSid,
+      type: 'tool.progress'
+    })
+
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'done', tool_id: 'real-tool-id' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(thread?.messages[0]?.tools).toHaveLength(1)
+    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+      context: 'npm test',
+      id: syntheticId,
+      name: 'terminal',
+      output: 'done',
+      status: 'complete'
+    })
+  })
+
+  it('matches per-event payload.id via name fallback when no tool-specific id exists', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { name: 'terminal' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+
+    // payload.id is used as a stable-id fallback; if it changes per event
+    // and no tool_id is present, name fallback prevents duplicates.
+    handleGatewayEvent({
+      payload: { context: 'npm test', id: 'evt-progress-1', name: 'terminal' },
+      session_id: liveSid,
+      type: 'tool.progress'
+    })
+
+    handleGatewayEvent({
+      payload: { id: 'evt-complete-1', name: 'terminal', output: 'done' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages[0]?.tools).toHaveLength(1)
+    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+      context: 'npm test',
+      name: 'terminal',
+      output: 'done',
+      status: 'complete'
+    })
+  })
+
   it('clears blocking prompts when a turn completes or errors', () => {
     setClarifyRequest({ choices: null, question: 'Q', requestId: 'clarify-1', sessionId: storedKey })
     setApprovalRequest({ command: 'cmd', description: 'desc', sessionId: storedKey })

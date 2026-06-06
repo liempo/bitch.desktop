@@ -25,6 +25,6 @@
   }
 </script>
 
-<div class="bitch-markdown text-sm leading-6 text-slate-200 {streaming ? 'streaming' : ''}">
+<div class="bitch-markdown text-sm leading-6 text-ink {streaming ? 'streaming' : ''}">
   {@html html}
 </div>
