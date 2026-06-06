@@ -612,6 +612,10 @@ export function handleGatewayEvent(event: GatewayEvent): void {
     beginAssistantMessage(sessionId)
   } else if (event.type === 'message.delta') {
     appendAssistantDelta(sessionId, coerceGatewayText(payload.text))
+    // A text delta after reasoning means the reasoning phase ended; the next
+    // reasoning delta should start a fresh block so live blocks interleave
+    // with tools the same way the server stores them on rehydration.
+    lastReasoningAt.delete(sessionId)
   } else if (event.type === 'thinking.delta') {
     appendReasoningDelta(sessionId, coerceThinkingText(payload.text))
   } else if (event.type === 'reasoning.delta') {
@@ -620,9 +624,15 @@ export function handleGatewayEvent(event: GatewayEvent): void {
     appendReasoningDelta(sessionId, coerceThinkingText(payload.text), true)
   } else if (event.type === 'tool.start' || event.type === 'tool.progress' || event.type === 'tool.generating') {
     upsertTool(sessionId, payload, 'running')
+    // Finalize the current reasoning block when a tool starts so reasoning
+    // before and after the tool are rendered as separate blocks.
+    lastReasoningAt.delete(sessionId)
   } else if (event.type === 'tool.complete') {
     upsertTool(sessionId, payload, 'complete')
     setNeedsInput(sessionId, false)
+    // Also finalize reasoning on tool completion so the next reasoning delta
+    // after the tool creates a new block.
+    lastReasoningAt.delete(sessionId)
   } else if (event.type === 'message.complete') {
     completeAssistantMessage(sessionId, firstText(payload.text, payload.rendered), usageFrom(payload))
     clearAllPrompts()

@@ -330,6 +330,67 @@ describe('message session id mapping', () => {
     })
   })
 
+  it('splits reasoning blocks around tool events so they interleave like rehydration', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+
+    handleGatewayEvent({
+      payload: { text: 'first thought' },
+      session_id: liveSid,
+      type: 'reasoning.delta'
+    })
+    handleGatewayEvent({
+      payload: { name: 'terminal' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { name: 'terminal', output: 'done' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+    handleGatewayEvent({
+      payload: { text: 'second thought' },
+      session_id: liveSid,
+      type: 'reasoning.delta'
+    })
+
+    const thread = threadForSession(storedKey)
+    const reasoning = thread?.messages[0]?.reasoning
+    expect(reasoning).toHaveLength(2)
+    expect(reasoning?.[0]).toBe('first thought')
+    expect(reasoning?.[1]).toBe('second thought')
+  })
+
+  it('splits reasoning blocks when text deltas arrive after reasoning', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+
+    handleGatewayEvent({
+      payload: { text: 'planning phase' },
+      session_id: liveSid,
+      type: 'reasoning.delta'
+    })
+    handleGatewayEvent({
+      payload: { text: 'Hello' },
+      session_id: liveSid,
+      type: 'message.delta'
+    })
+    handleGatewayEvent({
+      payload: { text: 'post-text reasoning' },
+      session_id: liveSid,
+      type: 'reasoning.delta'
+    })
+
+    const thread = threadForSession(storedKey)
+    const reasoning = thread?.messages[0]?.reasoning
+    expect(reasoning).toHaveLength(2)
+    expect(reasoning?.[0]).toBe('planning phase')
+    expect(reasoning?.[1]).toBe('post-text reasoning')
+  })
+
   it('clears blocking prompts when a turn completes or errors', () => {
     setClarifyRequest({ choices: null, question: 'Q', requestId: 'clarify-1', sessionId: storedKey })
     setApprovalRequest({ command: 'cmd', description: 'desc', sessionId: storedKey })
