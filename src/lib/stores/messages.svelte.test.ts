@@ -357,10 +357,10 @@ describe('message session id mapping', () => {
     })
 
     const thread = threadForSession(storedKey)
-    const reasoning = thread?.messages[0]?.reasoning
-    expect(reasoning).toHaveLength(2)
-    expect(reasoning?.[0]).toBe('first thought')
-    expect(reasoning?.[1]).toBe('second thought')
+    const message = thread?.messages[0]
+    const reasoningParts = message?.parts?.filter(p => p.type === 'reasoning')
+    expect(reasoningParts).toHaveLength(2)
+    expect(message?.parts?.map(p => p.type)).toEqual(['reasoning', 'tool', 'reasoning'])
   })
 
   it('splits reasoning blocks when text deltas arrive after reasoning', () => {
@@ -385,10 +385,10 @@ describe('message session id mapping', () => {
     })
 
     const thread = threadForSession(storedKey)
-    const reasoning = thread?.messages[0]?.reasoning
-    expect(reasoning).toHaveLength(2)
-    expect(reasoning?.[0]).toBe('planning phase')
-    expect(reasoning?.[1]).toBe('post-text reasoning')
+    const message = thread?.messages[0]
+    const reasoningParts = message?.parts?.filter(p => p.type === 'reasoning')
+    expect(reasoningParts).toHaveLength(2)
+    expect(message?.parts?.map(p => p.type)).toEqual(['reasoning', 'text', 'reasoning'])
   })
 
   it('clears blocking prompts when a turn completes or errors', () => {

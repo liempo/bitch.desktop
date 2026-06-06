@@ -27,7 +27,7 @@
         [
           message.id,
           message.text,
-          message.reasoning,
+          message.parts?.map(p => (p.type === 'reasoning' ? 'r' : p.type === 'tool' ? `t:${p.toolId}` : 'x')).join(';') ?? '',
           message.pending ? 'pending' : 'done',
           message.error ?? '',
           message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.context ?? ''}:${tool.error ?? ''}`).join(',')
