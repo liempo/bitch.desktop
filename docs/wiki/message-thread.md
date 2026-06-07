@@ -65,6 +65,20 @@ Orphaned stored tool messages (no preceding assistant) remain standalone
 - Tool rows merge into `lastAssistant.tools` and `lastAssistant.parts`.
 - Orphan tools keep their own message with a standalone tool part.
 
+## Live thread preservation on re-select
+
+Route resume does not always call `replaceStoredMessages`. Before snapshot
+hydration, `shouldPreserveLiveThread(sessionId, snapshotLength)` checks whether
+there is already a hydrated live thread that is busy, has `currentAssistantId`,
+has pending messages, or has more messages than the stored snapshot. When true,
+the in-memory live thread remains the render source so partial assistant output,
+running tools, and busy state survive session switching.
+
+When the thread is idle and not ahead of stored history, the HTTP snapshot
+refreshes the thread normally. See
+[`live-thread-preservation.md`](live-thread-preservation.md) for the resume and
+busy-sync flow.
+
 ## Tool upsert and completion matching
 
 `upsertTool` resolves the target row with `findToolInThread`:
