@@ -5,7 +5,13 @@ import {
   shouldPreserveLiveThread,
   syncRunningFromResume
 } from '$lib/stores/messages.svelte'
-import { beginResumeSession, isCurrentResumeRequest, resumeSession, sessionState } from '$lib/stores/session.svelte'
+import {
+  beginResumeSession,
+  isCurrentResumeRequest,
+  profileForSession,
+  resumeSession,
+  sessionState
+} from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 
 function messageFor(error: unknown): string {
@@ -25,7 +31,7 @@ function releaseStaleThreadLoading(sessionId: string, requestId: number): void {
 
 async function loadStoredSnapshot(sessionId: string, requestId: number): Promise<SessionMessage[] | null> {
   try {
-    const response = await getSessionMessages(sessionId)
+    const response = await getSessionMessages(sessionId, profileForSession(sessionId))
 
     if (!isCurrentResumeRequest(sessionId, requestId)) {
       return null

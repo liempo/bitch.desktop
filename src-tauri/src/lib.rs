@@ -8,14 +8,49 @@ const HTTP_TIMEOUT_SECS: u64 = 15;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{fs, path::PathBuf, sync::Mutex, time::Duration};
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    sync::{LazyLock, Mutex},
+    time::Duration,
+};
 use tauri::Emitter;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 
+#[derive(Clone, Debug)]
 struct GatewayConfig {
+    auth_mode: String,
     base_url: String,
     token: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConnectionProfileConfig {
+    auth_mode: Option<String>,
+    mode: Option<String>,
+    token: Option<String>,
+    url: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConnectionConfig {
+    auth_mode: Option<String>,
+    mode: Option<String>,
+    profiles: Option<HashMap<String, ConnectionProfileConfig>>,
+    token: Option<String>,
+    url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResolvedConnection {
+    auth_mode: String,
+    base_url: String,
+    profile: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,6 +59,7 @@ struct DashboardRequest {
     body: Option<Value>,
     method: Option<String>,
     path: String,
+    profile: Option<String>,
 }
 
 struct WsTarget {
@@ -63,10 +99,8 @@ struct WsClosePayload {
     reason: String,
 }
 
-static WS_STATE: Mutex<WsProxyState> = Mutex::new(WsProxyState {
-    connection_id: None,
-    sender: None,
-});
+static WS_STATE: LazyLock<Mutex<HashMap<String, WsProxyState>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn config_value(name: &str) -> Option<String> {
     std::env::var(name)
@@ -168,15 +202,121 @@ fn normalize_gateway_url(raw_url: &str) -> Result<String, String> {
     Ok(parsed.as_str().trim_end_matches('/').to_string())
 }
 
-fn resolve_gateway_config() -> Result<GatewayConfig, String> {
-    let raw_base_url =
-        config_value("VITE_BITCH_GATEWAY_URL").unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string());
-    let base_url = normalize_gateway_url(&raw_base_url)?;
-    let token = config_value("BITCH_DASHBOARD_API_KEY").ok_or_else(|| {
-        "BITCH_DASHBOARD_API_KEY is not set in the environment or .env".to_string()
-    })?;
+fn normalize_auth_mode(auth_mode: Option<&str>) -> String {
+    match auth_mode.unwrap_or("token").trim() {
+        "oauth" => "oauth".to_string(),
+        _ => "token".to_string(),
+    }
+}
 
-    Ok(GatewayConfig { base_url, token })
+fn connection_scope_key(profile: Option<&str>) -> Option<String> {
+    let value = profile.unwrap_or_default().trim();
+
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+fn ws_profile_key(profile: Option<&str>) -> String {
+    connection_scope_key(profile).unwrap_or_else(|| "default".to_string())
+}
+
+fn connection_config_path() -> Result<PathBuf, String> {
+    if let Some(config_home) = std::env::var_os("XDG_CONFIG_HOME") {
+        return Ok(PathBuf::from(config_home)
+            .join("bitch.desktop")
+            .join("connection.json"));
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        return Ok(PathBuf::from(home)
+            .join(".config")
+            .join("bitch.desktop")
+            .join("connection.json"));
+    }
+
+    Err("Could not resolve a config directory for connection.json".to_string())
+}
+
+fn read_saved_connection_config() -> Result<Option<ConnectionConfig>, String> {
+    let path = connection_config_path()?;
+
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let contents =
+        fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+    let config = serde_json::from_str::<ConnectionConfig>(&contents)
+        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
+
+    Ok(Some(config))
+}
+
+fn env_connection_config() -> ConnectionConfig {
+    ConnectionConfig {
+        auth_mode: Some("token".to_string()),
+        mode: Some("remote".to_string()),
+        profiles: None,
+        token: config_value("BITCH_DASHBOARD_API_KEY"),
+        url: Some(
+            config_value("VITE_BITCH_GATEWAY_URL")
+                .unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string()),
+        ),
+    }
+}
+
+fn load_connection_config() -> Result<ConnectionConfig, String> {
+    Ok(read_saved_connection_config()?.unwrap_or_else(env_connection_config))
+}
+
+fn profile_remote_override<'a>(
+    config: &'a ConnectionConfig,
+    profile: Option<&str>,
+) -> Option<&'a ConnectionProfileConfig> {
+    let key = connection_scope_key(profile)?;
+    let entry = config.profiles.as_ref()?.get(&key)?;
+
+    if entry.mode.as_deref() != Some("remote") {
+        return None;
+    }
+
+    let url = entry.url.as_deref().unwrap_or_default().trim();
+    if url.is_empty() {
+        return None;
+    }
+
+    Some(entry)
+}
+
+fn resolve_gateway_config(profile: Option<&str>) -> Result<GatewayConfig, String> {
+    let config = load_connection_config()?;
+    let override_config = profile_remote_override(&config, profile);
+    let raw_base_url = override_config
+        .and_then(|entry| entry.url.as_deref())
+        .or(config.url.as_deref())
+        .unwrap_or(DEFAULT_GATEWAY_URL);
+    let base_url = normalize_gateway_url(raw_base_url)?;
+    let token = override_config
+        .and_then(|entry| entry.token.as_ref())
+        .or(config.token.as_ref())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "BITCH_DASHBOARD_API_KEY is not set in connection config, environment, or .env"
+                .to_string()
+        })?;
+    let auth_mode = override_config
+        .and_then(|entry| entry.auth_mode.as_deref())
+        .or(config.auth_mode.as_deref());
+
+    Ok(GatewayConfig {
+        auth_mode: normalize_auth_mode(auth_mode),
+        base_url,
+        token,
+    })
 }
 
 fn encode_query_value(value: &str) -> String {
@@ -398,9 +538,16 @@ fn log_gateway(connection_id: &str, level: &str, message: impl Into<String>) {
     eprintln!("[bitch.desktop][gateway][{connection_id}][{level}] {message}");
 }
 
-async fn resolve_ws_target(connection_id: &str) -> Result<WsTarget, String> {
-    log_gateway(connection_id, "debug", "resolving dashboard gateway config");
-    let config = resolve_gateway_config().map_err(|error| {
+async fn resolve_ws_target(connection_id: &str, profile: Option<&str>) -> Result<WsTarget, String> {
+    log_gateway(
+        connection_id,
+        "debug",
+        format!(
+            "resolving dashboard gateway config for profile={}",
+            ws_profile_key(profile)
+        ),
+    );
+    let config = resolve_gateway_config(profile).map_err(|error| {
         log_gateway(connection_id, "error", format!("config error: {error}"));
         error
     })?;
@@ -409,8 +556,8 @@ async fn resolve_ws_target(connection_id: &str) -> Result<WsTarget, String> {
         connection_id,
         "debug",
         format!(
-            "config resolved: base_url={} token_present=true",
-            config.base_url
+            "config resolved: base_url={} auth_mode={} token_present=true",
+            config.base_url, config.auth_mode
         ),
     );
 
@@ -521,15 +668,51 @@ fn emit_ws_error(app: &tauri::AppHandle, connection_id: &str, message: String) {
     );
 }
 
-fn clear_ws_state(connection_id: &str) {
+fn clear_ws_state(profile: &str, connection_id: &str) {
     let Ok(mut state) = WS_STATE.lock() else {
         return;
     };
 
-    if state.connection_id.as_deref() == Some(connection_id) {
-        state.sender = None;
-        state.connection_id = None;
+    if state
+        .get(profile)
+        .and_then(|entry| entry.connection_id.as_deref())
+        == Some(connection_id)
+    {
+        state.remove(profile);
     }
+}
+
+#[tauri::command]
+async fn get_connection_config() -> Result<ConnectionConfig, String> {
+    load_connection_config()
+}
+
+#[tauri::command]
+async fn save_connection_config(config: ConnectionConfig) -> Result<ConnectionConfig, String> {
+    let path = connection_config_path()?;
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create {}: {e}", parent.display()))?;
+    }
+
+    let body = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    fs::write(&path, format!("{body}\n"))
+        .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+
+    Ok(config)
+}
+
+#[tauri::command]
+async fn resolve_connection(profile: Option<String>) -> Result<ResolvedConnection, String> {
+    let key = connection_scope_key(profile.as_deref());
+    let config = resolve_gateway_config(key.as_deref())?;
+
+    Ok(ResolvedConnection {
+        auth_mode: config.auth_mode,
+        base_url: config.base_url,
+        profile: key,
+    })
 }
 
 #[tauri::command]
@@ -537,31 +720,52 @@ async fn dashboard_request(
     client: tauri::State<'_, reqwest::Client>,
     request: DashboardRequest,
 ) -> Result<Value, String> {
-    let config = resolve_gateway_config()?;
+    let profile = request.profile.clone();
+    let config = resolve_gateway_config(profile.as_deref())?;
     dashboard_request_impl(&client, &config, request).await
 }
 
 #[tauri::command]
-async fn connect_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), String> {
-    log_gateway(&connection_id, "debug", "connect_ws command received");
-    let target = resolve_ws_target(&connection_id).await?;
+async fn connect_ws(
+    app: tauri::AppHandle,
+    connection_id: String,
+    profile: Option<String>,
+) -> Result<(), String> {
+    let profile_key = ws_profile_key(profile.as_deref());
+    log_gateway(
+        &connection_id,
+        "debug",
+        format!("connect_ws command received for profile={profile_key}"),
+    );
+    let target = resolve_ws_target(&connection_id, Some(&profile_key)).await?;
 
     {
         let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
-        state.sender = None;
-        state.connection_id = Some(connection_id.clone());
+        state.insert(
+            profile_key.clone(),
+            WsProxyState {
+                connection_id: Some(connection_id.clone()),
+                sender: None,
+            },
+        );
     }
     log_gateway(
         &connection_id,
         "debug",
-        "proxy state prepared; previous connection replaced if present",
+        "proxy state prepared; previous profile connection replaced if present",
     );
 
     let (tx, rx) = mpsc::unbounded_channel::<String>();
 
     {
         let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
-        state.sender = Some(tx);
+        state
+            .entry(profile_key.clone())
+            .or_insert(WsProxyState {
+                connection_id: Some(connection_id.clone()),
+                sender: None,
+            })
+            .sender = Some(tx);
     }
 
     log_gateway(
@@ -577,7 +781,7 @@ async fn connect_ws(app: tauri::AppHandle, connection_id: String) -> Result<(), 
             emit_ws_error(&app_clone, &connection_id, error);
         }
 
-        clear_ws_state(&connection_id);
+        clear_ws_state(&profile_key, &connection_id);
     });
 
     Ok(())
@@ -769,15 +973,17 @@ async fn connect_and_listen(
 #[tauri::command]
 async fn send_ws_message(connection_id: String, message: String) -> Result<(), String> {
     let state = WS_STATE.lock().map_err(|e| e.to_string())?;
-
-    if state.connection_id.as_deref() != Some(connection_id.as_str()) {
-        log_gateway(
-            &connection_id,
-            "warn",
-            "refusing outbound frame for stale WebSocket connection",
-        );
-        return Err("WebSocket connection is not current".to_string());
-    }
+    let entry = state
+        .values()
+        .find(|entry| entry.connection_id.as_deref() == Some(connection_id.as_str()))
+        .ok_or_else(|| {
+            log_gateway(
+                &connection_id,
+                "warn",
+                "refusing outbound frame for stale WebSocket connection",
+            );
+            "WebSocket connection is not current".to_string()
+        })?;
 
     log_gateway(
         &connection_id,
@@ -785,7 +991,7 @@ async fn send_ws_message(connection_id: String, message: String) -> Result<(), S
         format!("renderer queued outbound frame: {} bytes", message.len()),
     );
 
-    if let Some(ref sender) = state.sender {
+    if let Some(ref sender) = entry.sender {
         sender
             .send(message)
             .map_err(|e| format!("Send failed: {e}"))
@@ -803,10 +1009,13 @@ async fn send_ws_message(connection_id: String, message: String) -> Result<(), S
 async fn close_ws(connection_id: String) -> Result<(), String> {
     log_gateway(&connection_id, "debug", "close_ws command received");
     let mut state = WS_STATE.lock().map_err(|e| e.to_string())?;
+    let profile_key = state
+        .iter()
+        .find(|(_, entry)| entry.connection_id.as_deref() == Some(connection_id.as_str()))
+        .map(|(profile, _)| profile.clone());
 
-    if state.connection_id.as_deref() == Some(connection_id.as_str()) {
-        state.sender = None;
-        state.connection_id = None;
+    if let Some(profile_key) = profile_key {
+        state.remove(&profile_key);
         log_gateway(&connection_id, "debug", "proxy state cleared");
     } else {
         log_gateway(
@@ -819,6 +1028,66 @@ async fn close_ws(connection_id: String) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_remote_base_url() {
+        assert_eq!(
+            normalize_gateway_url("https://example.test:9121/root/?token=nope#frag").unwrap(),
+            "https://example.test:9121/root"
+        );
+    }
+
+    #[test]
+    fn profile_override_requires_remote_mode_and_url() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "crypto".to_string(),
+            ConnectionProfileConfig {
+                auth_mode: Some("token".to_string()),
+                mode: Some("remote".to_string()),
+                token: Some("profile-token".to_string()),
+                url: Some("http://127.0.0.1:9121".to_string()),
+            },
+        );
+        profiles.insert(
+            "ignored".to_string(),
+            ConnectionProfileConfig {
+                auth_mode: None,
+                mode: Some("local".to_string()),
+                token: None,
+                url: Some("http://127.0.0.1:9122".to_string()),
+            },
+        );
+        let config = ConnectionConfig {
+            auth_mode: Some("token".to_string()),
+            mode: Some("remote".to_string()),
+            profiles: Some(profiles),
+            token: Some("global-token".to_string()),
+            url: Some("http://127.0.0.1:9119".to_string()),
+        };
+
+        assert_eq!(
+            profile_remote_override(&config, Some("crypto")).and_then(|entry| entry.url.as_deref()),
+            Some("http://127.0.0.1:9121")
+        );
+        assert!(profile_remote_override(&config, Some("ignored")).is_none());
+        assert!(profile_remote_override(&config, None).is_none());
+    }
+
+    #[test]
+    fn connection_scope_key_trims_empty_profiles() {
+        assert_eq!(
+            connection_scope_key(Some("  crypto  ")).as_deref(),
+            Some("crypto")
+        );
+        assert!(connection_scope_key(Some("   ")).is_none());
+        assert!(connection_scope_key(None).is_none());
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let http_client = http_client().expect("failed to create HTTP client");
@@ -826,6 +1095,9 @@ pub fn run() {
     tauri::Builder::default()
         .manage(http_client)
         .invoke_handler(tauri::generate_handler![
+            get_connection_config,
+            save_connection_config,
+            resolve_connection,
             dashboard_request,
             connect_ws,
             send_ws_message,

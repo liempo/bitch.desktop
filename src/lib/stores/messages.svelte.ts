@@ -2,6 +2,7 @@ import { getSessionMessages } from '$lib/api/dashboard'
 import { getGateway } from '$lib/stores/gateway.svelte'
 import {
   loadSessions,
+  profileForSession,
   sessionState,
   setSessionNeedsInput,
   setSessionWorking,
@@ -851,7 +852,7 @@ export async function hydrateSessionMessages(sessionId: string, seed?: SessionMe
   thread.error = null
 
   try {
-    const messages = seed ?? (await getSessionMessages(threadId)).messages
+    const messages = seed ?? (await getSessionMessages(threadId, profileForSession(threadId))).messages
     replaceStoredMessages(threadId, messages)
   } catch (error) {
     thread.error = messageFor(error)

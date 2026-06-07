@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockGetSessionMessages, mockNavigate, mockRequestGateway, mockSessionRoute } = vi.hoisted(() => ({
-  mockGetSessionMessages: vi.fn(),
-  mockNavigate: vi.fn(),
-  mockRequestGateway: vi.fn(),
-  mockSessionRoute: vi.fn((id: string) => `/${id}`)
-}))
+const { mockGetSessionMessages, mockNavigate, mockRequestGateway, mockSessionRoute, mockEnsureGatewayForProfile } =
+  vi.hoisted(() => ({
+    mockGetSessionMessages: vi.fn(),
+    mockNavigate: vi.fn(),
+    mockRequestGateway: vi.fn(),
+    mockSessionRoute: vi.fn((id: string) => `/${id}`),
+    mockEnsureGatewayForProfile: vi.fn()
+  }))
 
 vi.mock('$lib/api/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages,
@@ -13,11 +15,13 @@ vi.mock('$lib/api/dashboard', () => ({
   searchSessions: vi.fn(),
   renameSession: vi.fn(),
   setSessionArchived: vi.fn(),
-  deleteSession: vi.fn()
+  deleteSession: vi.fn(),
+  setApiRequestProfile: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
   requestGateway: mockRequestGateway,
+  ensureGatewayForProfile: mockEnsureGatewayForProfile,
   gatewayState: { connectionState: 'open' }
 }))
 

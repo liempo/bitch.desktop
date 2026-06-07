@@ -61,6 +61,11 @@ export interface SessionInfo {
   started_at: number
   title: null | string
   tool_call_count: number
+  /** Owning profile name, set by /api/profiles/sessions. Legacy single-profile
+   *  responses omit this and are treated as the default profile. */
+  profile?: string
+  /** True when profile is the default/root Hermes profile. */
+  is_default_profile?: boolean
 }
 
 export interface SessionMessage {
@@ -106,6 +111,11 @@ export interface PaginatedSessions {
   offset: number
   sessions: SessionInfo[]
   total: number
+  /** Listable conversation count per profile, keyed by profile name. Present on
+   *  /api/profiles/sessions and used for scoped pagination. */
+  profile_totals?: Record<string, number>
+  /** Per-profile read failures from the cross-profile aggregator. */
+  errors?: Array<{ profile: string; error: string }>
 }
 
 export interface SessionCreateResponse {
@@ -172,4 +182,35 @@ export interface ModelOptionsResponse {
   model?: string
   provider?: string
   providers?: ModelOptionProvider[]
+}
+
+export interface ProfileCreatePayload {
+  clone_all?: boolean
+  clone_from?: string
+  clone_from_default?: boolean
+  name: string
+  no_skills?: boolean
+}
+
+export interface ProfileInfo {
+  has_env: boolean
+  is_default: boolean
+  model: null | string
+  name: string
+  path: string
+  provider: null | string
+  skill_count: number
+}
+
+export interface ProfileSetupCommand {
+  command: string
+}
+
+export interface ProfileSoul {
+  content: string
+  exists: boolean
+}
+
+export interface ProfilesResponse {
+  profiles: ProfileInfo[]
 }

@@ -1,4 +1,5 @@
 import {
+  listAllProfileSessions,
   listSessions as apiListSessions,
   searchSessions as apiSearchSessions,
   renameSession as apiRenameSession,
@@ -7,12 +8,25 @@ import {
 } from '$lib/api/dashboard'
 import { gatewayState, requestGateway } from '$lib/stores/gateway.svelte'
 import {
+  ALL_PROFILES,
+  ensureGatewayProfile,
+  getProfileScope,
+  profileState,
+  normalizeProfileKey
+} from '$lib/stores/profile.svelte'
+import {
   isPinned as isStoredPin,
   layoutState,
   pinSession as storePin,
   unpinSession as storeUnpin
 } from '$lib/stores/layout.svelte'
-import type { SessionCreateResponse, SessionInfo, SessionResumeResponse, SessionSearchResult } from '$lib/types/hermes'
+import type {
+  PaginatedSessions,
+  SessionCreateResponse,
+  SessionInfo,
+  SessionResumeResponse,
+  SessionSearchResult
+} from '$lib/types/hermes'
 import { navigate, routerState, sessionRoute } from '../../app/router.svelte'
 
 /* ------------------------------------------------------------------ */
@@ -55,6 +69,8 @@ export interface SessionState {
   sessionsLoadingMore: boolean
   sessionsOffset: number
   sessionsTotal: number
+  sessionProfileTotals: Record<string, number>
+  sessionProfilesById: Record<string, string>
   workingSessionIds: string[]
 }
 
@@ -81,6 +97,8 @@ export const sessionState = $state<SessionState>({
   sessionsLoadingMore: false,
   sessionsOffset: 0,
   sessionsTotal: 0,
+  sessionProfileTotals: {},
+  sessionProfilesById: {},
   workingSessionIds: []
 })
 
@@ -96,6 +114,43 @@ function messageFor(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function defaultProfileForCurrentScope(): string {
+  return getProfileScope() === ALL_PROFILES ? 'default' : normalizeProfileKey(getProfileScope())
+}
+
+function sessionWithProfile(session: SessionInfo, fallbackProfile = defaultProfileForCurrentScope()): SessionInfo {
+  const profile = normalizeProfileKey(session.profile ?? (session.is_default_profile ? 'default' : fallbackProfile))
+  return { ...session, profile, is_default_profile: session.is_default_profile ?? profile === 'default' }
+}
+
+function recordSessionProfiles(sessions: SessionInfo[]): void {
+  const next = { ...sessionState.sessionProfilesById }
+
+  for (const session of sessions) {
+    next[session.id] = normalizeProfileKey(session.profile)
+  }
+
+  sessionState.sessionProfilesById = next
+}
+
+export function profileForSession(sessionId: string | null | undefined): string | null {
+  const id = sessionId?.trim()
+  if (!id) return null
+
+  const listed = sessionState.sessions.find(session => session.id === id)?.profile
+  const cached = listed ?? sessionState.sessionProfilesById[id]
+
+  if (cached) {
+    return normalizeProfileKey(cached)
+  }
+
+  return getProfileScope() === ALL_PROFILES ? null : normalizeProfileKey(getProfileScope())
+}
+
+function profileForMutation(sessionId: string): string | null {
+  return profileForSession(sessionId)
+}
+
 function updateSession(sessionId: string, patch: Partial<SessionInfo>): void {
   const session = sessionState.sessions.find(item => item.id === sessionId)
 
@@ -106,10 +161,22 @@ function updateSession(sessionId: string, patch: Partial<SessionInfo>): void {
 
 function removeSessionFromLocalState(sessionId: string): void {
   const before = sessionState.sessions.length
+  const profile = profileForSession(sessionId)
   sessionState.sessions = sessionState.sessions.filter(session => session.id !== sessionId)
+  delete sessionState.sessionProfilesById[sessionId]
 
   if (sessionState.sessions.length !== before && sessionState.sessionsTotal > 0) {
     sessionState.sessionsTotal -= 1
+    if (
+      profile &&
+      sessionState.sessionProfileTotals[profile] != null &&
+      sessionState.sessionProfileTotals[profile] > 0
+    ) {
+      sessionState.sessionProfileTotals = {
+        ...sessionState.sessionProfileTotals,
+        [profile]: sessionState.sessionProfileTotals[profile] - 1
+      }
+    }
   }
 }
 
@@ -282,11 +349,30 @@ export async function loadSessions(offset = 0): Promise<void> {
   sessionState.error = null
 
   try {
-    const result = await apiListSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent')
+    const scope = getProfileScope() === ALL_PROFILES ? 'all' : normalizeProfileKey(getProfileScope())
+    let result: PaginatedSessions
 
-    sessionState.sessions = mergeSessions(result.sessions, offset)
-    sessionState.sessionsTotal = result.total
-    sessionState.sessionsOffset = offset + result.sessions.length
+    try {
+      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent', scope)
+    } catch (error) {
+      // Backward-compatible safety valve for older single-profile dashboards.
+      // The upstream multi-profile endpoint is preferred whenever available.
+      if (scope !== 'all') {
+        result = await apiListSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent', scope)
+      } else {
+        throw error
+      }
+    }
+
+    const fallbackProfile = scope === 'all' ? 'default' : scope
+    const sessions = result.sessions.map(session => sessionWithProfile(session, fallbackProfile))
+
+    recordSessionProfiles(sessions)
+    sessionState.sessions = mergeSessions(sessions, offset)
+    sessionState.sessionProfileTotals = result.profile_totals ?? {}
+    sessionState.sessionsTotal =
+      scope !== 'all' && result.profile_totals?.[scope] != null ? result.profile_totals[scope] : result.total
+    sessionState.sessionsOffset = offset + sessions.length
     sessionState.sessionsInitialized = true
   } catch (error) {
     sessionState.error = messageFor(error)
@@ -303,6 +389,15 @@ export async function loadMoreSessions(): Promise<void> {
 }
 
 export function hasMoreSessions(): boolean {
+  if (getProfileScope() !== ALL_PROFILES) {
+    const scope = normalizeProfileKey(getProfileScope())
+    const scopedTotal = sessionState.sessionProfileTotals[scope]
+
+    if (scopedTotal != null) {
+      return sessionState.sessionsOffset < scopedTotal
+    }
+  }
+
   return sessionState.sessionsOffset < sessionState.sessionsTotal
 }
 
@@ -369,6 +464,7 @@ export async function createSession(): Promise<string | null> {
   const startingRouteToken = currentRouteToken()
 
   try {
+    await ensureGatewayProfile(profileState.newChatProfile ?? profileState.activeGatewayProfile)
     const response = await requestGateway<SessionCreateResponse>('session.create', { cols: COLS })
     // Track both IDs per the upstream two-ID pattern:
     //   session_id — short 8-char hex sid keys the in-memory _sessions dict
@@ -404,6 +500,12 @@ export function selectSession(sessionId: string): void {
   // for an already-resumed session; otherwise clear it until session.resume
   // returns a fresh runtime ID. This mirrors upstream's stored→runtime cache
   // without letting a previous session's live sid poison new submits.
+  const profile = profileForSession(sessionId)
+  if (profile) {
+    profileState.newChatProfile = profile
+    void ensureGatewayProfile(profile)
+  }
+
   sessionState.storedSessionId = sessionId
   sessionState.activeSessionId = runtimeSessionIdForStored(sessionId)
   navigate(sessionRoute(sessionId))
@@ -413,6 +515,20 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
   if (requestId === undefined && sessionState.resumingSessionId === sessionId) return null
 
   const activeRequestId = requestId ?? beginResumeSession(sessionId)
+  const profile = profileForSession(sessionId)
+
+  if (profile) {
+    try {
+      await ensureGatewayProfile(profile)
+    } catch (error) {
+      if (isCurrentResumeRequest(sessionId, activeRequestId)) {
+        sessionState.error = messageFor(error)
+      }
+      finishResumeSession(sessionId, activeRequestId)
+      return null
+    }
+  }
+
   const cachedRuntimeId = runtimeSessionIdForStored(sessionId)
 
   if (cachedRuntimeId) {
@@ -491,7 +607,8 @@ export async function renameSession(sessionId: string, title: string): Promise<b
   setMutating(sessionId, true)
 
   try {
-    await apiRenameSession(sessionId, trimmed)
+    const profile = profileForMutation(sessionId)
+    await apiRenameSession(sessionId, trimmed, profile)
     updateSession(sessionId, { title: trimmed })
     await refreshSessionLists()
     return true
@@ -508,7 +625,8 @@ export async function archiveSession(sessionId: string, archived = true): Promis
   setMutating(sessionId, true)
 
   try {
-    await apiSetSessionArchived(sessionId, archived)
+    const profile = profileForMutation(sessionId)
+    await apiSetSessionArchived(sessionId, archived, profile)
 
     if (archived) {
       removeSessionFromLocalState(sessionId)
@@ -536,7 +654,8 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
   setMutating(sessionId, true)
 
   try {
-    await apiDeleteSession(sessionId)
+    const profile = profileForMutation(sessionId)
+    await apiDeleteSession(sessionId, profile)
     removeSessionFromLocalState(sessionId)
     forgetRuntimeSession(sessionId)
 

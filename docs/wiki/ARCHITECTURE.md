@@ -12,6 +12,7 @@ store layout, UI components, integration points, and upstream source files.
 | Rich composer       | [`rich-composer.md`](rich-composer.md)                       | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`    |
 | Live thread resume  | [`live-thread-preservation.md`](live-thread-preservation.md) | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`         |
 | Interactive prompts | [`interactive-prompts.md`](interactive-prompts.md)           | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `prompts.svelte.ts` |
+| Remote profiles     | [`remote-profile-support.md`](remote-profile-support.md)     | `profile.svelte.ts`, `gateway.svelte.ts`, `ProfileRail.svelte`  |
 | **Devlog**          | [`devlog.md`](devlog.md)                                     | Chronological development record                                |
 
 BITCH is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC** drives live
@@ -34,11 +35,19 @@ deferred features.
   `message.complete`), tool rows, reasoning blocks, markdown, auto-scroll
 - **Session management** — sidebar list + search, URL hash resume, create,
   rename, archive, delete
+- **Remote profile support** — profile rail, profile-scoped session history,
+  per-profile REST routing, and one WebSocket proxy per selected profile
 - **Live thread resume** — switching away and back during a running turn preserves
   the in-memory transcript and keeps local busy state aligned with gateway
   `info.running`
 
 ## Known gaps
 
-- **Multi-profile support** — still under active design (see [`devlog.md`](devlog.md)
-  for research findings)
+- **Single-URL remote profile switching** — live chat still executes inside the
+  Hermes profile that a given dashboard backend booted with. Multi-profile live
+  chat requires per-profile connection overrides pointing at separate dashboard
+  backends/ports until upstream resolves remote active-profile switching.
+- **Profile administration UI** — create/rename/delete/SOUL editor screens are
+  deferred; the profile rail and scoped runtime routing are the delivered core.
+- **OAuth per-profile overrides** — token auth is the supported remote override
+  path in this pass.
