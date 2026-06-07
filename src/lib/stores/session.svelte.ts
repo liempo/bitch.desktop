@@ -410,6 +410,20 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
   if (cachedRuntimeId) {
     if (!isCurrentResumeRequest(sessionId, activeRequestId)) return null
 
+    let info: SessionResumeResponse['info']
+
+    try {
+      info = await requestGateway<NonNullable<SessionResumeResponse['info']>>('session.info', {
+        session_id: cachedRuntimeId
+      })
+    } catch (error) {
+      if (isCurrentResumeRequest(sessionId, activeRequestId)) {
+        console.error('Failed to fetch cached session info:', error)
+      }
+    }
+
+    if (!isCurrentResumeRequest(sessionId, activeRequestId)) return null
+
     sessionState.activeSessionId = cachedRuntimeId
     sessionState.storedSessionId = sessionId
     finishResumeSession(sessionId, activeRequestId)
@@ -418,7 +432,8 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
       session_id: cachedRuntimeId,
       resumed: sessionId,
       message_count: 0,
-      messages: []
+      messages: [],
+      info
     }
   }
 

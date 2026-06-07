@@ -32,6 +32,19 @@ gateway.
 - **Connection gate:** disable the composer while `connectionState !== 'open'`.
 - **Layout:** collapsible sidebar (~280px), scrollable main, sticky composer,
   Bits UI primitives + Tailwind.
+- **Session re-select:** returning to a session runs
+  [`resumeAndHydrateStoredSession`](../../src/lib/session/resume.ts). When the
+  thread is idle and not ahead of the HTTP snapshot, history refreshes from the
+  stored snapshot. When a turn is still in progress (busy, pending assistant,
+  or more in-memory messages than the snapshot), the live in-memory thread is
+  preserved instead of replacing it.
+- **Busy sync:** after `session.resume`, local `thread.busy` is aligned with
+  `info.running` from the gateway so the composer shows **Queue** while the
+  server still has an active turn. Queued sends drain automatically when the
+  turn settles.
+- **Session busy recovery:** if `prompt.submit` is rejected with "session busy"
+  (client/server desync), the client re-asserts busy state and enqueues the
+  draft instead of showing a spurious error.
 
 ## Upstream files
 

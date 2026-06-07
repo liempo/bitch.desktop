@@ -764,6 +764,23 @@ export function threadForSession(sessionId: string | null | undefined): ThreadSe
   return sessionId ? (messageState.sessions[displaySessionId(sessionId)] ?? null) : null
 }
 
+export function shouldPreserveLiveThread(sessionId: string, snapshotLength: number): boolean {
+  const thread = threadForSession(sessionId)
+  if (!thread?.hydrated) return false
+
+  if (thread.busy || thread.currentAssistantId) return true
+  if (thread.messages.some(message => message.pending)) return true
+  if (thread.messages.length > snapshotLength) return true
+
+  return false
+}
+
+export function syncRunningFromResume(sessionId: string, info?: { running?: boolean }): void {
+  if (typeof info?.running === 'boolean') {
+    setThreadBusy(sessionId, info.running)
+  }
+}
+
 export function setThreadBusy(sessionId: string, busy: boolean): void {
   setBusy(displaySessionId(sessionId), busy)
 }

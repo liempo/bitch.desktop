@@ -1,5 +1,9 @@
 import { getSessionMessages } from '$lib/api/dashboard'
-import { hydrateSessionMessagesFromGateway } from '$lib/stores/messages.svelte'
+import {
+  hydrateSessionMessagesFromGateway,
+  shouldPreserveLiveThread,
+  syncRunningFromResume
+} from '$lib/stores/messages.svelte'
 import { beginResumeSession, isCurrentResumeRequest, resumeSession, sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 
@@ -47,7 +51,7 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
 
   const hasStoredSnapshot = storedSnapshot.length > 0
 
-  if (hasStoredSnapshot) {
+  if (hasStoredSnapshot && !shouldPreserveLiveThread(sessionId, storedSnapshot.length)) {
     hydrateSessionMessagesFromGateway(sessionId, storedSnapshot)
   }
 
@@ -56,6 +60,8 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
   if (!response || !isCurrentResumeRequest(sessionId, requestId)) {
     return false
   }
+
+  syncRunningFromResume(sessionId, response.info)
 
   if (!hasStoredSnapshot) {
     hydrateSessionMessagesFromGateway(sessionId, response.messages ?? [])

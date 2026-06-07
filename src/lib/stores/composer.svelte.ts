@@ -202,6 +202,11 @@ function inlineErrorMessage(error: unknown, fallback: string): string {
   return (raw.match(/Error invoking remote method '[^']+': Error: (.+)$/)?.[1] ?? raw).replace(/^Error:\s*/, '').trim()
 }
 
+function isSessionBusyError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /session busy/i.test(message)
+}
+
 function nextId(prefix: string): string {
   nextAttachmentId += 1
   return `${prefix}-${Date.now()}-${nextAttachmentId}`
@@ -613,6 +618,22 @@ export async function submitPrompt(
 
     return true
   } catch (error) {
+    if (isSessionBusyError(error)) {
+      const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+      setThreadBusy(displayKey, true)
+
+      const thread = threadForSession(displayKey)
+      if (thread?.messages.at(-1)?.role === 'user') {
+        thread.messages.pop()
+      }
+
+      const queueKey = sessionId ?? displayKey
+      enqueueQueuedPrompt(queueKey, { attachments, text: visibleText })
+      composer.error = null
+
+      return true
+    }
+
     const message = inlineErrorMessage(error, 'Prompt failed')
     setThreadBusy(targetSessionId, false)
     appendAssistantErrorMessage(targetSessionId, message)

@@ -28,8 +28,14 @@ vi.mock('../app/router.svelte', () => ({
 }))
 
 import { resumeAndHydrateStoredSession } from '$lib/session/resume'
-import { messageState, threadForSession } from '$lib/stores/messages.svelte'
-import { sessionState } from '$lib/stores/session.svelte'
+import {
+  appendUserMessage,
+  handleGatewayEvent,
+  messageState,
+  setThreadBusy,
+  threadForSession
+} from '$lib/stores/messages.svelte'
+import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 
 function storedMessage(text: string): SessionMessage {
@@ -119,5 +125,91 @@ describe('resumeAndHydrateStoredSession', () => {
     expect(mockRequestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
     expect(threadForSession('stored-A')).toBeNull()
     expect(sessionState.storedSessionId).toBe('stored-B')
+  })
+
+  it('preserves an in-progress live thread when the stored snapshot is shorter', async () => {
+    rememberRuntimeSession('stored-live', 'live-resume')
+    appendUserMessage('stored-live', 'in-flight user')
+    setThreadBusy('stored-live', true)
+    handleGatewayEvent({
+      session_id: 'live-resume',
+      type: 'message.start',
+      payload: {}
+    })
+    handleGatewayEvent({
+      session_id: 'live-resume',
+      type: 'message.delta',
+      payload: { text: 'partial assistant' }
+    })
+
+    mockGetSessionMessages.mockResolvedValueOnce({
+      session_id: 'stored-live',
+      messages: [storedMessage('stored only')]
+    })
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'live-resume',
+      resumed: 'stored-live',
+      message_count: 1,
+      messages: [storedMessage('gateway resume projection')],
+      info: { running: true }
+    })
+
+    await expect(resumeAndHydrateStoredSession('stored-live')).resolves.toBe(true)
+
+    const thread = threadForSession('stored-live')
+    expect(thread?.messages.map(message => message.text)).toEqual(['in-flight user', 'partial assistant'])
+    expect(thread?.busy).toBe(true)
+    expect(thread?.messages.some(message => message.pending)).toBe(true)
+  })
+
+  it('refreshes from the stored snapshot when the thread is idle and not ahead of history', async () => {
+    appendUserMessage('stored-idle', 'old local copy')
+    setThreadBusy('stored-idle', false)
+
+    mockGetSessionMessages.mockResolvedValueOnce({
+      session_id: 'stored-idle',
+      messages: [storedMessage('stored only'), storedMessage('newer stored turn')]
+    })
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'live-idle',
+      resumed: 'stored-idle',
+      message_count: 2,
+      messages: [storedMessage('gateway resume projection')],
+      info: { running: false }
+    })
+
+    await expect(resumeAndHydrateStoredSession('stored-idle')).resolves.toBe(true)
+
+    expect(threadForSession('stored-idle')?.messages.map(message => message.text)).toEqual([
+      'stored only',
+      'newer stored turn'
+    ])
+    expect(threadForSession('stored-idle')?.busy).toBe(false)
+  })
+
+  it('syncs local busy state from session.resume info even when snapshot hydration is skipped', async () => {
+    appendUserMessage('stored-running', 'still streaming')
+    setThreadBusy('stored-running', false)
+    handleGatewayEvent({
+      session_id: 'live-running',
+      type: 'message.start',
+      payload: {}
+    })
+
+    mockGetSessionMessages.mockResolvedValueOnce({
+      session_id: 'stored-running',
+      messages: [storedMessage('stored only')]
+    })
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'live-running',
+      resumed: 'stored-running',
+      message_count: 1,
+      messages: [],
+      info: { running: true }
+    })
+
+    await expect(resumeAndHydrateStoredSession('stored-running')).resolves.toBe(true)
+
+    expect(threadForSession('stored-running')?.busy).toBe(true)
   })
 })

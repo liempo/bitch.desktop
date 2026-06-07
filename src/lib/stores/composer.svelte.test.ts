@@ -22,6 +22,7 @@ vi.mock('../../app/router.svelte', () => ({
 }))
 
 import { composerState, submitPrompt } from '$lib/stores/composer.svelte'
+import { clearQueuedPrompts, getQueuedPrompts } from '$lib/stores/composer-queue'
 import { messageState, threadForSession } from '$lib/stores/messages.svelte'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 
@@ -50,5 +51,32 @@ describe('composer runtime targeting', () => {
     })
     expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual(['hello cached runtime'])
     expect(messageState.sessions['live-A']).toBeUndefined()
+  })
+})
+
+describe('composer session busy recovery', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    composerState.sessions = {}
+    messageState.sessions = {}
+    clearQueuedPrompts('stored-A')
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+    sessionState.workingSessionIds = []
+    sessionState.needsInputSessionIds = []
+    sessionState.runtimeIdsByStoredSessionId = {}
+    sessionState.storedSessionIdsByRuntimeId = {}
+    rememberRuntimeSession('stored-A', 'live-A')
+  })
+
+  it('re-sets busy and enqueues the draft when prompt.submit reports session busy', async () => {
+    mockRequestGateway.mockRejectedValueOnce(new Error('session busy'))
+
+    await expect(submitPrompt('stored-A', { text: 'retry me later' })).resolves.toBe(true)
+
+    expect(threadForSession('stored-A')?.busy).toBe(true)
+    expect(threadForSession('stored-A')?.messages).toHaveLength(0)
+    expect(getQueuedPrompts('stored-A')).toEqual([expect.objectContaining({ text: 'retry me later' })])
+    expect(composerState.sessions['stored-A']?.error).toBeNull()
   })
 })
