@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockRequestGateway } = vi.hoisted(() => ({
-  mockRequestGateway: vi.fn()
+const { mockRequestGateway, mockNavigate, mockSessionRoute, mockRouterState } = vi.hoisted(() => ({
+  mockRequestGateway: vi.fn(),
+  mockNavigate: vi.fn(),
+  mockSessionRoute: vi.fn((id: string) => `/${id}`),
+  mockRouterState: { route: 'new' as 'new' | 'session', sessionId: null as string | null }
 }))
 
 vi.mock('$lib/api/dashboard', () => ({
@@ -16,9 +19,9 @@ vi.mock('$lib/stores/gateway.svelte', () => ({
 }))
 
 vi.mock('../../app/router.svelte', () => ({
-  navigate: vi.fn(),
-  sessionRoute: vi.fn((id: string) => `/${id}`),
-  routerState: {}
+  navigate: mockNavigate,
+  sessionRoute: mockSessionRoute,
+  routerState: mockRouterState
 }))
 
 import { composerState, submitPrompt } from '$lib/stores/composer.svelte'
@@ -29,6 +32,8 @@ import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte
 describe('composer runtime targeting', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockRouterState.route = 'session'
+    mockRouterState.sessionId = 'other-stored'
     composerState.sessions = {}
     messageState.sessions = {}
     sessionState.activeSessionId = 'other-live'
@@ -51,6 +56,37 @@ describe('composer runtime targeting', () => {
     })
     expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual(['hello cached runtime'])
     expect(messageState.sessions['live-A']).toBeUndefined()
+  })
+
+  it('creates a session on first submit from the new-chat route and navigates afterward', async () => {
+    mockRouterState.route = 'new'
+    mockRouterState.sessionId = null
+    sessionState.activeSessionId = null
+    sessionState.storedSessionId = null
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'session.create') {
+        return Promise.resolve({
+          session_id: 'live-new',
+          stored_session_id: 'stored-new',
+          message_count: 0,
+          messages: [],
+          info: { model: 'test-model' }
+        })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt(null, { text: 'first message' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', expect.anything())
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      session_id: 'live-new',
+      text: 'first message'
+    })
+    expect(mockNavigate).toHaveBeenCalledWith('/stored-new')
+    expect(threadForSession('stored-new')?.messages.map(message => message.text)).toEqual(['first message'])
   })
 })
 

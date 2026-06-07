@@ -10,7 +10,7 @@
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
-  import { createSession, initializeSessions, setActiveSession } from '$lib/stores/session.svelte'
+  import { initializeSessions, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
 
   let lastResumedSessionId: string | null = null
   const connectionState = $derived(gatewayState.connectionState)
@@ -91,7 +91,7 @@
 
     <!-- -- Content area -- -->
     <div class="flex flex-1 flex-col overflow-hidden">
-      <Thread sessionId={selectedSessionId} canCreate={connectionState === 'open'} onCreate={createSession} />
+      <Thread sessionId={selectedSessionId} canCreate={connectionState === 'open'} onCreate={startNewSession} />
     </div>
 
     <!-- -- Composer shelf -- -->

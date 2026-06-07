@@ -24,6 +24,7 @@ import {
   runtimeSessionIdForStored,
   selectSession,
   sessionState as rawSessionState,
+  startNewSession,
   storedSessionIdForRuntime
 } from '$lib/stores/session.svelte'
 
@@ -48,7 +49,7 @@ describe('createSession', () => {
     rawSessionState.storedSessionIdsByRuntimeId = {}
   })
 
-  it('sets activeSessionId to short sid and storedSessionId to persistent key', async () => {
+  it('sets activeSessionId to short sid and storedSessionId to persistent key without navigating', async () => {
     const liveSid = 'abc12345'
     const storedKey = 'sess_key_XYZ'
 
@@ -70,8 +71,8 @@ describe('createSession', () => {
     expect(rawSessionState.activeSessionId).toBe(liveSid)
     expect(rawSessionState.storedSessionId).toBe(storedKey)
 
-    // URL navigates to stored key (survives page refresh)
-    expect(mockNavigate).toHaveBeenCalledWith('/' + storedKey)
+    // Route stays put until the first successful submit
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
   it('falls back to session_id for stored key when stored_session_id is absent', async () => {
@@ -89,7 +90,7 @@ describe('createSession', () => {
 
     expect(rawSessionState.activeSessionId).toBe(liveSid)
     expect(rawSessionState.storedSessionId).toBe(liveSid)
-    expect(mockNavigate).toHaveBeenCalledWith('/' + liveSid)
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
   it('returns null on gateway error and sets error state', async () => {
@@ -132,6 +133,26 @@ describe('createSession', () => {
     expect(rawSessionState.activeSessionId).not.toBe('stale001')
     expect(rawSessionState.storedSessionId).toBe('operator-clicked-elsewhere')
     expect(mockNavigate).not.toHaveBeenCalledWith('/stored-stale')
+  })
+})
+
+describe('startNewSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = 'live-old'
+    rawSessionState.storedSessionId = 'stored-old'
+    rawSessionState.error = 'stale error'
+    rawSessionState.resumingSessionId = 'stored-old'
+  })
+
+  it('clears active session state and navigates to the new-chat route', () => {
+    startNewSession()
+
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(rawSessionState.storedSessionId).toBeNull()
+    expect(rawSessionState.error).toBeNull()
+    expect(rawSessionState.resumingSessionId).toBeNull()
+    expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 })
 

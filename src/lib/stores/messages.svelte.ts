@@ -785,6 +785,21 @@ export function setThreadBusy(sessionId: string, busy: boolean): void {
   setBusy(displaySessionId(sessionId), busy)
 }
 
+export function setThreadLoading(sessionId: string, loading: boolean): void {
+  const threadId = displaySessionId(sessionId)
+  const thread = ensureThreadSession(threadId)
+  thread.loading = loading
+
+  if (loading) {
+    thread.error = null
+    return
+  }
+
+  if (thread.messages.length === 0 && !thread.hydrated && !thread.busy) {
+    delete messageState.sessions[threadId]
+  }
+}
+
 export function appendUserMessage(sessionId: string, text: string, attachmentLabels: string[] = []): void {
   const threadId = displaySessionId(sessionId)
   const thread = ensureThreadSession(threadId)

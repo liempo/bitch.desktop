@@ -352,6 +352,17 @@ export function clearSearch(): void {
 /*  Create / switch / resume                                           */
 /* ------------------------------------------------------------------ */
 
+/** Show the empty new-chat UI without creating a gateway session yet. */
+export function startNewSession(): void {
+  resumeRequestId += 1
+  sessionState.resumingSessionId = null
+  sessionState.activeSessionId = null
+  sessionState.storedSessionId = null
+  sessionState.error = null
+  clearSearch()
+  navigate('/')
+}
+
 export async function createSession(): Promise<string | null> {
   const startingActiveSessionId = sessionState.activeSessionId
   const startingStoredSessionId = sessionState.storedSessionId
@@ -379,9 +390,6 @@ export async function createSession(): Promise<string | null> {
     rememberRuntimeSession(storedKey, liveSid)
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
-    navigate(sessionRoute(storedKey))
-    clearSearch()
-    await loadSessions()
 
     return liveSid
   } catch (error) {

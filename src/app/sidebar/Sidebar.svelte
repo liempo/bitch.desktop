@@ -5,7 +5,7 @@
   import {
     archiveSession,
     clearSearch,
-    createSession,
+    startNewSession,
     deleteSession,
     hasMoreSessions,
     isPinned,
@@ -49,9 +49,9 @@
     setSearchQuery((event.currentTarget as HTMLInputElement).value)
   }
 
-  async function handleNewChat(): Promise<void> {
+  function handleNewChat(): void {
     if (!connected) return
-    await createSession()
+    startNewSession()
   }
 
   function sessionDisabled(session: SessionInfo): boolean {

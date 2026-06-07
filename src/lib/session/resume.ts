@@ -1,6 +1,7 @@
 import { getSessionMessages } from '$lib/api/dashboard'
 import {
   hydrateSessionMessagesFromGateway,
+  setThreadLoading,
   shouldPreserveLiveThread,
   syncRunningFromResume
 } from '$lib/stores/messages.svelte'
@@ -9,6 +10,17 @@ import type { SessionMessage } from '$lib/types/hermes'
 
 function messageFor(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function isStoredSessionNotFound(error: unknown): boolean {
+  const message = messageFor(error)
+  return /session not found/i.test(message) || (/404/i.test(message) && /not found/i.test(message))
+}
+
+function releaseStaleThreadLoading(sessionId: string, requestId: number): void {
+  if (isCurrentResumeRequest(sessionId, requestId)) return
+  if (sessionState.resumingSessionId === sessionId) return
+  setThreadLoading(sessionId, false)
 }
 
 async function loadStoredSnapshot(sessionId: string, requestId: number): Promise<SessionMessage[] | null> {
@@ -21,7 +33,7 @@ async function loadStoredSnapshot(sessionId: string, requestId: number): Promise
 
     return response.messages
   } catch (error) {
-    if (isCurrentResumeRequest(sessionId, requestId)) {
+    if (isCurrentResumeRequest(sessionId, requestId) && !isStoredSessionNotFound(error)) {
       // A stored-history miss should not prevent resume; the gateway may still
       // return a projected transcript. Preserve the error for diagnostics while
       // keeping the live resume path available.
@@ -42,30 +54,49 @@ async function loadStoredSnapshot(sessionId: string, requestId: number): Promise
  * 4. stored snapshots win over resume projection messages when present
  */
 export async function resumeAndHydrateStoredSession(sessionId: string): Promise<boolean> {
+  const previousResumingSessionId = sessionState.resumingSessionId
   const requestId = beginResumeSession(sessionId)
-  const storedSnapshot = await loadStoredSnapshot(sessionId, requestId)
 
-  if (storedSnapshot === null || !isCurrentResumeRequest(sessionId, requestId)) {
-    return false
+  if (previousResumingSessionId && previousResumingSessionId !== sessionId) {
+    setThreadLoading(previousResumingSessionId, false)
   }
 
-  const hasStoredSnapshot = storedSnapshot.length > 0
+  setThreadLoading(sessionId, true)
 
-  if (hasStoredSnapshot && !shouldPreserveLiveThread(sessionId, storedSnapshot.length)) {
-    hydrateSessionMessagesFromGateway(sessionId, storedSnapshot)
+  try {
+    const storedSnapshot = await loadStoredSnapshot(sessionId, requestId)
+
+    if (storedSnapshot === null || !isCurrentResumeRequest(sessionId, requestId)) {
+      releaseStaleThreadLoading(sessionId, requestId)
+      return false
+    }
+
+    const hasStoredSnapshot = storedSnapshot.length > 0
+
+    if (hasStoredSnapshot && !shouldPreserveLiveThread(sessionId, storedSnapshot.length)) {
+      hydrateSessionMessagesFromGateway(sessionId, storedSnapshot)
+    }
+
+    const response = await resumeSession(sessionId, requestId)
+
+    if (!response || !isCurrentResumeRequest(sessionId, requestId)) {
+      releaseStaleThreadLoading(sessionId, requestId)
+      return false
+    }
+
+    syncRunningFromResume(sessionId, response.info)
+
+    const resumeMessages = response.messages ?? []
+    if (!hasStoredSnapshot && !shouldPreserveLiveThread(sessionId, resumeMessages.length)) {
+      hydrateSessionMessagesFromGateway(sessionId, resumeMessages)
+    }
+
+    return true
+  } finally {
+    if (isCurrentResumeRequest(sessionId, requestId)) {
+      setThreadLoading(sessionId, false)
+    } else {
+      releaseStaleThreadLoading(sessionId, requestId)
+    }
   }
-
-  const response = await resumeSession(sessionId, requestId)
-
-  if (!response || !isCurrentResumeRequest(sessionId, requestId)) {
-    return false
-  }
-
-  syncRunningFromResume(sessionId, response.info)
-
-  if (!hasStoredSnapshot) {
-    hydrateSessionMessagesFromGateway(sessionId, response.messages ?? [])
-  }
-
-  return true
 }

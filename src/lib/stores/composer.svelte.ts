@@ -15,6 +15,7 @@ import {
   runtimeSessionIdForStored,
   sessionState
 } from '$lib/stores/session.svelte'
+import { navigate, routerState, sessionRoute } from '../../app/router.svelte'
 import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } from '$lib/types/hermes'
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'
@@ -132,6 +133,15 @@ function displaySessionKey(sessionId: null | string | undefined): null | string 
   }
 
   return sessionState.storedSessionId
+}
+
+function commitActiveSessionRoute(): void {
+  const storedKey = sessionState.storedSessionId
+  if (!storedKey) return
+
+  if (routerState.route === 'new' || routerState.sessionId !== storedKey) {
+    navigate(sessionRoute(storedKey))
+  }
 }
 
 function liveSessionKey(sessionId: null | string | undefined): null | string {
@@ -487,6 +497,8 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
     clearComposerDraft(sessionId)
     clearComposerAttachments(sessionId)
+    commitActiveSessionRoute()
+    void loadSessions().catch(() => undefined)
 
     return true
   } catch (error) {
@@ -603,6 +615,7 @@ export async function submitPrompt(
 
   appendUserMessage(targetSessionId, displayText, attachmentLines)
   setThreadBusy(targetSessionId, true)
+  commitActiveSessionRoute()
 
   if (!options.fromQueue) {
     clearComposerDraft(sessionId)

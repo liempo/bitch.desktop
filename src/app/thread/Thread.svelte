@@ -3,6 +3,7 @@
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
+  import { sessionState } from '$lib/stores/session.svelte'
 
   interface Props {
     canCreate?: boolean
@@ -20,6 +21,11 @@
   const thread = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(thread?.messages ?? [])
   const busy = $derived(thread?.busy ?? false)
+  const loadingSession = $derived(
+    Boolean(sessionId) &&
+      messages.length === 0 &&
+      (thread?.loading || sessionState.resumingSessionId === sessionId)
+  )
 
   const scrollSignature = $derived(
     messages
@@ -119,11 +125,15 @@
         </button>
       </div>
     </div>
-  {:else if thread?.loading && messages.length === 0}
-    <div class="mx-auto w-full max-w-3xl space-y-4 px-4 py-8" aria-label="Loading transcript">
-      <div class="h-20 animate-pulse rounded-2xl bg-surface-raised/70"></div>
-      <div class="h-28 animate-pulse rounded-2xl bg-surface-raised/50"></div>
-      <div class="h-20 animate-pulse rounded-2xl bg-surface-raised/70"></div>
+  {:else if loadingSession}
+    <div class="flex min-h-full items-center justify-center px-6 py-16" aria-label="Loading session" role="status">
+      <div class="flex flex-col items-center gap-3 text-center">
+        <span
+          class="h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary"
+          aria-hidden="true"
+        ></span>
+        <p class="text-sm text-ink-muted">Loading session history…</p>
+      </div>
     </div>
   {:else if thread?.error && messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
