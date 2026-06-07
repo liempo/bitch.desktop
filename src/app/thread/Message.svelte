@@ -1,5 +1,4 @@
 <script lang="ts">
-  import CopyButton from './CopyButton.svelte'
   import Markdown from './Markdown.svelte'
   import Reasoning from './Reasoning.svelte'
   import Tool from './Tool.svelte'
@@ -34,6 +33,18 @@
   )
 
   const isRunning = $derived(message.pending === true)
+  const hasReasoningContent = $derived(
+    usesParts
+      ? parts.some(part => part.type === 'reasoning')
+      : (message.reasoning?.length ?? 0) > 0
+  )
+  const showThinkingPlaceholder = $derived(
+    isRunning &&
+      !message.error &&
+      !hasReasoningContent &&
+      message.tools.length === 0 &&
+      !message.text
+  )
 
   function formatTimestamp(value: number | undefined): string {
     if (!value) return ''
@@ -134,16 +145,8 @@
         {/if}
       {/if}
 
-      {#if !usesParts && isRunning && !message.error && message.tools.length === 0 && !message.text && !(message.reasoning && message.reasoning.length > 0)}
-        <div class="flex items-center gap-2 text-sm text-ink-muted">
-          <span class="h-2 w-2 animate-pulse rounded-full bg-success"></span>
-          <span>Thinking…</span>
-        </div>
-      {:else if usesParts && isRunning && !message.error && parts.length === 0}
-        <div class="flex items-center gap-2 text-sm text-ink-muted">
-          <span class="h-2 w-2 animate-pulse rounded-full bg-success"></span>
-          <span>Thinking…</span>
-        </div>
+      {#if showThinkingPlaceholder}
+        <Reasoning text="" pending={true} />
       {/if}
 
       <!-- Error -->
@@ -157,24 +160,14 @@
       {/if}
     </div>
 
-    <!-- Action bar — visible on hover -->
-    {#if hasContent && !isRunning}
+    <!-- Timestamp — visible on hover -->
+    {#if hasContent && !isRunning && timestamp}
       <div
-        class="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100"
+        class="mt-1 opacity-0 transition-opacity group-hover/msg:opacity-100"
       >
-        <CopyButton text={message.text} />
-        {#if timestamp}
-          <span class="ml-1 text-[0.65rem] text-ink-muted/50">{timestamp}</span>
-        {/if}
+        <span class="text-[0.65rem] text-ink-muted/50">{timestamp}</span>
       </div>
     {/if}
 
-    <!-- Streaming indicator dot -->
-    {#if isRunning}
-      <span
-        class="absolute right-4 top-2 h-1.5 w-1.5 animate-pulse rounded-full bg-success"
-        aria-label="Streaming"
-      ></span>
-    {/if}
   </div>
 {/if}

@@ -7,7 +7,7 @@
   import Thread from './thread/Thread.svelte'
   import { routerState } from './router.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
-  import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
+  import { layoutState } from '$lib/stores/layout.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
   import { initializeSessions, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
@@ -68,27 +68,6 @@
 
   <!-- ===== Main column ===== -->
   <div class="flex flex-1 flex-col">
-    <!-- -- Top bar -- -->
-    <header class="flex h-11 items-center justify-end border-b border-slate-800 px-4">
-      <button
-        class="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-        onclick={toggleSidebar}
-        aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-      >
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-        ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d={sidebarOpen ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
-          /></svg>
-      </button>
-    </header>
-
     <!-- -- Content area -- -->
     <div class="flex flex-1 flex-col overflow-hidden">
       <Thread sessionId={selectedSessionId} canCreate={connectionState === 'open'} onCreate={startNewSession} />

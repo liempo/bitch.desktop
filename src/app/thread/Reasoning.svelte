@@ -45,33 +45,39 @@
 </script>
 
 {#if text.trim() || pending}
-  <div class="text-xs text-ink-muted" data-slot="thinking-disclosure">
+  <div class="py-1.5 text-xs text-ink-muted" data-slot="thinking-disclosure">
     <!-- Disclosure header -->
     <button
-      class="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-surface-raised/50"
+      class="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-surface-raised/50"
       onclick={toggle}
       type="button"
       aria-expanded={open}
     >
-      <svg
-        class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {open ? 'rotate-90' : ''}"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-      <span
-        class="font-medium uppercase tracking-[0.14em] text-ink-muted {pending
-          ? 'animate-pulse'
-          : ''}"
-      >
-        Thinking
+      <span class="flex min-w-0 items-center gap-2">
+        {#if pending}
+          <span
+            class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-success"
+            aria-hidden="true"
+          ></span>
+          <span class="text-sm text-ink-muted">Thinking…</span>
+        {:else}
+          {#if text.trim()}
+            <svg
+              class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {open ? 'rotate-90' : ''}"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          {/if}
+          <span class="font-medium uppercase tracking-[0.14em] text-ink-muted">Thinking</span>
+        {/if}
       </span>
       {#if pending}
-        <span class="tabular-nums text-[0.65rem] text-ink-muted/70">{formatElapsed(elapsed)}</span>
+        <span class="shrink-0 tabular-nums text-[0.65rem] text-ink-muted/70">{formatElapsed(elapsed)}</span>
       {/if}
     </button>
 
