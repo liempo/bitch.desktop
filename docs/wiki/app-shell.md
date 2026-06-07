@@ -29,6 +29,12 @@ gateway.
 - **Routing:** `'/'` shows the empty new-chat intro; `'/:sessionId'` triggers a
   resume of that session. Use `location.hash` so it works in the Tauri webview
   without a server.
+- **Re-select during streaming:** `resumeAndHydrateStoredSession` preserves live
+  in-memory thread state when the thread is busy, has a pending assistant, or is
+  ahead of the stored snapshot. Idle sessions still refresh from HTTP history.
+  See [`live-thread-preservation.md`](live-thread-preservation.md).
+- **Busy sync:** after resume, gateway `info.running` updates local busy state so
+  the composer queues while the server still has an active turn.
 - **Connection gate:** disable the composer while `connectionState !== 'open'`.
 - **Layout:** collapsible sidebar (~280px), scrollable main, sticky composer,
   Bits UI primitives + Tailwind.

@@ -3,15 +3,16 @@
 Reference documentation for delivered features. Each doc covers the design,
 store layout, UI components, integration points, and upstream source files.
 
-| Topic               | Doc                                                | Key files                                                       |
-| ------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| Tauri HTTP bridge   | [`http-bridge.md`](http-bridge.md)                 | `src-tauri/src/lib.rs`, `src/lib/api/dashboard.ts`              |
-| App shell & routing | [`app-shell.md`](app-shell.md)                     | `AppShell.svelte`, `router.svelte.ts`, `gateway.svelte.ts`      |
-| Session sidebar     | [`session-sidebar.md`](session-sidebar.md)         | `Sidebar.svelte`, `SessionRow.svelte`, `session.svelte.ts`      |
-| Message thread      | [`message-thread.md`](message-thread.md)           | `Thread.svelte`, `Message.svelte`, `messages.svelte.ts`         |
-| Rich composer       | [`rich-composer.md`](rich-composer.md)             | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`    |
-| Interactive prompts | [`interactive-prompts.md`](interactive-prompts.md) | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `prompts.svelte.ts` |
-| **Devlog**          | [`devlog.md`](devlog.md)                           | Chronological development record                                |
+| Topic               | Doc                                                          | Key files                                                       |
+| ------------------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
+| Tauri HTTP bridge   | [`http-bridge.md`](http-bridge.md)                           | `src-tauri/src/lib.rs`, `src/lib/api/dashboard.ts`              |
+| App shell & routing | [`app-shell.md`](app-shell.md)                               | `AppShell.svelte`, `router.svelte.ts`, `gateway.svelte.ts`      |
+| Session sidebar     | [`session-sidebar.md`](session-sidebar.md)                   | `Sidebar.svelte`, `SessionRow.svelte`, `session.svelte.ts`      |
+| Message thread      | [`message-thread.md`](message-thread.md)                     | `Thread.svelte`, `Message.svelte`, `messages.svelte.ts`         |
+| Rich composer       | [`rich-composer.md`](rich-composer.md)                       | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`    |
+| Live thread resume  | [`live-thread-preservation.md`](live-thread-preservation.md) | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`         |
+| Interactive prompts | [`interactive-prompts.md`](interactive-prompts.md)           | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `prompts.svelte.ts` |
+| **Devlog**          | [`devlog.md`](devlog.md)                                     | Chronological development record                                |
 
 BITCH is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC** drives live
 turns (`prompt.submit`, `session.*`, interactive `*.respond`); **HTTP dashboard
@@ -33,6 +34,9 @@ deferred features.
   `message.complete`), tool rows, reasoning blocks, markdown, auto-scroll
 - **Session management** — sidebar list + search, URL hash resume, create,
   rename, archive, delete
+- **Live thread resume** — switching away and back during a running turn preserves
+  the in-memory transcript and keeps local busy state aligned with gateway
+  `info.running`
 
 ## Known gaps
 

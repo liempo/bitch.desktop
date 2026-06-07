@@ -19,7 +19,11 @@ attachments.
   `session.create` first, then submit.
 - **Interrupt:** `session.interrupt { session_id }` while the turn is busy.
 - **Queue:** when the gateway is busy, Enter enqueues; auto-drain the next entry
-  when the turn settles (unless the user explicitly interrupted).
+  when the turn settles (unless the user explicitly interrupted). If
+  `prompt.submit` still returns `session busy` because local state fell behind the
+  gateway, the composer reasserts busy, removes the optimistic user row, and
+  enqueues the attempted payload instead of surfacing a false assistant error.
+  See [`live-thread-preservation.md`](live-thread-preservation.md).
 - **Slash:** load `commands.catalog { session_id }` on session open; a `/`
   prefix opens a completion popover and dispatches via `slash.exec`.
 - **Model switch:** read `getModelOptions()` / `getGlobalModelInfo()`; switching
