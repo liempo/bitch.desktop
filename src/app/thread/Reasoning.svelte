@@ -45,21 +45,17 @@
 </script>
 
 {#if text.trim() || pending}
-  <div class="py-1.5 text-xs text-ink-muted" data-slot="thinking-disclosure">
+  <div class="my-1.5 overflow-hidden rounded-lg border border-dashed border-secondary/40 bg-transparent text-xs text-ink-muted" data-slot="thinking-disclosure">
     <!-- Disclosure header -->
     <button
-      class="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-surface-raised/50"
+      class="flex w-full items-center justify-between gap-2 bg-transparent px-3 py-2 text-left"
       onclick={toggle}
       type="button"
       aria-expanded={open}
     >
       <span class="flex min-w-0 items-center gap-2">
         {#if pending}
-          <span
-            class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-success"
-            aria-hidden="true"
-          ></span>
-          <span class="text-sm text-ink-muted">Thinking…</span>
+          <span class="text-sm text-ink-muted">Thinking...</span>
         {:else}
           {#if text.trim()}
             <svg
@@ -73,7 +69,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           {/if}
-          <span class="font-medium uppercase tracking-[0.14em] text-ink-muted">Thinking</span>
+          <span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-muted">Reasoning</span>
         {/if}
       </span>
       {#if pending}
@@ -84,7 +80,7 @@
     <!-- Disclosure body -->
     {#if open && text.trim()}
       <div
-        class="mt-0.5 max-h-40 w-full overflow-auto {isPreview
+          class="max-h-40 w-full overflow-auto px-3 {isPreview
           ? 'mask-b-from-80%'
           : ''} pb-1"
       >

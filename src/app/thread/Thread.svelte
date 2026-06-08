@@ -107,8 +107,7 @@
   {:else if messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
       <div class="max-w-md text-center">
-        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-success/70">Session ready</p>
-        <h2 class="mt-3 text-xl font-semibold tracking-tight text-ink">No messages yet</h2>
+        <h2 class="text-xl font-semibold tracking-tight text-ink">No messages yet</h2>
         <p class="mt-3 text-sm leading-6 text-ink-muted">
           History will appear here. Type in the composer below; the gateway will receive the message once the chromed courier lane is clear.
         </p>

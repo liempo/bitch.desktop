@@ -86,6 +86,11 @@
   ]
 
   const thinkingOn = $derived(currentReasoningEffort !== 'none')
+  const currentModelButtonLabel = $derived.by(() => {
+    const model = currentModelOption?.model ?? currentModelLabel.split(' / ').at(-1) ?? currentModelLabel
+    const reasoning = effortOptions.find(option => option.value === currentReasoningEffort)?.label ?? currentReasoningEffort
+    return [model, reasoning, currentFastMode ? 'Fast' : ''].filter(Boolean).join(' ')
+  })
 
   function selectModel(key: string): void {
     open = false
@@ -152,7 +157,7 @@
 
 <Popover.Root bind:open>
   <Popover.Trigger
-    class="bitch-control-select inline-flex max-w-64 items-center gap-1.5 truncate"
+    class="bitch-control-select inline-flex w-auto max-w-none items-center gap-1.5 whitespace-nowrap"
     disabled={isDisabled}
     title={currentModelOption ? modelTitle(currentModelOption as FlattenedOption) : currentModelLabel}
     aria-label="Switch model"
@@ -162,33 +167,8 @@
         class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary/30 border-t-primary"
         aria-label="Loading model settings"
       ></span>
-    {:else}
-      <svg
-        class="h-3.5 w-3.5 shrink-0 text-ink-muted"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"
-        />
-      </svg>
     {/if}
-    <span class="min-w-0 truncate text-sm">{switching ? 'Switching model\u2026' : currentModelLabel}</span>
-    <svg
-      class="h-3 w-3 shrink-0 text-ink-muted"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-    </svg>
+    <span class="text-left">{switching ? 'Switching model...' : currentModelButtonLabel}</span>
   </Popover.Trigger>
 
   <Popover.Content
@@ -201,7 +181,7 @@
       <input
         class="w-full rounded-lg border-0 bg-surface-raised px-2.5 py-1.5 text-sm text-ink-bright outline-none placeholder:text-ink-muted/60"
         type="text"
-        placeholder="Search models\u2026"
+        placeholder="Search models..."
         bind:value={search}
       />
     </div>

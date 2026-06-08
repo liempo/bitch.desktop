@@ -28,8 +28,7 @@
     onTogglePin = () => undefined,
     pinned = false,
     searchResult = null,
-    session = null,
-    working = false
+    session = null
   }: Props = $props()
 
   const id = $derived(session?.id ?? searchResult?.session_id ?? '')
@@ -98,9 +97,6 @@
           </svg>
         {/if}
         <p class="truncate text-sm font-medium text-ink">{title}</p>
-        {#if working}
-          <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-success" aria-label="Working"></span>
-        {/if}
         {#if needsInput}
           <span class="shrink-0 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-warning">
             input

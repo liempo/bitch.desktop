@@ -13,7 +13,6 @@
   let timerInterval: ReturnType<typeof setInterval> | null = null
 
   const running = $derived(tool.status === 'running')
-  const complete = $derived(tool.status === 'complete')
   const hasError = $derived(Boolean(tool.error))
   const hasDetail = $derived(Boolean(tool.input || tool.output || tool.error))
   const contextPreview = $derived(previewText(tool.context))
@@ -105,40 +104,53 @@
   }
 </script>
 
-<div class="my-1.5 overflow-hidden rounded-lg border {hasError ? 'border-danger/25' : 'border-line'} bg-tool-bg text-xs">
+<div class="my-1.5 overflow-hidden rounded-lg border border-dashed bg-transparent {hasError ? 'border-danger/25' : 'border-line'} text-xs">
   <button
-    class="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors {hasDetail
-      ? 'cursor-pointer hover:bg-surface-raised/50'
+    class="flex w-full items-center gap-2 bg-transparent px-3 py-2 text-left {hasDetail
+      ? 'cursor-pointer'
       : 'cursor-default'}"
     onclick={toggle}
     type="button"
     disabled={!hasDetail}
     aria-expanded={hasDetail ? expanded : undefined}
   >
-    <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
-      {#if running}
-        <span class="h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary"></span>
-      {:else if hasError}
-        <svg
-          class="h-3.5 w-3.5 text-danger"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          aria-label="Error"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      {:else if complete}
-        <span class="h-2 w-2 rounded-sm bg-ink-muted/80" aria-label="Complete"></span>
-      {/if}
-    </span>
+    {#if running || hasError}
+      <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
+        {#if running}
+          <span class="h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary"></span>
+        {:else if hasError}
+          <svg
+            class="h-3.5 w-3.5 text-danger"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            aria-label="Error"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        {/if}
+      </span>
+    {/if}
+
+    {#if hasDetail}
+      <svg
+        class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {expanded ? 'rotate-90' : ''}"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    {/if}
 
     <span class="min-w-0 flex-1">
       <span class="flex min-w-0 items-baseline gap-1.5">
-        <span class="shrink-0 font-medium {running ? 'animate-pulse text-ink-muted' : 'text-ink'}">
+        <span class="shrink-0 text-xs font-medium uppercase tracking-[0.14em] {running ? 'animate-pulse text-ink-muted' : 'text-ink'}">
           {statusLabel}
         </span>
         {#if contextPreview}
@@ -154,18 +166,6 @@
       <span class="shrink-0 tabular-nums text-ink-muted/70">{elapsedText}</span>
     {/if}
 
-    {#if hasDetail}
-      <svg
-        class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {expanded ? 'rotate-90' : ''}"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-    {/if}
   </button>
 
   {#if expanded && hasDetail}

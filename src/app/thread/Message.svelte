@@ -89,16 +89,16 @@
   </div>
 {:else if user}
   <!-- User message — bubble style -->
-  <div class="group mx-auto w-full max-w-3xl px-4 py-2" data-role="user">
+  <div class="group mx-auto w-full max-w-3xl px-4 py-6" data-role="user">
     <div
       class="relative rounded-xl border border-line-strong/60 bg-message-bg px-3.5 py-2.5 shadow-sm"
     >
-      <p class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-6 text-ink-bright">
+      <p class="whitespace-pre-wrap wrap-break-word text-right text-[0.9375rem] leading-6 text-ink-bright">
         {message.text}
       </p>
 
       {#if timestamp}
-        <time class="mt-1.5 block text-[0.65rem] text-ink-muted/70">{timestamp}</time>
+        <time class="mt-1.5 block text-right text-[0.65rem] text-ink-muted/70">{timestamp}</time>
       {/if}
     </div>
   </div>

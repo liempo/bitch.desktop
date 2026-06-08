@@ -356,10 +356,6 @@
         </div>
 
         <div class="flex min-w-0 items-center gap-2">
-          {#if composerState.model.loading || composerState.model.switching || composerState.model.reasoningSwitching || composerState.model.fastSwitching}
-            <span class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary/30 border-t-primary" aria-label="Loading model settings"></span>
-          {/if}
-
           <ModelPicker
             busy={busy}
             connected={connected}
