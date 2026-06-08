@@ -6,12 +6,10 @@
   import { sessionState } from '$lib/stores/session.svelte'
 
   interface Props {
-    canCreate?: boolean
-    onCreate?: () => void | Promise<unknown>
     sessionId?: null | string
   }
 
-  let { canCreate = false, onCreate = () => undefined, sessionId = null }: Props = $props()
+  let { sessionId = null }: Props = $props()
 
   let scrollElement: HTMLElement | null = $state(null)
   let stickToBottom = $state(true)
@@ -70,10 +68,6 @@
     scrollElement.scrollTop = scrollElement.scrollHeight
   }
 
-  function handleCreate(): void {
-    if (!canCreate) return
-    void onCreate()
-  }
 
 </script>
 
@@ -89,16 +83,8 @@
         <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-primary/70">Remote Hermes client</p>
         <h1 class="mt-3 text-2xl font-semibold tracking-tight text-ink">BITCH Desktop</h1>
         <p class="mt-3 text-sm leading-6 text-ink-muted">
-          Select a session from the sidebar or start a new chat. The chrome is installed; the operator still has to feed it work.
+          Select a session from the sidebar. The chrome is installed; the operator still has to feed it work.
         </p>
-        <button
-          class="mt-6 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition hover:border-primary/60 hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40"
-          type="button"
-          onclick={handleCreate}
-          disabled={!canCreate}
-        >
-          New chat
-        </button>
       </div>
     </div>
   {:else if loadingSession}

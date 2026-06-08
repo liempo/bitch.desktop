@@ -102,7 +102,7 @@
 
     <!-- -- Content area -- -->
     <div class="flex flex-1 flex-col overflow-hidden">
-      <Thread sessionId={selectedSessionId} canCreate={connectionState === 'open'} onCreate={startNewSession} />
+      <Thread sessionId={selectedSessionId} />
     </div>
 
     <!-- -- Composer shelf -- -->
