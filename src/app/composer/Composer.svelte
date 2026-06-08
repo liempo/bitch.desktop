@@ -33,14 +33,27 @@
   } from '$lib/stores/composer-queue'
   import { threadForSession } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
   import ModelPicker from './ModelPicker.svelte'
 
   interface Props {
     connected?: boolean
+    onToggleSidebar?: () => void
+    profileName?: null | string
+    sidebarOpen?: boolean
     sessionId?: null | string
+    sessionTitle?: string
   }
 
-  let { connected = false, sessionId = null }: Props = $props()
+  let {
+    connected = false,
+    onToggleSidebar,
+    profileName = 'default',
+    sidebarOpen = true,
+    sessionId = null,
+    sessionTitle = 'New session'
+  }: Props = $props()
 
   const EMPTY_COMPOSER_SESSION: ComposerSessionState = {
     attachments: [],
@@ -80,6 +93,8 @@
   const currentModelOption = $derived(modelOptions.find(option => option.current) ?? null)
   const currentReasoningEffort = $derived((thread?.reasoningEffort as ReasoningEffort | undefined) ?? 'medium')
   const currentFastMode = $derived(Boolean(thread?.fast))
+  const panelTitle = $derived(sessionTitle.trim() || 'New session')
+  const profileLabel = $derived((profileName?.trim() || 'default').toUpperCase())
   const reasoningSupported = $derived(currentModelOption?.capabilities?.reasoning !== false)
   const fastSupported = $derived(currentModelOption?.capabilities?.fast === true)
   const queueLabel = $derived(queuedPrompts.length === 1 ? '1 queued prompt' : `${queuedPrompts.length} queued prompts`)
@@ -226,7 +241,7 @@
   }
 </script>
 
-<section class="border-t border-line bg-chat-scroll p-3" aria-label="Composer">
+<section class="p-3" aria-label="Composer">
   <div class="mx-auto max-w-5xl">
     {#if queuedPrompts.length > 0}
       <div class="cli-card mb-2 border-warning/30 bg-warning/5 p-2" aria-label="Queued prompts">
@@ -299,105 +314,134 @@
       </div>
     {/if}
 
-    <div class="cli-panel border-0 bg-chat-scroll p-0 shadow-none">
-      <label class="sr-only" for={`composer-${composerKey}`}>Message Hermes</label>
-      <textarea
-        id={`composer-${composerKey}`}
-        class="cli-textarea cli-textarea-plain max-h-55 min-h-24 border-0 bg-transparent px-4 pt-3 pb-2 text-sm leading-6 text-ink-bright placeholder:text-ink-muted/70 disabled:cursor-not-allowed disabled:opacity-50"
-        bind:this={textareaElement}
-        value={composer.draft}
-        rows="4"
-        placeholder={connected ? 'type prompt :: Enter sends / Shift+Enter inserts newline' : 'link_down :: connect to Hermes gateway before typing'}
-        disabled={!connected}
-        oninput={handleDraftInput}
-        onkeydown={handleKeydown}
-      ></textarea>
-
-      <div class="flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2">
-        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
-          <input
-            class="hidden"
-            bind:this={fileInputElement}
-            type="file"
-            accept="image/*"
-            multiple
-            onchange={(event) => void handleFileInput(event)}
-          />
-
-          <button
-            class="bitch-button bitch-button-borderless bitch-icon-button"
-            type="button"
-            onclick={handleAttachClick}
-            disabled={!canAttach}
-            aria-label="Attach image"
-            title="Attach image"
-          >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-
-          {#if composer.attachments.length > 0}
-            <button
-              class="bitch-button bitch-button-borderless"
-              type="button"
-              onclick={() => clearComposerAttachments(sessionId)}
+    <div class="mt-3">
+      <Panel title={panelTitle} padded={false}>
+        {#snippet leading()}
+          {#if onToggleSidebar}
+            <Button
+              variant="unstyled"
+              class="flex h-5 w-5 items-center justify-center p-0 text-ink-muted hover:text-ink-bright"
+              onclick={onToggleSidebar}
+              aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
             >
-              Clear images
-            </button>
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14" />
+              </svg>
+            </Button>
           {/if}
+        {/snippet}
 
-          {#if composer.commandError}
-            <span class="max-w-60 truncate text-xs text-warning" title={composer.commandError}>{composer.commandError}</span>
-          {/if}
-          {#if composer.error}
-            <span class="max-w-60 truncate text-xs text-danger" title={composer.error}>{composer.error}</span>
-          {/if}
-        </div>
-
-        <div class="flex min-w-0 items-center gap-2">
-          <ModelPicker
-            busy={busy}
-            connected={connected}
-            currentFastMode={currentFastMode}
-            currentModelLabel={modelLabel}
-            currentModelOption={currentModelOption}
-            currentReasoningEffort={currentReasoningEffort}
-            fastSupported={fastSupported}
-            fastSwitching={composerState.model.fastSwitching}
-            modelGroups={modelGroups}
-            modelLoading={composerState.model.loading}
-            reasoningSupported={reasoningSupported}
-            reasoningSwitching={composerState.model.reasoningSwitching}
-            switching={composerState.model.switching}
-            onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled) }}
-            onModelSelect={(key: string) => { void selectComposerModel(sessionId, key) }}
-            onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort) }}
-          />
-
-          {#if busy && sessionId}
-            <button
-              class="bitch-button bitch-button-borderless bitch-icon-button bitch-button-danger"
-              type="button"
-              onclick={() => void handleInterrupt()}
-              disabled={!connected}
-              aria-label="Stop"
-              title="Stop"
-            >
-              <span class="bitch-button-stop-glyph"></span>
-            </button>
-          {/if}
-
-          <button
-            class="bitch-button bitch-button-borderless bitch-button-primary"
-            type="button"
-            onclick={() => void handleSubmit()}
-            disabled={!canSubmit}
+        {#snippet actions()}
+          <span
+            class="text-[11px] font-bold uppercase tracking-[0.05em] text-ink-muted before:mr-1 before:text-line-strong before:content-['['] after:ml-1 after:text-line-strong after:content-[']']"
+            title="Active gateway profile"
           >
-            {composer.submitting ? 'Sending…' : busy ? 'Queue' : 'Send'}
-          </button>
+            PROFILE::{profileLabel}
+          </span>
+        {/snippet}
+
+        <div class="p-0">
+          <label class="sr-only" for={`composer-${composerKey}`}>Message Hermes</label>
+          <textarea
+            id={`composer-${composerKey}`}
+            class="cli-textarea cli-textarea-plain max-h-55 min-h-24 border-0 bg-transparent px-4 pt-3 pb-2 text-sm leading-6 text-ink-bright placeholder:text-ink-muted/70 disabled:cursor-not-allowed disabled:opacity-50"
+            bind:this={textareaElement}
+            value={composer.draft}
+            rows="4"
+            placeholder={connected ? 'type prompt :: Enter sends / Shift+Enter inserts newline' : 'link_down :: connect to Hermes gateway before typing'}
+            disabled={!connected}
+            oninput={handleDraftInput}
+            onkeydown={handleKeydown}
+          ></textarea>
+
+          <div class="flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+              <input
+                class="hidden"
+                bind:this={fileInputElement}
+                type="file"
+                accept="image/*"
+                multiple
+                onchange={(event) => void handleFileInput(event)}
+              />
+
+              <button
+                class="bitch-button bitch-button-borderless bitch-icon-button"
+                type="button"
+                onclick={handleAttachClick}
+                disabled={!canAttach}
+                aria-label="Attach image"
+                title="Attach image"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+
+              {#if composer.attachments.length > 0}
+                <button
+                  class="bitch-button bitch-button-borderless"
+                  type="button"
+                  onclick={() => clearComposerAttachments(sessionId)}
+                >
+                  Clear images
+                </button>
+              {/if}
+
+              {#if composer.commandError}
+                <span class="max-w-60 truncate text-xs text-warning" title={composer.commandError}>{composer.commandError}</span>
+              {/if}
+              {#if composer.error}
+                <span class="max-w-60 truncate text-xs text-danger" title={composer.error}>{composer.error}</span>
+              {/if}
+            </div>
+
+            <div class="flex min-w-0 items-center gap-2">
+              <ModelPicker
+                busy={busy}
+                connected={connected}
+                currentFastMode={currentFastMode}
+                currentModelLabel={modelLabel}
+                currentModelOption={currentModelOption}
+                currentReasoningEffort={currentReasoningEffort}
+                fastSupported={fastSupported}
+                fastSwitching={composerState.model.fastSwitching}
+                modelGroups={modelGroups}
+                modelLoading={composerState.model.loading}
+                reasoningSupported={reasoningSupported}
+                reasoningSwitching={composerState.model.reasoningSwitching}
+                switching={composerState.model.switching}
+                onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled) }}
+                onModelSelect={(key: string) => { void selectComposerModel(sessionId, key) }}
+                onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort) }}
+              />
+
+              {#if busy && sessionId}
+                <button
+                  class="bitch-button bitch-button-borderless bitch-icon-button bitch-button-danger"
+                  type="button"
+                  onclick={() => void handleInterrupt()}
+                  disabled={!connected}
+                  aria-label="Stop"
+                  title="Stop"
+                >
+                  <span class="bitch-button-stop-glyph"></span>
+                </button>
+              {/if}
+
+              <button
+                class="bitch-button bitch-button-borderless bitch-button-primary"
+                type="button"
+                onclick={() => void handleSubmit()}
+                disabled={!canSubmit}
+              >
+                {composer.submitting ? 'Sending…' : busy ? 'Queue' : 'Send'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </Panel>
     </div>
 
     {#if composerState.model.error}

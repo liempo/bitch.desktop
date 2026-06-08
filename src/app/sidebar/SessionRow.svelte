@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '$lib/components/ui/Button.svelte'
   import SessionActionsMenu from './SessionActionsMenu.svelte'
   import type { SessionInfo, SessionSearchResult } from '$lib/types/hermes'
 
@@ -28,14 +29,20 @@
     onTogglePin = () => undefined,
     pinned = false,
     searchResult = null,
-    session = null,
-    working = false
+    session = null
   }: Props = $props()
 
   const id = $derived(session?.id ?? searchResult?.session_id ?? '')
   const title = $derived(session?.title?.trim() || (searchResult ? 'Search match' : 'Untitled session'))
   const preview = $derived(session?.preview?.trim() || stripMarkup(searchResult?.snippet) || 'No preview yet')
   const subtitle = $derived(formatSubtitle(session, searchResult))
+  const profileTag = $derived(formatProfileTag(session))
+
+  const SESSION_ROW =
+    'tree-row group relative flex min-w-0 items-stretch transition-colors ' +
+    'hover:bg-surface-raised ' +
+    'data-[selected=true]:bg-primary/15 data-[selected=true]:text-ink-bright ' +
+    'data-[selected=true]:font-semibold data-[disabled=true]:opacity-50'
 
   function stripMarkup(value: string | null | undefined): string {
     return (value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -52,6 +59,14 @@
     }
 
     return ''
+  }
+
+  function formatProfileTag(info: SessionInfo | null): string {
+    const profile = info?.profile?.trim()
+
+    if (!profile || info?.is_default_profile || profile.toLowerCase() === 'default') return ''
+
+    return profile.toUpperCase()
   }
 
   function formatRelativeTime(timestamp: null | number | undefined): string {
@@ -78,37 +93,41 @@
 </script>
 
 {#snippet row()}
-  <div
-    class="cli-session-row group flex items-start px-2 py-2"
-    data-active={active}
-  >
-    <button
-      class="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50"
-      type="button"
+  <div class={SESSION_ROW} data-selected={active ? 'true' : undefined} data-disabled={disabled ? 'true' : undefined}>
+    <Button
+      variant="unstyled"
+      class="grid min-w-0 flex-1 gap-1 py-2 pl-2 pr-2 text-left text-inherit"
       onclick={handleSelect}
       {disabled}
+      aria-pressed={active}
     >
-      <div class="flex items-center gap-2">
-        <span class={`cli-dot shrink-0 ${working ? 'text-success' : needsInput ? 'text-warning' : active ? 'text-primary' : 'text-ink-muted/70'}`} aria-hidden="true"></span>
+      <span class="flex min-w-0 items-center gap-1.5 text-[11px]">
+        <span class="flex min-w-0 flex-1 items-center gap-1 truncate uppercase tracking-[0.05em]" title={title}>
+          <span class="min-w-0 truncate">{title}</span>
+        </span>
         {#if pinned}
-          <svg class="h-3 w-3 shrink-0 text-primary" fill="currentColor" viewBox="0 0 20 20" aria-label="Pinned">
-            <path d="M9.828 2.172a2 2 0 0 1 2.828 0l5.172 5.172a2 2 0 0 1-2.239 3.221l-2.175 2.176v3.088a1 1 0 0 1-1.707.707L8.5 13.328l-3.086 3.086a1 1 0 0 1-1.414-1.414l3.086-3.086-3.207-3.207a1 1 0 0 1 .707-1.707h3.088L9.85 4.825a2 2 0 0 1-.022-2.653Z" />
-          </svg>
+          <span class="shrink-0 text-[9px] font-bold uppercase tracking-[0.12em] text-primary">PIN</span>
         {/if}
-        <p class="truncate text-sm font-semibold text-ink-bright">{title}</p>
         {#if needsInput}
-          <span class="cli-tag cli-tag-warning shrink-0 px-1.5 py-0.5 text-[0.58rem]">
-            input
+          <span class="shrink-0 text-[9px] font-bold uppercase tracking-[0.12em] text-warning">
+            INPUT
           </span>
         {/if}
-      </div>
+      </span>
 
-      <p class="mt-1 line-clamp-2 text-xs leading-4 text-ink-muted">{preview}</p>
+      <span class="line-clamp-2 text-xs leading-4 text-ink-muted">{preview}</span>
 
       {#if subtitle}
-        <p class="mt-1 truncate text-[0.65rem] uppercase tracking-[0.16em] text-secondary/80">{subtitle}</p>
+        <span class="flex min-w-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-ink-muted/80">
+          <span class="min-w-0 truncate">{subtitle}</span>
+          {#if profileTag}
+            <span class="shrink-0 text-ink-muted/80">·</span>
+            <span class="shrink-0 text-ink-muted/80">{profileTag}</span>
+          {/if}
+        </span>
       {/if}
-    </button>
+    </Button>
+
   </div>
 {/snippet}
 
