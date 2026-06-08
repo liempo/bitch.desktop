@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for BITCH Desktop",
+  "description": "Default capabilities for bitch.desktop",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
 }

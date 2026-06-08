@@ -42,6 +42,11 @@
       void onDelete()
     }
   }
+
+  const itemClass =
+    'cli-menu-item grid grid-cols-[1fr_auto] items-center gap-2 px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em]'
+
+  const dangerItemClass = `${itemClass} text-danger hover:bg-danger/10`
 </script>
 
 <ContextMenu.Root>
@@ -50,49 +55,41 @@
   </ContextMenu.Trigger>
 
   <ContextMenu.Content
-    class="z-50 min-w-38 rounded-xl border border-line-strong bg-surface-raised p-1.5 shadow-xl shadow-black/30 backdrop-blur-lg"
+    class="cli-popover z-50 min-w-58 p-1.5 font-mono backdrop-blur-lg"
     sideOffset={4}
   >
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      class={itemClass}
       onSelect={handleRename}
     >
-      <svg class="h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828z" />
-      </svg>
-      Rename
+      <span>rename</span>
+      <span class="text-[10px] text-ink-muted">mv</span>
     </ContextMenu.Item>
 
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      class={itemClass}
       onSelect={() => void onTogglePin()}
     >
-      <svg class="h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M16 4v12l-4 2-4-2V4M6 4h12" />
-      </svg>
       {pinned ? 'Unpin' : 'Pin'}
+      <span class="text-[10px] text-ink-muted">{pinned ? 'unset' : 'set'}</span>
     </ContextMenu.Item>
 
-    <ContextMenu.Separator class="mx-2 my-1 border-t border-line-strong" />
+    <ContextMenu.Separator class="mx-2 my-1 border-t border-dotted border-line-strong" />
 
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      class={itemClass}
       onSelect={() => void onArchive()}
     >
-      <svg class="h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7H4m2 0 1 14h10l1-14M9 7V4h6v3" />
-      </svg>
-      Archive
+      <span>archive</span>
+      <span class="text-[10px] text-ink-muted">tar</span>
     </ContextMenu.Item>
 
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-danger transition hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+      class={dangerItemClass}
       onSelect={handleDelete}
     >
-      <svg class="h-3.5 w-3.5 text-danger" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m19 7-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
-      </svg>
-      Delete
+      <span>delete</span>
+      <span class="text-[10px] text-danger/80">rm</span>
     </ContextMenu.Item>
   </ContextMenu.Content>
 </ContextMenu.Root>

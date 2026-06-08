@@ -1,7 +1,8 @@
-# Architecture Wiki — BITCH Desktop
+# Architecture Wiki — bitch.desktop
 
-Reference documentation for delivered features. Each doc covers the design,
-store layout, UI components, integration points, and upstream source files.
+Reference documentation for delivered features and future candidates. Each doc
+covers the design, store layout, UI components, integration points, and upstream
+source files.
 
 | Topic               | Doc                                                          | Key files                                                       |
 | ------------------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
@@ -13,21 +14,20 @@ store layout, UI components, integration points, and upstream source files.
 | Live thread resume  | [`live-thread-preservation.md`](live-thread-preservation.md) | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`         |
 | Interactive prompts | [`interactive-prompts.md`](interactive-prompts.md)           | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `prompts.svelte.ts` |
 | Remote profiles     | [`remote-profile-support.md`](remote-profile-support.md)     | `profile.svelte.ts`, `gateway.svelte.ts`, `ProfileRail.svelte`  |
+| Roadmap             | [`roadmap.md`](roadmap.md)                                   | Delivered scope, future candidates, upstream references         |
 | **Devlog**          | [`devlog.md`](devlog.md)                                     | Chronological development record                                |
 
-BITCH is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC** drives live
-turns (`prompt.submit`, `session.*`, interactive `*.respond`); **HTTP dashboard
-API** (via the Tauri `dashboard_request` command) handles session list, search,
-stored messages, and rename/archive/delete. Dashboard auth never enters the
-renderer.
+bitch.desktop is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC**
+drives live turns (`prompt.submit`, `session.*`, interactive `*.respond`);
+**HTTP dashboard API** (via the Tauri `dashboard_request` command) handles
+session list, search, stored messages, and rename/archive/delete. Dashboard auth
+never enters the renderer.
 
-See [`docs/plans/00-overview.md`](../plans/00-overview.md) for the transport
-split, RPC contracts, and upstream reference index.
+The transport split is summarized here and detailed in
+[`http-bridge.md`](http-bridge.md). See [`roadmap.md`](roadmap.md) for future
+candidates, deferred features, and the upstream reference index.
 
-See [`docs/plans/roadmap.md`](../plans/roadmap.md) for future candidates and
-deferred features.
-
-## Verified working (as of 2026-06-07)
+## Verified working (as of 2026-06-08)
 
 - **Gateway connection** — connects to remote Hermes TUI gateway, authenticates
   with session token, stable WebSocket JSON-RPC via Tauri bridge

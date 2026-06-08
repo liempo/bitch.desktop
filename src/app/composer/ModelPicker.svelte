@@ -130,34 +130,34 @@
 
   function optionClass(option: FlattenedOption): string {
     const base =
-      'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40'
-    if (option.current) return `${base} bg-primary/10 text-primary`
+      'cli-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-40'
+    if (option.current) return `${base} border-primary/40 bg-primary/10 text-primary`
     return base
   }
 
   function toggleClass(on: boolean): string {
     const base =
-      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40'
-    if (on) return `${base} bg-primary`
-    return `${base} bg-ink-muted/20`
+      'relative inline-flex h-5 w-10 shrink-0 cursor-pointer items-center rounded-control border border-line transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40'
+    if (on) return `${base} border-primary/60 bg-primary/20`
+    return `${base} bg-surface-raised`
   }
 
   function effortClass(active: boolean): string {
-    const base = 'rounded-md px-2 py-1 text-[0.68rem] font-medium transition-colors'
-    if (active) return `${base} bg-primary/15 text-primary`
-    return `${base} text-ink-muted hover:bg-surface-raised`
+    const base = 'bitch-button bitch-button-borderless min-h-0 px-2 py-1 text-[0.68rem]'
+    if (active) return `${base} bitch-button-primary`
+    return `${base} text-ink-muted`
   }
 
   function thumbClass(on: boolean): string {
-    return `pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-      on ? 'translate-x-4' : 'translate-x-0'
+    return `pointer-events-none inline-block h-3.5 w-3.5 rounded-xs bg-ink-bright shadow-sm transition-transform duration-200 ${
+      on ? 'translate-x-5 bg-primary' : 'translate-x-0 bg-ink-muted'
     }`
   }
 </script>
 
 <Popover.Root bind:open>
   <Popover.Trigger
-    class="bitch-control-select inline-flex w-auto max-w-none items-center gap-1.5 whitespace-nowrap"
+    class="bitch-control-select bitch-button-borderless inline-flex w-auto max-w-none items-center gap-1.5 whitespace-nowrap"
     disabled={isDisabled}
     title={currentModelOption ? modelTitle(currentModelOption as FlattenedOption) : currentModelLabel}
     aria-label="Switch model"
@@ -172,16 +172,16 @@
   </Popover.Trigger>
 
   <Popover.Content
-    class="z-50 w-80 rounded-xl border border-line bg-canvas p-1 shadow-2xl shadow-black/30"
+    class="cli-popover z-50 w-80 p-1"
     sideOffset={4}
     align="start"
   >
     <!-- Search input -->
     <div class="px-1 pb-1">
       <input
-        class="w-full rounded-lg border-0 bg-surface-raised px-2.5 py-1.5 text-sm text-ink-bright outline-none placeholder:text-ink-muted/60"
+        class="cli-input px-2.5 py-1.5 text-sm"
         type="text"
-        placeholder="Search models..."
+        placeholder="grep models..."
         bind:value={search}
       />
     </div>
@@ -196,18 +196,18 @@
           {#if groupOptions.length > 0}
             <div class="py-0.5">
               <div class="flex items-center gap-1.5 px-2 py-1">
-                <span class="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-ink-muted/70"
+                <span class="cli-section-title text-[0.65rem]"
                   >{group.name}</span
                 >
                 {#if group.freeTier}
                   <span
-                    class="rounded-sm bg-emerald-500/15 px-1 py-0.5 text-[0.55rem] font-semibold uppercase tracking-wide text-emerald-500"
+                    class="cli-tag cli-tag-success px-1 py-0.5 text-[0.55rem]"
                     >Free</span
                   >
                 {/if}
                 {#if group.warning}
                   <span
-                    class="rounded-sm bg-amber-500/15 px-1 py-0.5 text-[0.55rem] font-semibold uppercase tracking-wide text-amber-500"
+                    class="cli-tag cli-tag-warning px-1 py-0.5 text-[0.55rem]"
                     >!</span
                   >
                 {/if}
@@ -251,8 +251,8 @@
     <!-- Model controls -->
     <div class="px-1 py-0.5">
       {#if fastSupported}
-        <div class="flex items-center justify-between rounded-lg px-2 py-1.5">
-          <span class="text-xs font-medium text-ink">Fast</span>
+        <div class="flex items-center justify-between rounded-control px-2 py-1.5">
+          <span class="text-xs font-semibold uppercase tracking-[0.12em] text-ink">Fast</span>
           <button
             class={toggleClass(currentFastMode)}
             role="switch"
@@ -266,8 +266,8 @@
         </div>
       {/if}
 
-      <div class="flex items-center justify-between rounded-lg px-2 py-1.5">
-        <span class="text-xs font-medium text-ink">Thinking</span>
+      <div class="flex items-center justify-between rounded-control px-2 py-1.5">
+        <span class="text-xs font-semibold uppercase tracking-[0.12em] text-ink">Thinking</span>
         <button
           class={toggleClass(thinkingOn)}
           role="switch"

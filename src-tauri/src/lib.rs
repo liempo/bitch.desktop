@@ -4,6 +4,10 @@ const DEFAULT_WS_PATH: &str = "/api/ws";
 const WS_TICKET_PATH: &str = "/api/auth/ws-ticket";
 const AUTH_HEADER: &str = "X-Hermes-Session-Token";
 const HTTP_TIMEOUT_SECS: u64 = 15;
+const WINDOW_BAR_HEIGHT: f64 = 40.0;
+const MACOS_TRAFFIC_LIGHT_SIZE: f64 = 12.0;
+const MACOS_TRAFFIC_LIGHT_NATIVE_BOTTOM_INSET: f64 = 6.0;
+const MACOS_TRAFFIC_LIGHT_X: f64 = 16.0;
 
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -18,6 +22,34 @@ use std::{
 use tauri::Emitter;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
+
+fn macos_traffic_light_y() -> f64 {
+    ((WINDOW_BAR_HEIGHT - MACOS_TRAFFIC_LIGHT_SIZE) / 2.0
+        + MACOS_TRAFFIC_LIGHT_NATIVE_BOTTOM_INSET)
+        .max(0.0)
+}
+
+fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
+    let builder = tauri::WebviewWindowBuilder::new(
+        app,
+        "main",
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("BITCH")
+    .inner_size(1200.0, 800.0)
+    .resizable(true);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::LogicalPosition::new(
+            MACOS_TRAFFIC_LIGHT_X,
+            macos_traffic_light_y(),
+        ));
+
+    builder.build().map(|_| ())
+}
 
 #[derive(Clone, Debug)]
 struct GatewayConfig {
@@ -1086,6 +1118,11 @@ mod tests {
         assert!(connection_scope_key(Some("   ")).is_none());
         assert!(connection_scope_key(None).is_none());
     }
+
+    #[test]
+    fn calculates_macos_traffic_light_inset_from_window_bar_height() {
+        assert_eq!(macos_traffic_light_y(), 20.0);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1094,6 +1131,10 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(http_client)
+        .setup(|app| {
+            create_main_window(app)?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_connection_config,
             save_connection_config,
