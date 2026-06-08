@@ -137,6 +137,8 @@ function payloadString(payload: GatewayPayload, key: string): string {
 }
 
 function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: string, payload: GatewayPayload): void {
+  const profile = payloadString(payload, 'profile') || null
+
   if (eventType === 'clarify.request') {
     const requestId = payloadString(payload, 'request_id')
     const question = payloadString(payload, 'question')
@@ -144,6 +146,7 @@ function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: str
     if (requestId && question) {
       setClarifyRequest({
         choices: stringList(payload.choices),
+        profile,
         question,
         requestId,
         sessionId
@@ -153,13 +156,14 @@ function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: str
     setApprovalRequest({
       command: payloadString(payload, 'command'),
       description: payloadString(payload, 'description') || 'dangerous command',
+      profile,
       sessionId
     })
   } else if (eventType === 'sudo.request') {
     const requestId = payloadString(payload, 'request_id')
 
     if (requestId) {
-      setSudoRequest({ requestId, sessionId })
+      setSudoRequest({ profile, requestId, sessionId })
     }
   } else if (eventType === 'secret.request') {
     const requestId = payloadString(payload, 'request_id')
@@ -167,6 +171,7 @@ function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: str
     if (requestId) {
       setSecretRequest({
         envVar: payloadString(payload, 'env_var'),
+        profile,
         prompt: payloadString(payload, 'prompt'),
         requestId,
         sessionId

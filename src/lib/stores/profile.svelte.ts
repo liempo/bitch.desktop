@@ -162,10 +162,11 @@ export async function ensureGatewayProfile(profile: null | string | undefined): 
   }
 
   const target = normalizeProfileKey(profile)
+  const previous = normalizeProfileKey(profileState.activeGatewayProfile)
+  routeApiToProfile(target)
 
-  if (normalizeProfileKey(profileState.activeGatewayProfile) === target) {
+  if (previous === target) {
     await ensureGatewayForProfile(target)
-    routeApiToProfile(target)
     return
   }
 
@@ -187,6 +188,9 @@ export async function ensureGatewayProfile(profile: null | string | undefined): 
 
   try {
     await gatewaySwitch
+  } catch (error) {
+    routeApiToProfile(previous)
+    throw error
   } finally {
     gatewaySwitch = null
     profileState.gatewaySwapTarget = null
