@@ -9,17 +9,20 @@
     currentModelLabel,
     drainNextQueuedPrompt,
     executeSlashCommand,
-    flattenedModelOptions,
+    groupedModelOptions,
     interruptComposerSession,
     loadCommandCatalog,
     markComposerInterrupted,
     refreshComposerModels,
     removeComposerAttachment,
+    selectComposerFastMode,
     selectComposerModel,
+    selectComposerReasoningEffort,
     setComposerDraft,
     slashSuggestions,
     submitPrompt,
-    type ComposerSessionState
+    type ComposerSessionState,
+    type ReasoningEffort
   } from '$lib/stores/composer.svelte'
   import {
     getQueuedPromptState,
@@ -30,6 +33,7 @@
   } from '$lib/stores/composer-queue'
   import { threadForSession } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
+  import ModelPicker from './ModelPicker.svelte'
 
   interface Props {
     connected?: boolean
@@ -70,8 +74,14 @@
   const canSubmit = $derived(connected && hasDraftPayload && !composer.submitting && (!sessionId || Boolean(liveSid)))
   const canAttach = $derived(connected && !composer.submitting)
   const commandSuggestions = $derived(sessionId ? slashSuggestions(sessionId, composer.draft) : [])
-  const modelOptions = $derived(flattenedModelOptions())
+  const modelGroups = $derived(groupedModelOptions())
+  const modelOptions = $derived(modelGroups.flatMap(group => group.options))
   const modelLabel = $derived(currentModelLabel(sessionId))
+  const currentModelOption = $derived(modelOptions.find(option => option.current) ?? null)
+  const currentReasoningEffort = $derived((thread?.reasoningEffort as ReasoningEffort | undefined) ?? 'medium')
+  const currentFastMode = $derived(Boolean(thread?.fast))
+  const reasoningSupported = $derived(currentModelOption?.capabilities?.reasoning !== false)
+  const fastSupported = $derived(currentModelOption?.capabilities?.fast === true)
   const queueLabel = $derived(queuedPrompts.length === 1 ? '1 queued prompt' : `${queuedPrompts.length} queued prompts`)
 
   onMount(() =>
@@ -197,16 +207,6 @@
   function handleSuggestion(command: string): void {
     applySlashSuggestion(sessionId, command)
     focusTextarea()
-  }
-
-  async function handleModelChange(event: Event): Promise<void> {
-    const select = event.currentTarget as HTMLSelectElement
-    const key = select.value
-
-    if (!key) return
-
-    await selectComposerModel(sessionId, key)
-    select.value = ''
   }
 
   async function handleInterrupt(): Promise<void> {
@@ -356,21 +356,28 @@
         </div>
 
         <div class="flex min-w-0 items-center gap-2">
-          {#if composerState.model.loading || composerState.model.switching}
-            <span class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary/30 border-t-primary" aria-label="Loading models"></span>
+          {#if composerState.model.loading || composerState.model.switching || composerState.model.reasoningSwitching || composerState.model.fastSwitching}
+            <span class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary/30 border-t-primary" aria-label="Loading model settings"></span>
           {/if}
 
-          <select
-            class="bitch-control-select"
-            aria-label="Switch model"
-            onchange={(event) => void handleModelChange(event)}
-            disabled={!connected || !sessionId || composerState.model.switching || modelOptions.length === 0}
-          >
-            <option value="">{composerState.model.switching ? 'Switching model…' : modelLabel}</option>
-            {#each modelOptions as option (option.key)}
-              <option value={option.key}>{option.provider} / {option.model}{option.current ? ' ✓' : ''}</option>
-            {/each}
-          </select>
+          <ModelPicker
+            busy={busy}
+            connected={connected}
+            currentFastMode={currentFastMode}
+            currentModelLabel={modelLabel}
+            currentModelOption={currentModelOption}
+            currentReasoningEffort={currentReasoningEffort}
+            fastSupported={fastSupported}
+            fastSwitching={composerState.model.fastSwitching}
+            modelGroups={modelGroups}
+            modelLoading={composerState.model.loading}
+            reasoningSupported={reasoningSupported}
+            reasoningSwitching={composerState.model.reasoningSwitching}
+            switching={composerState.model.switching}
+            onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled) }}
+            onModelSelect={(key: string) => { void selectComposerModel(sessionId, key) }}
+            onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort) }}
+          />
 
           {#if busy && sessionId}
             <button

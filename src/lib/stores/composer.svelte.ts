@@ -62,6 +62,26 @@ export interface SlashExecResponse {
   warning?: string
 }
 
+export interface ComposerModelOption {
+  capabilities?: NonNullable<ModelOptionProvider['capabilities']>[string]
+  current: boolean
+  key: string
+  model: string
+  pricing?: NonNullable<ModelOptionProvider['pricing']>[string]
+  provider: string
+  unavailable: boolean
+}
+
+export interface ComposerModelGroup {
+  freeTier?: boolean
+  name: string
+  options: ComposerModelOption[]
+  provider: string
+  warning?: string
+}
+
+export type ReasoningEffort = 'high' | 'low' | 'medium' | 'minimal' | 'none' | 'xhigh'
+
 export interface PromptTextPart {
   text: string
   type: 'text'
@@ -88,11 +108,13 @@ export interface ComposerSessionState {
   userInterrupted: boolean
 }
 
-export interface ComposerModelState {
+interface ComposerModelState {
   error: null | string
+  fastSwitching: boolean
   info: ModelInfoResponse | null
   loading: boolean
   options: ModelOptionsResponse | null
+  reasoningSwitching: boolean
   switching: boolean
 }
 
@@ -114,9 +136,11 @@ const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp
 export const composerState = $state<ComposerState>({
   model: {
     error: null,
+    fastSwitching: false,
     info: null,
     loading: false,
     options: null,
+    reasoningSwitching: false,
     switching: false
   },
   sessions: {}
@@ -321,6 +345,20 @@ function renderSlashOutput(command: string, result: SlashExecResponse | undefine
   return [`slash:${command}`, warning ? `warning: ${warning}` : '', output].filter(Boolean).join('\n')
 }
 
+function normalizeReasoningEffort(effort: string): ReasoningEffort {
+  if (
+    effort === 'high' ||
+    effort === 'medium' ||
+    effort === 'low' ||
+    effort === 'minimal' ||
+    effort === 'none' ||
+    effort === 'xhigh'
+  ) {
+    return effort
+  }
+  return 'medium'
+}
+
 function profileSlashArg(command: string): string | undefined {
   const match = /^\/profile(?:\s+(.*))?$/i.exec(command)
   return match ? (match[1] ?? '').trim() : undefined
@@ -418,19 +456,37 @@ export function currentModelLabel(sessionId: null | string | undefined): string 
   return [provider, model].filter(Boolean).join(' / ') || 'Model unavailable'
 }
 
-export function flattenedModelOptions(): Array<{ current: boolean; key: string; model: string; provider: string }> {
+export function groupedModelOptions(): ComposerModelGroup[] {
   const currentProvider = composerState.model.options?.provider ?? composerState.model.info?.provider ?? ''
   const currentModel = composerState.model.options?.model ?? composerState.model.info?.model ?? ''
   const providers = composerState.model.options?.providers ?? []
 
-  return providers.flatMap((provider: ModelOptionProvider) =>
-    (provider.models ?? []).map(model => ({
-      current: (provider.slug || provider.name) === currentProvider && model === currentModel,
-      key: modelSelectionKey(provider.slug || provider.name, model),
-      model,
-      provider: provider.slug || provider.name
-    }))
-  )
+  return providers
+    .map((provider: ModelOptionProvider): ComposerModelGroup => {
+      const providerKey = provider.slug || provider.name
+      const unavailable = new Set(provider.unavailable_models ?? [])
+
+      return {
+        freeTier: provider.free_tier,
+        name: provider.name || providerKey,
+        provider: providerKey,
+        warning: provider.warning,
+        options: (provider.models ?? []).map(model => ({
+          capabilities: provider.capabilities?.[model],
+          current: providerKey === currentProvider && model === currentModel,
+          key: modelSelectionKey(providerKey, model),
+          model,
+          pricing: provider.pricing?.[model],
+          provider: providerKey,
+          unavailable: unavailable.has(model)
+        }))
+      }
+    })
+    .filter(group => group.options.length > 0)
+}
+
+export function flattenedModelOptions(): ComposerModelOption[] {
+  return groupedModelOptions().flatMap(group => group.options)
 }
 
 export async function refreshComposerModels(): Promise<void> {
@@ -604,12 +660,115 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
   }
 }
 
+export async function selectComposerReasoningEffort(
+  sessionId: null | string | undefined,
+  effort: ReasoningEffort
+): Promise<boolean> {
+  let targetSessionId = liveSessionKey(sessionId)
+
+  if (!targetSessionId) {
+    targetSessionId = await createSession()
+  }
+
+  if (!targetSessionId) {
+    composerState.model.error = 'Could not create a session before changing reasoning effort.'
+    return false
+  }
+
+  composerState.model.reasoningSwitching = true
+  composerState.model.error = null
+
+  try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    const normalized = normalizeReasoningEffort(effort)
+    const reasonArg = normalized === 'none' ? 'off' : normalized === 'xhigh' ? 'max' : normalized
+    const command = `/reasoning ${reasonArg}`
+    const result = await requestGateway<SlashExecResponse>('slash.exec', {
+      command,
+      session_id: targetSessionId,
+      profile
+    })
+
+    appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
+
+    const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+    const thread = threadForSession(displayKey)
+    if (thread) {
+      thread.reasoningEffort = normalized
+    }
+    commitActiveSessionRoute()
+    void loadSessions().catch(() => undefined)
+
+    return true
+  } catch (error) {
+    composerState.model.error = inlineErrorMessage(error, 'Reasoning switch failed')
+    return false
+  } finally {
+    composerState.model.reasoningSwitching = false
+  }
+}
+
+export async function selectComposerFastMode(sessionId: null | string | undefined, enabled: boolean): Promise<boolean> {
+  let targetSessionId = liveSessionKey(sessionId)
+
+  if (!targetSessionId) {
+    targetSessionId = await createSession()
+  }
+
+  if (!targetSessionId) {
+    composerState.model.error = 'Could not create a session before changing fast mode.'
+    return false
+  }
+
+  composerState.model.fastSwitching = true
+  composerState.model.error = null
+
+  try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    const command = `/fast ${enabled ? 'on' : 'off'}`
+    const result = await requestGateway<SlashExecResponse>('slash.exec', {
+      command,
+      session_id: targetSessionId,
+      profile
+    })
+
+    appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
+
+    const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+    const thread = threadForSession(displayKey)
+    if (thread) {
+      thread.fast = enabled
+    }
+    commitActiveSessionRoute()
+    void loadSessions().catch(() => undefined)
+
+    return true
+  } catch (error) {
+    composerState.model.error = inlineErrorMessage(error, 'Fast mode switch failed')
+    return false
+  } finally {
+    composerState.model.fastSwitching = false
+  }
+}
+
 export async function selectComposerModel(sessionId: null | string | undefined, key: string): Promise<boolean> {
   const [provider, model] = key.split('\u0000')
-  const targetSessionId = liveSessionKey(sessionId)
 
-  if (!provider || !model || !targetSessionId) {
-    composerState.model.error = 'Open a session before switching models.'
+  if (!provider || !model) {
+    composerState.model.error = 'Choose a model before switching.'
+    return false
+  }
+
+  let targetSessionId = liveSessionKey(sessionId)
+
+  if (!targetSessionId) {
+    targetSessionId = await createSession()
+  }
+
+  if (!targetSessionId) {
+    composerState.model.error = 'Could not create a session before switching models.'
     return false
   }
 
@@ -637,6 +796,8 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
       provider
     }
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
+    commitActiveSessionRoute()
+    void loadSessions().catch(() => undefined)
 
     return true
   } catch (error) {

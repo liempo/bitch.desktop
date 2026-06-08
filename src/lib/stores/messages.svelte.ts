@@ -67,12 +67,14 @@ export interface ThreadSessionState {
   cwd?: string
   currentAssistantId: string | null
   error: string | null
+  fast?: boolean
   hydrated: boolean
   loading: boolean
   messages: ThreadMessage[]
   model?: string
   needsInput: boolean
   provider?: string
+  reasoningEffort?: string
   usage?: Partial<UsageStats>
 }
 
@@ -733,6 +735,14 @@ function applyRuntimeInfo(sessionId: string, payload: GatewayPayload): void {
 
   if (typeof payload.provider === 'string') {
     thread.provider = payload.provider
+  }
+
+  if (typeof payload.reasoning_effort === 'string') {
+    thread.reasoningEffort = payload.reasoning_effort
+  }
+
+  if (typeof payload.fast === 'boolean') {
+    thread.fast = payload.fast
   }
 
   if (typeof payload.cwd === 'string') {
