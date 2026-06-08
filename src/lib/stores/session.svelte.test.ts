@@ -158,7 +158,7 @@ describe('createSession', () => {
     })
 
     await expect(resultPromise).resolves.toBeNull()
-    expect(mockRequestGateway).toHaveBeenCalledWith('session.close', { session_id: 'stale001' })
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.close', { profile: 'default', session_id: 'stale001' })
     expect(rawSessionState.activeSessionId).not.toBe('stale001')
     expect(rawSessionState.storedSessionId).toBe('operator-clicked-elsewhere')
     expect(mockNavigate).not.toHaveBeenCalledWith('/stored-stale')

@@ -153,8 +153,18 @@ function routeApiToProfile(profile: string): void {
   setApiRequestProfile(normalizeProfileKey(profile))
 }
 
+let gatewaySwitch: Promise<void> | null = null
+
 export async function ensureGatewayProfile(profile: null | string | undefined): Promise<void> {
-  const target = normalizeProfileKey(profile ?? profileState.activeGatewayProfile)
+  if (profile == null || !String(profile).trim()) {
+    if (gatewaySwitch) {
+      await gatewaySwitch.catch(() => undefined)
+    }
+
+    return
+  }
+
+  const target = normalizeProfileKey(profile)
 
   if (normalizeProfileKey(profileState.activeGatewayProfile) === target) {
     await ensureGatewayForProfile(target)
@@ -162,13 +172,26 @@ export async function ensureGatewayProfile(profile: null | string | undefined): 
     return
   }
 
-  profileState.gatewaySwapTarget = target
+  if (gatewaySwitch) {
+    await gatewaySwitch.catch(() => undefined)
 
-  try {
+    if (normalizeProfileKey(profileState.activeGatewayProfile) === target) {
+      routeApiToProfile(target)
+      return
+    }
+  }
+
+  profileState.gatewaySwapTarget = target
+  gatewaySwitch = (async () => {
     await ensureGatewayForProfile(target)
     profileState.activeGatewayProfile = target
     routeApiToProfile(target)
+  })()
+
+  try {
+    await gatewaySwitch
   } finally {
+    gatewaySwitch = null
     profileState.gatewaySwapTarget = null
   }
 }

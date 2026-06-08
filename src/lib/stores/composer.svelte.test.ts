@@ -56,6 +56,7 @@ describe('composer runtime targeting', () => {
     await expect(submitPrompt('stored-A', { text: 'hello cached runtime' })).resolves.toBe(true)
 
     expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
       session_id: 'live-A',
       text: 'hello cached runtime'
     })
@@ -87,6 +88,7 @@ describe('composer runtime targeting', () => {
 
     expect(mockRequestGateway).toHaveBeenCalledWith('session.create', expect.anything())
     expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
       session_id: 'live-new',
       text: 'first message'
     })

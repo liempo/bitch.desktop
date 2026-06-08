@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 
 import { HermesGateway } from '$lib/gateway/hermes'
+import type { GatewayEvent } from '$lib/gateway/json-rpc-gateway'
 import { consumeLastTauriGatewaySocketError } from '$lib/gateway/tauri-gateway-socket'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
@@ -12,15 +13,22 @@ interface ResolvedConnection {
 }
 
 interface GatewayEntry {
+  connectPromise: Promise<HermesGateway> | null
   connectionDetail: string
+  eventUnsubscribe: (() => void) | null
   gateway: HermesGateway
   profile: string
   state: ConnectionState
   unsubscribe: (() => void) | null
 }
 
+interface GatewayRegistryConfig {
+  onEvent: (event: GatewayEvent) => void
+}
+
 const gatewayEntries = new Map<string, GatewayEntry>()
 let activeEntry: GatewayEntry | null = null
+let registryConfig: GatewayRegistryConfig | null = null
 
 export const gatewayState = $state<{
   activeProfile: string
@@ -39,6 +47,15 @@ function normalizeProfile(profile: null | string | undefined): string {
   return value || 'default'
 }
 
+function profileFromParams(params: Record<string, unknown>): string | null {
+  const profile = params.profile
+  return typeof profile === 'string' && profile.trim() ? normalizeProfile(profile) : null
+}
+
+export function configureGatewayRegistry(config: GatewayRegistryConfig | null): void {
+  registryConfig = config
+}
+
 function detailedError(error: unknown): string {
   const base = error instanceof Error ? error.message : String(error)
   const bridgeError = consumeLastTauriGatewaySocketError()
@@ -53,12 +70,16 @@ function detailedError(error: unknown): string {
 function createEntry(profile: string): GatewayEntry {
   const gateway = new HermesGateway(profile)
   const entry: GatewayEntry = {
+    connectPromise: null,
     connectionDetail: '',
+    eventUnsubscribe: null,
     gateway,
     profile,
     state: 'idle',
     unsubscribe: null
   }
+
+  entry.eventUnsubscribe = gateway.onEvent(event => registryConfig?.onEvent(event))
 
   entry.unsubscribe = gateway.onState(state => {
     entry.state = state as ConnectionState
@@ -118,31 +139,41 @@ export async function ensureGatewayForProfile(profile: null | string | undefined
     return entry.gateway
   }
 
-  const connection = await resolveConnection(key)
-  const baseUrl = connection.baseUrl || 'http://127.0.0.1:9119'
-
-  entry.state = 'connecting'
-  entry.connectionDetail = `Connecting ${key} to Hermes dashboard at ${baseUrl}`
-  gatewayState.connectionState = 'connecting'
-  gatewayState.connectionDetail = entry.connectionDetail
-  gatewayState.profiles = { ...gatewayState.profiles, [key]: 'connecting' }
-
-  try {
-    await entry.gateway.connect(baseUrl)
-    entry.state = 'open'
-    entry.connectionDetail = `Dashboard gateway ready for ${key}`
-    gatewayState.profiles = { ...gatewayState.profiles, [key]: 'open' }
-    gatewayState.connectionState = 'open'
-    gatewayState.connectionDetail = entry.connectionDetail
-    return entry.gateway
-  } catch (error) {
-    entry.state = 'error'
-    entry.connectionDetail = detailedError(error)
-    gatewayState.profiles = { ...gatewayState.profiles, [key]: 'error' }
-    gatewayState.connectionState = 'error'
-    gatewayState.connectionDetail = entry.connectionDetail
-    throw error
+  if (entry.connectPromise) {
+    return await entry.connectPromise
   }
+
+  entry.connectPromise = (async () => {
+    const connection = await resolveConnection(key)
+    const baseUrl = connection.baseUrl || 'http://127.0.0.1:9119'
+
+    entry.state = 'connecting'
+    entry.connectionDetail = `Connecting ${key} to Hermes dashboard at ${baseUrl}`
+    gatewayState.connectionState = 'connecting'
+    gatewayState.connectionDetail = entry.connectionDetail
+    gatewayState.profiles = { ...gatewayState.profiles, [key]: 'connecting' }
+
+    try {
+      await entry.gateway.connect(baseUrl)
+      entry.state = 'open'
+      entry.connectionDetail = `Dashboard gateway ready for ${key}`
+      gatewayState.profiles = { ...gatewayState.profiles, [key]: 'open' }
+      gatewayState.connectionState = 'open'
+      gatewayState.connectionDetail = entry.connectionDetail
+      return entry.gateway
+    } catch (error) {
+      entry.state = 'error'
+      entry.connectionDetail = detailedError(error)
+      gatewayState.profiles = { ...gatewayState.profiles, [key]: 'error' }
+      gatewayState.connectionState = 'error'
+      gatewayState.connectionDetail = entry.connectionDetail
+      throw error
+    } finally {
+      entry.connectPromise = null
+    }
+  })()
+
+  return await entry.connectPromise
 }
 
 export async function connectGateway(profile = 'default'): Promise<void> {
@@ -160,9 +191,12 @@ export function disconnectGateway(profile?: null | string): void {
     const entry = gatewayEntries.get(key)
     if (!entry) continue
 
+    entry.eventUnsubscribe?.()
+    entry.eventUnsubscribe = null
     entry.unsubscribe?.()
     entry.unsubscribe = null
     entry.gateway.close()
+    entry.connectPromise = null
     entry.state = 'closed'
     entry.connectionDetail = ''
     gatewayEntries.delete(key)
@@ -183,7 +217,14 @@ export function disconnectGateway(profile?: null | string): void {
 }
 
 export async function requestGateway<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-  const entry = activeEntry ?? entryForProfile(gatewayState.activeProfile)
+  const targetProfile = profileFromParams(params)
+  const entry = targetProfile
+    ? entryForProfile(targetProfile)
+    : (activeEntry ?? entryForProfile(gatewayState.activeProfile))
+
+  if (entry.state !== 'open' && entry.connectPromise) {
+    await entry.connectPromise
+  }
 
   if (entry.state !== 'open') {
     throw new Error(

@@ -1,6 +1,7 @@
 import { getGlobalModelInfo, getModelOptions } from '$lib/api/dashboard'
 import { compactWhitespace } from '$lib/messages/chat-runtime'
 import { requestGateway } from '$lib/stores/gateway.svelte'
+import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
 import {
   appendAssistantErrorMessage,
   appendSystemMessage,
@@ -12,6 +13,7 @@ import {
   createSession,
   displaySessionIdFor,
   loadSessions,
+  profileForSession,
   runtimeSessionIdForStored,
   sessionState
 } from '$lib/stores/session.svelte'
@@ -155,6 +157,15 @@ function liveSessionKey(sessionId: null | string | undefined): null | string {
   }
 
   return sessionState.activeSessionId
+}
+
+function targetProfileForSession(sessionId: null | string | undefined): string {
+  const displayKey = displaySessionKey(sessionId)
+  return normalizeProfileKey(
+    (displayKey ? profileForSession(displayKey) : null) ??
+      profileState.newChatProfile ??
+      profileState.activeGatewayProfile
+  )
 }
 
 function ensureComposerSession(sessionId: null | string | undefined): ComposerSessionState {
@@ -446,7 +457,12 @@ export async function loadCommandCatalog(sessionId: null | string | undefined): 
   session.commandError = null
 
   try {
-    const catalog = await requestGateway<CommandsCatalogResponse>('commands.catalog', { session_id: targetSessionId })
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    const catalog = await requestGateway<CommandsCatalogResponse>('commands.catalog', {
+      session_id: targetSessionId,
+      profile
+    })
     session.commandCatalog = commandPairs(catalog)
     session.commandError = catalog.warning || null
   } catch (error) {
@@ -490,9 +506,12 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
   }
 
   try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
       command,
-      session_id: targetSessionId
+      session_id: targetSessionId,
+      profile
     })
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
     clearComposerDraft(sessionId)
@@ -523,10 +542,13 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
   composerState.model.error = null
 
   try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
     const command = `/model ${modelQuote(model)} --provider ${modelQuote(provider)}`
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
       command,
-      session_id: targetSessionId
+      session_id: targetSessionId,
+      profile
     })
 
     composerState.model.info = {
@@ -559,7 +581,9 @@ export async function interruptComposerSession(sessionId: null | string | undefi
   setThreadBusy(displayKey, false)
 
   try {
-    await requestGateway('session.interrupt', { session_id: targetSessionId })
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    await requestGateway('session.interrupt', { session_id: targetSessionId, profile })
     appendSystemMessage(displayKey, 'Interrupted by operator.')
     return true
   } catch (error) {
@@ -612,6 +636,15 @@ export async function submitPrompt(
 
   const attachmentLines = attachments.map(attachmentLabel)
   const displayText = compactWhitespace(visibleText) || (attachments.length ? 'What do you see in this image?' : '')
+  const targetProfile = targetProfileForSession(sessionId)
+
+  try {
+    await ensureGatewayProfile(targetProfile)
+  } catch (error) {
+    composer.submitting = false
+    composer.error = inlineErrorMessage(error, 'Could not switch profile gateway')
+    return false
+  }
 
   appendUserMessage(targetSessionId, displayText, attachmentLines)
   setThreadBusy(targetSessionId, true)
@@ -625,7 +658,8 @@ export async function submitPrompt(
   try {
     await requestGateway('prompt.submit', {
       session_id: targetSessionId,
-      text: buildPayload(visibleText, attachments)
+      text: buildPayload(visibleText, attachments),
+      profile: targetProfile
     })
     void loadSessions().catch(() => undefined)
 

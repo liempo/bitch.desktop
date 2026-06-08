@@ -100,6 +100,11 @@ keeps a `profile → HermesGateway` registry. `ensureGatewayForProfile(profile)`
 opens or reuses the socket for that profile, marks the selected gateway active,
 and exposes `$gatewaySwapTarget` state for the app-shell swap overlay.
 
+The registry fans gateway events from every open profile socket into
+`messages.svelte.ts`, so background profile turns, tool progress, and blocking
+prompt requests continue to render under their stored session keys while another
+profile is active.
+
 `HermesGateway` and `TauriGatewaySocket` both carry the selected profile down to
 Tauri when opening `/api/ws`.
 
@@ -114,6 +119,19 @@ profile-aware for list, hydration, and mutations:
   the session's owning profile before touching REST or live RPC.
 - `messages.svelte.ts` and `session/resume.ts` pass profile through stored message
   hydration so history reads hit the right dashboard host.
+
+### Composer and prompt responses
+
+[`src/lib/stores/composer.svelte.ts`](../../src/lib/stores/composer.svelte.ts)
+routes live RPCs through the owning profile before calling `commands.catalog`,
+`slash.exec`, `session.interrupt`, and `prompt.submit`. New sessions always pass
+the selected profile into `session.create` so the gateway persists the row in the
+correct profile state database.
+
+[`src/lib/stores/prompts.svelte.ts`](../../src/lib/stores/prompts.svelte.ts)
+keeps clarify, approval, sudo, and secret responses profile-scoped. Sudo and
+secret prompt events now remember the stored session key, allowing modal responses
+to switch to the owning profile before sending `sudo.respond` or `secret.respond`.
 
 ## UI
 
@@ -169,8 +187,13 @@ Focused coverage added:
 
 - `connection-config.test.ts` — URL normalization, profile override filtering,
   auth-mode defaults.
-- `profile.svelte.test.ts` — profile key normalization and scope derivation.
-- `session.svelte.test.ts` — `profile_totals` pagination behavior.
+- `profile.svelte.test.ts` — profile key normalization, switch serialization,
+  and scope derivation.
+- `session.svelte.test.ts` — profile-aware creation, resume, stale close, and
+  `profile_totals` pagination behavior.
+- `composer.svelte.test.ts`, `messages.svelte.test.ts`, and
+  `prompts.svelte.test.ts` — profile-scoped live RPC payloads, cross-profile
+  stream handling, and blocking prompt responses.
 - Rust unit tests in `src-tauri/src/lib.rs` — connection URL normalization,
   profile override resolution, and connection scope key behavior.
 

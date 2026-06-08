@@ -462,13 +462,13 @@ export async function createSession(): Promise<string | null> {
   const startingActiveSessionId = sessionState.activeSessionId
   const startingStoredSessionId = sessionState.storedSessionId
   const startingRouteToken = currentRouteToken()
-  const newChatProfile = profileState.newChatProfile
+  const targetProfile = normalizeProfileKey(profileState.newChatProfile ?? profileState.activeGatewayProfile)
 
   try {
-    await ensureGatewayProfile(newChatProfile ?? profileState.activeGatewayProfile)
+    await ensureGatewayProfile(targetProfile)
     const response = await requestGateway<SessionCreateResponse>('session.create', {
       cols: COLS,
-      ...(newChatProfile ? { profile: newChatProfile } : {})
+      profile: targetProfile
     })
     // Track both IDs per the upstream two-ID pattern:
     //   session_id — short 8-char hex sid keys the in-memory _sessions dict
@@ -477,14 +477,14 @@ export async function createSession(): Promise<string | null> {
     // The URL hash and session.resume need the stored key.
     const liveSid = response.session_id
     const storedKey = response.stored_session_id ?? response.session_id
-    const profile = newChatProfile
+    const profile = targetProfile
 
     if (
       sessionState.activeSessionId !== startingActiveSessionId ||
       sessionState.storedSessionId !== startingStoredSessionId ||
       currentRouteToken() !== startingRouteToken
     ) {
-      await requestGateway('session.close', { session_id: liveSid }).catch(() => undefined)
+      await requestGateway('session.close', { session_id: liveSid, profile: targetProfile }).catch(() => undefined)
       return null
     }
 
@@ -547,7 +547,8 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
 
     try {
       info = await requestGateway<NonNullable<SessionResumeResponse['info']>>('session.info', {
-        session_id: cachedRuntimeId
+        session_id: cachedRuntimeId,
+        ...(profile ? { profile } : {})
       })
     } catch (error) {
       if (isCurrentResumeRequest(sessionId, activeRequestId)) {
@@ -578,7 +579,10 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
   sessionState.error = null
 
   try {
-    const response = await requestGateway<SessionResumeResponse>('session.resume', { session_id: sessionId })
+    const response = await requestGateway<SessionResumeResponse>('session.resume', {
+      session_id: sessionId,
+      ...(profile ? { profile } : {})
+    })
 
     if (!isCurrentResumeRequest(sessionId, activeRequestId)) {
       return null

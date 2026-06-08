@@ -8,24 +8,24 @@ This document tracks delivered plans and future upstream candidates.
 The implementation now covers remote Hermes chat, session management, interactive
 runtime prompts, documentation, and multi-profile remote routing.
 
-| #   | Feature                                                                           | Key files                                                                                                 |
-| --- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 01  | Tauri HTTP bridge — `dashboard_request` with auth injection                       | `src-tauri/src/lib.rs`, `src/lib/api/dashboard.ts`                                                        |
-| 02  | App shell + hash router + connection gate                                         | `AppShell.svelte`, `router.svelte.ts`, `gateway.svelte.ts`                                                |
-| 03  | Session sidebar — list, search, create, switch, rename, archive, delete, pin      | `Sidebar.svelte`, `SessionRow.svelte`, `session.svelte.ts`                                                |
-| 04  | Message thread — streaming, reasoning blocks, tool rows, markdown                 | `Thread.svelte`, `Message.svelte`, `ToolRow.svelte`, `Reasoning.svelte`, `messages.svelte.ts`             |
-| 05  | Rich composer — send, interrupt, queue, slash commands, model switch, attachments | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`                                              |
-| 06  | Interactive prompts — clarify, approval, sudo, secret                             | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `SudoModal.svelte`, `SecretModal.svelte`, `prompts.svelte.ts` |
-| 07  | Lib reorganisation — `api/`, `gateway/`, `messages/`, `session/` modules          | `src/lib/**`, `docs/wiki/ARCHITECTURE.md`                                                                 |
-| 08  | Remote profile support — profile rail, scoped sessions, per-profile routing       | `profile.svelte.ts`, `gateway.svelte.ts`, `ProfileRail.svelte`, `src-tauri/src/lib.rs`                    |
+| #   | Feature                                                                           | Key files                                                                                                                                              |
+| --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 01  | Tauri HTTP bridge — `dashboard_request` with auth injection                       | `src-tauri/src/lib.rs`, `src/lib/api/dashboard.ts`                                                                                                     |
+| 02  | App shell + hash router + connection gate                                         | `AppShell.svelte`, `router.svelte.ts`, `gateway.svelte.ts`                                                                                             |
+| 03  | Session sidebar — list, search, create, switch, rename, archive, delete, pin      | `Sidebar.svelte`, `SessionRow.svelte`, `session.svelte.ts`                                                                                             |
+| 04  | Message thread — streaming, reasoning blocks, tool rows, markdown                 | `Thread.svelte`, `Message.svelte`, `ToolRow.svelte`, `Reasoning.svelte`, `messages.svelte.ts`                                                          |
+| 05  | Rich composer — send, interrupt, queue, slash commands, model switch, attachments | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`                                                                                           |
+| 06  | Interactive prompts — clarify, approval, sudo, secret                             | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `SudoModal.svelte`, `SecretModal.svelte`, `prompts.svelte.ts`                                              |
+| 07  | Lib reorganisation — `api/`, `gateway/`, `messages/`, `session/` modules          | `src/lib/**`, `docs/wiki/ARCHITECTURE.md`                                                                                                              |
+| 08  | Remote profile support — profile rail, scoped sessions, per-profile routing       | `profile.svelte.ts`, `gateway.svelte.ts`, `session.svelte.ts`, `messages.svelte.ts`, `prompts.svelte.ts`, `ProfileRail.svelte`, `src-tauri/src/lib.rs` |
 
 ### Plan 08 notes
 
 Remote profile support follows upstream Hermes Desktop's practical remote model:
 **run one dashboard backend per live profile** and map profile names to backend
 URLs in connection config. The app can browse all profile histories through
-`/api/profiles/sessions`, but live chat WebSocket execution follows the selected
-profile's resolved backend URL/port.
+`/api/profiles/sessions`, but live chat WebSocket execution and blocking prompt
+responses follow the selected profile's resolved backend URL/port.
 
 See [`docs/wiki/remote-profile-support.md`](../wiki/remote-profile-support.md)
 for architecture, config shape, constraints, and validation coverage.
