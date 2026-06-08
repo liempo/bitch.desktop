@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import Loader from '@/components/ui/Loader.svelte'
   import TerminalBlock from '@/components/ui/TerminalBlock.svelte'
-  import { cardClass, dotClass } from '@/components/ui/styles'
+  import { cardClass } from '@/components/ui/styles'
   import type { ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
 
   interface Props {
@@ -122,7 +123,7 @@
     {#if running || hasError}
       <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
         {#if running}
-          <span class={`${dotClass} text-primary`}></span>
+          <Loader />
         {:else if hasError}
           <svg
             class="h-3.5 w-3.5 text-danger"

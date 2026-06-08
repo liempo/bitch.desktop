@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Popover } from 'bits-ui'
   import Button from '@/components/ui/Button.svelte'
+  import Loader from '@/components/ui/Loader.svelte'
   import TextInput from '@/components/ui/TextInput.svelte'
   import { menuItemClass, popoverClass, sectionTitleClass, tagClass } from '@/components/ui/styles'
   import type { ComposerModelGroup, ComposerModelOption, ReasoningEffort } from '$lib/stores/composer.svelte'
@@ -170,10 +171,7 @@
     aria-label="Switch model"
   >
     {#if isLoading}
-      <span
-        class="h-2 w-2 shrink-0 rounded-xs bg-primary"
-        aria-label="Loading model settings"
-      ></span>
+      <Loader size="sm" label="Loading model settings" />
     {/if}
     <span class="text-left">{switching ? 'Switching model...' : currentModelButtonLabel}</span>
   </Popover.Trigger>

@@ -62,6 +62,12 @@ export interface SlashExecResponse {
   warning?: string
 }
 
+type CommandDispatchResponse =
+  | { output?: string; type: 'exec' | 'plugin' }
+  | { target: string; type: 'alias' }
+  | { message?: string; name: string; notice?: string; type: 'skill' }
+  | { message: string; notice?: string; type: 'send' }
+
 export interface ComposerModelOption {
   capabilities?: NonNullable<ModelOptionProvider['capabilities']>[string]
   current: boolean
@@ -345,6 +351,55 @@ function renderSlashOutput(command: string, result: SlashExecResponse | undefine
   return [`slash:${command}`, warning ? `warning: ${warning}` : '', output].filter(Boolean).join('\n')
 }
 
+function parseSlashCommand(command: string): { arg: string; name: string } {
+  const match = command.replace(/^\/+/, '').match(/^(\S+)\s*(.*)$/)
+  return match ? { arg: match[2].trim(), name: match[1] } : { arg: '', name: '' }
+}
+
+function slashExecCommand(command: string): string {
+  return command.replace(/^\/+/, '')
+}
+
+function parseCommandDispatch(raw: unknown): CommandDispatchResponse | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+
+  const record = raw as Record<string, unknown>
+  const type = typeof record.type === 'string' ? record.type : ''
+
+  if (type === 'exec' || type === 'plugin') {
+    return {
+      output: typeof record.output === 'string' ? record.output : undefined,
+      type
+    }
+  }
+
+  if (type === 'alias') {
+    const target = typeof record.target === 'string' ? record.target : ''
+    return target ? { target, type } : null
+  }
+
+  if (type === 'skill') {
+    const name = typeof record.name === 'string' ? record.name : ''
+    return {
+      message: typeof record.message === 'string' ? record.message : undefined,
+      name,
+      notice: typeof record.notice === 'string' ? record.notice : undefined,
+      type
+    }
+  }
+
+  if (type === 'send') {
+    const message = typeof record.message === 'string' ? record.message : ''
+    return {
+      message,
+      notice: typeof record.notice === 'string' ? record.notice : undefined,
+      type
+    }
+  }
+
+  return null
+}
+
 function normalizeReasoningEffort(effort: string): ReasoningEffort {
   if (
     effort === 'high' ||
@@ -615,10 +670,11 @@ async function executeProfileCommand(
 
 export async function executeSlashCommand(sessionId: null | string | undefined, rawCommand: string): Promise<boolean> {
   const command = rawCommand.trim()
+  const parsed = parseSlashCommand(command)
   const displayKey = displaySessionKey(sessionId) ?? sessionId
   const composer = ensureComposerSession(displayKey)
 
-  if (!command.startsWith('/')) return false
+  if (!command.startsWith('/') || !parsed.name) return false
 
   const profileArg = profileSlashArg(command)
   if (profileArg !== undefined) {
@@ -640,7 +696,7 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
     const profile = targetProfileForSession(sessionId)
     await ensureGatewayProfile(profile)
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
-      command,
+      command: slashExecCommand(command),
       session_id: targetSessionId,
       profile
     })
@@ -652,11 +708,108 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
 
     return true
   } catch (error) {
+    try {
+      const handled = await executeCommandDispatch({
+        arg: parsed.arg,
+        command,
+        composer,
+        name: parsed.name,
+        profile: targetProfileForSession(sessionId),
+        sessionId,
+        targetSessionId
+      })
+
+      if (handled) return true
+    } catch (dispatchError) {
+      const message = inlineErrorMessage(dispatchError, 'Command dispatch failed')
+      composer.error = message
+      appendAssistantErrorMessage(targetSessionId, message)
+
+      return false
+    }
+
     const message = inlineErrorMessage(error, 'Slash command failed')
     composer.error = message
     appendAssistantErrorMessage(targetSessionId, message)
 
     return false
+  }
+}
+
+async function executeCommandDispatch(options: {
+  arg: string
+  command: string
+  composer: ComposerSessionState
+  name: string
+  profile: string
+  sessionId: null | string | undefined
+  targetSessionId: string
+}): Promise<boolean> {
+  const dispatch = parseCommandDispatch(
+    await requestGateway<unknown>('command.dispatch', {
+      name: options.name,
+      arg: options.arg,
+      session_id: options.targetSessionId,
+      profile: options.profile
+    })
+  )
+
+  if (!dispatch) {
+    const message = 'error: invalid response: command.dispatch'
+    options.composer.error = message
+    appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: message }))
+    return false
+  }
+
+  switch (dispatch.type) {
+    case 'exec':
+    case 'plugin':
+      appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: dispatch.output }))
+      clearComposerDraft(options.sessionId)
+      clearComposerAttachments(options.sessionId)
+      commitActiveSessionRoute()
+      void loadSessions().catch(() => undefined)
+      return true
+
+    case 'alias':
+      return executeSlashCommand(
+        options.sessionId,
+        `/${dispatch.target.replace(/^\/+/, '')}${options.arg ? ` ${options.arg}` : ''}`
+      )
+
+    case 'skill': {
+      const message = dispatch.message?.trim() ?? ''
+
+      if (!message) {
+        const error = `/${options.name}: skill payload missing message`
+        options.composer.error = error
+        appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: error }))
+        return false
+      }
+
+      appendSystemMessage(
+        options.targetSessionId,
+        renderSlashOutput(options.command, { output: `loading skill: ${dispatch.name}` })
+      )
+      return submitPrompt(options.sessionId, { text: message })
+    }
+
+    case 'send': {
+      const message = dispatch.message.trim()
+
+      if (!message) {
+        const error = `/${options.name}: empty message`
+        options.composer.error = error
+        appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: error }))
+        return false
+      }
+
+      if (dispatch.notice?.trim()) {
+        appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: dispatch.notice }))
+      }
+
+      return submitPrompt(options.sessionId, { text: message })
+    }
   }
 }
 
@@ -682,7 +835,7 @@ export async function selectComposerReasoningEffort(
     const profile = targetProfileForSession(sessionId)
     await ensureGatewayProfile(profile)
     const normalized = normalizeReasoningEffort(effort)
-    const reasonArg = normalized === 'none' ? 'off' : normalized === 'xhigh' ? 'max' : normalized
+    const reasonArg = normalized === 'none' ? 'off' : normalized
     const command = `/reasoning ${reasonArg}`
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
       command,

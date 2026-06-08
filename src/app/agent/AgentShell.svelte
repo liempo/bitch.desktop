@@ -1,6 +1,5 @@
 <script lang="ts">
   import Composer from './composer/Composer.svelte'
-  import ApprovalBar from './prompts/ApprovalBar.svelte'
   import SecretModal from './prompts/SecretModal.svelte'
   import SudoModal from './prompts/SudoModal.svelte'
   import Sidebar from './sidebar/Sidebar.svelte'
@@ -107,7 +106,6 @@
         <Thread sessionId={selectedSessionId} />
       </div>
 
-      <ApprovalBar sessionId={selectedSessionId} />
       <Composer
         sessionId={selectedSessionId}
         connected={connectionState === 'open'}

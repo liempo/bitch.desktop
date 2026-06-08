@@ -1,6 +1,7 @@
 <script lang="ts">
   import Markdown from './Markdown.svelte'
   import Reasoning from './Reasoning.svelte'
+  import System from './System.svelte'
   import Tool from './Tool.svelte'
   import { cardClass } from '@/components/ui/styles'
   import type { ThreadMessage } from '$lib/stores/messages.svelte'
@@ -75,15 +76,8 @@
     {/each}
   </div>
 {:else if system}
-  <!-- System message — centered, muted -->
-  <div
-    class="mx-auto max-w-[min(86%,44rem)] px-4 py-1 text-center text-[0.6875rem] leading-5 text-ink-muted/80"
-    data-role="system"
-  >
-    <div class="rounded-control border border-dashed border-line bg-surface-raised/40 px-3 py-2">
-      <span class="font-semibold uppercase tracking-[0.16em] text-secondary">SYS</span>
-      <span class="ml-2 whitespace-pre-wrap">{message.text}</span>
-    </div>
+  <div class="mx-auto w-full max-w-4xl px-4" data-role="system">
+    <System text={message.text} />
   </div>
 {:else if user}
   <!-- User message — bubble style -->

@@ -227,6 +227,21 @@ describe('composer runtime targeting', () => {
     expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe('slash:/reasoning high\nreasoning set to high')
   })
 
+  it('uses xhigh, not max, for the max reasoning option', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    mockRequestGateway.mockResolvedValueOnce({ output: 'reasoning set to xhigh' })
+
+    await expect(selectComposerReasoningEffort('stored-A', 'xhigh')).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('slash.exec', {
+      command: '/reasoning xhigh',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(threadForSession('stored-A')?.reasoningEffort).toBe('xhigh')
+    expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe('slash:/reasoning xhigh\nreasoning set to xhigh')
+  })
+
   it('uses /fast to update the current session fast mode', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     mockRequestGateway.mockResolvedValueOnce({ output: 'fast mode on' })
@@ -265,6 +280,77 @@ describe('composer runtime targeting', () => {
     expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
     expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/profile crypto\nnew chat profile: crypto'
+    ])
+  })
+
+  it('falls back to command.dispatch for /goal status when slash.exec rejects pending-input commands', async () => {
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+    rememberRuntimeSession('stored-A', 'live-A')
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'slash.exec') {
+        return Promise.reject(new Error('pending-input command: use command.dispatch for /goal'))
+      }
+      if (method === 'command.dispatch') {
+        return Promise.resolve({ output: 'No active goal', type: 'exec' })
+      }
+      return Promise.resolve({})
+    })
+
+    await expect(executeSlashCommand('stored-A', '/goal status')).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('slash.exec', {
+      command: 'goal status',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).toHaveBeenCalledWith('command.dispatch', {
+      name: 'goal',
+      arg: 'status',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
+    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+      'slash:/goal status\nNo active goal'
+    ])
+  })
+
+  it('uses command.dispatch send payload to kick off /goal prompts', async () => {
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+    rememberRuntimeSession('stored-A', 'live-A')
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'slash.exec') {
+        return Promise.reject(new Error('pending-input command: use command.dispatch for /goal'))
+      }
+      if (method === 'command.dispatch') {
+        return Promise.resolve({
+          message: 'build a rocket',
+          notice: 'Goal set. 20-turn budget.',
+          type: 'send'
+        })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(executeSlashCommand('stored-A', '/goal build a rocket')).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('command.dispatch', {
+      name: 'goal',
+      arg: 'build a rocket',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-A',
+      text: 'build a rocket'
+    })
+    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+      'slash:/goal build a rocket\nGoal set. 20-turn budget.',
+      'build a rocket'
     ])
   })
 })

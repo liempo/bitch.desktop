@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import Loader from '@/components/ui/Loader.svelte'
   import { cardClass } from '@/components/ui/styles'
 
   interface Props {
@@ -56,7 +57,7 @@
     >
       <span class="flex min-w-0 items-center gap-2">
         {#if pending}
-          <span class="h-2 w-2 shrink-0 rounded-xs bg-secondary" aria-hidden="true"></span>
+          <Loader tone="secondary" />
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thinking</span>
         {:else}
           {#if text.trim()}

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte'
+  import Approval from '../prompts/Approval.svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
-  import LoadingBar from '@/components/ui/LoadingBar.svelte'
+  import Loader from '@/components/ui/Loader.svelte'
   import Panel from '@/components/ui/Panel.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
@@ -93,7 +94,7 @@
   {:else if loadingSession}
     <div class="flex min-h-full items-center justify-center px-6 py-16" aria-label="Loading session" role="status">
       <Panel title="Hydrating Transcript" titleClass="text-primary" contentClass="flex flex-col items-center gap-3 p-5 text-center" padded={false} fullHeight={false}>
-        <LoadingBar />
+        <Loader size="lg" />
         <p class="text-xs uppercase tracking-[0.16em] text-ink-muted">loading session history…</p>
       </Panel>
     </div>
@@ -120,6 +121,7 @@
       {/each}
 
       {#if sessionId}
+        <Approval {sessionId} />
         <ClarifyCard {sessionId} />
       {/if}
     </div>
