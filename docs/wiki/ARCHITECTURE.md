@@ -1,4 +1,4 @@
-# Architecture Wiki — BITCH Desktop
+# Architecture Wiki — bitch.desktop
 
 Reference documentation for delivered features. Each doc covers the design,
 store layout, UI components, integration points, and upstream source files.
@@ -15,7 +15,7 @@ store layout, UI components, integration points, and upstream source files.
 | Remote profiles     | [`remote-profile-support.md`](remote-profile-support.md)     | `profile.svelte.ts`, `gateway.svelte.ts`, `ProfileRail.svelte`  |
 | **Devlog**          | [`devlog.md`](devlog.md)                                     | Chronological development record                                |
 
-BITCH is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC** drives live
+bitch.desktop is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC** drives live
 turns (`prompt.submit`, `session.*`, interactive `*.respond`); **HTTP dashboard
 API** (via the Tauri `dashboard_request` command) handles session list, search,
 stored messages, and rename/archive/delete. Dashboard auth never enters the

@@ -1,4 +1,4 @@
-# Roadmap — BITCH Desktop
+# Roadmap — bitch.desktop
 
 A Tauri + Svelte 5 desktop client for remote Hermes dashboard gateway access.
 This document tracks delivered plans and future upstream candidates.
@@ -114,7 +114,7 @@ routes the gateway exposes.
 ### Subagent / delegate progress UI
 
 Richer nested progress display for delegated subtasks. The upstream shows nested
-progress bars and intermediate results; BITCH currently shows flat tool rows.
+progress bars and intermediate results; bitch.desktop currently shows flat tool rows.
 
 ## Future / speculative
 

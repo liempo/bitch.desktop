@@ -80,12 +80,13 @@
   }
 </script>
 
-<aside class="flex h-full w-70 shrink-0 flex-col border-r border-slate-800 bg-slate-950/50">
-  <div class="border-b border-slate-800 p-3">
+<aside class="cli-panel flex h-64 w-full shrink-0 flex-col p-0 md:h-full md:w-72" aria-label="Session index">
+  <div class="cli-panel-header text-warning">Session_Index</div>
+  <div class="border-b border-line px-3 pb-3 pt-5">
     <div class="mb-3 flex items-center justify-between gap-2">
-      <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Sessions</h2>
+      <h2 class="cli-section-title text-warning">Sessions</h2>
       <button
-        class="rounded-md px-2 py-1 text-xs font-medium text-sky-400 transition hover:bg-sky-500/10 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+        class="bitch-button bitch-button-primary"
         type="button"
         onclick={handleNewChat}
         disabled={!connected}
@@ -97,21 +98,21 @@
 
     <label class="sr-only" for="session-search">Search sessions</label>
     <div class="relative">
-      <svg class="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <svg class="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
       </svg>
       <input
         id="session-search"
-        class="w-full rounded-xl border border-slate-800 bg-slate-900/70 py-2 pl-9 pr-8 text-sm text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+        class="cli-input py-2 pl-9 pr-8 text-sm"
         type="search"
-        placeholder="Search sessions"
+        placeholder="grep session_index"
         value={sessionState.searchQuery}
         oninput={handleSearchInput}
         disabled={!connected}
       />
       {#if sessionState.searchQuery}
         <button
-          class="absolute right-2 top-1.5 rounded-md p-1 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300"
+          class="absolute right-2 top-1.5 p-1 text-ink-muted transition hover:text-primary"
           type="button"
           onclick={clearSearch}
           aria-label="Clear search"
@@ -126,31 +127,31 @@
 
   <div class="flex-1 overflow-y-auto p-3">
     {#if !connected}
-      <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-500">
-        Connect to the Hermes gateway before loading sessions.
+      <div class="cli-empty">
+        LINK_DOWN: connect to the Hermes gateway before loading sessions.
       </div>
     {:else if sessionState.sessionsLoading && !sessionState.sessionsInitialized}
       <div class="space-y-2" aria-label="Loading sessions">
         {#each loadingRows as row (row)}
-          <div class="h-18 animate-pulse rounded-xl bg-slate-900/70"></div>
+          <div class="cli-card h-18 animate-pulse"></div>
         {/each}
       </div>
     {:else if searchActive}
       <section aria-label="Search results">
         <div class="mb-2 flex items-center justify-between px-1">
-          <h3 class="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600">Search</h3>
+          <h3 class="cli-section-title">Search</h3>
           {#if sessionState.searching}
-            <span class="text-[0.65rem] text-slate-600">searching…</span>
+            <span class="text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted">searching…</span>
           {/if}
         </div>
 
         {#if sessionState.searchError}
-          <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+          <div class="cli-card border-danger/35 bg-danger/10 p-3 text-xs text-danger">
             {sessionState.searchError}
           </div>
         {:else if !sessionState.searching && sessionState.searchResults.length === 0}
-          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-500">
-            No matching sessions. Night City remains indifferent.
+          <div class="cli-empty">
+            NULL_RESULT: no matching sessions. Night City remains indifferent.
           </div>
         {:else}
           <div class="space-y-1.5">
@@ -169,14 +170,14 @@
       </section>
     {:else}
       {#if sessionState.error}
-        <div class="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+        <div class="cli-card mb-3 border-danger/35 bg-danger/10 p-3 text-xs text-danger">
           {sessionState.error}
         </div>
       {/if}
 
       {#if pinnedSessions.length > 0}
         <section class="mb-4" aria-label="Pinned sessions">
-          <h3 class="mb-2 px-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600">Pinned</h3>
+          <h3 class="cli-section-title mb-2 px-1">Pinned</h3>
           <div class="space-y-1.5">
             {#each pinnedSessions as session (session.id)}
               <SessionRow
@@ -199,21 +200,21 @@
 
       <section aria-label="Recent sessions">
         <div class="mb-2 flex items-center justify-between px-1">
-          <h3 class="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600">Recents</h3>
+          <h3 class="cli-section-title">Recents</h3>
           {#if sessionState.sessionsLoading}
-            <span class="text-[0.65rem] text-slate-600">refreshing…</span>
+            <span class="text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted">refreshing…</span>
           {/if}
         </div>
 
         {#if recentSessions.length === 0}
-          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-500">
-            No sessions yet. Create one and give the chrome something to chew on.
+          <div class="cli-empty">
+            EMPTY_INDEX: create one and give the chrome something to chew on.
           </div>
         {:else if scope === ALL_PROFILES}
           <div class="space-y-4">
             {#each groupedRecentSessions as group (group.name)}
               <div>
-                <h4 class="mb-1 px-1 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                <h4 class="mb-1 px-1 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-secondary">
                   {group.name}
                 </h4>
                 <div class="space-y-1.5">
@@ -259,7 +260,7 @@
 
       {#if canLoadMore}
         <button
-          class="mt-3 w-full rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-400 transition hover:border-slate-700 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+          class="bitch-button mt-3 w-full"
           type="button"
           onclick={() => void loadMoreSessions()}
           disabled={sessionState.sessionsLoadingMore}

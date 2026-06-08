@@ -1,8 +1,8 @@
-# AGENTS.md — BITCH Desktop
+# AGENTS.md — bitch.desktop
 
 ## Purpose
 
-BITCH Desktop is a minimal Tauri + Svelte client for Hermes remote dashboard gateway access.
+bitch.desktop is a minimal Tauri + Svelte client for Hermes remote dashboard gateway access.
 Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic unless the user explicitly asks.
 
 ## Current app shape

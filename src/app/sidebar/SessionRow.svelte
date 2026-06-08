@@ -28,7 +28,8 @@
     onTogglePin = () => undefined,
     pinned = false,
     searchResult = null,
-    session = null
+    session = null,
+    working = false
   }: Props = $props()
 
   const id = $derived(session?.id ?? searchResult?.session_id ?? '')
@@ -78,11 +79,8 @@
 
 {#snippet row()}
   <div
-    class={`group flex items-start rounded-xl border px-2 py-2 transition ${
-      active
-        ? 'border-primary/50 bg-primary/10 shadow-sm shadow-primary/10'
-        : 'border-transparent hover:border-line hover:bg-surface-raised/70'
-    }`}
+    class="cli-session-row group flex items-start px-2 py-2"
+    data-active={active}
   >
     <button
       class="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50"
@@ -91,14 +89,15 @@
       {disabled}
     >
       <div class="flex items-center gap-2">
+        <span class={`cli-dot shrink-0 ${working ? 'text-success' : needsInput ? 'text-warning' : active ? 'text-primary' : 'text-ink-muted/70'}`} aria-hidden="true"></span>
         {#if pinned}
           <svg class="h-3 w-3 shrink-0 text-primary" fill="currentColor" viewBox="0 0 20 20" aria-label="Pinned">
             <path d="M9.828 2.172a2 2 0 0 1 2.828 0l5.172 5.172a2 2 0 0 1-2.239 3.221l-2.175 2.176v3.088a1 1 0 0 1-1.707.707L8.5 13.328l-3.086 3.086a1 1 0 0 1-1.414-1.414l3.086-3.086-3.207-3.207a1 1 0 0 1 .707-1.707h3.088L9.85 4.825a2 2 0 0 1-.022-2.653Z" />
           </svg>
         {/if}
-        <p class="truncate text-sm font-medium text-ink">{title}</p>
+        <p class="truncate text-sm font-semibold text-ink-bright">{title}</p>
         {#if needsInput}
-          <span class="shrink-0 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-warning">
+          <span class="cli-tag cli-tag-warning shrink-0 px-1.5 py-0.5 text-[0.58rem]">
             input
           </span>
         {/if}
@@ -107,7 +106,7 @@
       <p class="mt-1 line-clamp-2 text-xs leading-4 text-ink-muted">{preview}</p>
 
       {#if subtitle}
-        <p class="mt-1 truncate text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted/70">{subtitle}</p>
+        <p class="mt-1 truncate text-[0.65rem] uppercase tracking-[0.16em] text-secondary/80">{subtitle}</p>
       {/if}
     </button>
   </div>

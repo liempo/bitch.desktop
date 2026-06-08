@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BITCH Desktop",
+  "productName": "BITCH",
   "version": "0.1.0",
   "identifier": "com.liempo.bitch.desktop",
   "build": {
@@ -10,14 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "BITCH Desktop",
-        "width": 1200,
-        "height": 800,
-        "resizable": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }

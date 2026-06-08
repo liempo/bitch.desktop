@@ -104,7 +104,7 @@
   }
 </script>
 
-<div class="my-1.5 overflow-hidden rounded-lg border border-dashed bg-transparent {hasError ? 'border-danger/25' : 'border-line'} text-xs">
+<div class="cli-card my-1.5 overflow-hidden border-dashed {hasError ? 'border-danger/35 bg-danger/5' : 'border-line'} text-xs">
   <button
     class="flex w-full items-center gap-2 bg-transparent px-3 py-2 text-left {hasDetail
       ? 'cursor-pointer'
@@ -117,7 +117,7 @@
     {#if running || hasError}
       <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
         {#if running}
-          <span class="h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary"></span>
+          <span class="cli-dot animate-pulse text-primary"></span>
         {:else if hasError}
           <svg
             class="h-3.5 w-3.5 text-danger"
@@ -150,7 +150,7 @@
 
     <span class="min-w-0 flex-1">
       <span class="flex min-w-0 items-baseline gap-1.5">
-        <span class="shrink-0 text-xs font-medium uppercase tracking-[0.14em] {running ? 'animate-pulse text-ink-muted' : 'text-ink'}">
+        <span class="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] {running ? 'animate-pulse text-primary' : hasError ? 'text-danger' : 'text-ink'}">
           {statusLabel}
         </span>
         {#if contextPreview}
@@ -179,7 +179,7 @@
           <p class="mb-1 text-[0.65rem] font-medium uppercase tracking-[0.08em] text-ink-muted/70">
             Input
           </p>
-          <pre class="max-h-20 overflow-auto rounded-md bg-surface-raised/70 px-2 py-1.5 font-mono text-[0.7rem] leading-relaxed text-ink-muted">{tool.input}</pre>
+          <pre class="cli-terminal max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.input}</pre>
         </div>
       {/if}
 
@@ -188,12 +188,12 @@
           <p class="mb-1 text-[0.65rem] font-medium uppercase tracking-[0.08em] text-ink-muted/70">
             Output
           </p>
-          <pre class="max-h-20 overflow-auto rounded-md bg-surface-raised/70 px-2 py-1.5 font-mono text-[0.7rem] leading-relaxed text-ink-muted">{tool.output}</pre>
+          <pre class="cli-terminal max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.output}</pre>
         </div>
       {/if}
 
       {#if tool.error}
-        <p class="whitespace-pre-wrap wrap-break-word rounded-md border border-danger/20 bg-danger/5 p-2 leading-5 text-danger/80">
+        <p class="cli-terminal whitespace-pre-wrap wrap-break-word border-danger/30 bg-danger/5 p-2 leading-5 text-danger/80">
           {tool.error}
         </p>
       {/if}

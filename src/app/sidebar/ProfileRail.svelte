@@ -35,14 +35,14 @@
 </script>
 
 {#if showRail}
-  <div class="border-t border-slate-800 p-3" aria-label="Profiles">
+  <div class="border-t border-line p-3" aria-label="Profiles">
     <div class="mb-2 flex items-center justify-between">
-      <p class="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600">Profiles</p>
+      <p class="cli-section-title">Profiles</p>
       <button
-        class={`rounded-md px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] transition ${
+        class={`bitch-button min-h-0 px-2 py-1 text-[0.65rem] ${
           scope === ALL_PROFILES
-            ? 'bg-sky-500/15 text-sky-300'
-            : 'text-slate-500 hover:bg-slate-900 hover:text-slate-300'
+            ? 'bitch-button-primary'
+            : 'text-ink-muted hover:text-ink-bright'
         }`}
         type="button"
         onclick={() => setShowAllProfiles(scope !== ALL_PROFILES)}
@@ -57,10 +57,10 @@
         {@const color = colorFor(profile)}
         {@const active = scope !== ALL_PROFILES && profileState.activeGatewayProfile === profile.name}
         <button
-          class={`flex h-9 min-w-9 items-center justify-center rounded-xl border px-2 text-[0.65rem] font-bold uppercase tracking-wide transition ${
+          class={`flex h-9 min-w-9 items-center justify-center rounded-control border px-2 text-[0.65rem] font-bold uppercase tracking-wide transition ${
             active
-              ? 'border-sky-400/60 bg-sky-500/15 text-sky-100 shadow-sm shadow-sky-500/20'
-              : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700 hover:bg-slate-900'
+              ? 'border-primary/60 bg-primary/15 text-primary shadow-sm shadow-primary/20'
+              : 'border-line bg-surface-raised/60 text-ink hover:border-line-strong hover:bg-surface-raised'
           }`}
           style={color ? `box-shadow: inset 0 -2px 0 ${color};` : ''}
           type="button"
@@ -73,7 +73,7 @@
     </div>
 
     {#if profileState.error}
-      <p class="mt-2 text-[0.65rem] text-red-300">{profileState.error}</p>
+      <p class="mt-2 text-[0.65rem] text-danger">{profileState.error}</p>
     {/if}
   </div>
 {/if}

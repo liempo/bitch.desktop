@@ -1,10 +1,10 @@
-# Devlog — BITCH Desktop
+# Devlog — bitch.desktop
 
-Chronological record of BITCH Desktop development.
+Chronological record of bitch.desktop development.
 
 ## 2026-06-08 — Remote profile support implemented
 
-Implemented the upstream remote profile workaround for BITCH Desktop:
+Implemented the upstream remote profile workaround for bitch.desktop:
 
 - `ProfileRail.svelte` exposes a compact profile selector and all-profiles history scope.
 - `profile.svelte.ts` tracks active gateway profile, profile scope, fresh-draft requests, and rail cosmetics.

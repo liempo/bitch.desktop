@@ -74,7 +74,7 @@
 
 {#if tool}
   <!-- Tool result message — grouped tool rows -->
-  <div class="mx-auto w-full max-w-3xl px-4" data-role="tool">
+  <div class="mx-auto w-full max-w-4xl px-4" data-role="tool">
     {#each message.tools as toolRow (toolRow.id)}
       <Tool tool={toolRow} />
     {/each}
@@ -82,92 +82,96 @@
 {:else if system}
   <!-- System message — centered, muted -->
   <div
-    class="mx-auto max-w-[min(86%,44rem)] px-2 py-0.5 text-center text-[0.6875rem] leading-5 text-ink-muted/70"
+    class="mx-auto max-w-[min(86%,44rem)] px-4 py-1 text-center text-[0.6875rem] leading-5 text-ink-muted/80"
     data-role="system"
   >
-    <span class="whitespace-pre-wrap">{message.text}</span>
+    <div class="cli-message-system px-3 py-2">
+      <span class="font-semibold uppercase tracking-[0.16em] text-secondary">SYS</span>
+      <span class="ml-2 whitespace-pre-wrap">{message.text}</span>
+    </div>
   </div>
 {:else if user}
   <!-- User message — bubble style -->
-  <div class="group mx-auto w-full max-w-3xl px-4 py-6" data-role="user">
-    <div
-      class="relative rounded-xl border border-line-strong/60 bg-message-bg px-3.5 py-2.5 shadow-sm"
-    >
-      <p class="whitespace-pre-wrap wrap-break-word text-right text-[0.9375rem] leading-6 text-ink-bright">
+  <div class="group mx-auto w-full max-w-4xl px-4 py-3" data-role="user">
+    <div class="cli-message cli-message-user px-3.5 py-3">
+      <div class="mb-2 flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.16em] text-warning/80">
+        <span>Operator_Input</span>
+        {#if timestamp}
+          <time class="text-ink-muted/70">{timestamp}</time>
+        {/if}
+      </div>
+      <p class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-6 text-ink-bright">
         {message.text}
       </p>
-
-      {#if timestamp}
-        <time class="mt-1.5 block text-right text-[0.65rem] text-ink-muted/70">{timestamp}</time>
-      {/if}
     </div>
   </div>
 {:else if assistant}
   <!-- Assistant message — content-first, action bar on hover -->
   <div
-    class="group/msg relative mx-auto w-full max-w-3xl px-4 py-2"
+    class="group/msg relative mx-auto w-full max-w-4xl px-4 py-2"
     data-role="assistant"
     data-streaming={isRunning ? 'true' : undefined}
   >
-    <div class="min-w-0 overflow-hidden text-pretty text-sm leading-6 text-ink">
-      {#if usesParts}
-        {#key toolStatusSignature}
-          {#each parts as part, index (part.type === 'tool' ? `${part.tool.id}:${part.tool.status}` : index)}
-          {#if part.type === 'reasoning'}
-            <Reasoning text={part.text} pending={isRunning && index === parts.length - 1} />
-          {:else if part.type === 'tool'}
-            <div class="mt-1.5">
-              <Tool tool={part.tool} />
-            </div>
-          {:else if part.type === 'text'}
-            <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} />
+    <div class="cli-message cli-message-assistant px-3.5 py-3">
+      <div class="mb-2 flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.16em] text-primary/80">
+        <span>Hermes_Output</span>
+        {#if isRunning}
+          <span class="animate-pulse text-success">streaming</span>
+        {:else if hasContent && timestamp}
+          <time class="text-ink-muted/70">{timestamp}</time>
+        {/if}
+      </div>
+
+      <div class="min-w-0 overflow-hidden text-pretty text-sm leading-6 text-ink">
+        {#if usesParts}
+          {#key toolStatusSignature}
+            {#each parts as part, index (part.type === 'tool' ? `${part.tool.id}:${part.tool.status}` : index)}
+              {#if part.type === 'reasoning'}
+                <Reasoning text={part.text} pending={isRunning && index === parts.length - 1} />
+              {:else if part.type === 'tool'}
+                <div class="mt-1.5">
+                  <Tool tool={part.tool} />
+                </div>
+              {:else if part.type === 'text'}
+                <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} />
+              {/if}
+            {/each}
+          {/key}
+        {:else}
+          <!-- Legacy fallback when parts is absent -->
+          {#if message.reasoning && message.reasoning.length > 0}
+            {#each message.reasoning as block, index (index)}
+              <Reasoning text={block} pending={isRunning && index === message.reasoning.length - 1} />
+            {/each}
           {/if}
-        {/each}
-        {/key}
-      {:else}
-        <!-- Legacy fallback when parts is absent -->
-        {#if message.reasoning && message.reasoning.length > 0}
-          {#each message.reasoning as block, index (index)}
-            <Reasoning text={block} pending={isRunning && index === message.reasoning.length - 1} />
-          {/each}
+
+          {#if message.tools.length > 0}
+            <div class="mt-1.5">
+              {#each message.tools as toolRow (toolRow.id)}
+                <Tool tool={toolRow} />
+              {/each}
+            </div>
+          {/if}
+
+          {#if message.text}
+            <Markdown text={message.text} streaming={isRunning} />
+          {/if}
         {/if}
 
-        {#if message.tools.length > 0}
-          <div class="mt-1.5">
-            {#each message.tools as toolRow (toolRow.id)}
-              <Tool tool={toolRow} />
-            {/each}
+        {#if showThinkingPlaceholder}
+          <Reasoning text="" pending={true} />
+        {/if}
+
+        <!-- Error -->
+        {#if message.error}
+          <div
+            class="mt-1.5 text-[0.78rem] leading-5 text-danger/80"
+            role="alert"
+          >
+            {message.error}
           </div>
         {/if}
-
-        {#if message.text}
-          <Markdown text={message.text} streaming={isRunning} />
-        {/if}
-      {/if}
-
-      {#if showThinkingPlaceholder}
-        <Reasoning text="" pending={true} />
-      {/if}
-
-      <!-- Error -->
-      {#if message.error}
-        <div
-          class="mt-1.5 text-[0.78rem] leading-5 text-danger/70"
-          role="alert"
-        >
-          {message.error}
-        </div>
-      {/if}
-    </div>
-
-    <!-- Timestamp — visible on hover -->
-    {#if hasContent && !isRunning && timestamp}
-      <div
-        class="mt-1 opacity-0 transition-opacity group-hover/msg:opacity-100"
-      >
-        <span class="text-[0.65rem] text-ink-muted/50">{timestamp}</span>
       </div>
-    {/if}
-
+    </div>
   </div>
 {/if}

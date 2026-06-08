@@ -50,11 +50,11 @@
   </ContextMenu.Trigger>
 
   <ContextMenu.Content
-    class="z-50 min-w-38 rounded-xl border border-line-strong bg-surface-raised p-1.5 shadow-xl shadow-black/30 backdrop-blur-lg"
+    class="cli-popover z-50 min-w-40 p-1.5 backdrop-blur-lg"
     sideOffset={4}
   >
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      class="cli-menu-item px-3 py-1.5 text-xs font-medium"
       onSelect={handleRename}
     >
       <svg class="h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -64,7 +64,7 @@
     </ContextMenu.Item>
 
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      class="cli-menu-item px-3 py-1.5 text-xs font-medium"
       onSelect={() => void onTogglePin()}
     >
       <svg class="h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -76,7 +76,7 @@
     <ContextMenu.Separator class="mx-2 my-1 border-t border-line-strong" />
 
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      class="cli-menu-item px-3 py-1.5 text-xs font-medium"
       onSelect={() => void onArchive()}
     >
       <svg class="h-3.5 w-3.5 text-ink-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -86,7 +86,7 @@
     </ContextMenu.Item>
 
     <ContextMenu.Item
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-danger transition hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+      class="cli-menu-item px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10"
       onSelect={handleDelete}
     >
       <svg class="h-3.5 w-3.5 text-danger" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">

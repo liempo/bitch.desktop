@@ -1,4 +1,4 @@
-# BITCH Desktop
+# bitch.desktop
 
 Minimal Tauri + Svelte desktop client for the Hermes remote dashboard gateway.
 

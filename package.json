@@ -1,6 +1,6 @@
 {
   "name": "bitch.desktop",
-  "productName": "BITCH Desktop",
+  "productName": "BITCH",
   "version": "0.1.0",
   "private": true,
   "description": "Minimal Tauri desktop client for the Hermes remote dashboard gateway",
