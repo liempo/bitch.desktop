@@ -29,7 +29,7 @@
   }: Props = $props()
 </script>
 
-<div class="space-y-px">
+<div>
   {#each sessions as session (session.id)}
     <SessionRow
       {session}

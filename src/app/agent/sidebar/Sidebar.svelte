@@ -229,124 +229,124 @@
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
-        {#if !connected}
-          <div class={mutedNoticeClass}>
-            LINK_DOWN: connect to the Hermes gateway before loading sessions.
-          </div>
-        {:else if sessionState.sessionsLoading && !sessionState.sessionsInitialized}
-          <div class="space-y-1.5" aria-label="Loading sessions">
-            {#each loadingRows as row (row)}
-              <div class="h-18 rounded-control border border-line bg-surface-raised/50"></div>
-            {/each}
-          </div>
-        {:else if searchActive}
-          <section aria-label="Search results">
-            <div class="mb-1.5 flex items-center justify-between px-1">
-              <h3 class={sectionHeadingClass}>Search</h3>
-              {#if sessionState.searching}
-                <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching…</span>
-              {/if}
-            </div>
-
-            {#if sessionState.searchError}
-              <div class={dangerNoticeClass}>
-                {sessionState.searchError}
-              </div>
-            {:else if !sessionState.searching && sessionState.searchResults.length === 0}
+            {#if !connected}
               <div class={mutedNoticeClass}>
-                NULL_RESULT: no matching sessions. Night City remains indifferent.
+                LINK_DOWN: connect to the Hermes gateway before loading sessions.
               </div>
-            {:else}
-              <div class="space-y-px">
-                {#each sessionState.searchResults as result (result.session_id + result.snippet)}
-                  <SessionRow
-                    searchResult={result}
-                    active={sessionState.storedSessionId === result.session_id}
-                    pinned={isPinnedId(searchResultPinId(result))}
-                    working={isSessionWorking(result.session_id) || sessionState.resumingSessionId === result.session_id}
-                    needsInput={sessionNeedsInput(result.session_id)}
-                    onSelect={selectSession}
-                  />
+            {:else if sessionState.sessionsLoading && !sessionState.sessionsInitialized}
+              <div class="space-y-1.5" aria-label="Loading sessions">
+                {#each loadingRows as row (row)}
+                  <div class="h-18 rounded-control border border-line bg-surface-raised/50"></div>
                 {/each}
               </div>
-            {/if}
-          </section>
-        {:else}
-          {#if sessionState.error}
-            <div class={`${dangerNoticeClass} mb-3`}>
-              {sessionState.error}
-            </div>
-          {/if}
+            {:else if searchActive}
+              <section aria-label="Search results">
+                <div class="mb-1.5 flex items-center justify-between px-1">
+                  <h3 class={sectionHeadingClass}>Search</h3>
+                  {#if sessionState.searching}
+                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching…</span>
+                  {/if}
+                </div>
 
-          {#if pinnedSessions.length > 0}
-            <section class="mb-4" aria-label="Pinned sessions">
-              <h3 class={`${sectionHeadingClass} mb-1.5 px-1`}>
-                Pinned
-              </h3>
-              <SessionList
-                sessions={pinnedSessions}
-                pinned={true}
-                onSelect={selectSession}
-                onRename={(target, title) => renameSession(target.id, title)}
-                onArchive={target => archiveSession(target.id)}
-                onDelete={target => deleteSession(target.id)}
-                onTogglePin={toggleSessionPinned}
-              />
-            </section>
-          {/if}
-
-          <section aria-label="Recent sessions">
-            <div class="mb-1.5 flex items-center justify-between px-1">
-              <h3 class={sectionHeadingClass}>Recents</h3>
-              {#if sessionState.sessionsLoading}
-                <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing…</span>
-              {/if}
-            </div>
-
-            {#if recentSessions.length === 0}
-              <div class={mutedNoticeClass}>
-                EMPTY_INDEX: create one and give the chrome something to chew on.
-              </div>
-            {:else if scope === ALL_PROFILES && groupSessionsByProfileEnabled}
-              <div class="space-y-4">
-                {#each groupedRecentSessions as group (group.name)}
-                  <div>
-                    <h4 class="mb-1 px-1 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
-                      {group.name}
-                    </h4>
-                    <SessionList
-                      sessions={group.sessions}
-                      onSelect={selectSession}
-                      onRename={(target, title) => renameSession(target.id, title)}
-                      onArchive={target => archiveSession(target.id)}
-                      onDelete={target => deleteSession(target.id)}
-                      onTogglePin={toggleSessionPinned}
-                    />
+                {#if sessionState.searchError}
+                  <div class={dangerNoticeClass}>
+                    {sessionState.searchError}
                   </div>
-                {/each}
-              </div>
+                {:else if !sessionState.searching && sessionState.searchResults.length === 0}
+                  <div class={mutedNoticeClass}>
+                    NULL_RESULT: no matching sessions. Night City remains indifferent.
+                  </div>
+                {:else}
+                  <div class="space-y-px">
+                    {#each sessionState.searchResults as result (result.session_id + result.snippet)}
+                      <SessionRow
+                        searchResult={result}
+                        active={sessionState.storedSessionId === result.session_id}
+                        pinned={isPinnedId(searchResultPinId(result))}
+                        working={isSessionWorking(result.session_id) || sessionState.resumingSessionId === result.session_id}
+                        needsInput={sessionNeedsInput(result.session_id)}
+                        onSelect={selectSession}
+                      />
+                    {/each}
+                  </div>
+                {/if}
+              </section>
             {:else}
-              <SessionList
-                sessions={recentSessions}
-                onSelect={selectSession}
-                onRename={(target, title) => renameSession(target.id, title)}
-                onArchive={target => archiveSession(target.id)}
-                onDelete={target => deleteSession(target.id)}
-                onTogglePin={toggleSessionPinned}
-              />
-            {/if}
-          </section>
+              {#if sessionState.error}
+                <div class={`${dangerNoticeClass} mb-3`}>
+                  {sessionState.error}
+                </div>
+              {/if}
 
-          {#if canLoadMore}
-            <Button
-              class="mt-3 w-full"
-              onclick={() => void loadMoreSessions()}
-              disabled={sessionState.sessionsLoadingMore}
-            >
-              {sessionState.sessionsLoadingMore ? 'Loading…' : 'Load more'}
-            </Button>
-          {/if}
-        {/if}
+              {#if pinnedSessions.length > 0}
+                <section class="mb-4" aria-label="Pinned sessions">
+                  <h3 class={`${sectionHeadingClass} mb-1.5 px-1`}>
+                    Pinned
+                  </h3>
+                  <SessionList
+                    sessions={pinnedSessions}
+                    pinned={true}
+                    onSelect={selectSession}
+                    onRename={(target, title) => renameSession(target.id, title)}
+                    onArchive={target => archiveSession(target.id)}
+                    onDelete={target => deleteSession(target.id)}
+                    onTogglePin={toggleSessionPinned}
+                  />
+                </section>
+              {/if}
+
+              <section aria-label="Recent sessions">
+                <div class="mb-1.5 flex items-center justify-between px-1">
+                  <h3 class={sectionHeadingClass}>Recents</h3>
+                  {#if sessionState.sessionsLoading}
+                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing…</span>
+                  {/if}
+                </div>
+
+                {#if recentSessions.length === 0}
+                  <div class={mutedNoticeClass}>
+                    EMPTY_INDEX: create one and give the chrome something to chew on.
+                  </div>
+                {:else if scope === ALL_PROFILES && groupSessionsByProfileEnabled}
+                  <div class="space-y-4">
+                    {#each groupedRecentSessions as group (group.name)}
+                      <div>
+                        <h4 class="mb-1 px-1 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                          {group.name}
+                        </h4>
+                        <SessionList
+                          sessions={group.sessions}
+                          onSelect={selectSession}
+                          onRename={(target, title) => renameSession(target.id, title)}
+                          onArchive={target => archiveSession(target.id)}
+                          onDelete={target => deleteSession(target.id)}
+                          onTogglePin={toggleSessionPinned}
+                        />
+                      </div>
+                    {/each}
+                  </div>
+                {:else}
+                  <SessionList
+                    sessions={recentSessions}
+                    onSelect={selectSession}
+                    onRename={(target, title) => renameSession(target.id, title)}
+                    onArchive={target => archiveSession(target.id)}
+                    onDelete={target => deleteSession(target.id)}
+                    onTogglePin={toggleSessionPinned}
+                  />
+                {/if}
+              </section>
+
+              {#if canLoadMore}
+                <Button
+                  class="mt-3 w-full"
+                  onclick={() => void loadMoreSessions()}
+                  disabled={sessionState.sessionsLoadingMore}
+                >
+                  {sessionState.sessionsLoadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              {/if}
+            {/if}
       </div>
 
     </div>

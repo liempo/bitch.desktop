@@ -75,6 +75,7 @@
 
 <section
   class="flex-1 overflow-y-auto bg-chat-scroll/40"
+  data-selectable="true"
   bind:this={scrollElement}
   onscroll={handleScroll}
   aria-label="Message thread"

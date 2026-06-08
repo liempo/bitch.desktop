@@ -34,20 +34,15 @@
 
   const id = $derived(session?.id ?? searchResult?.session_id ?? '')
   const title = $derived(session?.title?.trim() || (searchResult ? 'Search match' : 'Untitled session'))
-  const preview = $derived(session?.preview?.trim() || stripMarkup(searchResult?.snippet) || 'No preview yet')
   const subtitle = $derived(formatSubtitle(session, searchResult))
   const profileTag = $derived(formatProfileTag(session))
 
   const SESSION_ROW =
-    'group relative flex min-w-0 items-stretch rounded-control border border-transparent bg-transparent ' +
+    'group relative -mx-2 flex min-w-0 items-stretch border border-transparent bg-transparent ' +
     'hover:border-line hover:bg-primary/5 ' +
     'data-[selected=true]:border-primary/50 data-[selected=true]:bg-primary/10 data-[selected=true]:font-semibold ' +
     'data-[selected=true]:text-ink-bright ' +
     'data-[disabled=true]:opacity-50'
-
-  function stripMarkup(value: string | null | undefined): string {
-    return (value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-  }
 
   function formatSubtitle(info: SessionInfo | null, result: SessionSearchResult | null): string {
     if (info) {
@@ -97,7 +92,7 @@
   <div class={SESSION_ROW} data-selected={active ? 'true' : undefined} data-disabled={disabled ? 'true' : undefined}>
     <Button
       variant="unstyled"
-      class="grid min-w-0 flex-1 gap-1 py-2 pl-2 pr-2 text-left text-inherit"
+      class="grid min-w-0 flex-1 gap-1.5 px-4 py-2 text-left text-inherit"
       onclick={handleSelect}
       {disabled}
       aria-pressed={active}
@@ -115,8 +110,6 @@
           </span>
         {/if}
       </span>
-
-      <span class="line-clamp-2 text-xs leading-4 text-ink-muted">{preview}</span>
 
       {#if subtitle}
         <span class="flex min-w-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-ink-muted/80">

@@ -40,6 +40,8 @@
 
 :root {
   --bits-navbar-height: 2.75rem;
+  --bits-scrollbar-thumb-min-height: 24px;
+  --bits-scrollbar-width: 2px;
   color-scheme: dark;
 }
 
@@ -119,6 +121,14 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  [data-selectable='true'],
+  [data-selectable='true'] * {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   button,
@@ -159,29 +169,39 @@
   }
 
   * {
-    scrollbar-color: transparent transparent;
-    scrollbar-width: thin;
-  }
-
-  *:is(:hover, :focus, :focus-within) {
-    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-width: none;
   }
 
   *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+@layer components {
+  .custom-scrollbar-track {
+    position: fixed;
+    z-index: 80;
+    width: var(--bits-scrollbar-width);
+    background: var(--color-canvas);
+    pointer-events: none;
   }
 
-  *::-webkit-scrollbar-track,
-  *::-webkit-scrollbar-thumb {
-    background: transparent;
+  .custom-scrollbar-track[data-visible='false'] {
+    visibility: hidden;
   }
 
-  *:is(:hover, :focus, :focus-within)::-webkit-scrollbar-thumb {
+  .custom-scrollbar-thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--bits-scrollbar-width);
+    min-height: var(--bits-scrollbar-thumb-min-height);
+    border: 0;
+    border-radius: 0;
     background: var(--color-line-strong);
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
-    background: var(--color-primary);
+    padding: 0;
+    pointer-events: auto;
   }
 }

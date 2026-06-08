@@ -25,7 +25,7 @@
 </script>
 
 <nav
-  class="relative z-20 flex min-h-[var(--bits-navbar-height)] shrink-0 items-center justify-between border-b border-line bg-canvas px-4"
+  class="relative z-20 flex min-h-[var(--bits-navbar-height)] shrink-0 items-center border-b border-line bg-canvas px-4"
   aria-label="Primary navigation"
 >
   <div class="flex min-w-0 items-center gap-3 pl-[74px]" data-tauri-drag-region>
@@ -34,6 +34,8 @@
       BITCH
     </div>
   </div>
+
+  <div class="min-w-4 flex-1 self-stretch" data-tauri-drag-region></div>
 
   <div class="flex items-center gap-6 pr-2">
     {#each navItems as item (item.page)}

@@ -247,7 +247,7 @@
   }
 </script>
 
-<section class="p-3" aria-label="Composer">
+<section class="p-3" data-selectable="true" aria-label="Composer">
   <div class="mx-auto max-w-5xl">
     {#if queuedPrompts.length > 0}
       <div class={queueCardClass} aria-label="Queued prompts">

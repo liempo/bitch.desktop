@@ -16,6 +16,7 @@ use std::{
     collections::HashMap,
     fs,
     path::PathBuf,
+    process::Command,
     sync::{LazyLock, Mutex},
     time::Duration,
 };
@@ -24,20 +25,16 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue, Message};
 
 fn macos_traffic_light_y() -> f64 {
-    ((WINDOW_BAR_HEIGHT - MACOS_TRAFFIC_LIGHT_SIZE) / 2.0
-        + MACOS_TRAFFIC_LIGHT_NATIVE_BOTTOM_INSET)
+    ((WINDOW_BAR_HEIGHT - MACOS_TRAFFIC_LIGHT_SIZE) / 2.0 + MACOS_TRAFFIC_LIGHT_NATIVE_BOTTOM_INSET)
         .max(0.0)
 }
 
 fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
-    let builder = tauri::WebviewWindowBuilder::new(
-        app,
-        "main",
-        tauri::WebviewUrl::App("index.html".into()),
-    )
-    .title("BITCH")
-    .inner_size(1200.0, 800.0)
-    .resizable(true);
+    let builder =
+        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+            .title("BITCH")
+            .inner_size(1200.0, 800.0)
+            .resizable(true);
 
     #[cfg(target_os = "macos")]
     let builder = builder
@@ -1060,6 +1057,47 @@ async fn close_ws(connection_id: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn open_external_url(url: String) -> Result<(), String> {
+    let url = external_browser_url(&url)?;
+    open_url_in_browser(&url)
+}
+
+fn external_browser_url(raw_url: &str) -> Result<String, String> {
+    let parsed = url::Url::parse(raw_url.trim()).map_err(|e| format!("Invalid URL: {e}"))?;
+    match parsed.scheme() {
+        "http" | "https" => Ok(parsed.to_string()),
+        scheme => Err(format!("Unsupported external URL scheme: {scheme}")),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn open_url_in_browser(url: &str) -> Result<(), String> {
+    Command::new("open")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open URL: {e}"))
+}
+
+#[cfg(target_os = "windows")]
+fn open_url_in_browser(url: &str) -> Result<(), String> {
+    Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", url])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open URL: {e}"))
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn open_url_in_browser(url: &str) -> Result<(), String> {
+    Command::new("xdg-open")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open URL: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1123,6 +1161,20 @@ mod tests {
     fn calculates_macos_traffic_light_inset_from_window_bar_height() {
         assert_eq!(macos_traffic_light_y(), 20.0);
     }
+
+    #[test]
+    fn external_browser_url_allows_http_and_https_only() {
+        assert_eq!(
+            external_browser_url(" https://example.test/docs?q=1 ").unwrap(),
+            "https://example.test/docs?q=1"
+        );
+        assert_eq!(
+            external_browser_url("http://example.test/").unwrap(),
+            "http://example.test/"
+        );
+        assert!(external_browser_url("javascript:alert(1)").is_err());
+        assert!(external_browser_url("file:///etc/passwd").is_err());
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1142,7 +1194,8 @@ pub fn run() {
             dashboard_request,
             connect_ws,
             send_ws_message,
-            close_ws
+            close_ws,
+            open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
