@@ -233,7 +233,7 @@
         {:else if sessionState.sessionsLoading && !sessionState.sessionsInitialized}
           <div class="space-y-1.5" aria-label="Loading sessions">
             {#each loadingRows as row (row)}
-              <div class="h-18 animate-pulse rounded-[var(--radius-control)] border border-line bg-surface-raised/50"></div>
+              <div class="h-18 rounded-[var(--radius-control)] border border-line bg-surface-raised/50"></div>
             {/each}
           </div>
         {:else if searchActive}

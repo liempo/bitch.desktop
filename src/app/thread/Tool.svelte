@@ -117,7 +117,7 @@
     {#if running || hasError}
       <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
         {#if running}
-          <span class="cli-dot animate-pulse text-primary"></span>
+          <span class="cli-dot text-primary"></span>
         {:else if hasError}
           <svg
             class="h-3.5 w-3.5 text-danger"
@@ -150,7 +150,7 @@
 
     <span class="min-w-0 flex-1">
       <span class="flex min-w-0 items-baseline gap-1.5">
-        <span class="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] {running ? 'animate-pulse text-primary' : hasError ? 'text-danger' : 'text-ink'}">
+        <span class="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] {running ? 'text-primary' : hasError ? 'text-danger' : 'text-ink'}">
           {statusLabel}
         </span>
         {#if contextPreview}

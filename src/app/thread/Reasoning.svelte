@@ -48,15 +48,18 @@
   <div class="cli-card my-1.5 overflow-hidden border-dashed border-secondary/40 text-xs text-ink-muted" data-slot="thinking-disclosure">
     <!-- Disclosure header -->
     <button
-      class="flex w-full items-center justify-between gap-2 bg-reasoning-header-bg px-3 py-2 text-left"
+      class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
       onclick={toggle}
       type="button"
       aria-expanded={open}
     >
       <span class="flex min-w-0 items-center gap-2">
         {#if pending}
-          <span class="cli-dot animate-pulse text-secondary" aria-hidden="true"></span>
-          <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thinking...</span>
+          <span
+            class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-secondary/30 border-t-secondary"
+            aria-hidden="true"
+          ></span>
+          <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thinking</span>
         {:else}
           {#if text.trim()}
             <svg
@@ -70,7 +73,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           {/if}
-          <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Reasoning</span>
+          <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thought</span>
         {/if}
       </span>
       {#if pending}

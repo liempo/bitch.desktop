@@ -16,13 +16,6 @@
   const tool = $derived(message.role === 'tool')
   const timestamp = $derived(formatTimestamp(message.timestamp))
 
-  const hasContent = $derived(
-    message.text.trim().length > 0 ||
-      (message.reasoning?.some(block => block.trim().length > 0) ?? false) ||
-      message.tools.length > 0 ||
-      (message.parts?.length ?? 0) > 0
-  )
-
   const parts = $derived(message.parts ?? [])
   const usesParts = $derived(parts.length > 0)
   const toolStatusSignature = $derived(
@@ -92,36 +85,26 @@
   </div>
 {:else if user}
   <!-- User message — bubble style -->
-  <div class="group mx-auto w-full max-w-4xl px-4 py-3" data-role="user">
-    <div class="cli-message cli-message-user px-3.5 py-3">
-      <div class="mb-2 flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.16em] text-warning/80">
-        <span>Operator_Input</span>
-        {#if timestamp}
-          <time class="text-ink-muted/70">{timestamp}</time>
-        {/if}
-      </div>
+  <div class="group mx-auto flex w-full max-w-4xl justify-end px-4 py-3" data-role="user">
+    <div class="cli-message cli-message-user w-fit max-w-[min(82%,42rem)] px-3.5 py-3">
       <p class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-6 text-ink-bright">
         {message.text}
       </p>
+      {#if timestamp}
+        <div class="mt-2 text-right text-[0.62rem] uppercase tracking-[0.16em] text-warning/80">
+          <time class="text-ink-muted/70">{timestamp}</time>
+        </div>
+      {/if}
     </div>
   </div>
 {:else if assistant}
   <!-- Assistant message — content-first, action bar on hover -->
   <div
-    class="group/msg relative mx-auto w-full max-w-4xl px-4 py-2"
+    class="group/msg relative mx-auto w-full max-w-4xl px-4"
     data-role="assistant"
     data-streaming={isRunning ? 'true' : undefined}
   >
-    <div class="cli-message cli-message-assistant px-3.5 py-3">
-      <div class="mb-2 flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.16em] text-primary/80">
-        <span>Hermes_Output</span>
-        {#if isRunning}
-          <span class="animate-pulse text-success">streaming</span>
-        {:else if hasContent && timestamp}
-          <time class="text-ink-muted/70">{timestamp}</time>
-        {/if}
-      </div>
-
+    <div>
       <div class="min-w-0 overflow-hidden text-pretty text-sm leading-6 text-ink">
         {#if usesParts}
           {#key toolStatusSignature}
