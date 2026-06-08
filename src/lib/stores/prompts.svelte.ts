@@ -1,11 +1,12 @@
 import { requestGateway } from '$lib/stores/gateway.svelte'
-import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
+import { ensureGatewayProfile, normalizeProfileKey } from '$lib/stores/profile.svelte'
 import { profileForSession, runtimeSessionIdForStored, sessionState } from '$lib/stores/session.svelte'
 
 export type ApprovalChoice = 'once' | 'session' | 'always' | 'deny'
 
 export interface ClarifyRequest {
   choices: string[] | null
+  profile?: null | string
   question: string
   requestId: string
   sessionId: string | null
@@ -14,19 +15,22 @@ export interface ClarifyRequest {
 export interface ApprovalRequest {
   command: string
   description: string
+  profile?: null | string
   sessionId: string | null
 }
 
 export interface SudoRequest {
+  profile?: null | string
   requestId: string
-  sessionId?: string | null
+  sessionId?: null | string
 }
 
 export interface SecretRequest {
   envVar: string
+  profile?: null | string
   prompt: string
   requestId: string
-  sessionId?: string | null
+  sessionId?: string
 }
 
 export interface PromptsState {
@@ -69,8 +73,11 @@ function liveSessionIdForStored(sessionId: null | string | undefined): string | 
   )
 }
 
-async function profileForPromptRequest(sessionId: null | string | undefined): Promise<string> {
-  const profile = normalizeProfileKey(profileForSession(sessionId) ?? profileState.activeGatewayProfile)
+async function profileForPromptRequest(
+  sessionId: null | string | undefined,
+  profileHint: null | string | undefined
+): Promise<string> {
+  const profile = normalizeProfileKey(profileHint ?? profileForSession(sessionId))
   await ensureGatewayProfile(profile)
   return profile
 }
@@ -166,7 +173,7 @@ export async function respondToClarify(sessionId: null | string | undefined, ans
   beginSubmit(`clarify:${request.requestId}`)
 
   try {
-    const profile = await profileForPromptRequest(request.sessionId)
+    const profile = await profileForPromptRequest(request.sessionId, request.profile)
     await requestGateway('clarify.respond', {
       request_id: request.requestId,
       answer,
@@ -195,7 +202,7 @@ export async function respondToApproval(choice: ApprovalChoice): Promise<boolean
   beginSubmit(submitKey)
 
   try {
-    const profile = await profileForPromptRequest(request.sessionId)
+    const profile = await profileForPromptRequest(request.sessionId, request.profile)
     await requestGateway('approval.respond', {
       choice,
       session_id: liveSessionIdForStored(request.sessionId),
@@ -223,7 +230,7 @@ export async function respondToSudo(password: string): Promise<boolean> {
   beginSubmit(`sudo:${request.requestId}`)
 
   try {
-    const profile = await profileForPromptRequest(request.sessionId)
+    const profile = await profileForPromptRequest(request.sessionId, request.profile)
     await requestGateway('sudo.respond', {
       request_id: request.requestId,
       password,
@@ -251,7 +258,7 @@ export async function respondToSecret(value: string): Promise<boolean> {
   beginSubmit(`secret:${request.requestId}`)
 
   try {
-    const profile = await profileForPromptRequest(request.sessionId)
+    const profile = await profileForPromptRequest(request.sessionId, request.profile)
     await requestGateway('secret.respond', {
       request_id: request.requestId,
       value,
