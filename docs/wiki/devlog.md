@@ -2,6 +2,20 @@
 
 Chronological record of BITCH Desktop development.
 
+## 2026-06-08 — Remote profile support implemented
+
+Implemented the upstream remote profile workaround for BITCH Desktop:
+
+- `ProfileRail.svelte` exposes a compact profile selector and all-profiles history scope.
+- `profile.svelte.ts` tracks active gateway profile, profile scope, fresh-draft requests, and rail cosmetics.
+- `gateway.svelte.ts` now keeps a profile-keyed `HermesGateway` registry instead of one singleton socket.
+- `src-tauri/src/lib.rs` persists remote connection config and resolves per-profile REST/WebSocket URLs from `connection.json`.
+- `session.svelte.ts`, `messages.svelte.ts`, and `resume.ts` pass profile ownership through list, history, create, resume, and mutation flows.
+
+Known constraint remains upstream issue [#37713](https://github.com/NousResearch/hermes-agent/issues/37713): one remote dashboard URL cannot switch the live Hermes execution profile by itself. Live multi-profile chat uses one dashboard backend per profile/port.
+
+---
+
 ## 2026-06-07 — Gateway connection, chat & sessions verified; multi-profile research
 
 Manual testing confirmed three core flows working:

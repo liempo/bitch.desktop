@@ -1,20 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockRequestGateway, mockNavigate, mockSessionRoute, mockRouterState } = vi.hoisted(() => ({
+const {
+  mockRequestGateway,
+  mockNavigate,
+  mockSessionRoute,
+  mockRouterState,
+  mockEnsureGatewayForProfile,
+  mockGetProfiles
+} = vi.hoisted(() => ({
   mockRequestGateway: vi.fn(),
   mockNavigate: vi.fn(),
   mockSessionRoute: vi.fn((id: string) => `/${id}`),
-  mockRouterState: { route: 'new' as 'new' | 'session', sessionId: null as string | null }
+  mockRouterState: { route: 'new' as 'new' | 'session', sessionId: null as string | null },
+  mockEnsureGatewayForProfile: vi.fn(),
+  mockGetProfiles: vi.fn()
 }))
 
 vi.mock('$lib/api/dashboard', () => ({
   getGlobalModelInfo: vi.fn(),
   getModelOptions: vi.fn(),
-  listSessions: vi.fn()
+  getProfiles: mockGetProfiles,
+  listSessions: vi.fn(),
+  setApiRequestProfile: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
   gatewayState: { connectionState: 'closed' },
+  ensureGatewayForProfile: mockEnsureGatewayForProfile,
   requestGateway: mockRequestGateway
 }))
 
@@ -24,9 +36,10 @@ vi.mock('../../app/router.svelte', () => ({
   routerState: mockRouterState
 }))
 
-import { composerState, submitPrompt } from '$lib/stores/composer.svelte'
+import { composerState, executeSlashCommand, submitPrompt } from '$lib/stores/composer.svelte'
 import { clearQueuedPrompts, getQueuedPrompts } from '$lib/stores/composer-queue'
 import { messageState, threadForSession } from '$lib/stores/messages.svelte'
+import { profileState } from '$lib/stores/profile.svelte'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 
 describe('composer runtime targeting', () => {
@@ -42,6 +55,10 @@ describe('composer runtime targeting', () => {
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
+    sessionState.sessionProfilesById = {}
+    profileState.activeGatewayProfile = 'default'
+    profileState.newChatProfile = null
+    profileState.profiles = []
   })
 
   it('sends prompt.submit to the cached live runtime while keeping UI messages under the stored key', async () => {
@@ -51,6 +68,7 @@ describe('composer runtime targeting', () => {
     await expect(submitPrompt('stored-A', { text: 'hello cached runtime' })).resolves.toBe(true)
 
     expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
       session_id: 'live-A',
       text: 'hello cached runtime'
     })
@@ -82,11 +100,50 @@ describe('composer runtime targeting', () => {
 
     expect(mockRequestGateway).toHaveBeenCalledWith('session.create', expect.anything())
     expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
       session_id: 'live-new',
       text: 'first message'
     })
     expect(mockNavigate).toHaveBeenCalledWith('/stored-new')
     expect(threadForSession('stored-new')?.messages.map(message => message.text)).toEqual(['first message'])
+  })
+  it('reports the owning profile locally for /profile instead of forwarding backend default', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    sessionState.sessionProfilesById = { 'stored-A': 'crypto' }
+    profileState.activeGatewayProfile = 'default'
+
+    await expect(executeSlashCommand('stored-A', '/profile')).resolves.toBe(true)
+
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+      'slash:/profile\nprofile: crypto'
+    ])
+  })
+
+  it('uses /profile <name> to target future new chats without backend slash.exec', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    mockGetProfiles.mockResolvedValueOnce({
+      profiles: [
+        {
+          has_env: true,
+          is_default: false,
+          model: null,
+          name: 'crypto',
+          path: '/profiles/crypto',
+          provider: null,
+          skill_count: 0
+        }
+      ]
+    })
+
+    await expect(executeSlashCommand('stored-A', '/profile crypto')).resolves.toBe(true)
+
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+    expect(profileState.newChatProfile).toBe('crypto')
+    expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
+    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+      'slash:/profile crypto\nnew chat profile: crypto'
+    ])
   })
 })
 

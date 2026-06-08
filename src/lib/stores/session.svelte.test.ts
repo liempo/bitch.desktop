@@ -1,13 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-const { mockRequestGateway, mockNavigate, mockSessionRoute } = vi.hoisted(() => ({
+const { mockRequestGateway, mockNavigate, mockSessionRoute, mockEnsureGatewayForProfile } = vi.hoisted(() => ({
   mockRequestGateway: vi.fn(),
   mockNavigate: vi.fn(),
-  mockSessionRoute: vi.fn((id: string) => `/${id}`)
+  mockSessionRoute: vi.fn((id: string) => `/${id}`),
+  mockEnsureGatewayForProfile: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
   requestGateway: mockRequestGateway,
+  ensureGatewayForProfile: mockEnsureGatewayForProfile,
   gatewayState: {}
 }))
 
@@ -19,6 +21,7 @@ vi.mock('../../app/router.svelte', () => ({
 
 import {
   createSession,
+  hasMoreSessions,
   rememberRuntimeSession,
   resumeSession,
   runtimeSessionIdForStored,
@@ -27,6 +30,7 @@ import {
   startNewSession,
   storedSessionIdForRuntime
 } from '$lib/stores/session.svelte'
+import { profileState } from '$lib/stores/profile.svelte'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -47,6 +51,9 @@ describe('createSession', () => {
     rawSessionState.error = null
     rawSessionState.runtimeIdsByStoredSessionId = {}
     rawSessionState.storedSessionIdsByRuntimeId = {}
+    rawSessionState.sessionProfilesById = {}
+    profileState.activeGatewayProfile = 'default'
+    profileState.newChatProfile = null
   })
 
   it('sets activeSessionId to short sid and storedSessionId to persistent key without navigating', async () => {
@@ -73,6 +80,28 @@ describe('createSession', () => {
 
     // Route stays put until the first successful submit
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('forwards the selected new-chat profile into session.create and caches it immediately', async () => {
+    profileState.newChatProfile = 'crypto'
+
+    mockEnsureGatewayForProfile.mockResolvedValueOnce(undefined)
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'crypto-live',
+      stored_session_id: 'crypto-stored',
+      message_count: 0,
+      messages: [],
+      info: { model: 'test-model' }
+    })
+
+    await expect(createSession()).resolves.toBe('crypto-live')
+
+    expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', {
+      cols: 96,
+      profile: 'crypto'
+    })
+    expect(rawSessionState.sessionProfilesById['crypto-stored']).toBe('crypto')
   })
 
   it('falls back to session_id for stored key when stored_session_id is absent', async () => {
@@ -129,7 +158,7 @@ describe('createSession', () => {
     })
 
     await expect(resultPromise).resolves.toBeNull()
-    expect(mockRequestGateway).toHaveBeenCalledWith('session.close', { session_id: 'stale001' })
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.close', { profile: 'default', session_id: 'stale001' })
     expect(rawSessionState.activeSessionId).not.toBe('stale001')
     expect(rawSessionState.storedSessionId).toBe('operator-clicked-elsewhere')
     expect(mockNavigate).not.toHaveBeenCalledWith('/stored-stale')
@@ -320,5 +349,33 @@ describe('resumeSession', () => {
     expect(result).toBeNull()
     expect(rawSessionState.error).toBeTruthy()
     expect(rawSessionState.storedSessionId).toBe('bad_id')
+  })
+})
+
+describe('profile-scoped pagination', () => {
+  beforeEach(() => {
+    rawSessionState.sessionsOffset = 0
+    rawSessionState.sessionsTotal = 0
+    rawSessionState.sessionProfileTotals = {}
+    profileState.activeGatewayProfile = 'default'
+    profileState.showAllProfiles = false
+  })
+
+  it('uses profile_totals for scoped pagination', () => {
+    profileState.activeGatewayProfile = 'crypto'
+    rawSessionState.sessionsOffset = 40
+    rawSessionState.sessionsTotal = 200
+    rawSessionState.sessionProfileTotals = { crypto: 40 }
+
+    expect(hasMoreSessions()).toBe(false)
+  })
+
+  it('falls back to global total in all-profiles mode', () => {
+    profileState.showAllProfiles = true
+    rawSessionState.sessionsOffset = 40
+    rawSessionState.sessionsTotal = 80
+    rawSessionState.sessionProfileTotals = { default: 40 }
+
+    expect(hasMoreSessions()).toBe(true)
   })
 })

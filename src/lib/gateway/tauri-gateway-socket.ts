@@ -90,11 +90,13 @@ class TauriGatewaySocket {
 
   private readonly connectionId = createConnectionId()
   private readonly listeners = new Map<SocketEventName, Set<SocketListener>>()
+  private readonly profile: string
   private unlisteners: UnlistenFn[] = []
 
-  constructor(url: string) {
+  constructor(url: string, profile = 'default') {
+    this.profile = profile
     this.url = url
-    browserLog('debug', `creating Tauri socket shim for ${url}`)
+    browserLog('debug', `creating Tauri socket shim for ${url} (profile=${profile})`)
     void this.start()
   }
 
@@ -182,8 +184,8 @@ class TauriGatewaySocket {
         return
       }
 
-      browserLog('debug', 'invoking connect_ws')
-      await invoke('connect_ws', { connectionId: this.connectionId })
+      browserLog('debug', `invoking connect_ws for profile=${this.profile}`)
+      await invoke('connect_ws', { connectionId: this.connectionId, profile: this.profile })
     } catch (error) {
       this.handleBridgeError(error)
     }
@@ -261,8 +263,8 @@ class TauriGatewaySocket {
   }
 }
 
-export function createTauriGatewaySocket(url: string): WebSocket {
-  return new TauriGatewaySocket(url) as unknown as WebSocket
+export function createTauriGatewaySocket(url: string, profile = 'default'): WebSocket {
+  return new TauriGatewaySocket(url, profile) as unknown as WebSocket
 }
 
 export function consumeLastTauriGatewaySocketError(): string | null {

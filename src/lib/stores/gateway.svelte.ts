@@ -1,26 +1,60 @@
+import { invoke } from '@tauri-apps/api/core'
+
 import { HermesGateway } from '$lib/gateway/hermes'
+import type { GatewayEvent } from '$lib/gateway/json-rpc-gateway'
 import { consumeLastTauriGatewaySocketError } from '$lib/gateway/tauri-gateway-socket'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
-/* ------------------------------------------------------------------ */
-/*  Reactive state                                                     */
-/* ------------------------------------------------------------------ */
+interface ResolvedConnection {
+  authMode?: string
+  baseUrl: string
+  profile?: null | string
+}
 
-let _gateway: HermesGateway | null = null
-let _unsubState: (() => void) | null = null
+interface GatewayEntry {
+  connectPromise: Promise<HermesGateway> | null
+  connectionDetail: string
+  eventUnsubscribe: (() => void) | null
+  gateway: HermesGateway
+  profile: string
+  state: ConnectionState
+  unsubscribe: (() => void) | null
+}
+
+interface GatewayRegistryConfig {
+  onEvent: (event: GatewayEvent) => void
+}
+
+const gatewayEntries = new Map<string, GatewayEntry>()
+let activeEntry: GatewayEntry | null = null
+let registryConfig: GatewayRegistryConfig | null = null
 
 export const gatewayState = $state<{
+  activeProfile: string
   connectionState: ConnectionState
   connectionDetail: string
+  profiles: Record<string, ConnectionState>
 }>({
+  activeProfile: 'default',
   connectionState: 'idle',
-  connectionDetail: ''
+  connectionDetail: '',
+  profiles: {}
 })
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                             */
-/* ------------------------------------------------------------------ */
+function normalizeProfile(profile: null | string | undefined): string {
+  const value = (profile ?? '').trim()
+  return value || 'default'
+}
+
+function profileFromParams(params: Record<string, unknown>): string | null {
+  const profile = params.profile
+  return typeof profile === 'string' && profile.trim() ? normalizeProfile(profile) : null
+}
+
+export function configureGatewayRegistry(config: GatewayRegistryConfig | null): void {
+  registryConfig = config
+}
 
 function detailedError(error: unknown): string {
   const base = error instanceof Error ? error.message : String(error)
@@ -33,70 +67,174 @@ function detailedError(error: unknown): string {
   return base
 }
 
-/* ------------------------------------------------------------------ */
-/*  Public API                                                          */
-/* ------------------------------------------------------------------ */
-
-/** Returns the singleton HermesGateway. Creates it on first call. */
-export function getGateway(): HermesGateway {
-  if (!_gateway) {
-    _gateway = new HermesGateway()
+function createEntry(profile: string): GatewayEntry {
+  const gateway = new HermesGateway(profile)
+  const entry: GatewayEntry = {
+    connectPromise: null,
+    connectionDetail: '',
+    eventUnsubscribe: null,
+    gateway,
+    profile,
+    state: 'idle',
+    unsubscribe: null
   }
-  return _gateway
-}
 
-/** Connect the gateway and start listening for state events. */
-export async function connectGateway(): Promise<void> {
-  const gateway = getGateway()
-  const baseUrl = import.meta.env.VITE_BITCH_GATEWAY_URL ?? 'http://127.0.0.1:9119'
+  entry.eventUnsubscribe = gateway.onEvent(event => registryConfig?.onEvent(event))
 
-  gatewayState.connectionState = 'connecting'
-  gatewayState.connectionDetail = `Connecting to Hermes dashboard at ${baseUrl}`
+  entry.unsubscribe = gateway.onState(state => {
+    entry.state = state as ConnectionState
+    gatewayState.profiles = { ...gatewayState.profiles, [profile]: entry.state }
 
-  _unsubState = gateway.onState(state => {
-    gatewayState.connectionState = state as ConnectionState
+    if (activeEntry === entry) {
+      gatewayState.connectionState = entry.state
+    }
   })
 
+  gatewayEntries.set(profile, entry)
+  return entry
+}
+
+function entryForProfile(profile: null | string | undefined): GatewayEntry {
+  const key = normalizeProfile(profile)
+  return gatewayEntries.get(key) ?? createEntry(key)
+}
+
+async function resolveConnection(profile: string): Promise<ResolvedConnection> {
   try {
-    await gateway.connect(baseUrl)
-    gatewayState.connectionState = 'open'
-    gatewayState.connectionDetail = 'Dashboard gateway transport ready'
+    return await invoke<ResolvedConnection>('resolve_connection', { profile })
   } catch (error) {
-    gatewayState.connectionState = 'error'
-    gatewayState.connectionDetail = detailedError(error)
+    // Older dev harnesses/tests may not have the Tauri command registered yet.
+    // Fall back to the legacy env default so the UI can still surface the bridge
+    // error instead of dying before it opens the socket shim.
+    if (typeof import.meta !== 'undefined') {
+      return {
+        authMode: 'token',
+        baseUrl: import.meta.env.VITE_BITCH_GATEWAY_URL ?? 'http://127.0.0.1:9119',
+        profile
+      }
+    }
+
+    throw error
   }
 }
 
-/** Disconnect the gateway and tear down all subscriptions. */
-export function disconnectGateway(): void {
-  _unsubState?.()
-  _unsubState = null
-  _gateway?.close()
-  _gateway = null
-  gatewayState.connectionState = 'closed'
-  gatewayState.connectionDetail = ''
+export function getGateway(profile?: null | string): HermesGateway {
+  if (profile) {
+    return entryForProfile(profile).gateway
+  }
+
+  return (activeEntry ?? entryForProfile(gatewayState.activeProfile)).gateway
 }
 
-/**
- * Thin wrapper around `gateway.request` with a friendly error when the
- * gateway is not connected (mirrors upstream `use-gateway-request`).
- */
+export async function ensureGatewayForProfile(profile: null | string | undefined): Promise<HermesGateway> {
+  const key = normalizeProfile(profile)
+  const entry = entryForProfile(key)
+  activeEntry = entry
+  gatewayState.activeProfile = key
+  gatewayState.connectionState = entry.state
+  gatewayState.connectionDetail = entry.connectionDetail
+
+  if (entry.state === 'open') {
+    gatewayState.connectionDetail = entry.connectionDetail || `Dashboard gateway ready for ${key}`
+    return entry.gateway
+  }
+
+  if (entry.connectPromise) {
+    return await entry.connectPromise
+  }
+
+  entry.connectPromise = (async () => {
+    const connection = await resolveConnection(key)
+    const baseUrl = connection.baseUrl || 'http://127.0.0.1:9119'
+
+    entry.state = 'connecting'
+    entry.connectionDetail = `Connecting ${key} to Hermes dashboard at ${baseUrl}`
+    gatewayState.connectionState = 'connecting'
+    gatewayState.connectionDetail = entry.connectionDetail
+    gatewayState.profiles = { ...gatewayState.profiles, [key]: 'connecting' }
+
+    try {
+      await entry.gateway.connect(baseUrl)
+      entry.state = 'open'
+      entry.connectionDetail = `Dashboard gateway ready for ${key}`
+      gatewayState.profiles = { ...gatewayState.profiles, [key]: 'open' }
+      gatewayState.connectionState = 'open'
+      gatewayState.connectionDetail = entry.connectionDetail
+      return entry.gateway
+    } catch (error) {
+      entry.state = 'error'
+      entry.connectionDetail = detailedError(error)
+      gatewayState.profiles = { ...gatewayState.profiles, [key]: 'error' }
+      gatewayState.connectionState = 'error'
+      gatewayState.connectionDetail = entry.connectionDetail
+      throw error
+    } finally {
+      entry.connectPromise = null
+    }
+  })()
+
+  return await entry.connectPromise
+}
+
+export async function connectGateway(profile = 'default'): Promise<void> {
+  try {
+    await ensureGatewayForProfile(profile)
+  } catch {
+    // ensureGatewayForProfile already stored the operator-facing detail.
+  }
+}
+
+export function disconnectGateway(profile?: null | string): void {
+  const keys = profile ? [normalizeProfile(profile)] : [...gatewayEntries.keys()]
+
+  for (const key of keys) {
+    const entry = gatewayEntries.get(key)
+    if (!entry) continue
+
+    entry.eventUnsubscribe?.()
+    entry.eventUnsubscribe = null
+    entry.unsubscribe?.()
+    entry.unsubscribe = null
+    entry.gateway.close()
+    entry.connectPromise = null
+    entry.state = 'closed'
+    entry.connectionDetail = ''
+    gatewayEntries.delete(key)
+  }
+
+  if (!profile || keys.includes(gatewayState.activeProfile)) {
+    activeEntry = null
+    gatewayState.activeProfile = 'default'
+    gatewayState.connectionState = 'closed'
+    gatewayState.connectionDetail = ''
+  }
+
+  const states: Record<string, ConnectionState> = {}
+  for (const [key, entry] of gatewayEntries) {
+    states[key] = entry.state
+  }
+  gatewayState.profiles = states
+}
+
 export async function requestGateway<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-  const gateway = _gateway
+  const targetProfile = profileFromParams(params)
+  const entry = targetProfile
+    ? entryForProfile(targetProfile)
+    : (activeEntry ?? entryForProfile(gatewayState.activeProfile))
 
-  if (!gateway) {
-    throw new Error('Hermes gateway is not initialised')
+  if (entry.state !== 'open' && entry.connectPromise) {
+    await entry.connectPromise
   }
 
-  if (gatewayState.connectionState !== 'open') {
+  if (entry.state !== 'open') {
     throw new Error(
-      gatewayState.connectionState === 'connecting'
+      entry.state === 'connecting'
         ? 'Hermes gateway is still connecting — please wait'
-        : gatewayState.connectionState === 'error'
-          ? `Hermes gateway encountered an error: ${gatewayState.connectionDetail}`
+        : entry.state === 'error'
+          ? `Hermes gateway encountered an error: ${entry.connectionDetail || gatewayState.connectionDetail}`
           : 'Hermes gateway is not connected'
     )
   }
 
-  return gateway.request<T>(method, params)
+  return entry.gateway.request<T>(method, params)
 }

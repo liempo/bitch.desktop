@@ -162,8 +162,13 @@ describe('message session id mapping', () => {
       description: 'dangerous command',
       sessionId: storedKey
     })
-    expect(promptsState.sudoRequest).toEqual({ requestId: 'sudo-1' })
-    expect(promptsState.secretRequest).toEqual({ envVar: 'TOKEN', prompt: 'Enter token', requestId: 'secret-1' })
+    expect(promptsState.sudoRequest).toEqual({ requestId: 'sudo-1', sessionId: storedKey })
+    expect(promptsState.secretRequest).toEqual({
+      envVar: 'TOKEN',
+      prompt: 'Enter token',
+      requestId: 'secret-1',
+      sessionId: storedKey
+    })
     expect(sessionState.needsInputSessionIds).toContain(storedKey)
   })
 

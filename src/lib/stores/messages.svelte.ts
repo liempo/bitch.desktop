@@ -1,7 +1,8 @@
 import { getSessionMessages } from '$lib/api/dashboard'
-import { getGateway } from '$lib/stores/gateway.svelte'
+import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
 import {
   loadSessions,
+  profileForSession,
   sessionState,
   setSessionNeedsInput,
   setSessionWorking,
@@ -90,7 +91,7 @@ export const messageState = $state<MessageStoreState>({
   sessions: {}
 })
 
-let gatewayUnsubscribe: (() => void) | null = null
+let gatewayStreamStarted = false
 let nextMessageId = 0
 let nextToolId = 0
 const lastReasoningAt = new Map<string, number>()
@@ -159,7 +160,7 @@ function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: str
     const requestId = payloadString(payload, 'request_id')
 
     if (requestId) {
-      setSudoRequest({ requestId })
+      setSudoRequest({ requestId, sessionId })
     }
   } else if (eventType === 'secret.request') {
     const requestId = payloadString(payload, 'request_id')
@@ -168,7 +169,8 @@ function recordInteractivePrompt(eventType: GatewayEvent['type'], sessionId: str
       setSecretRequest({
         envVar: payloadString(payload, 'env_var'),
         prompt: payloadString(payload, 'prompt'),
-        requestId
+        requestId,
+        sessionId
       })
     }
   }
@@ -851,7 +853,7 @@ export async function hydrateSessionMessages(sessionId: string, seed?: SessionMe
   thread.error = null
 
   try {
-    const messages = seed ?? (await getSessionMessages(threadId)).messages
+    const messages = seed ?? (await getSessionMessages(threadId, profileForSession(threadId))).messages
     replaceStoredMessages(threadId, messages)
   } catch (error) {
     thread.error = messageFor(error)
@@ -929,12 +931,13 @@ export function handleGatewayEvent(event: GatewayEvent): void {
 }
 
 export function startMessageStream(): void {
-  if (gatewayUnsubscribe) return
+  if (gatewayStreamStarted) return
 
-  gatewayUnsubscribe = getGateway().onEvent(handleGatewayEvent)
+  configureGatewayRegistry({ onEvent: handleGatewayEvent })
+  gatewayStreamStarted = true
 }
 
 export function stopMessageStream(): void {
-  gatewayUnsubscribe?.()
-  gatewayUnsubscribe = null
+  configureGatewayRegistry(null)
+  gatewayStreamStarted = false
 }

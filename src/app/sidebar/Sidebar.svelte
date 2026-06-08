@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import ProfileRail from './ProfileRail.svelte'
   import SessionRow from './SessionRow.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import {
@@ -21,13 +22,16 @@
     setSearchQuery,
     toggleSessionPinned
   } from '$lib/stores/session.svelte'
+  import { ALL_PROFILES, getProfileScope } from '$lib/stores/profile.svelte'
   import type { SessionInfo } from '$lib/types/hermes'
 
   const connected = $derived(gatewayState.connectionState === 'open')
   const searchActive = $derived(sessionState.searchQuery.trim().length > 0)
   const pinnedSessions = $derived(sessionState.sessions.filter(session => isPinned(session)))
   const recentSessions = $derived(sessionState.sessions.filter(session => !isPinned(session)))
+  const groupedRecentSessions = $derived(groupSessionsByProfile(recentSessions))
   const canLoadMore = $derived(hasMoreSessions() && !searchActive)
+  const scope = $derived(getProfileScope())
   const loadingRows = [0, 1, 2, 3, 4, 5]
 
   onMount(() => {
@@ -56,6 +60,23 @@
 
   function sessionDisabled(session: SessionInfo): boolean {
     return isSessionMutating(session.id)
+  }
+
+  function groupSessionsByProfile(sessions: SessionInfo[]): Array<{ name: string; sessions: SessionInfo[] }> {
+    const groups = new Map<string, SessionInfo[]>()
+
+    for (const session of sessions) {
+      const name = session.profile ?? 'default'
+      const group = groups.get(name)
+
+      if (group) {
+        group.push(session)
+      } else {
+        groups.set(name, [session])
+      }
+    }
+
+    return [...groups.entries()].map(([name, items]) => ({ name, sessions: items }))
   }
 </script>
 
@@ -188,6 +209,33 @@
           <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-500">
             No sessions yet. Create one and give the chrome something to chew on.
           </div>
+        {:else if scope === ALL_PROFILES}
+          <div class="space-y-4">
+            {#each groupedRecentSessions as group (group.name)}
+              <div>
+                <h4 class="mb-1 px-1 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                  {group.name}
+                </h4>
+                <div class="space-y-1.5">
+                  {#each group.sessions as session (session.id)}
+                    <SessionRow
+                      {session}
+                      active={sessionState.storedSessionId === session.id}
+                      pinned={false}
+                      disabled={sessionDisabled(session)}
+                      working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}
+                      needsInput={sessionNeedsInput(session.id)}
+                      onSelect={selectSession}
+                      onRename={(target, title) => renameSession(target.id, title)}
+                      onArchive={(target) => archiveSession(target.id)}
+                      onDelete={(target) => deleteSession(target.id)}
+                      onTogglePin={toggleSessionPinned}
+                    />
+                  {/each}
+                </div>
+              </div>
+            {/each}
+          </div>
         {:else}
           <div class="space-y-1.5">
             {#each recentSessions as session (session.id)}
@@ -221,4 +269,6 @@
       {/if}
     {/if}
   </div>
+
+  <ProfileRail />
 </aside>

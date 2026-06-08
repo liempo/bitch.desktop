@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockRequestGateway } = vi.hoisted(() => ({
+const { mockEnsureGatewayForProfile, mockRequestGateway } = vi.hoisted(() => ({
+  mockEnsureGatewayForProfile: vi.fn(),
   mockRequestGateway: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
+  ensureGatewayForProfile: mockEnsureGatewayForProfile,
   requestGateway: mockRequestGateway
 }))
 
@@ -48,6 +50,7 @@ function resetSession(): void {
 describe('prompt request store', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockEnsureGatewayForProfile.mockResolvedValue(undefined)
     resetPrompts()
     resetSession()
   })
@@ -88,7 +91,8 @@ describe('prompt request store', () => {
 
     expect(mockRequestGateway).toHaveBeenCalledWith('clarify.respond', {
       request_id: 'clarify-1',
-      answer: 'yes'
+      answer: 'yes',
+      profile: 'default'
     })
     expect(promptsState.clarifyRequests['stored-A']).toBeUndefined()
     expect(promptsState.error).toBeNull()
@@ -107,7 +111,8 @@ describe('prompt request store', () => {
 
     expect(mockRequestGateway).toHaveBeenCalledWith('approval.respond', {
       choice: 'once',
-      session_id: 'live-A'
+      session_id: 'live-A',
+      profile: 'default'
     })
     expect(promptsState.approvalRequest).toBeNull()
   })
@@ -122,11 +127,13 @@ describe('prompt request store', () => {
 
     expect(mockRequestGateway).toHaveBeenNthCalledWith(1, 'sudo.respond', {
       request_id: 'sudo-1',
-      password: 'hunter2'
+      password: 'hunter2',
+      profile: 'default'
     })
     expect(mockRequestGateway).toHaveBeenNthCalledWith(2, 'secret.respond', {
       request_id: 'secret-1',
-      value: 'secret-value'
+      value: 'secret-value',
+      profile: 'default'
     })
     expect(promptsState.sudoRequest).toBeNull()
     expect(promptsState.secretRequest).toBeNull()

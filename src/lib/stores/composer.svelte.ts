@@ -1,6 +1,7 @@
-import { getGlobalModelInfo, getModelOptions } from '$lib/api/dashboard'
+import { getGlobalModelInfo, getModelOptions, getProfiles } from '$lib/api/dashboard'
 import { compactWhitespace } from '$lib/messages/chat-runtime'
 import { requestGateway } from '$lib/stores/gateway.svelte'
+import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
 import {
   appendAssistantErrorMessage,
   appendSystemMessage,
@@ -12,6 +13,7 @@ import {
   createSession,
   displaySessionIdFor,
   loadSessions,
+  profileForSession,
   runtimeSessionIdForStored,
   sessionState
 } from '$lib/stores/session.svelte'
@@ -155,6 +157,15 @@ function liveSessionKey(sessionId: null | string | undefined): null | string {
   }
 
   return sessionState.activeSessionId
+}
+
+function targetProfileForSession(sessionId: null | string | undefined): string {
+  const displayKey = displaySessionKey(sessionId)
+  return normalizeProfileKey(
+    (displayKey ? profileForSession(displayKey) : null) ??
+      profileState.newChatProfile ??
+      profileState.activeGatewayProfile
+  )
 }
 
 function ensureComposerSession(sessionId: null | string | undefined): ComposerSessionState {
@@ -313,6 +324,23 @@ function renderSlashOutput(command: string, result: SlashExecResponse | undefine
   return [`slash:${command}`, warning ? `warning: ${warning}` : '', output].filter(Boolean).join('\n')
 }
 
+function profileSlashArg(command: string): string | undefined {
+  const match = /^\/profile(?:\s+(.*))?$/i.exec(command)
+  return match ? (match[1] ?? '').trim() : undefined
+}
+
+function renderProfileStatus(sessionId: null | string | undefined): string {
+  return [`slash:/profile`, `profile: ${targetProfileForSession(sessionId)}`].join('\n')
+}
+
+function renderProfileSwitch(command: string, profile: string): string {
+  return [`slash:${command}`, `new chat profile: ${profile}`].join('\n')
+}
+
+function profileNames(): string {
+  return profileState.profiles.map(profile => profile.name).join(', ')
+}
+
 export function composerForSession(sessionId: null | string | undefined): ComposerSessionState {
   return ensureComposerSession(sessionId)
 }
@@ -446,7 +474,12 @@ export async function loadCommandCatalog(sessionId: null | string | undefined): 
   session.commandError = null
 
   try {
-    const catalog = await requestGateway<CommandsCatalogResponse>('commands.catalog', { session_id: targetSessionId })
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    const catalog = await requestGateway<CommandsCatalogResponse>('commands.catalog', {
+      session_id: targetSessionId,
+      profile
+    })
     session.commandCatalog = commandPairs(catalog)
     session.commandError = catalog.warning || null
   } catch (error) {
@@ -471,12 +504,73 @@ export function applySlashSuggestion(sessionId: null | string | undefined, comma
   setComposerDraft(sessionId, `${command} `)
 }
 
+async function executeProfileCommand(
+  sessionId: null | string | undefined,
+  command: string,
+  arg: string,
+  composer: ComposerSessionState
+): Promise<boolean> {
+  let targetSessionId = liveSessionKey(sessionId)
+
+  if (!arg) {
+    if (!targetSessionId) {
+      targetSessionId = await createSession()
+    }
+
+    if (!targetSessionId) {
+      composer.error = 'Could not create a session for the profile command.'
+      return false
+    }
+
+    appendSystemMessage(targetSessionId, renderProfileStatus(sessionId))
+    clearComposerDraft(sessionId)
+    clearComposerAttachments(sessionId)
+    commitActiveSessionRoute()
+    return true
+  }
+
+  try {
+    const target = normalizeProfileKey(arg)
+    const { profiles } = await getProfiles()
+    profileState.profiles = profiles
+    const match = profiles.find(profile => normalizeProfileKey(profile.name) === target)
+
+    if (!match) {
+      const available = profileNames()
+      composer.error = available
+        ? `No profile named "${arg}". Available profiles: ${available}`
+        : `No profile named "${arg}".`
+      return false
+    }
+
+    const profile = normalizeProfileKey(match.name)
+    profileState.newChatProfile = profile
+    await ensureGatewayProfile(profile)
+
+    if (targetSessionId) {
+      appendSystemMessage(targetSessionId, renderProfileSwitch(command, profile))
+    }
+
+    clearComposerDraft(sessionId)
+    clearComposerAttachments(sessionId)
+    return true
+  } catch (error) {
+    composer.error = inlineErrorMessage(error, 'Profile command failed')
+    return false
+  }
+}
+
 export async function executeSlashCommand(sessionId: null | string | undefined, rawCommand: string): Promise<boolean> {
   const command = rawCommand.trim()
   const displayKey = displaySessionKey(sessionId) ?? sessionId
   const composer = ensureComposerSession(displayKey)
 
   if (!command.startsWith('/')) return false
+
+  const profileArg = profileSlashArg(command)
+  if (profileArg !== undefined) {
+    return executeProfileCommand(sessionId, command, profileArg, composer)
+  }
 
   let targetSessionId = liveSessionKey(sessionId)
 
@@ -490,9 +584,12 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
   }
 
   try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
       command,
-      session_id: targetSessionId
+      session_id: targetSessionId,
+      profile
     })
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
     clearComposerDraft(sessionId)
@@ -523,10 +620,13 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
   composerState.model.error = null
 
   try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
     const command = `/model ${modelQuote(model)} --provider ${modelQuote(provider)}`
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
       command,
-      session_id: targetSessionId
+      session_id: targetSessionId,
+      profile
     })
 
     composerState.model.info = {
@@ -559,7 +659,9 @@ export async function interruptComposerSession(sessionId: null | string | undefi
   setThreadBusy(displayKey, false)
 
   try {
-    await requestGateway('session.interrupt', { session_id: targetSessionId })
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    await requestGateway('session.interrupt', { session_id: targetSessionId, profile })
     appendSystemMessage(displayKey, 'Interrupted by operator.')
     return true
   } catch (error) {
@@ -612,6 +714,15 @@ export async function submitPrompt(
 
   const attachmentLines = attachments.map(attachmentLabel)
   const displayText = compactWhitespace(visibleText) || (attachments.length ? 'What do you see in this image?' : '')
+  const targetProfile = targetProfileForSession(sessionId)
+
+  try {
+    await ensureGatewayProfile(targetProfile)
+  } catch (error) {
+    composer.submitting = false
+    composer.error = inlineErrorMessage(error, 'Could not switch profile gateway')
+    return false
+  }
 
   appendUserMessage(targetSessionId, displayText, attachmentLines)
   setThreadBusy(targetSessionId, true)
@@ -625,7 +736,8 @@ export async function submitPrompt(
   try {
     await requestGateway('prompt.submit', {
       session_id: targetSessionId,
-      text: buildPayload(visibleText, attachments)
+      text: buildPayload(visibleText, attachments),
+      profile: targetProfile
     })
     void loadSessions().catch(() => undefined)
 
