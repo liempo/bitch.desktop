@@ -28,7 +28,7 @@ import type {
   SessionResumeResponse,
   SessionSearchResult
 } from '$lib/types/hermes'
-import { navigate, routerState, sessionRoute } from '../../app/router.svelte'
+import { navigate, routerState, sessionRoute } from '@/app/agent/router.svelte'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */

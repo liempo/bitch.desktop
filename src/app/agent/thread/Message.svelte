@@ -2,6 +2,7 @@
   import Markdown from './Markdown.svelte'
   import Reasoning from './Reasoning.svelte'
   import Tool from './Tool.svelte'
+  import { cardClass } from '@/components/ui/styles'
   import type { ThreadMessage } from '$lib/stores/messages.svelte'
 
   interface Props {
@@ -38,6 +39,7 @@
       message.tools.length === 0 &&
       !message.text
   )
+  const userMessageClass = `${cardClass} w-fit max-w-[min(82%,42rem)] border-warning/35 !bg-warning/10 px-3.5 py-3`
 
   function formatTimestamp(value: number | undefined): string {
     if (!value) return ''
@@ -78,7 +80,7 @@
     class="mx-auto max-w-[min(86%,44rem)] px-4 py-1 text-center text-[0.6875rem] leading-5 text-ink-muted/80"
     data-role="system"
   >
-    <div class="cli-message-system px-3 py-2">
+    <div class="rounded-control border border-dashed border-line bg-surface-raised/40 px-3 py-2">
       <span class="font-semibold uppercase tracking-[0.16em] text-secondary">SYS</span>
       <span class="ml-2 whitespace-pre-wrap">{message.text}</span>
     </div>
@@ -86,7 +88,7 @@
 {:else if user}
   <!-- User message — bubble style -->
   <div class="group mx-auto flex w-full max-w-4xl justify-end px-4 py-3" data-role="user">
-    <div class="cli-message cli-message-user w-fit max-w-[min(82%,42rem)] px-3.5 py-3">
+    <div class={userMessageClass}>
       <p class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-6 text-ink-bright">
         {message.text}
       </p>

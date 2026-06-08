@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import TerminalBlock from '@/components/ui/TerminalBlock.svelte'
+  import { cardClass, dotClass } from '@/components/ui/styles'
   import type { ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
 
   interface Props {
@@ -19,6 +21,9 @@
   const statusLabel = $derived(toolStatusLabel(tool.name, tool.status, hasError, Boolean(contextPreview)))
   const fallbackSummary = $derived(!contextPreview && tool.summary && !hasDetail ? tool.summary : '')
   const elapsedText = $derived(formatElapsed(elapsed))
+  const toolCardClass = $derived(
+    `${cardClass} my-1.5 overflow-hidden border-dashed ${hasError ? 'border-danger/35 !bg-danger/5' : 'border-line'} text-xs`
+  )
 
   $effect(() => {
     if (!running) {
@@ -104,7 +109,7 @@
   }
 </script>
 
-<div class="cli-card my-1.5 overflow-hidden border-dashed {hasError ? 'border-danger/35 bg-danger/5' : 'border-line'} text-xs">
+<div class={toolCardClass}>
   <button
     class="flex w-full items-center gap-2 bg-transparent px-3 py-2 text-left {hasDetail
       ? 'cursor-pointer'
@@ -117,7 +122,7 @@
     {#if running || hasError}
       <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
         {#if running}
-          <span class="cli-dot text-primary"></span>
+          <span class={`${dotClass} text-primary`}></span>
         {:else if hasError}
           <svg
             class="h-3.5 w-3.5 text-danger"
@@ -135,9 +140,9 @@
       </span>
     {/if}
 
-    {#if hasDetail}
-      <svg
-        class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {expanded ? 'rotate-90' : ''}"
+      {#if hasDetail}
+        <svg
+          class="h-3 w-3 shrink-0 text-ink-muted/70 {expanded ? 'rotate-90' : ''}"
         fill="none"
         stroke="currentColor"
         stroke-width="2"
@@ -179,7 +184,7 @@
           <p class="mb-1 text-[0.65rem] font-medium uppercase tracking-[0.08em] text-ink-muted/70">
             Input
           </p>
-          <pre class="cli-terminal max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.input}</pre>
+          <TerminalBlock class="max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.input}</TerminalBlock>
         </div>
       {/if}
 
@@ -188,14 +193,14 @@
           <p class="mb-1 text-[0.65rem] font-medium uppercase tracking-[0.08em] text-ink-muted/70">
             Output
           </p>
-          <pre class="cli-terminal max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.output}</pre>
+          <TerminalBlock class="max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.output}</TerminalBlock>
         </div>
       {/if}
 
       {#if tool.error}
-        <p class="cli-terminal whitespace-pre-wrap wrap-break-word border-danger/30 bg-danger/5 p-2 leading-5 text-danger/80">
+        <TerminalBlock class="whitespace-pre-wrap wrap-break-word border-danger/30 !bg-danger/5 p-2 leading-5 !text-danger/80">
           {tool.error}
-        </p>
+        </TerminalBlock>
       {/if}
     </div>
   {/if}

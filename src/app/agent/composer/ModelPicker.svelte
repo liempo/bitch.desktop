@@ -1,5 +1,8 @@
 <script lang="ts">
   import { Popover } from 'bits-ui'
+  import Button from '@/components/ui/Button.svelte'
+  import TextInput from '@/components/ui/TextInput.svelte'
+  import { menuItemClass, popoverClass, sectionTitleClass, tagClass } from '@/components/ui/styles'
   import type { ComposerModelGroup, ComposerModelOption, ReasoningEffort } from '$lib/stores/composer.svelte'
 
   interface Props {
@@ -91,6 +94,16 @@
     const reasoning = effortOptions.find(option => option.value === currentReasoningEffort)?.label ?? currentReasoningEffort
     return [model, reasoning, currentFastMode ? 'Fast' : ''].filter(Boolean).join(' ')
   })
+  const triggerClass = [
+    'inline-flex min-h-8 w-auto max-w-none items-center gap-1.5 whitespace-nowrap rounded-control border border-transparent bg-transparent',
+    'px-3 py-1 font-mono text-[11px] font-semibold uppercase leading-none tracking-[0.1em] text-ink-muted',
+    'hover:bg-primary/10 hover:text-ink-bright',
+    'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
+  ].join(' ')
+  const contentClass = `${popoverClass} z-50 w-80 p-1`
+  const groupTitleClass = `${sectionTitleClass} text-[0.65rem]`
+  const successTagClass = `${tagClass} border-success/45 px-1 py-0.5 text-[0.55rem] text-success`
+  const warningTagClass = `${tagClass} border-warning/45 px-1 py-0.5 text-[0.55rem] text-warning`
 
   function selectModel(key: string): void {
     open = false
@@ -130,26 +143,20 @@
 
   function optionClass(option: FlattenedOption): string {
     const base =
-      'cli-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-40'
+      `${menuItemClass} flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-40`
     if (option.current) return `${base} border-primary/40 bg-primary/10 text-primary`
     return base
   }
 
   function toggleClass(on: boolean): string {
     const base =
-      'relative inline-flex h-5 w-10 shrink-0 cursor-pointer items-center rounded-control border border-line transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40'
+      'relative inline-flex h-5 w-10 shrink-0 cursor-pointer items-center rounded-control border border-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40'
     if (on) return `${base} border-primary/60 bg-primary/20`
     return `${base} bg-surface-raised`
   }
 
-  function effortClass(active: boolean): string {
-    const base = 'bitch-button bitch-button-borderless min-h-0 px-2 py-1 text-[0.68rem]'
-    if (active) return `${base} bitch-button-primary`
-    return `${base} text-ink-muted`
-  }
-
   function thumbClass(on: boolean): string {
-    return `pointer-events-none inline-block h-3.5 w-3.5 rounded-xs bg-ink-bright shadow-sm transition-transform duration-200 ${
+    return `pointer-events-none inline-block h-3.5 w-3.5 rounded-xs bg-ink-bright ${
       on ? 'translate-x-5 bg-primary' : 'translate-x-0 bg-ink-muted'
     }`
   }
@@ -157,14 +164,14 @@
 
 <Popover.Root bind:open>
   <Popover.Trigger
-    class="bitch-control-select bitch-button-borderless inline-flex w-auto max-w-none items-center gap-1.5 whitespace-nowrap"
+    class={triggerClass}
     disabled={isDisabled}
     title={currentModelOption ? modelTitle(currentModelOption as FlattenedOption) : currentModelLabel}
     aria-label="Switch model"
   >
     {#if isLoading}
       <span
-        class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary/30 border-t-primary"
+        class="h-2 w-2 shrink-0 rounded-xs bg-primary"
         aria-label="Loading model settings"
       ></span>
     {/if}
@@ -172,14 +179,14 @@
   </Popover.Trigger>
 
   <Popover.Content
-    class="cli-popover z-50 w-80 p-1"
+    class={contentClass}
     sideOffset={4}
     align="start"
   >
     <!-- Search input -->
     <div class="px-1 pb-1">
-      <input
-        class="cli-input px-2.5 py-1.5 text-sm"
+      <TextInput
+        class="px-2.5 py-1.5 text-sm"
         type="text"
         placeholder="grep models..."
         bind:value={search}
@@ -196,18 +203,18 @@
           {#if groupOptions.length > 0}
             <div class="py-0.5">
               <div class="flex items-center gap-1.5 px-2 py-1">
-                <span class="cli-section-title text-[0.65rem]"
+                <span class={groupTitleClass}
                   >{group.name}</span
                 >
                 {#if group.freeTier}
                   <span
-                    class="cli-tag cli-tag-success px-1 py-0.5 text-[0.55rem]"
+                    class={successTagClass}
                     >Free</span
                   >
                 {/if}
                 {#if group.warning}
                   <span
-                    class="cli-tag cli-tag-warning px-1 py-0.5 text-[0.55rem]"
+                    class={warningTagClass}
                     >!</span
                   >
                 {/if}
@@ -283,13 +290,16 @@
       {#if thinkingOn}
         <div class="flex flex-wrap gap-1 px-2 pb-1">
           {#each effortOptions.filter(o => o.value !== 'none') as option (option.value)}
-            <button
-              class={effortClass(currentReasoningEffort === option.value)}
+            <Button
+              chrome="ghost"
+              variant={currentReasoningEffort === option.value ? 'primary' : 'default'}
+              size="sm"
+              class="min-h-0 px-2 py-1 text-[0.68rem]"
               disabled={reasoningSwitching || !reasoningSupported || busy}
               onclick={() => selectEffort(option.value)}
             >
               {option.label}
-            </button>
+            </Button>
           {/each}
         </div>
       {/if}

@@ -18,7 +18,7 @@ import {
   runtimeSessionIdForStored,
   sessionState
 } from '$lib/stores/session.svelte'
-import { navigate, routerState, sessionRoute } from '../../app/router.svelte'
+import { navigate, routerState, sessionRoute } from '@/app/agent/router.svelte'
 import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } from '$lib/types/hermes'
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'

@@ -1,0 +1,167 @@
+@layer components {
+  .bitch-markdown > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .bitch-markdown :where(h1, h2, h3, h4, h5, h6) {
+    margin-block: 0.85rem 0.45rem;
+    color: var(--color-primary);
+    font-family: var(--font-hud);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+
+  .bitch-markdown
+    :where(h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, h6:first-child) {
+    margin-block-start: 0;
+  }
+
+  .bitch-markdown h1 {
+    font-size: 1.22rem;
+  }
+
+  .bitch-markdown h2 {
+    font-size: 1.12rem;
+  }
+
+  .bitch-markdown :where(h3, h4, h5, h6) {
+    font-size: 1rem;
+  }
+
+  .bitch-markdown a {
+    color: var(--color-primary);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    text-decoration: underline;
+    text-decoration-color: var(--color-primary);
+    text-underline-offset: 0.18em;
+  }
+
+  .bitch-markdown a:hover {
+    color: var(--color-ink-bright);
+    text-decoration-color: var(--color-ink-bright);
+  }
+
+  .bitch-markdown code {
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    background: var(--color-tool-bg);
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    padding: 0.06rem 0.28rem;
+  }
+
+  .bitch-markdown pre {
+    overflow-x: auto;
+    border: 1px solid var(--color-line);
+    border-radius: 0;
+    background: var(--color-tool-bg);
+    padding: 0.75rem;
+  }
+
+  .bitch-markdown pre code {
+    display: block;
+    min-width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink-bright);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    padding: 0;
+    tab-size: 2;
+    white-space: pre;
+  }
+
+  .bitch-markdown blockquote {
+    border-left: 2px solid var(--color-line-strong);
+    color: var(--color-ink-muted);
+    padding-left: 0.8rem;
+  }
+
+  .bitch-markdown :where(ul, ol) {
+    padding-left: 1.35rem;
+  }
+
+  .bitch-markdown li + li {
+    margin-top: 0.2rem;
+  }
+
+  .bitch-markdown hr {
+    margin-block: 0.9rem;
+    border: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .bitch-markdown table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+
+  .bitch-markdown :where(th, td) {
+    border: 1px solid var(--color-line);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .bitch-markdown th {
+    background: var(--color-surface-raised);
+    color: var(--color-primary);
+    font-family: var(--font-hud);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .bitch-markdown :where(.hljs-comment, .hljs-quote, .hljs-meta) {
+    color: var(--color-ink-muted);
+  }
+
+  .bitch-markdown
+    :where(.hljs-keyword, .hljs-selector-tag, .hljs-subst, .hljs-attribute, .hljs-name, .hljs-selector-class) {
+    color: var(--color-warning);
+  }
+
+  .bitch-markdown
+    :where(
+      .hljs-number,
+      .hljs-literal,
+      .hljs-variable,
+      .hljs-template-variable,
+      .hljs-tag .hljs-attr,
+      .hljs-symbol,
+      .hljs-bullet
+    ) {
+    color: var(--color-primary);
+  }
+
+  .bitch-markdown :where(.hljs-string, .hljs-doctag, .hljs-built_in, .hljs-builtin-name, .hljs-addition) {
+    color: var(--color-success);
+  }
+
+  .bitch-markdown :where(.hljs-title, .hljs-section, .hljs-selector-id) {
+    color: var(--color-ink-bright);
+  }
+
+  .bitch-markdown :where(.hljs-type, .hljs-class .hljs-title) {
+    color: var(--color-secondary);
+  }
+
+  .bitch-markdown :where(.hljs-regexp, .hljs-link, .hljs-deletion) {
+    color: var(--color-danger);
+  }
+
+  .bitch-markdown :where(.hljs-emphasis) {
+    font-style: italic;
+  }
+
+  .bitch-markdown :where(.hljs-strong) {
+    font-weight: 700;
+  }
+}

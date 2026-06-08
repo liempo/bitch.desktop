@@ -1,17 +1,47 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte'
+  import type { SvelteHTMLElements } from 'svelte/elements'
+  import { flatPanelSurfaceClass, panelSurfaceClass } from './styles'
+
   interface Props {
     title?: string
     badge?: string
-    children: import('svelte').Snippet
-    actions?: import('svelte').Snippet
-    leading?: import('svelte').Snippet
+    children: Snippet
+    actions?: Snippet
+    leading?: Snippet
+    class?: string
+    contentClass?: string
+    flat?: boolean
+    fullHeight?: boolean
     padded?: boolean
+    titleClass?: string
   }
 
-  let { title, badge, children, actions, leading, padded = true }: Props = $props()
+  let {
+    title,
+    badge,
+    children,
+    actions,
+    leading,
+    class: className = '',
+    contentClass = '',
+    flat = false,
+    fullHeight = true,
+    padded = true,
+    titleClass = '',
+    ...rest
+  }: Props & Omit<SvelteHTMLElements['section'], 'class'> = $props()
+
+  const shellClass = $derived(
+    `${flat ? flatPanelSurfaceClass : panelSurfaceClass} flex ${fullHeight ? 'h-full' : ''} min-h-0 min-w-0 flex-col ${className}`
+  )
+
+  const bodyClass = $derived(
+    `min-h-0 min-w-0 flex-1 overflow-hidden ${padded ? 'p-4 pt-5' : ''} ${contentClass}`
+  )
 </script>
 
-<section class="relative flex h-full min-h-0 min-w-0 flex-col rounded-[var(--radius-panel)] border border-line bg-surface">
+<section class={shellClass} {...rest}>
   {#if title || leading}
     <div class="absolute -top-2.5 left-3 z-10 flex h-5 items-center gap-1 bg-canvas px-1.5 leading-none whitespace-nowrap">
       {#if leading}
@@ -19,7 +49,7 @@
       {/if}
       {#if title}
         <header
-          class="flex h-5 items-center text-[11px] font-bold text-ink-muted
+          class="flex h-5 items-center text-[11px] font-bold text-ink-muted {titleClass}
             before:mr-1 before:text-line-strong before:content-['[']
             after:ml-1 after:text-line-strong after:content-[']']"
         >
@@ -42,7 +72,7 @@
       {@render actions()}
     </div>
   {/if}
-  <div class="min-h-0 min-w-0 flex-1 overflow-hidden" class:p-4={padded} class:pt-5={padded}>
+  <div class={bodyClass}>
     {@render children()}
   </div>
 </section>

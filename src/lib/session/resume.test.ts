@@ -25,7 +25,7 @@ vi.mock('$lib/stores/gateway.svelte', () => ({
   gatewayState: { connectionState: 'open' }
 }))
 
-vi.mock('../app/router.svelte', () => ({
+vi.mock('@/app/agent/router.svelte', () => ({
   navigate: mockNavigate,
   sessionRoute: mockSessionRoute,
   routerState: {}

@@ -40,7 +40,3 @@ export const PROFILE_SWATCHES: readonly string[] = Array.from(
   { length: 12 },
   (_, index) => `hsl(${index * 30} ${PROFILE_TAG_SATURATION}% ${PROFILE_TAG_LIGHTNESS}%)`
 )
-
-export function profileColorSoft(color: string, percent = 16): string {
-  return `color-mix(in srgb, ${color} ${percent}%, transparent)`
-}

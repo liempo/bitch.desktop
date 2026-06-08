@@ -33,8 +33,9 @@
   } from '$lib/stores/composer-queue'
   import { threadForSession } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
+  import Button from '@/components/ui/Button.svelte'
+  import Panel from '@/components/ui/Panel.svelte'
+  import { cardClass, terminalClass, textareaClass } from '@/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
 
   interface Props {
@@ -98,6 +99,11 @@
   const reasoningSupported = $derived(currentModelOption?.capabilities?.reasoning !== false)
   const fastSupported = $derived(currentModelOption?.capabilities?.fast === true)
   const queueLabel = $derived(queuedPrompts.length === 1 ? '1 queued prompt' : `${queuedPrompts.length} queued prompts`)
+  const queueCardClass = `${cardClass} mb-2 border-warning/30 !bg-warning/5 p-2`
+  const suggestionCardClass = `${cardClass} mb-2 border-primary/30 !bg-primary/5 p-2`
+  const queueItemClass = `${terminalClass} flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink`
+  const attachmentCardClass = `${cardClass} flex items-center gap-2 p-1.5 pr-2 text-xs text-ink`
+  const composerTextareaClass = `${textareaClass} max-h-55 min-h-24 border-0 !bg-transparent px-4 pt-3 pb-2 text-sm leading-6 text-ink-bright placeholder:text-ink-muted/70 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50`
 
   onMount(() =>
     subscribeQueuedPrompts(state => {
@@ -244,24 +250,24 @@
 <section class="p-3" aria-label="Composer">
   <div class="mx-auto max-w-5xl">
     {#if queuedPrompts.length > 0}
-      <div class="cli-card mb-2 border-warning/30 bg-warning/5 p-2" aria-label="Queued prompts">
+      <div class={queueCardClass} aria-label="Queued prompts">
         <div class="mb-1 flex items-center justify-between px-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-warning/80">
           <span>{queueLabel}</span>
           <span>{busy ? 'will drain after current turn' : 'ready to drain'}</span>
         </div>
         <ol class="space-y-1">
           {#each queuedPrompts as entry (entry.id)}
-            <li class="cli-terminal flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink">
+            <li class={queueItemClass}>
               <span class="min-w-0 flex-1 truncate">
                 {entry.text || `${entry.attachments.length} image attachment${entry.attachments.length === 1 ? '' : 's'}`}
               </span>
-              <button
-                class="bitch-button bitch-button-borderless"
-                type="button"
+              <Button
+                chrome="ghost"
+                size="sm"
                 onclick={() => removeQueueEntry(entry)}
               >
                 Remove
-              </button>
+              </Button>
             </li>
           {/each}
         </ol>
@@ -269,20 +275,20 @@
     {/if}
 
     {#if commandSuggestions.length > 0}
-      <div class="cli-card mb-2 border-primary/30 bg-primary/5 p-2" aria-label="Slash command suggestions">
+      <div class={suggestionCardClass} aria-label="Slash command suggestions">
         <div class="mb-1 px-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-primary/80">
           Slash commands
         </div>
         <div class="grid gap-1 sm:grid-cols-2">
           {#each commandSuggestions as item (item.command)}
-            <button
-              class="bitch-button bitch-button-borderless w-full justify-start px-3 py-2 text-left"
-              type="button"
+            <Button
+              chrome="ghost"
+              class="w-full justify-start px-3 py-2 text-left"
               onclick={() => handleSuggestion(item.command)}
             >
               <span class="font-semibold text-primary">{item.command}</span>
               <span class="ml-2 text-ink-muted">{item.description}</span>
-            </button>
+            </Button>
           {/each}
         </div>
       </div>
@@ -291,7 +297,7 @@
     {#if composer.attachments.length > 0}
       <div class="mb-2 flex flex-wrap gap-2" aria-label={attachmentSummary()}>
         {#each composer.attachments as attachment (attachment.id)}
-          <div class="cli-card flex items-center gap-2 p-1.5 pr-2 text-xs text-ink">
+          <div class={attachmentCardClass}>
             {#if attachment.previewUrl}
               <img class="h-10 w-10 rounded-control object-cover" src={attachment.previewUrl} alt="" />
             {/if}
@@ -299,16 +305,16 @@
               <p class="truncate font-medium text-ink-bright">{attachment.label}</p>
               <p class="text-[0.65rem] text-ink-muted/70">{attachment.detail}</p>
             </div>
-            <button
-              class="bitch-button bitch-button-borderless bitch-icon-button"
-              type="button"
+            <Button
+              chrome="ghost"
+              size="icon"
               onclick={() => removeComposerAttachment(sessionId, attachment.id)}
               aria-label={`Remove ${attachment.label}`}
             >
               <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
               </svg>
-            </button>
+            </Button>
           </div>
         {/each}
       </div>
@@ -345,7 +351,7 @@
           <label class="sr-only" for={`composer-${composerKey}`}>Message Hermes</label>
           <textarea
             id={`composer-${composerKey}`}
-            class="cli-textarea cli-textarea-plain max-h-55 min-h-24 border-0 bg-transparent px-4 pt-3 pb-2 text-sm leading-6 text-ink-bright placeholder:text-ink-muted/70 disabled:cursor-not-allowed disabled:opacity-50"
+            class={composerTextareaClass}
             bind:this={textareaElement}
             value={composer.draft}
             rows="4"
@@ -366,9 +372,9 @@
                 onchange={(event) => void handleFileInput(event)}
               />
 
-              <button
-                class="bitch-button bitch-button-borderless bitch-icon-button"
-                type="button"
+              <Button
+                chrome="ghost"
+                size="icon"
                 onclick={handleAttachClick}
                 disabled={!canAttach}
                 aria-label="Attach image"
@@ -377,16 +383,15 @@
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
                 </svg>
-              </button>
+              </Button>
 
               {#if composer.attachments.length > 0}
-                <button
-                  class="bitch-button bitch-button-borderless"
-                  type="button"
+                <Button
+                  chrome="ghost"
                   onclick={() => clearComposerAttachments(sessionId)}
                 >
                   Clear images
-                </button>
+                </Button>
               {/if}
 
               {#if composer.commandError}
@@ -418,26 +423,27 @@
               />
 
               {#if busy && sessionId}
-                <button
-                  class="bitch-button bitch-button-borderless bitch-icon-button bitch-button-danger"
-                  type="button"
+                <Button
+                  chrome="ghost"
+                  variant="danger"
+                  size="icon"
                   onclick={() => void handleInterrupt()}
                   disabled={!connected}
                   aria-label="Stop"
                   title="Stop"
                 >
-                  <span class="bitch-button-stop-glyph"></span>
-                </button>
+                  <span class="h-2.5 w-2.5 rounded-xs bg-current"></span>
+                </Button>
               {/if}
 
-              <button
-                class="bitch-button bitch-button-borderless bitch-button-primary"
-                type="button"
+              <Button
+                chrome="ghost"
+                variant="primary"
                 onclick={() => void handleSubmit()}
                 disabled={!canSubmit}
               >
                 {composer.submitting ? 'Sending…' : busy ? 'Queue' : 'Send'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

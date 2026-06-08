@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import { cardClass } from '@/components/ui/styles'
 
   interface Props {
     pending?: boolean
@@ -15,7 +16,7 @@
   let timerInterval: ReturnType<typeof setInterval> | null = null
 
   const open = $derived(userOpen ?? pending)
-  const isPreview = $derived(pending && userOpen === null)
+  const reasoningCardClass = `${cardClass} my-1.5 overflow-hidden border-dashed border-secondary/40 text-xs text-ink-muted`
 
   // Elapsed timer — ticks every second while pending
   $effect(() => {
@@ -45,7 +46,7 @@
 </script>
 
 {#if text.trim() || pending}
-  <div class="cli-card my-1.5 overflow-hidden border-dashed border-secondary/40 text-xs text-ink-muted" data-slot="thinking-disclosure">
+  <div class={reasoningCardClass} data-slot="thinking-disclosure">
     <!-- Disclosure header -->
     <button
       class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
@@ -55,15 +56,12 @@
     >
       <span class="flex min-w-0 items-center gap-2">
         {#if pending}
-          <span
-            class="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-secondary/30 border-t-secondary"
-            aria-hidden="true"
-          ></span>
+          <span class="h-2 w-2 shrink-0 rounded-xs bg-secondary" aria-hidden="true"></span>
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thinking</span>
         {:else}
           {#if text.trim()}
             <svg
-              class="h-3 w-3 shrink-0 text-ink-muted/70 transition-transform {open ? 'rotate-90' : ''}"
+              class="h-3 w-3 shrink-0 text-ink-muted/70 {open ? 'rotate-90' : ''}"
               fill="none"
               stroke="currentColor"
               stroke-width="2"
@@ -83,11 +81,7 @@
 
     <!-- Disclosure body -->
     {#if open && text.trim()}
-      <div
-          class="max-h-40 w-full overflow-auto px-3 {isPreview
-          ? 'mask-b-from-80%'
-          : ''} pb-1"
-      >
+      <div class="max-h-40 w-full overflow-auto px-3 pb-1">
         <div class="whitespace-pre-wrap wrap-break-word px-1 leading-5 text-ink-muted/80">
           {text}
         </div>

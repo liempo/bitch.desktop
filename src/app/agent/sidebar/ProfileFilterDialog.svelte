@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Dialog } from 'bits-ui'
-  import Button from '$lib/components/ui/Button.svelte'
+  import Button from '@/components/ui/Button.svelte'
+  import { popoverClass } from '@/components/ui/styles'
   import {
     ALL_PROFILES,
     getProfileScope,
@@ -18,6 +19,10 @@
   }
 
   let { groupByProfile = $bindable(false), open = $bindable(false) }: Props = $props()
+
+  const contentClass = `${popoverClass} fixed left-1/2 top-1/2 z-50 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-2 font-mono`
+  const optionBaseClass =
+    'grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-control px-2 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] hover:bg-surface-raised'
 
   const scope = $derived(getProfileScope())
   const orderedProfiles = $derived(orderProfiles(profileState.profiles))
@@ -50,12 +55,16 @@
   function toggleGroupByProfile(): void {
     groupByProfile = !groupByProfile
   }
+
+  function optionClass(selected: boolean): string {
+    return `${optionBaseClass} ${selected ? 'bg-primary/15 font-semibold text-ink-bright' : 'text-ink'}`
+  }
 </script>
 
 <Dialog.Root bind:open>
   <Dialog.Portal>
-    <Dialog.Overlay class="fixed inset-0 z-40 bg-overlay/75 backdrop-blur-sm" />
-    <Dialog.Content class="cli-popover fixed left-1/2 top-1/2 z-50 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-2 font-mono">
+    <Dialog.Overlay class="fixed inset-0 z-40 bg-overlay" />
+    <Dialog.Content class={contentClass}>
       <div class="flex items-center justify-between border-b border-line px-2 py-1.5">
         <Dialog.Title class="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">Profile_Filter</Dialog.Title>
         <Dialog.Close class="border-none bg-transparent px-1 py-0 text-xs text-ink-muted hover:text-ink-bright" aria-label="Close profile filter">
@@ -70,9 +79,7 @@
       <div class="grid gap-1" role="listbox" aria-label="Profile filters">
         <Button
           variant="unstyled"
-          class={`grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] transition hover:bg-surface-raised ${
-            scope === ALL_PROFILES ? 'bg-primary/15 font-semibold text-ink-bright' : 'text-ink'
-          }`}
+          class={optionClass(scope === ALL_PROFILES)}
           onclick={selectAllProfiles}
           role="option"
           aria-selected={scope === ALL_PROFILES}
@@ -83,11 +90,9 @@
 
         {#each orderedProfiles as profile (profile.name)}
           {@const selected = profileSelected(profile)}
-          <Button
-            variant="unstyled"
-            class={`grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] transition hover:bg-surface-raised ${
-              selected ? 'bg-primary/15 font-semibold text-ink-bright' : 'text-ink'
-            }`}
+            <Button
+              variant="unstyled"
+              class={optionClass(selected)}
             onclick={() => selectProfileFilter(profile)}
             role="option"
             aria-selected={selected}
@@ -101,9 +106,7 @@
       <div class="mt-2 border-t border-dotted border-line px-0 pt-2">
         <Button
           variant="unstyled"
-          class={`grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] transition hover:bg-surface-raised ${
-            groupByProfile ? 'bg-primary/15 font-semibold text-ink-bright' : 'text-ink'
-          }`}
+          class={optionClass(groupByProfile)}
           onclick={toggleGroupByProfile}
           aria-pressed={groupByProfile}
         >

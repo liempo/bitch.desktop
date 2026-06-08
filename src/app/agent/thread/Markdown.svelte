@@ -1,6 +1,7 @@
 <script lang="ts">
   import { marked } from 'marked'
   import DOMPurify from 'dompurify'
+  import './markdown.css'
 
   interface Props {
     streaming?: boolean
@@ -25,6 +26,6 @@
   }
 </script>
 
-<div class="bitch-markdown text-sm leading-6 text-ink {streaming ? 'streaming' : ''}">
+<div class="bitch-markdown text-sm leading-6 text-ink" data-streaming={streaming ? 'true' : undefined}>
   {@html html}
 </div>

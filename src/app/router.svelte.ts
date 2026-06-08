@@ -1,66 +1,37 @@
-/* ------------------------------------------------------------------ */
-/*  Hash-based router suitable for Tauri webview (no server needed)    */
-/* ------------------------------------------------------------------ */
+export type AppPage = 'main' | 'agent'
 
-export type Route = 'new' | 'session'
-
-export interface RouterState {
-  route: Route
-  sessionId: string | null
+export interface AppRouterState {
+  page: AppPage
 }
 
-/* ---------- reactive state ---------- */
-
-export const routerState = $state<RouterState>(parseHash(currentHash()))
-
-/* ---------- listeners ---------- */
+export const appRouterState = $state<AppRouterState>(parseHash(currentHash()))
 
 if (typeof window !== 'undefined') {
   window.addEventListener('hashchange', syncRoute)
 }
-
-/* ---------- helpers ---------- */
 
 function currentHash(): string {
   return typeof window === 'undefined' ? '/' : window.location.hash.replace(/^#/, '') || '/'
 }
 
 function syncRoute(): void {
-  Object.assign(routerState, parseHash(currentHash()))
+  Object.assign(appRouterState, parseHash(currentHash()))
 }
 
-function parseHash(hash: string): RouterState {
+function parseHash(hash: string): AppRouterState {
   const path = hash || '/'
 
-  /* Root → new chat */
-  if (path === '/') {
-    return { route: 'new', sessionId: null }
+  if (path === '/main') {
+    return { page: 'main' }
   }
 
-  /* /:sessionId → resume session */
-  const match = path.match(/^\/([a-zA-Z0-9_-]+)(?:\/.*)?$/)
-
-  if (match) {
-    return { route: 'session', sessionId: match[1] }
-  }
-
-  /* Fallback */
-  return { route: 'new', sessionId: null }
+  return { page: 'agent' }
 }
 
-/* ---------- public API ---------- */
-
-/**
- * Navigate to a hash route.
- * @param hash — e.g. `'/'` or `'/abc123'`
- */
-export function navigate(hash: string): void {
-  window.location.hash = hash
-  /* Immediately sync so state updates without waiting for hashchange */
-  syncRoute()
+export function mainRoute(): string {
+  return '/main'
 }
 
-/** Build a hash for a session id */
-export function sessionRoute(sessionId: string): string {
-  return `/${sessionId}`
+export function agentRoute(): string {
+  return '/agent'
 }

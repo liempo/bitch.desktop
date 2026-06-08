@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Button from '$lib/components/ui/Button.svelte'
+  import Button from '@/components/ui/Button.svelte'
   import SessionActionsMenu from './SessionActionsMenu.svelte'
   import type { SessionInfo, SessionSearchResult } from '$lib/types/hermes'
 
@@ -39,10 +39,11 @@
   const profileTag = $derived(formatProfileTag(session))
 
   const SESSION_ROW =
-    'tree-row group relative flex min-w-0 items-stretch transition-colors ' +
-    'hover:bg-surface-raised ' +
-    'data-[selected=true]:bg-primary/15 data-[selected=true]:text-ink-bright ' +
-    'data-[selected=true]:font-semibold data-[disabled=true]:opacity-50'
+    'group relative flex min-w-0 items-stretch rounded-control border border-transparent bg-transparent ' +
+    'hover:border-line hover:bg-primary/5 ' +
+    'data-[selected=true]:border-primary/50 data-[selected=true]:bg-primary/10 data-[selected=true]:font-semibold ' +
+    'data-[selected=true]:text-ink-bright ' +
+    'data-[disabled=true]:opacity-50'
 
   function stripMarkup(value: string | null | undefined): string {
     return (value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()

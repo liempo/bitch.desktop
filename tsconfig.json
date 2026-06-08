@@ -15,6 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "paths": {
+      "@/*": ["./src/*"],
       "$lib": ["./src/lib"],
       "$lib/*": ["./src/lib/*"]
     },

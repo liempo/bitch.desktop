@@ -10,7 +10,7 @@ vi.mock('$lib/stores/gateway.svelte', () => ({
   requestGateway: mockRequestGateway
 }))
 
-vi.mock('../../app/router.svelte', () => ({
+vi.mock('@/app/agent/router.svelte', () => ({
   navigate: vi.fn(),
   routerState: {},
   sessionRoute: vi.fn((id: string) => `/${id}`)

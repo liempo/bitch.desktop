@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ContextMenu } from 'bits-ui'
   import type { Snippet } from 'svelte'
+  import { menuItemClass, popoverClass } from '@/components/ui/styles'
   import type { SessionInfo } from '$lib/types/hermes'
 
   interface Props {
@@ -44,9 +45,10 @@
   }
 
   const itemClass =
-    'cli-menu-item grid grid-cols-[1fr_auto] items-center gap-2 px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em]'
+    `${menuItemClass} grid grid-cols-[1fr_auto] px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em]`
 
   const dangerItemClass = `${itemClass} text-danger hover:bg-danger/10`
+  const contentClass = `${popoverClass} z-50 min-w-58 p-1.5 font-mono`
 </script>
 
 <ContextMenu.Root>
@@ -55,7 +57,7 @@
   </ContextMenu.Trigger>
 
   <ContextMenu.Content
-    class="cli-popover z-50 min-w-58 p-1.5 font-mono backdrop-blur-lg"
+    class={contentClass}
     sideOffset={4}
   >
     <ContextMenu.Item

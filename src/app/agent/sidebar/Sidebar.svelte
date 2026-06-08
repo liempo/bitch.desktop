@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ContextMenu } from 'bits-ui'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
+  import Button from '@/components/ui/Button.svelte'
+  import Panel from '@/components/ui/Panel.svelte'
+  import TextInput from '@/components/ui/TextInput.svelte'
+  import { cardClass, menuItemClass, popoverClass } from '@/components/ui/styles'
   import ProfileFilterDialog from './ProfileFilterDialog.svelte'
+  import SessionList from './SessionList.svelte'
   import SessionRow from './SessionRow.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import {
@@ -14,7 +17,6 @@
     hasMoreSessions,
     isPinned,
     isPinnedId,
-    isSessionMutating,
     isSessionWorking,
     loadMoreSessions,
     renameSession,
@@ -36,6 +38,11 @@
   import type { ProfileInfo, SessionInfo } from '$lib/types/hermes'
 
   const GROUP_BY_PROFILE_STORAGE_KEY = 'bitch.desktop.groupSessionsByProfile'
+  const menuContentClass = `${popoverClass} z-50 min-w-48 p-1.5 font-mono`
+  const menuItemRowClass = `${menuItemClass} px-2 py-1.5 text-[11px] uppercase tracking-[0.08em]`
+  const sectionHeadingClass = 'font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted'
+  const mutedNoticeClass = `${cardClass} rounded-control !bg-surface-raised/40 p-3 text-xs text-ink-muted`
+  const dangerNoticeClass = `${cardClass} rounded-control border-danger/35 !bg-danger/10 p-3 text-xs text-danger`
 
   interface ProfileChoice {
     isDefault: boolean
@@ -84,10 +91,6 @@
   function handleNewChat(): void {
     if (!connected) return
     startNewSession()
-  }
-
-  function sessionDisabled(session: SessionInfo): boolean {
-    return isSessionMutating(session.id)
   }
 
   function profileChoices(profiles: ProfileInfo[]): ProfileChoice[] {
@@ -157,10 +160,10 @@
             </Button>
           </ContextMenu.Trigger>
 
-          <ContextMenu.Content class="cli-popover z-50 min-w-48 p-1.5 font-mono backdrop-blur-lg" sideOffset={4}>
+          <ContextMenu.Content class={menuContentClass} sideOffset={4}>
             {#each newSessionProfileChoices as profile (profile.name)}
               <ContextMenu.Item
-                class="cli-menu-item px-2 py-1.5 text-[11px] uppercase tracking-[0.08em]"
+                class={menuItemRowClass}
                 onSelect={() => handleNewChatInProfile(profile.name)}
               >
                 <span class="truncate">New {profile.isDefault ? 'Default' : profile.name} Session</span>
@@ -201,9 +204,9 @@
               d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
             />
           </svg>
-          <input
+          <TextInput
             id="session-search"
-            class="w-full rounded-[var(--radius-control)] border border-line bg-input py-2 pl-9 pr-8 text-sm text-ink-bright outline-none transition focus:border-focus focus:outline-2 focus:outline-offset-[-1px] focus:outline-focus disabled:cursor-not-allowed disabled:opacity-50"
+            class="py-2 pl-9 pr-8 text-sm"
             type="search"
             placeholder="grep session_index"
             value={sessionState.searchQuery}
@@ -227,30 +230,30 @@
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
         {#if !connected}
-          <div class="rounded-[var(--radius-control)] border border-line bg-surface-raised/40 p-3 text-xs text-ink-muted">
+          <div class={mutedNoticeClass}>
             LINK_DOWN: connect to the Hermes gateway before loading sessions.
           </div>
         {:else if sessionState.sessionsLoading && !sessionState.sessionsInitialized}
           <div class="space-y-1.5" aria-label="Loading sessions">
             {#each loadingRows as row (row)}
-              <div class="h-18 rounded-[var(--radius-control)] border border-line bg-surface-raised/50"></div>
+              <div class="h-18 rounded-control border border-line bg-surface-raised/50"></div>
             {/each}
           </div>
         {:else if searchActive}
           <section aria-label="Search results">
             <div class="mb-1.5 flex items-center justify-between px-1">
-              <h3 class="font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">Search</h3>
+              <h3 class={sectionHeadingClass}>Search</h3>
               {#if sessionState.searching}
                 <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching…</span>
               {/if}
             </div>
 
             {#if sessionState.searchError}
-              <div class="rounded-[var(--radius-control)] border border-danger/35 bg-danger/10 p-3 text-xs text-danger">
+              <div class={dangerNoticeClass}>
                 {sessionState.searchError}
               </div>
             {:else if !sessionState.searching && sessionState.searchResults.length === 0}
-              <div class="rounded-[var(--radius-control)] border border-line bg-surface-raised/40 p-3 text-xs text-ink-muted">
+              <div class={mutedNoticeClass}>
                 NULL_RESULT: no matching sessions. Night City remains indifferent.
               </div>
             {:else}
@@ -270,46 +273,38 @@
           </section>
         {:else}
           {#if sessionState.error}
-            <div class="mb-3 rounded-[var(--radius-control)] border border-danger/35 bg-danger/10 p-3 text-xs text-danger">
+            <div class={`${dangerNoticeClass} mb-3`}>
               {sessionState.error}
             </div>
           {/if}
 
           {#if pinnedSessions.length > 0}
             <section class="mb-4" aria-label="Pinned sessions">
-              <h3 class="mb-1.5 px-1 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">
+              <h3 class={`${sectionHeadingClass} mb-1.5 px-1`}>
                 Pinned
               </h3>
-              <div class="space-y-px">
-                {#each pinnedSessions as session (session.id)}
-                  <SessionRow
-                    {session}
-                    active={sessionState.storedSessionId === session.id}
-                    pinned={true}
-                    disabled={sessionDisabled(session)}
-                    working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}
-                    needsInput={sessionNeedsInput(session.id)}
-                    onSelect={selectSession}
-                    onRename={(target, title) => renameSession(target.id, title)}
-                    onArchive={target => archiveSession(target.id)}
-                    onDelete={target => deleteSession(target.id)}
-                    onTogglePin={toggleSessionPinned}
-                  />
-                {/each}
-              </div>
+              <SessionList
+                sessions={pinnedSessions}
+                pinned={true}
+                onSelect={selectSession}
+                onRename={(target, title) => renameSession(target.id, title)}
+                onArchive={target => archiveSession(target.id)}
+                onDelete={target => deleteSession(target.id)}
+                onTogglePin={toggleSessionPinned}
+              />
             </section>
           {/if}
 
           <section aria-label="Recent sessions">
             <div class="mb-1.5 flex items-center justify-between px-1">
-              <h3 class="font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">Recents</h3>
+              <h3 class={sectionHeadingClass}>Recents</h3>
               {#if sessionState.sessionsLoading}
                 <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing…</span>
               {/if}
             </div>
 
             {#if recentSessions.length === 0}
-              <div class="rounded-[var(--radius-control)] border border-line bg-surface-raised/40 p-3 text-xs text-ink-muted">
+              <div class={mutedNoticeClass}>
                 EMPTY_INDEX: create one and give the chrome something to chew on.
               </div>
             {:else if scope === ALL_PROFILES && groupSessionsByProfileEnabled}
@@ -319,44 +314,26 @@
                     <h4 class="mb-1 px-1 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
                       {group.name}
                     </h4>
-                    <div class="space-y-px">
-                      {#each group.sessions as session (session.id)}
-                        <SessionRow
-                          {session}
-                          active={sessionState.storedSessionId === session.id}
-                          pinned={false}
-                          disabled={sessionDisabled(session)}
-                          working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}
-                          needsInput={sessionNeedsInput(session.id)}
-                          onSelect={selectSession}
-                          onRename={(target, title) => renameSession(target.id, title)}
-                          onArchive={target => archiveSession(target.id)}
-                          onDelete={target => deleteSession(target.id)}
-                          onTogglePin={toggleSessionPinned}
-                        />
-                      {/each}
-                    </div>
+                    <SessionList
+                      sessions={group.sessions}
+                      onSelect={selectSession}
+                      onRename={(target, title) => renameSession(target.id, title)}
+                      onArchive={target => archiveSession(target.id)}
+                      onDelete={target => deleteSession(target.id)}
+                      onTogglePin={toggleSessionPinned}
+                    />
                   </div>
                 {/each}
               </div>
             {:else}
-              <div class="space-y-px">
-                {#each recentSessions as session (session.id)}
-                  <SessionRow
-                    {session}
-                    active={sessionState.storedSessionId === session.id}
-                    pinned={false}
-                    disabled={sessionDisabled(session)}
-                    working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}
-                    needsInput={sessionNeedsInput(session.id)}
-                    onSelect={selectSession}
-                    onRename={(target, title) => renameSession(target.id, title)}
-                    onArchive={target => archiveSession(target.id)}
-                    onDelete={target => deleteSession(target.id)}
-                    onTogglePin={toggleSessionPinned}
-                  />
-                {/each}
-              </div>
+              <SessionList
+                sessions={recentSessions}
+                onSelect={selectSession}
+                onRename={(target, title) => renameSession(target.id, title)}
+                onArchive={target => archiveSession(target.id)}
+                onDelete={target => deleteSession(target.id)}
+                onTogglePin={toggleSessionPinned}
+              />
             {/if}
           </section>
 

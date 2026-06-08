@@ -1,6 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
+  import LoadingBar from '@/components/ui/LoadingBar.svelte'
+  import Panel from '@/components/ui/Panel.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
@@ -16,7 +18,6 @@
 
   const thread = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(thread?.messages ?? [])
-  const loadingPips = Array.from({ length: 18 }, (_, index) => index)
   const loadingSession = $derived(
     Boolean(sessionId) &&
       messages.length === 0 &&
@@ -80,44 +81,36 @@
 >
   {#if !sessionId}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <div class="cli-panel max-w-lg p-6 text-center">
-        <div class="cli-panel-header text-primary">Remote Hermes Client</div>
+      <Panel title="Remote Hermes Client" titleClass="text-primary" class="max-w-lg" contentClass="p-6 text-center" padded={false} fullHeight={false}>
         <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-secondary">awaiting_route</p>
         <h1 class="mt-3 text-2xl font-semibold tracking-[0.08em] text-ink-bright">BITCH</h1>
         <p class="mt-3 text-sm leading-6 text-ink-muted">
           Select a session from the index. The chrome is installed; the operator still has to feed it work.
         </p>
-      </div>
+      </Panel>
     </div>
   {:else if loadingSession}
     <div class="flex min-h-full items-center justify-center px-6 py-16" aria-label="Loading session" role="status">
-      <div class="cli-panel flex flex-col items-center gap-3 p-5 text-center">
-        <div class="cli-panel-header text-primary">Hydrating Transcript</div>
-        <div class="cli-loading-bar" aria-hidden="true">
-          {#each loadingPips as pip (pip)}
-            <span></span>
-          {/each}
-        </div>
+      <Panel title="Hydrating Transcript" titleClass="text-primary" contentClass="flex flex-col items-center gap-3 p-5 text-center" padded={false} fullHeight={false}>
+        <LoadingBar />
         <p class="text-xs uppercase tracking-[0.16em] text-ink-muted">loading session history…</p>
-      </div>
+      </Panel>
     </div>
   {:else if thread?.error && messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <div class="cli-panel max-w-lg border-danger/40 bg-danger/10 p-5 text-sm leading-6 text-danger">
-        <div class="cli-panel-header text-danger">Transcript Error</div>
+      <Panel title="Transcript Error" titleClass="text-danger" class="max-w-lg border-danger/40 !bg-danger/10" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
         <p class="font-semibold uppercase tracking-[0.12em]">Could not load the transcript.</p>
         <p class="mt-2 text-danger/80">{thread.error}</p>
-      </div>
+      </Panel>
     </div>
   {:else if messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <div class="cli-panel max-w-md p-5 text-center">
-        <div class="cli-panel-header text-secondary">Empty Buffer</div>
+      <Panel title="Empty Buffer" titleClass="text-secondary" class="max-w-md" contentClass="p-5 text-center" padded={false} fullHeight={false}>
         <h2 class="text-xl font-semibold tracking-[0.08em] text-ink-bright">No messages yet</h2>
         <p class="mt-3 text-sm leading-6 text-ink-muted">
           History will appear here. Type in the composer below; the gateway will receive the message once the chromed courier lane is clear.
         </p>
-      </div>
+      </Panel>
     </div>
   {:else}
     <div class="py-4">
