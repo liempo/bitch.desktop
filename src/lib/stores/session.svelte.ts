@@ -462,10 +462,14 @@ export async function createSession(): Promise<string | null> {
   const startingActiveSessionId = sessionState.activeSessionId
   const startingStoredSessionId = sessionState.storedSessionId
   const startingRouteToken = currentRouteToken()
+  const newChatProfile = profileState.newChatProfile
 
   try {
-    await ensureGatewayProfile(profileState.newChatProfile ?? profileState.activeGatewayProfile)
-    const response = await requestGateway<SessionCreateResponse>('session.create', { cols: COLS })
+    await ensureGatewayProfile(newChatProfile ?? profileState.activeGatewayProfile)
+    const response = await requestGateway<SessionCreateResponse>('session.create', {
+      cols: COLS,
+      ...(newChatProfile ? { profile: newChatProfile } : {})
+    })
     // Track both IDs per the upstream two-ID pattern:
     //   session_id — short 8-char hex sid keys the in-memory _sessions dict
     //   stored_session_id — persistent DB key survives page refresh
@@ -473,6 +477,7 @@ export async function createSession(): Promise<string | null> {
     // The URL hash and session.resume need the stored key.
     const liveSid = response.session_id
     const storedKey = response.stored_session_id ?? response.session_id
+    const profile = newChatProfile
 
     if (
       sessionState.activeSessionId !== startingActiveSessionId ||
@@ -486,6 +491,10 @@ export async function createSession(): Promise<string | null> {
     rememberRuntimeSession(storedKey, liveSid)
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
+
+    if (profile) {
+      sessionState.sessionProfilesById[storedKey] = normalizeProfileKey(profile)
+    }
 
     return liveSid
   } catch (error) {
@@ -550,6 +559,11 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
 
     sessionState.activeSessionId = cachedRuntimeId
     sessionState.storedSessionId = sessionId
+
+    if (profile) {
+      sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
+    }
+
     finishResumeSession(sessionId, activeRequestId)
 
     return {
@@ -576,6 +590,11 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
     rememberRuntimeSession(sessionId, response.session_id)
     sessionState.activeSessionId = response.session_id
     sessionState.storedSessionId = sessionId
+
+    if (profile) {
+      sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
+    }
+
     return response
   } catch (error) {
     if (isCurrentResumeRequest(sessionId, activeRequestId)) {
