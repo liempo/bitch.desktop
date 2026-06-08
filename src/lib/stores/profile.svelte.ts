@@ -1,4 +1,5 @@
 import { getActiveProfile, getProfiles, setApiRequestProfile } from '$lib/api/dashboard'
+import { messageForError } from '$lib/errors'
 import { ensureGatewayForProfile } from '$lib/stores/gateway.svelte'
 import type { ProfileInfo } from '$lib/types/hermes'
 
@@ -59,10 +60,6 @@ function readBoolean(key: string, fallback: boolean): boolean {
 function writeBoolean(key: string, value: boolean): void {
   if (!hasLocalStorage()) return
   globalThis.localStorage.setItem(key, value ? 'true' : 'false')
-}
-
-function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 export function normalizeProfileKey(name: null | string | undefined): string {
@@ -132,14 +129,14 @@ export async function refreshActiveProfile(): Promise<void> {
       profileState.activeGatewayProfile = current
     }
   } catch (error) {
-    profileState.error = messageFor(error)
+    profileState.error = messageForError(error)
   }
 
   try {
     const { profiles } = await getProfiles()
     profileState.profiles = profiles
   } catch (error) {
-    profileState.error = messageFor(error)
+    profileState.error = messageForError(error)
   } finally {
     profileState.loading = false
   }

@@ -6,6 +6,7 @@ import {
   setSessionArchived as apiSetSessionArchived,
   deleteSession as apiDeleteSession
 } from '$lib/api/dashboard'
+import { messageForError } from '$lib/errors'
 import { gatewayState, requestGateway } from '$lib/stores/gateway.svelte'
 import {
   ALL_PROFILES,
@@ -109,10 +110,6 @@ let resumeRequestId = 0
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function defaultProfileForCurrentScope(): string {
   return getProfileScope() === ALL_PROFILES ? 'default' : normalizeProfileKey(getProfileScope())
@@ -315,7 +312,7 @@ async function runSearch(query: string, revision = ++searchRevision): Promise<vo
     }
   } catch (error) {
     if (revision === searchRevision) {
-      sessionState.searchError = messageFor(error)
+      sessionState.searchError = messageForError(error)
       sessionState.searching = false
       console.error('Search failed:', error)
     }
@@ -375,7 +372,7 @@ export async function loadSessions(offset = 0): Promise<void> {
     sessionState.sessionsOffset = offset + sessions.length
     sessionState.sessionsInitialized = true
   } catch (error) {
-    sessionState.error = messageFor(error)
+    sessionState.error = messageForError(error)
     console.error('Failed to load sessions:', error)
   } finally {
     sessionState.sessionsLoading = false
@@ -498,7 +495,7 @@ export async function createSession(): Promise<string | null> {
 
     return liveSid
   } catch (error) {
-    sessionState.error = messageFor(error)
+    sessionState.error = messageForError(error)
     console.error('Failed to create session:', error)
     return null
   }
@@ -531,7 +528,7 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
       await ensureGatewayProfile(profile)
     } catch (error) {
       if (isCurrentResumeRequest(sessionId, activeRequestId)) {
-        sessionState.error = messageFor(error)
+        sessionState.error = messageForError(error)
       }
       finishResumeSession(sessionId, activeRequestId)
       return null
@@ -602,7 +599,7 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
     return response
   } catch (error) {
     if (isCurrentResumeRequest(sessionId, activeRequestId)) {
-      sessionState.error = messageFor(error)
+      sessionState.error = messageForError(error)
       console.error('Failed to resume session:', error)
     }
     return null
@@ -636,7 +633,7 @@ export async function renameSession(sessionId: string, title: string): Promise<b
     await refreshSessionLists()
     return true
   } catch (error) {
-    sessionState.error = messageFor(error)
+    sessionState.error = messageForError(error)
     console.error('Failed to rename session:', error)
     return false
   } finally {
@@ -665,7 +662,7 @@ export async function archiveSession(sessionId: string, archived = true): Promis
     await refreshSessionLists()
     return true
   } catch (error) {
-    sessionState.error = messageFor(error)
+    sessionState.error = messageForError(error)
     console.error('Failed to archive session:', error)
     return false
   } finally {
@@ -691,7 +688,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
     await refreshSessionLists()
     return true
   } catch (error) {
-    sessionState.error = messageFor(error)
+    sessionState.error = messageForError(error)
     console.error('Failed to delete session:', error)
     return false
   } finally {

@@ -1,4 +1,5 @@
 import { getGlobalModelInfo, getModelOptions, getProfiles } from '$lib/api/dashboard'
+import { messageForError } from '$lib/errors'
 import { compactWhitespace } from '$lib/messages/chat-runtime'
 import { requestGateway } from '$lib/stores/gateway.svelte'
 import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
@@ -213,10 +214,6 @@ function saveDraft(key: string, value: string): void {
   }
 }
 
-function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 function inlineErrorMessage(error: unknown, fallback: string): string {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
 
@@ -400,7 +397,7 @@ export async function addImageFiles(sessionId: null | string | undefined, files:
 
       session.attachments = [...session.attachments, attachment]
     } catch (error) {
-      session.error = messageFor(error)
+      session.error = messageForError(error)
     }
   }
 }
@@ -455,7 +452,7 @@ export async function refreshComposerModels(): Promise<void> {
 
     const rejection = info.status === 'rejected' ? info.reason : options.status === 'rejected' ? options.reason : null
     if (rejection) {
-      composerState.model.error = messageFor(rejection)
+      composerState.model.error = messageForError(rejection)
     }
   } finally {
     composerState.model.loading = false
@@ -483,7 +480,7 @@ export async function loadCommandCatalog(sessionId: null | string | undefined): 
     session.commandCatalog = commandPairs(catalog)
     session.commandError = catalog.warning || null
   } catch (error) {
-    session.commandError = messageFor(error)
+    session.commandError = messageForError(error)
   } finally {
     session.loadingCommands = false
   }

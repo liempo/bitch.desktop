@@ -1,3 +1,4 @@
+import { messageForError } from '$lib/errors'
 import { requestGateway } from '$lib/stores/gateway.svelte'
 import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
 import { profileForSession, runtimeSessionIdForStored, sessionState } from '$lib/stores/session.svelte'
@@ -51,10 +52,6 @@ export const promptsState = $state<PromptsState>({
 
 function keyFor(sessionId: null | string | undefined): string {
   return sessionId?.trim() ?? EMPTY_SESSION_KEY
-}
-
-function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 function liveSessionIdForStored(sessionId: null | string | undefined): string | undefined {
@@ -175,7 +172,7 @@ export async function respondToClarify(sessionId: null | string | undefined, ans
     clearClarifyRequest(request.requestId, request.sessionId)
     return true
   } catch (error) {
-    promptsState.error = messageFor(error)
+    promptsState.error = messageForError(error)
     console.error('Failed to send clarify response:', error)
     return false
   } finally {
@@ -204,7 +201,7 @@ export async function respondToApproval(choice: ApprovalChoice): Promise<boolean
     clearApprovalRequest()
     return true
   } catch (error) {
-    promptsState.error = messageFor(error)
+    promptsState.error = messageForError(error)
     console.error('Failed to send approval response:', error)
     return false
   } finally {
@@ -232,7 +229,7 @@ export async function respondToSudo(password: string): Promise<boolean> {
     clearSudoRequest(request.requestId)
     return true
   } catch (error) {
-    promptsState.error = messageFor(error)
+    promptsState.error = messageForError(error)
     console.error('Failed to send sudo response:', error)
     return false
   } finally {
@@ -260,7 +257,7 @@ export async function respondToSecret(value: string): Promise<boolean> {
     clearSecretRequest(request.requestId)
     return true
   } catch (error) {
-    promptsState.error = messageFor(error)
+    promptsState.error = messageForError(error)
     console.error('Failed to send secret response:', error)
     return false
   } finally {

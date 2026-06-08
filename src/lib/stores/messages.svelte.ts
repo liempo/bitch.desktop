@@ -1,4 +1,5 @@
 import { getSessionMessages } from '$lib/api/dashboard'
+import { messageForError } from '$lib/errors'
 import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
 import {
   loadSessions,
@@ -115,10 +116,6 @@ function displaySessionId(sessionId: string): string {
 function ensureThreadSession(sessionId: string): ThreadSessionState {
   messageState.sessions[sessionId] ??= createThreadSession()
   return messageState.sessions[sessionId]
-}
-
-function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 function payloadRecord(payload: unknown): GatewayPayload {
@@ -856,7 +853,7 @@ export async function hydrateSessionMessages(sessionId: string, seed?: SessionMe
     const messages = seed ?? (await getSessionMessages(threadId, profileForSession(threadId))).messages
     replaceStoredMessages(threadId, messages)
   } catch (error) {
-    thread.error = messageFor(error)
+    thread.error = messageForError(error)
     thread.loading = false
     console.error('Failed to hydrate session messages:', error)
   }

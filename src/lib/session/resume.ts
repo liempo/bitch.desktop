@@ -1,4 +1,5 @@
 import { getSessionMessages } from '$lib/api/dashboard'
+import { messageForError } from '$lib/errors'
 import {
   hydrateSessionMessagesFromGateway,
   setThreadLoading,
@@ -14,12 +15,8 @@ import {
 } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 
-function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 function isStoredSessionNotFound(error: unknown): boolean {
-  const message = messageFor(error)
+  const message = messageForError(error)
   return /session not found/i.test(message) || (/404/i.test(message) && /not found/i.test(message))
 }
 
@@ -43,7 +40,7 @@ async function loadStoredSnapshot(sessionId: string, requestId: number): Promise
       // A stored-history miss should not prevent resume; the gateway may still
       // return a projected transcript. Preserve the error for diagnostics while
       // keeping the live resume path available.
-      sessionState.error = messageFor(error)
+      sessionState.error = messageForError(error)
       console.error('Failed to load stored session snapshot:', error)
     }
 
