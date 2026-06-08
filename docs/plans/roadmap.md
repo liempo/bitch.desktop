@@ -25,7 +25,10 @@ Remote profile support follows upstream Hermes Desktop's practical remote model:
 **run one dashboard backend per live profile** and map profile names to backend
 URLs in connection config. The app can browse all profile histories through
 `/api/profiles/sessions`, but live chat WebSocket execution and blocking prompt
-responses follow the selected profile's resolved backend URL/port.
+responses follow the selected profile's resolved backend URL/port. Desktop-owned
+slash commands such as `/profile` are handled locally in `composer.svelte.ts` so
+status reflects the session/new-chat profile instead of the backend process-
+global default.
 
 See [`docs/wiki/remote-profile-support.md`](../wiki/remote-profile-support.md)
 for architecture, config shape, constraints, and validation coverage.

@@ -124,9 +124,12 @@ profile-aware for list, hydration, and mutations:
 
 [`src/lib/stores/composer.svelte.ts`](../../src/lib/stores/composer.svelte.ts)
 routes live RPCs through the owning profile before calling `commands.catalog`,
-`slash.exec`, `session.interrupt`, and `prompt.submit`. New sessions always pass
-the selected profile into `session.create` so the gateway persists the row in the
-correct profile state database.
+`session.interrupt`, and `prompt.submit`. The `/profile` slash command is
+handled locally in Desktop so status reflects the session/new-chat profile
+instead of the backend process-global default, while `/profile <name>` updates
+the next new-chat profile and ensures that profile's gateway before a new chat
+sends. New sessions still pass the selected profile into `session.create` so
+the gateway persists the row in the correct profile state database.
 
 [`src/lib/stores/prompts.svelte.ts`](../../src/lib/stores/prompts.svelte.ts)
 keeps clarify, approval, sudo, and secret responses profile-scoped. Sudo and
