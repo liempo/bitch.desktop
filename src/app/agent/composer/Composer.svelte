@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { Popover } from 'bits-ui'
   import {
     addImageFiles,
     applySlashSuggestion,
@@ -32,11 +33,18 @@
     type QueuedPromptEntry
   } from '$lib/stores/composer-queue'
   import { threadForSession } from '$lib/stores/messages.svelte'
+  import {
+    normalizeProfileKey,
+    profileState,
+    selectNewSessionProfile,
+    sortByProfileOrder
+  } from '$lib/stores/profile.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
   import Button from '@/components/ui/Button.svelte'
   import Panel from '@/components/ui/Panel.svelte'
-  import { cardClass, terminalClass, textareaClass } from '@/components/ui/styles'
+  import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
+  import type { ProfileInfo } from '$lib/types/hermes'
 
   interface Props {
     connected?: boolean
@@ -45,6 +53,11 @@
     sidebarOpen?: boolean
     sessionId?: null | string
     sessionTitle?: string
+  }
+
+  interface ProfileChoice {
+    isDefault: boolean
+    name: string
   }
 
   let {
@@ -69,6 +82,7 @@
 
   let textareaElement: HTMLTextAreaElement | null = $state(null)
   let fileInputElement: HTMLInputElement | null = $state(null)
+  let profileMenuOpen = $state(false)
   let queuedState = $state<Record<string, QueuedPromptEntry[]>>(getQueuedPromptState())
   let loadedCatalogSessionId: string | null = $state(null)
   let requestedModels = $state(false)
@@ -78,6 +92,9 @@
   const composerKey = $derived(sessionId?.trim() || '__new__')
   const composer = $derived(composerState.sessions[composerKey] ?? EMPTY_COMPOSER_SESSION)
   const thread = $derived(threadForSession(sessionId))
+  const selectedSessionInfo = $derived(
+    sessionId ? (sessionState.sessions.find(session => session.id === sessionId) ?? null) : null
+  )
   const busy = $derived(Boolean(thread?.busy))
   // Composer UI state, drafts, and queueing key by the selected stored route id.
   // The live sid is only for RPC calls and is derived inside composer store helpers.
@@ -95,7 +112,20 @@
   const currentReasoningEffort = $derived((thread?.reasoningEffort as ReasoningEffort | undefined) ?? 'medium')
   const currentFastMode = $derived(Boolean(thread?.fast))
   const panelTitle = $derived(sessionTitle.trim() || 'New session')
-  const profileLabel = $derived((profileName?.trim() || 'default').toUpperCase())
+  const activeProfileName = $derived(normalizeProfileKey(profileName))
+  const profileLabel = $derived(activeProfileName)
+  const sessionHasMessages = $derived(
+    Boolean(sessionId && ((selectedSessionInfo?.message_count ?? 0) > 0 || (thread?.messages.length ?? 0) > 0))
+  )
+  const canChangeProfile = $derived(connected && !sessionId && !composer.submitting)
+  const profileMenuChoices = $derived(profileChoicesFor(profileState.profiles, activeProfileName))
+  const profileTriggerTitle = $derived(
+    canChangeProfile
+      ? 'Choose profile for the next session'
+      : sessionHasMessages
+        ? 'Profile is locked after a session has messages'
+        : 'Profile can only be changed before creating a session'
+  )
   const reasoningSupported = $derived(currentModelOption?.capabilities?.reasoning !== false)
   const fastSupported = $derived(currentModelOption?.capabilities?.fast === true)
   const queueLabel = $derived(queuedPrompts.length === 1 ? '1 queued prompt' : `${queuedPrompts.length} queued prompts`)
@@ -104,6 +134,14 @@
   const queueItemClass = `${terminalClass} flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink`
   const attachmentCardClass = `${cardClass} flex items-center gap-2 p-1.5 pr-2 text-xs text-ink`
   const composerTextareaClass = `${textareaClass} max-h-55 min-h-24 border-0 !bg-transparent px-4 pt-3 pb-2 text-sm leading-6 text-ink-bright placeholder:text-ink-muted/70 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50`
+  const profileTriggerClass = [
+    'font-mono text-[11px] font-bold uppercase tracking-[0.05em]',
+    'text-ink-muted hover:text-ink-bright',
+    'before:mr-1 before:text-line-strong before:content-[\'[\'] after:ml-1 after:text-line-strong after:content-[\']\']',
+    'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:text-ink-muted'
+  ].join(' ')
+  const profileMenuContentClass = `${popoverClass} z-50 w-60 p-1.5 font-mono`
+  const profileMenuItemBaseClass = `${menuItemClass} flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
 
   onMount(() =>
     subscribeQueuedPrompts(state => {
@@ -213,6 +251,36 @@
 
   function handleAttachClick(): void {
     fileInputElement?.click()
+  }
+
+  function profileChoicesFor(profiles: ProfileInfo[], currentProfile: string): ProfileChoice[] {
+    const defaults = profiles.filter(profile => profile.is_default)
+    const rest = sortByProfileOrder(profiles.filter(profile => !profile.is_default))
+    const choices = [...defaults, ...rest].map(profile => ({ isDefault: profile.is_default, name: profile.name }))
+    const seen = new Set(choices.map(choice => normalizeProfileKey(choice.name)))
+    const current = normalizeProfileKey(currentProfile)
+
+    if (!seen.has(current)) {
+      choices.unshift({ isDefault: current === 'default', name: current })
+    }
+
+    return choices.length > 0 ? choices : [{ isDefault: true, name: 'default' }]
+  }
+
+  function profileChoiceLabel(profile: ProfileChoice): string {
+    return profile.isDefault || normalizeProfileKey(profile.name) === 'default' ? 'default' : profile.name
+  }
+
+  function profileChoiceClass(profile: ProfileChoice): string {
+    const selected = normalizeProfileKey(profile.name) === activeProfileName
+    return selected ? `${profileMenuItemBaseClass} border-primary/40 bg-primary/10 text-primary` : profileMenuItemBaseClass
+  }
+
+  function handleProfileSelect(profile: string): void {
+    if (!canChangeProfile) return
+
+    selectNewSessionProfile(profile)
+    profileMenuOpen = false
   }
 
   async function handleFileInput(event: Event): Promise<void> {
@@ -339,12 +407,38 @@
         {/snippet}
 
         {#snippet actions()}
-          <span
-            class="text-[11px] font-bold uppercase tracking-[0.05em] text-ink-muted before:mr-1 before:text-line-strong before:content-['['] after:ml-1 after:text-line-strong after:content-[']']"
-            title="Active gateway profile"
-          >
-            PROFILE::{profileLabel}
-          </span>
+          <Popover.Root bind:open={profileMenuOpen}>
+            <Popover.Trigger
+              class={profileTriggerClass}
+              disabled={!canChangeProfile}
+              title={profileTriggerTitle}
+              aria-label="Choose session profile"
+            >
+              profile:{profileLabel}
+            </Popover.Trigger>
+
+            <Popover.Content class={profileMenuContentClass} sideOffset={4} align="end">
+              <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">
+                new session profile
+              </div>
+              <div class="grid gap-1">
+                {#each profileMenuChoices as profile (profile.name)}
+                  {@const selected = normalizeProfileKey(profile.name) === activeProfileName}
+                  <button
+                    class={profileChoiceClass(profile)}
+                    type="button"
+                    onclick={() => handleProfileSelect(profile.name)}
+                    aria-pressed={selected}
+                  >
+                    <span class="min-w-0 truncate">profile:{profileChoiceLabel(profile)}</span>
+                    {#if selected}
+                      <span class="shrink-0 text-primary">active</span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            </Popover.Content>
+          </Popover.Root>
         {/snippet}
 
         <div class="p-0">
@@ -442,7 +536,7 @@
                 onclick={() => void handleSubmit()}
                 disabled={!canSubmit}
               >
-                {composer.submitting ? 'Sending…' : busy ? 'Queue' : 'Send'}
+                {composer.submitting ? 'Sending' : busy ? 'Queue' : 'Send'}
               </Button>
             </div>
           </div>

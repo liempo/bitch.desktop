@@ -32,6 +32,7 @@ export interface SessionSourceFilter {
 }
 
 const DEFAULT_LIMIT = 40
+export const SESSION_MESSAGES_LOAD_DELAY_MS = 500
 
 // Profile that profile-scoped REST settings should target. The profile store
 // pushes the active gateway profile here to avoid an import cycle.
@@ -61,6 +62,14 @@ export async function dashboardRequest<T>({
   })
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function profileSuffix(profile: null | string | undefined, prefix = '?'): string {
+  return profile ? `${prefix}profile=${encodeURIComponent(profile)}` : ''
+}
+
 export async function listSessions(
   limit = DEFAULT_LIMIT,
   offset = 0,
@@ -71,7 +80,7 @@ export async function listSessions(
 ): Promise<PaginatedSessions> {
   const safeLimit = Math.max(0, limit)
   const safeOffset = Math.max(0, offset)
-  const suffix = profile ? `&profile=${encodeURIComponent(profile)}` : ''
+  const suffix = profileSuffix(profile, '&')
 
   return dashboardRequest<PaginatedSessions>({
     path: `/api/sessions?limit=${safeLimit}&offset=${safeOffset}&min_messages=${Math.max(0, minMessages)}&archived=${archived}&order=${order}${suffix}`,
@@ -109,13 +118,20 @@ export function searchSessions(query: string): Promise<SessionSearchResponse> {
   })
 }
 
-export function getSessionMessages(id: string, profile?: null | string): Promise<SessionMessagesResponse> {
-  const suffix = profile ? `?profile=${encodeURIComponent(profile)}` : ''
-
-  return dashboardRequest<SessionMessagesResponse>({
+export async function getSessionMessages(id: string, profile?: null | string): Promise<SessionMessagesResponse> {
+  const suffix = profileSuffix(profile)
+  const request = dashboardRequest<SessionMessagesResponse>({
     path: `/api/sessions/${encodeURIComponent(id)}/messages${suffix}`,
     profile
   })
+
+  const [result] = await Promise.allSettled([request, delay(SESSION_MESSAGES_LOAD_DELAY_MS)] as const)
+
+  if (result.status === 'rejected') {
+    throw result.reason
+  }
+
+  return result.value
 }
 
 export function renameSession(
@@ -123,27 +139,33 @@ export function renameSession(
   title: string,
   profile?: null | string
 ): Promise<{ ok: boolean; title: string }> {
+  const suffix = profileSuffix(profile)
+
   return dashboardRequest<{ ok: boolean; title: string }>({
     body: { title, ...(profile ? { profile } : {}) },
     method: 'PATCH',
-    path: `/api/sessions/${encodeURIComponent(id)}`,
+    path: `/api/sessions/${encodeURIComponent(id)}${suffix}`,
     profile
   })
 }
 
 export function setSessionArchived(id: string, archived: boolean, profile?: null | string): Promise<{ ok: boolean }> {
+  const suffix = profileSuffix(profile)
+
   return dashboardRequest<{ ok: boolean }>({
-    body: { archived },
+    body: { archived, ...(profile ? { profile } : {}) },
     method: 'PATCH',
-    path: `/api/sessions/${encodeURIComponent(id)}`,
+    path: `/api/sessions/${encodeURIComponent(id)}${suffix}`,
     profile
   })
 }
 
 export function deleteSession(id: string, profile?: null | string): Promise<{ ok: boolean }> {
+  const suffix = profileSuffix(profile)
+
   return dashboardRequest<{ ok: boolean }>({
     method: 'DELETE',
-    path: `/api/sessions/${encodeURIComponent(id)}`,
+    path: `/api/sessions/${encodeURIComponent(id)}${suffix}`,
     profile
   })
 }

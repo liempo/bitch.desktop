@@ -21,6 +21,8 @@ import {
   getProfileScope,
   normalizeProfileKey,
   profileState,
+  selectMainNewSessionProfile,
+  selectNewSessionProfile,
   selectProfile,
   setShowAllProfiles
 } from './profile.svelte'
@@ -65,6 +67,37 @@ describe('profile store helpers', () => {
     expect(profileState.newChatProfile).toBe('crypto')
     expect(profileState.freshSessionRequest).toBe(1)
     expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
+  })
+
+  it('selecting a new-session profile does not request a fresh session by itself', async () => {
+    selectNewSessionProfile('crypto')
+    await Promise.resolve()
+
+    expect(profileState.newChatProfile).toBe('crypto')
+    expect(profileState.freshSessionRequest).toBe(0)
+    expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
+  })
+
+  it('selecting the main new-session profile resets to the default profile', async () => {
+    profileState.newChatProfile = 'crypto'
+    profileState.profiles = [
+      {
+        has_env: true,
+        is_default: true,
+        model: null,
+        name: 'main',
+        path: '/profiles/main',
+        provider: null,
+        skill_count: 0
+      }
+    ]
+
+    selectMainNewSessionProfile()
+    await Promise.resolve()
+
+    expect(profileState.newChatProfile).toBe('main')
+    expect(profileState.freshSessionRequest).toBe(0)
+    expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('main')
   })
 
   it('ensures the selected gateway profile and routes profile-scoped API calls', async () => {

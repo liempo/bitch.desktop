@@ -80,7 +80,7 @@
                 disabled={submitting}
                 onclick={() => (typing = true)}
               >
-                Other answer…
+                Other answer
               </Button>
             </div>
           {/if}
@@ -92,7 +92,7 @@
                 bind:value={draft}
                 disabled={submitting}
                 onkeydown={handleKeydown}
-                placeholder="type answer..."
+                placeholder="type answer"
               ></TextArea>
               <div class="flex items-center justify-between gap-2">
                 <span class="text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">⌘/Ctrl + Enter to send</span>
@@ -101,7 +101,7 @@
                     <Button disabled={submitting} onclick={() => { typing = false; draft = '' }}>Back</Button>
                   {/if}
                   <Button disabled={submitting} onclick={submitSkip}>Skip</Button>
-                  <Button variant="warning" disabled={submitting || !draft.trim()} type="submit">{submitting ? 'Sending…' : 'Send'}</Button>
+                  <Button variant="warning" disabled={submitting || !draft.trim()} type="submit">{submitting ? 'Sending' : 'Send'}</Button>
                 </div>
               </div>
             </form>

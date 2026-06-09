@@ -162,9 +162,10 @@ describe('message session id mapping', () => {
       description: 'dangerous command',
       sessionId: storedKey
     })
-    expect(promptsState.sudoRequest).toEqual({ requestId: 'sudo-1', sessionId: storedKey })
+    expect(promptsState.sudoRequest).toEqual({ profile: null, requestId: 'sudo-1', sessionId: storedKey })
     expect(promptsState.secretRequest).toEqual({
       envVar: 'TOKEN',
+      profile: null,
       prompt: 'Enter token',
       requestId: 'secret-1',
       sessionId: storedKey
@@ -187,7 +188,7 @@ describe('message session id mapping', () => {
       id: 'tool-1',
       name: 'terminal',
       status: 'running',
-      summary: 'Running…'
+      summary: 'Running'
     })
 
     handleGatewayEvent({

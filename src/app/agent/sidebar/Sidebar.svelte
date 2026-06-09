@@ -1,10 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { ContextMenu } from 'bits-ui'
   import Button from '@/components/ui/Button.svelte'
   import Panel from '@/components/ui/Panel.svelte'
   import TextInput from '@/components/ui/TextInput.svelte'
-  import { cardClass, menuItemClass, popoverClass } from '@/components/ui/styles'
+  import { cardClass } from '@/components/ui/styles'
   import ProfileFilterDialog from './ProfileFilterDialog.svelte'
   import SessionList from './SessionList.svelte'
   import SessionRow from './SessionRow.svelte'
@@ -30,26 +29,21 @@
   import {
     ALL_PROFILES,
     getProfileScope,
-    newSessionInProfile,
     normalizeProfileKey,
     profileState,
-    sortByProfileOrder
+    selectMainNewSessionProfile
   } from '$lib/stores/profile.svelte'
-  import type { ProfileInfo, SessionInfo } from '$lib/types/hermes'
+  import type { SessionInfo } from '$lib/types/hermes'
 
   const GROUP_BY_PROFILE_STORAGE_KEY = 'bitch.desktop.groupSessionsByProfile'
-  const menuContentClass = `${popoverClass} z-50 min-w-48 p-1.5 font-mono`
-  const menuItemRowClass = `${menuItemClass} px-2 py-1.5 text-[11px] uppercase tracking-[0.08em]`
   const sectionHeadingClass = 'font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted'
   const mutedNoticeClass = `${cardClass} rounded-control !bg-surface-raised/40 p-3 text-xs text-ink-muted`
   const dangerNoticeClass = `${cardClass} rounded-control border-danger/35 !bg-danger/10 p-3 text-xs text-danger`
 
-  interface ProfileChoice {
-    isDefault: boolean
-    name: string
-  }
-
   const connected = $derived(gatewayState.connectionState === 'open')
+  const hasLoadedSessionIndex = $derived(
+    sessionState.sessionsInitialized || sessionState.sessions.length > 0 || sessionState.searchResults.length > 0
+  )
   const searchActive = $derived(sessionState.searchQuery.trim().length > 0)
   const pinnedSessions = $derived(sortSessionsByLastActive(sessionState.sessions.filter(session => isPinned(session))))
   const recentSessions = $derived(sortSessionsByLastActive(sessionState.sessions.filter(session => !isPinned(session))))
@@ -60,7 +54,6 @@
   const nonDefaultProfileFilterActive = $derived(
     scope !== ALL_PROFILES && normalizeProfileKey(scope) !== normalizeProfileKey(defaultProfileName)
   )
-  const newSessionProfileChoices = $derived(profileChoices(profileState.profiles))
   const loadingRows = [0, 1, 2, 3, 4, 5]
   let profileFilterOpen = $state(false)
   let groupSessionsByProfileEnabled = $state(readGroupSessionsByProfile())
@@ -90,22 +83,9 @@
 
   function handleNewChat(): void {
     if (!connected) return
+
+    selectMainNewSessionProfile()
     startNewSession()
-  }
-
-  function profileChoices(profiles: ProfileInfo[]): ProfileChoice[] {
-    if (profiles.length === 0) return [{ isDefault: true, name: 'default' }]
-
-    const defaults = profiles.filter(profile => profile.is_default)
-    const rest = sortByProfileOrder(profiles.filter(profile => !profile.is_default))
-
-    return [...defaults, ...rest].map(profile => ({ isDefault: profile.is_default, name: profile.name }))
-  }
-
-  function handleNewChatInProfile(profile: string): void {
-    if (!connected) return
-
-    newSessionInProfile(profile)
   }
 
   function readGroupSessionsByProfile(): boolean {
@@ -146,31 +126,17 @@
   <div class="min-h-0 flex-1">
     <Panel title="Sessions" padded={false}>
       {#snippet actions()}
-        <ContextMenu.Root>
-          <ContextMenu.Trigger disabled={!connected}>
-            <Button
-              variant="unstyled"
-              class="flex h-5 w-6 items-center justify-center p-0 text-ink-muted hover:text-ink-bright"
-              onclick={handleNewChat}
-              disabled={!connected}
-              aria-label="New chat"
-              title="New chat (Ctrl/⌘+N). Right-click to choose profile."
-            >
-              +
-            </Button>
-          </ContextMenu.Trigger>
-
-          <ContextMenu.Content class={menuContentClass} sideOffset={4}>
-            {#each newSessionProfileChoices as profile (profile.name)}
-              <ContextMenu.Item
-                class={menuItemRowClass}
-                onSelect={() => handleNewChatInProfile(profile.name)}
-              >
-                <span class="truncate">New {profile.isDefault ? 'Default' : profile.name} Session</span>
-              </ContextMenu.Item>
-            {/each}
-          </ContextMenu.Content>
-        </ContextMenu.Root>
+        <Button
+          variant="unstyled"
+          class="flex h-5 w-6 items-center justify-center p-0 text-ink-muted hover:text-ink-bright"
+          onclick={handleNewChat}
+          oncontextmenu={event => event.preventDefault()}
+          disabled={!connected}
+          aria-label="New chat"
+          title="New chat (Ctrl/⌘+N)."
+        >
+          +
+        </Button>
         <Button
           variant="unstyled"
           class={`flex h-5 w-6 items-center justify-center p-0 hover:text-ink-bright ${
@@ -229,7 +195,7 @@
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
-            {#if !connected}
+            {#if !connected && !hasLoadedSessionIndex}
               <div class={mutedNoticeClass}>
                 LINK_DOWN: connect to the Hermes gateway before loading sessions.
               </div>
@@ -244,7 +210,7 @@
                 <div class="mb-1.5 flex items-center justify-between px-1">
                   <h3 class={sectionHeadingClass}>Search</h3>
                   {#if sessionState.searching}
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching…</span>
+                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching</span>
                   {/if}
                 </div>
 
@@ -299,7 +265,7 @@
                 <div class="mb-1.5 flex items-center justify-between px-1">
                   <h3 class={sectionHeadingClass}>Recents</h3>
                   {#if sessionState.sessionsLoading}
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing…</span>
+                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing</span>
                   {/if}
                 </div>
 
@@ -343,7 +309,7 @@
                   onclick={() => void loadMoreSessions()}
                   disabled={sessionState.sessionsLoadingMore}
                 >
-                  {sessionState.sessionsLoadingMore ? 'Loading…' : 'Load more'}
+                  {sessionState.sessionsLoadingMore ? 'Loading' : 'Load more'}
                 </Button>
               {/if}
             {/if}

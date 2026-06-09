@@ -212,11 +212,23 @@ export function selectProfile(name: string): void {
   void ensureGatewayProfile(target)
 }
 
-export function newSessionInProfile(name: string): void {
+export function selectNewSessionProfile(name: string): void {
   const target = normalizeProfileKey(name)
   profileState.newChatProfile = target
-  requestFreshSession()
   void ensureGatewayProfile(target)
+}
+
+export function mainProfileName(): string {
+  return normalizeProfileKey(profileState.profiles.find(profile => profile.is_default)?.name ?? 'default')
+}
+
+export function selectMainNewSessionProfile(): void {
+  selectNewSessionProfile(mainProfileName())
+}
+
+export function newSessionInProfile(name: string): void {
+  selectNewSessionProfile(name)
+  requestFreshSession()
 }
 
 export function setShowAllProfiles(value: boolean): void {

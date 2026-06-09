@@ -618,7 +618,7 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
       name: payloadName || existing.name,
       output: output || existing.output,
       status,
-      summary: summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running…')
+      summary: summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running')
     }
 
     commitMessage(sessionId, message.id, current => ({
@@ -640,7 +640,7 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
       name,
       output: output || undefined,
       status,
-      summary: summary || (status === 'complete' ? 'Tool completed' : 'Running…')
+      summary: summary || (status === 'complete' ? 'Tool completed' : 'Running')
     }
 
     commitMessage(sessionId, message.id, current => ({

@@ -20,6 +20,10 @@
   const sidebarOpen = $derived(layoutState.sidebarOpen)
   const selectedSessionId = $derived(routerState.route === 'session' ? routerState.sessionId : null)
   const selectedSession = $derived(selectedSessionId ? (sessionState.sessions.find(session => session.id === selectedSessionId) ?? null) : null)
+  const selectedSessionProfile = $derived(
+    selectedSessionId ? (selectedSession?.profile ?? sessionState.sessionProfilesById[selectedSessionId] ?? null) : null
+  )
+  const composerProfileName = $derived(selectedSessionProfile ?? profileState.newChatProfile ?? activeGatewayProfile)
   const chatTitle = $derived(selectedSession?.title?.trim() || (selectedSessionId ? 'Untitled session' : 'New session'))
 
   $effect(() => {
@@ -110,7 +114,7 @@
         sessionId={selectedSessionId}
         connected={connectionState === 'open'}
         sessionTitle={chatTitle}
-        profileName={activeGatewayProfile}
+        profileName={composerProfileName}
         {sidebarOpen}
         onToggleSidebar={toggleSidebar}
       />

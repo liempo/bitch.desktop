@@ -36,7 +36,7 @@
     placeholder,
     submitting = false,
     submitLabel,
-    submittingLabel = 'Sending…',
+    submittingLabel = 'Sending',
     title,
     tone,
     value = $bindable('')

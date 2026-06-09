@@ -45,10 +45,10 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2 px-3 pb-3">
-          <Button chrome="ghost" variant="success" disabled={Boolean(promptsState.submitting)} onclick={() => respond('once')}>{isSubmitting('once') ? 'Sending…' : 'Run once'}</Button>
-          <Button chrome="ghost" variant="primary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('session')}>{isSubmitting('session') ? 'Sending…' : 'Allow session'}</Button>
-          <Button chrome="ghost" variant="secondary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('always')}>{isSubmitting('always') ? 'Sending…' : 'Always allow'}</Button>
-          <Button chrome="ghost" variant="danger" disabled={Boolean(promptsState.submitting)} onclick={() => respond('deny')}>{isSubmitting('deny') ? 'Sending…' : 'Deny'}</Button>
+          <Button chrome="ghost" variant="success" disabled={Boolean(promptsState.submitting)} onclick={() => respond('once')}>{isSubmitting('once') ? 'Sending' : 'Run once'}</Button>
+          <Button chrome="ghost" variant="primary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('session')}>{isSubmitting('session') ? 'Sending' : 'Allow session'}</Button>
+          <Button chrome="ghost" variant="secondary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('always')}>{isSubmitting('always') ? 'Sending' : 'Always allow'}</Button>
+          <Button chrome="ghost" variant="danger" disabled={Boolean(promptsState.submitting)} onclick={() => respond('deny')}>{isSubmitting('deny') ? 'Sending' : 'Deny'}</Button>
         </div>
       </div>
 
