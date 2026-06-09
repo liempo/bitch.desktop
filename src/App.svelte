@@ -19,7 +19,7 @@
       if (!(link instanceof HTMLAnchorElement)) return
 
       const url = new URL(link.href)
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') return
+      if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin === window.location.origin) return
 
       event.preventDefault()
       void invoke('open_external_url', { url: url.toString() }).catch(error => {
