@@ -171,6 +171,31 @@ describe('composer runtime targeting', () => {
     )
   })
 
+  it('does not submit when PDF relay reports missing poppler and shows the remote gateway install hint', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    const pdf: ComposerAttachment = {
+      dataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
+      id: 'pdf-1',
+      kind: 'pdf',
+      label: 'brief.pdf',
+      mediaType: 'application/pdf',
+      size: 8
+    }
+
+    mockRequestGateway.mockResolvedValueOnce({
+      attached: false,
+      message: 'pdftoppm not installed (poppler-utils package required)'
+    })
+
+    await expect(submitPrompt('stored-A', { attachments: [pdf], text: 'review this' })).resolves.toBe(false)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('pdf.attach', expect.anything())
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
+    expect(composerState.sessions['stored-A']?.error).toBe(
+      'pdftoppm not installed (poppler-utils package required) Install poppler-utils on the remote Hermes gateway host/container, then restart the gateway.'
+    )
+  })
+
   it('does not submit the prompt when attachment byte upload fails', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     const image: ComposerAttachment = {
