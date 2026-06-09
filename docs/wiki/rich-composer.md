@@ -32,8 +32,10 @@ attachments.
 - **Attachments:** hidden webview file input → base64 → remote gateway relay on
   submit. Images call `image.attach_bytes`; PDFs call `pdf.attach`; the final
   `prompt.submit` sends plain text so the gateway's native attachment pipeline
-  owns multimodal context. Surface size/encoding errors clearly. Drag-drop is a
-  later sub-phase.
+  owns multimodal context. PDF relay renders pages on the gateway with
+  `pdftoppm`, so the remote gateway host/container must have the `poppler-utils`
+  package installed. Surface size/encoding/dependency errors clearly. Drag-drop
+  is a later sub-phase.
 - **Remote media display:** assistant markdown image paths from the gateway are
   fetched through authenticated `GET /api/media` via the Tauri dashboard bridge
   so agent-written images render on the client machine.

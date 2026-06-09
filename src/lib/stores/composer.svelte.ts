@@ -315,6 +315,17 @@ function attachMethodFor(attachment: ComposerAttachment): 'image.attach_bytes' |
   return attachment.kind === 'pdf' ? 'pdf.attach' : 'image.attach_bytes'
 }
 
+function attachmentRelayFailureMessage(error: unknown, attachment: ComposerAttachment): string {
+  const message = inlineErrorMessage(error, `Could not attach ${attachment.label || attachment.kind}`)
+
+  if (attachment.kind === 'pdf' && /pdftoppm|poppler/i.test(message)) {
+    const gatewayHint = 'Install poppler-utils on the remote Hermes gateway host/container, then restart the gateway.'
+    return message.includes(gatewayHint) ? message : `${message} ${gatewayHint}`
+  }
+
+  return message
+}
+
 async function syncAttachmentsForSubmit(
   sessionId: string,
   profile: string,
@@ -328,15 +339,20 @@ async function syncAttachmentsForSubmit(
       throw new Error(`Could not read ${attachment.label || 'attachment'}`)
     }
 
-    const result = await requestGateway<AttachmentRelayResponse>(attachMethodFor(attachment), {
-      content_base64: contentBase64,
-      filename: attachment.label || (attachment.kind === 'pdf' ? 'document.pdf' : 'image.png'),
-      profile,
-      session_id: sessionId
-    })
+    let result: AttachmentRelayResponse
+    try {
+      result = await requestGateway<AttachmentRelayResponse>(attachMethodFor(attachment), {
+        content_base64: contentBase64,
+        filename: attachment.label || (attachment.kind === 'pdf' ? 'document.pdf' : 'image.png'),
+        profile,
+        session_id: sessionId
+      })
+    } catch (error) {
+      throw new Error(attachmentRelayFailureMessage(error, attachment))
+    }
 
     if (!result.attached) {
-      throw new Error(result.message || `Could not attach ${attachment.label || attachment.kind}`)
+      throw new Error(attachmentRelayFailureMessage(result.message, attachment))
     }
 
     attachment.attachedSessionId = sessionId
