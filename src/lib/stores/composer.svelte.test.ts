@@ -133,6 +133,11 @@ describe('composer runtime targeting', () => {
     const submitCall = mockRequestGateway.mock.calls.findIndex(([method]) => method === 'prompt.submit')
     expect(attachCall).toBeGreaterThanOrEqual(0)
     expect(submitCall).toBeGreaterThan(attachCall)
+    expect(threadForSession('stored-A')?.messages.at(-1)?.attachments?.[0]).toMatchObject({
+      kind: 'image',
+      label: 'screen.png',
+      previewUrl: 'data:image/png;base64,aW1hZ2U='
+    })
   })
 
   it('uploads PDFs through pdf.attach and uses a PDF fallback prompt', async () => {
@@ -167,7 +172,7 @@ describe('composer runtime targeting', () => {
       text: 'Please review the attached PDF.'
     })
     expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe(
-      'Please review the attached PDF.\n\nAttached files:\n- brief.pdf (8 B)'
+      'Please review the attached PDF.\n\nAttached files:\n- brief.pdf (PDF · 8 B)'
     )
   })
 

@@ -21,7 +21,8 @@ import {
   compactWhitespace,
   coerceGatewayText,
   coerceThinkingBlocks,
-  coerceThinkingText
+  coerceThinkingText,
+  extractEmbeddedImages
 } from '$lib/messages/chat-runtime'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
@@ -39,12 +40,41 @@ export interface ThreadTool {
   summary: string
 }
 
+export type ThreadAttachmentKind = 'image' | 'pdf'
+
+export interface ThreadAttachment {
+  dataUrl?: string
+  detail?: string
+  id: string
+  kind: ThreadAttachmentKind
+  label: string
+  mediaType?: string
+  path?: string
+  previewUrl?: string
+  size?: number
+  url?: string
+}
+
+export interface ThreadAttachmentInput {
+  dataUrl?: string
+  detail?: string
+  id?: string
+  kind: ThreadAttachmentKind
+  label: string
+  mediaType?: string
+  path?: string
+  previewUrl?: string
+  size?: number
+  url?: string
+}
+
 export type ThreadMessagePart =
   | { type: 'reasoning'; text: string }
   | { type: 'text'; text: string }
   | { type: 'tool'; tool: ThreadTool }
 
 export interface ThreadMessage {
+  attachments?: ThreadAttachment[]
   error?: string
   id: string
   /** Chronological render order for assistant content. When present, the UI
@@ -220,6 +250,166 @@ function newToolId(name: string): string {
   return `${name || 'tool'}-${Date.now()}-${nextToolId}`
 }
 
+function newAttachmentId(prefix: string): string {
+  nextMessageId += 1
+  return `${prefix}-${Date.now()}-${nextMessageId}`
+}
+
+function unquoteRefValue(raw: string): string {
+  const trimmed = raw.trim()
+  const head = trimmed[0]
+  const tail = trimmed[trimmed.length - 1]
+  const quoted = (head === '`' && tail === '`') || (head === '"' && tail === '"') || (head === "'" && tail === "'")
+
+  return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
+}
+
+function mediaLabelFromSource(source: string): string {
+  if (source.startsWith('data:')) return 'image'
+
+  try {
+    const url = new URL(source)
+    return url.pathname.split('/').filter(Boolean).pop() || source
+  } catch {
+    return source.split(/[\\/]/).filter(Boolean).pop() || source
+  }
+}
+
+function mimeTypeFromDataUrl(source: string): string | undefined {
+  return source.match(/^data:([^;,]+)[;,]/i)?.[1]
+}
+
+function attachmentFromImageSource(source: string, prefix: string): ThreadAttachment | null {
+  const value = source.trim()
+  if (!value) return null
+
+  const attachment: ThreadAttachment = {
+    id: newAttachmentId(prefix),
+    kind: 'image',
+    label: mediaLabelFromSource(value)
+  }
+
+  if (/^data:image\//i.test(value)) {
+    attachment.dataUrl = value
+    attachment.mediaType = mimeTypeFromDataUrl(value)
+  } else if (/^https?:/i.test(value)) {
+    attachment.url = value
+  } else {
+    attachment.path = value
+  }
+
+  return attachment
+}
+
+function cloneThreadAttachment(attachment: ThreadAttachmentInput): ThreadAttachment {
+  return {
+    dataUrl: attachment.dataUrl,
+    detail: attachment.detail,
+    id: attachment.id || newAttachmentId(attachment.kind),
+    kind: attachment.kind,
+    label: attachment.label,
+    mediaType: attachment.mediaType,
+    path: attachment.path,
+    previewUrl: attachment.previewUrl,
+    size: attachment.size,
+    url: attachment.url
+  }
+}
+
+function attachmentDisplayLabel(attachment: ThreadAttachmentInput): string {
+  const detail = attachment.detail?.trim()
+  if (detail) return `${attachment.label} (${detail})`
+  if (typeof attachment.size === 'number') return `${attachment.label} (${formatBytes(attachment.size)})`
+  return attachment.label
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+const IMAGE_DIRECTIVE_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
+
+function imageSourcesFromContent(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return extractEmbeddedImages(value).images
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap(imageSourcesFromContent)
+  }
+
+  if (!value || typeof value !== 'object') return []
+
+  const row = value as Record<string, unknown>
+  const sources: string[] = []
+
+  if (row.type === 'image_url') {
+    const imageUrl = row.image_url
+    if (typeof imageUrl === 'string') {
+      sources.push(imageUrl)
+    } else if (
+      imageUrl &&
+      typeof imageUrl === 'object' &&
+      typeof (imageUrl as Record<string, unknown>).url === 'string'
+    ) {
+      sources.push((imageUrl as Record<string, string>).url)
+    }
+  }
+
+  for (const key of ['content', 'text', 'message']) {
+    if (key in row) {
+      sources.push(...imageSourcesFromContent(row[key]))
+    }
+  }
+
+  return sources
+}
+
+function extractImageDirectiveSources(text: string): { cleanedText: string; sources: string[] } {
+  const sources: string[] = []
+  const cleanedText = text
+    .replace(IMAGE_DIRECTIVE_RE, (_match, rawSource: string) => {
+      const source = unquoteRefValue(rawSource)
+      if (source) sources.push(source)
+      return ''
+    })
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return { cleanedText, sources }
+}
+
+function storedDisplayForMessage(
+  message: SessionMessage,
+  role: ThreadMessageRole
+): { attachments: ThreadAttachment[]; text: string } {
+  const rawText = firstText(message.text, message.content)
+
+  if (role !== 'user') {
+    return { attachments: [], text: rawText }
+  }
+
+  const embedded = extractEmbeddedImages(rawText)
+  const directives = extractImageDirectiveSources(embedded.cleanedText)
+  const sources = [...embedded.images, ...directives.sources, ...imageSourcesFromContent(message.content)]
+  const seen = new Set<string>()
+  const attachments: ThreadAttachment[] = []
+
+  for (const source of sources) {
+    const key = source.trim()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+
+    const attachment = attachmentFromImageSource(key, 'stored-image')
+    if (attachment) attachments.push(attachment)
+  }
+
+  return { attachments, text: directives.cleanedText }
+}
+
 function ensureParts(message: ThreadMessage): ThreadMessagePart[] {
   message.parts ??= []
   return message.parts
@@ -256,17 +446,17 @@ function storedToolFromMessage(sessionId: string, message: SessionMessage, index
 }
 
 function normalizeStoredMessage(sessionId: string, message: SessionMessage, index: number): ThreadMessage {
-  const text = firstText(message.text, message.content)
+  const role: ThreadMessageRole =
+    message.role === 'assistant' || message.role === 'system' || message.role === 'tool' || message.role === 'user'
+      ? message.role
+      : 'assistant'
+  const display = storedDisplayForMessage(message, role)
   const reasoning =
     coerceThinkingBlocks(message.codex_reasoning_items).length > 0
       ? coerceThinkingBlocks(message.codex_reasoning_items)
       : coerceThinkingBlocks(message.reasoning_details).length > 0
         ? coerceThinkingBlocks(message.reasoning_details)
         : coerceThinkingBlocks(message.reasoning ?? message.reasoning_content)
-  const role: ThreadMessageRole =
-    message.role === 'assistant' || message.role === 'system' || message.role === 'tool' || message.role === 'user'
-      ? message.role
-      : 'assistant'
 
   if (role === 'tool') {
     const tool = storedToolFromMessage(sessionId, message, index)
@@ -281,11 +471,12 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
   }
 
   return {
+    attachments: display.attachments.length > 0 ? display.attachments : undefined,
     id: `stored-${sessionId}-${index}`,
-    parts: buildAssistantPartsFromBuckets(reasoning, text),
+    parts: buildAssistantPartsFromBuckets(reasoning, display.text),
     reasoning,
     role,
-    text,
+    text: display.text,
     timestamp: message.timestamp,
     tools: []
   }
@@ -814,13 +1005,19 @@ export function setThreadLoading(sessionId: string, loading: boolean): void {
   }
 }
 
-export function appendUserMessage(sessionId: string, text: string, attachmentLabels: string[] = []): void {
+export function appendUserMessage(
+  sessionId: string,
+  text: string,
+  attachmentInputs: ThreadAttachmentInput[] = []
+): void {
   const threadId = displaySessionId(sessionId)
   const thread = ensureThreadSession(threadId)
-  const attachments = attachmentLabels.map(label => `- ${label}`).join('\n')
-  const attachmentBlock = attachments ? `\n\nAttached files:\n${attachments}` : ''
+  const attachments = attachmentInputs.map(cloneThreadAttachment)
+  const attachmentLines = attachments.map(attachment => `- ${attachmentDisplayLabel(attachment)}`).join('\n')
+  const attachmentBlock = attachmentLines ? `\n\nAttached files:\n${attachmentLines}` : ''
 
   thread.messages.push({
+    attachments: attachments.length > 0 ? attachments : undefined,
     id: newMessageId('user'),
     role: 'user',
     text: `${text}${attachmentBlock}`.trim(),

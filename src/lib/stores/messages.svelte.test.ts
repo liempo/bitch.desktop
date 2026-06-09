@@ -127,6 +127,81 @@ describe('message session id mapping', () => {
     expect(Object.keys(messageState.sessions)).toEqual([storedKey])
   })
 
+  it('preserves optimistic user image and PDF attachments on the visible thread message', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    appendUserMessage(liveSid, 'inspect these', [
+      {
+        dataUrl: 'data:image/png;base64,aW1hZ2U=',
+        id: 'image-1',
+        kind: 'image',
+        label: 'screen.png',
+        mediaType: 'image/png',
+        previewUrl: 'data:image/png;base64,aW1hZ2U=',
+        size: 5
+      },
+      {
+        detail: 'PDF · 8 B',
+        id: 'pdf-1',
+        kind: 'pdf',
+        label: 'brief.pdf',
+        mediaType: 'application/pdf',
+        size: 8
+      }
+    ])
+
+    const message = threadForSession(storedKey)?.messages[0]
+    expect(message?.text).toBe('inspect these\n\nAttached files:\n- screen.png (5 B)\n- brief.pdf (PDF · 8 B)')
+    expect(message?.attachments).toEqual([
+      expect.objectContaining({
+        id: 'image-1',
+        kind: 'image',
+        label: 'screen.png',
+        previewUrl: 'data:image/png;base64,aW1hZ2U='
+      }),
+      expect.objectContaining({ id: 'pdf-1', kind: 'pdf', label: 'brief.pdf' })
+    ])
+  })
+
+  it('extracts persisted user image_url and @image references into thread attachments', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+    const dataUrl = 'data:image/png;base64,aW1hZ2U='
+    const gatewayPath = '/opt/data/.hermes/images/screen.webp'
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: [
+          { text: 'look at this ', type: 'text' },
+          { image_url: { url: dataUrl }, type: 'image_url' }
+        ],
+        role: 'user',
+        timestamp: 100
+      } as unknown as SessionMessage,
+      {
+        content: `stored preview @image:${gatewayPath}`,
+        role: 'user',
+        timestamp: 101
+      } as SessionMessage
+    ])
+
+    const messages = threadForSession(storedKey)?.messages ?? []
+    expect(messages[0]?.text).toBe('look at this')
+    expect(messages[0]?.attachments?.[0]).toMatchObject({
+      dataUrl,
+      kind: 'image',
+      label: 'image',
+      mediaType: 'image/png'
+    })
+    expect(messages[1]?.text).toBe('stored preview')
+    expect(messages[1]?.attachments?.[0]).toMatchObject({
+      kind: 'image',
+      label: 'screen.webp',
+      path: gatewayPath
+    })
+  })
+
   it('stores interactive prompt events under the visible stored session key', () => {
     rememberRuntimeSession(storedKey, liveSid)
 

@@ -8,7 +8,13 @@ vi.mock('$lib/api/dashboard', () => ({
   dashboardRequest: mockDashboardRequest
 }))
 
-import { filePathFromMediaPath, gatewayMediaDataUrl, isRemoteGatewayMediaPath, mediaExtension } from './media'
+import {
+  filePathFromMediaPath,
+  gatewayMediaDataUrl,
+  isRemoteGatewayMediaPath,
+  mediaExtension,
+  renderPreviewMediaReferences
+} from './media'
 
 describe('media path helpers', () => {
   beforeEach(() => {
@@ -33,6 +39,16 @@ describe('media path helpers', () => {
 
   it('extracts image extensions before query strings', () => {
     expect(mediaExtension('/tmp/image.png?cache=1')).toBe('.png')
+  })
+
+  it('turns Hermes MEDIA and @image references into markdown image previews', () => {
+    expect(renderPreviewMediaReferences('MEDIA:/opt/data/.hermes/images/render.png')).toBe(
+      '![Image: render.png](/opt/data/.hermes/images/render.png)'
+    )
+    expect(renderPreviewMediaReferences('See @image:/tmp/screen.webp now')).toBe(
+      'See ![Image: screen.webp](/tmp/screen.webp) now'
+    )
+    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
   })
 
   it('fetches gateway media through the authenticated dashboard bridge', async () => {

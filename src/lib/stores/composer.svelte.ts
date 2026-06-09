@@ -285,10 +285,6 @@ function cloneAttachment(attachment: ComposerAttachment): ComposerAttachment {
   return { ...attachment }
 }
 
-function attachmentLabel(attachment: ComposerAttachment): string {
-  return `${attachment.label} (${formatBytes(attachment.size)})`
-}
-
 function cloneAttachments(attachments: ComposerAttachment[]): ComposerAttachment[] {
   return attachments.map(cloneAttachment)
 }
@@ -1085,7 +1081,6 @@ export async function submitPrompt(
     return false
   }
 
-  const attachmentLines = attachments.map(attachmentLabel)
   const displayText = compactWhitespace(visibleText) || fallbackPromptForAttachments(attachments)
   const targetProfile = targetProfileForSession(sessionId)
 
@@ -1097,7 +1092,7 @@ export async function submitPrompt(
     return false
   }
 
-  appendUserMessage(targetSessionId, displayText, attachmentLines)
+  appendUserMessage(targetSessionId, displayText, attachments)
   setThreadBusy(targetSessionId, true)
   commitActiveSessionRoute()
 
