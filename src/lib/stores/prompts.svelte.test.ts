@@ -30,6 +30,7 @@ import {
   setSudoRequest
 } from '$lib/stores/prompts.svelte'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
+import { profileState } from '$lib/stores/profile.svelte'
 
 function resetPrompts(): void {
   promptsState.clarifyRequests = {}
@@ -117,10 +118,22 @@ describe('prompt request store', () => {
     expect(promptsState.approvalRequest).toBeNull()
   })
 
+  it('refuses prompt responses when the owning profile cannot be resolved', async () => {
+    profileState.showAllProfiles = true
+    mockRequestGateway.mockResolvedValue({ ok: true })
+    setSecretRequest({ envVar: 'TOKEN', prompt: 'Token', requestId: 'secret-1', sessionId: 'stored-A' })
+
+    await expect(respondToSecret('secret-value')).resolves.toBe(false)
+
+    expect(mockRequestGateway).not.toHaveBeenCalled()
+    expect(promptsState.error).toContain('known profile')
+    expect(promptsState.secretRequest?.requestId).toBe('secret-1')
+  })
+
   it('responds to sudo and secret request ids then clears modal state', async () => {
     mockRequestGateway.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true })
-    setSudoRequest({ requestId: 'sudo-1' })
-    setSecretRequest({ envVar: 'API_TOKEN', prompt: 'Enter API token', requestId: 'secret-1' })
+    setSudoRequest({ profile: 'default', requestId: 'sudo-1' })
+    setSecretRequest({ envVar: 'API_TOKEN', prompt: 'Enter API token', profile: 'default', requestId: 'secret-1' })
 
     await expect(respondToSudo('hunter2')).resolves.toBe(true)
     await expect(respondToSecret('secret-value')).resolves.toBe(true)
