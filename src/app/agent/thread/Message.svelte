@@ -4,19 +4,22 @@
   import System from './System.svelte'
   import Tool from './Tool.svelte'
   import { cardClass } from '@/components/ui/styles'
+  import { profileForSession } from '$lib/stores/session.svelte'
   import type { ThreadMessage } from '$lib/stores/messages.svelte'
 
   interface Props {
     message: ThreadMessage
+    sessionId?: null | string
   }
 
-  let { message }: Props = $props()
+  let { message, sessionId = null }: Props = $props()
 
   const assistant = $derived(message.role === 'assistant')
   const user = $derived(message.role === 'user')
   const system = $derived(message.role === 'system')
   const tool = $derived(message.role === 'tool')
   const timestamp = $derived(formatTimestamp(message.timestamp))
+  const messageProfile = $derived(sessionId ? profileForSession(sessionId) : null)
 
   const parts = $derived(message.parts ?? [])
   const usesParts = $derived(parts.length > 0)
@@ -112,7 +115,7 @@
                   <Tool tool={part.tool} />
                 </div>
               {:else if part.type === 'text'}
-                <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} />
+                <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} profile={messageProfile} />
               {/if}
             {/each}
           {/key}
@@ -133,7 +136,7 @@
           {/if}
 
           {#if message.text}
-            <Markdown text={message.text} streaming={isRunning} />
+            <Markdown text={message.text} streaming={isRunning} profile={messageProfile} />
           {/if}
         {/if}
 

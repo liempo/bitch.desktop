@@ -117,7 +117,7 @@
   {:else}
     <div class="py-4">
       {#each messages as message (message.id)}
-        <Message {message} />
+        <Message {message} {sessionId} />
       {/each}
 
       {#if sessionId}

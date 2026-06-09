@@ -1,7 +1,7 @@
 # 05 — Rich composer
 
 **Goal:** Match the upstream composer capabilities that work against a remote
-gateway: send, interrupt, queue, slash commands, model switch, and image
+gateway: send, interrupt, queue, slash commands, model switch, and image/PDF
 attachments.
 
 ## Stores
@@ -29,8 +29,14 @@ attachments.
 - **Model switch:** read `getModelOptions()` / `getGlobalModelInfo()`; switching
   runs `slash.exec { command: "/model <model> --provider <provider>" }` for an
   active session. Show the current model in the composer chrome.
-- **Attachments:** Tauri dialog/file read → base64 → attach on submit. Surface
-  size/encoding errors clearly. Drag-drop is a later sub-phase.
+- **Attachments:** hidden webview file input → base64 → remote gateway relay on
+  submit. Images call `image.attach_bytes`; PDFs call `pdf.attach`; the final
+  `prompt.submit` sends plain text so the gateway's native attachment pipeline
+  owns multimodal context. Surface size/encoding errors clearly. Drag-drop is a
+  later sub-phase.
+- **Remote media display:** assistant markdown image paths from the gateway are
+  fetched through authenticated `GET /api/media` via the Tauri dashboard bridge
+  so agent-written images render on the client machine.
 
 ## Upstream files
 
@@ -50,4 +56,5 @@ attachments.
 
 Typing and pressing Enter sends a prompt; Stop interrupts; queued prompts drain
 after a turn; slash commands list and execute; the model switcher changes the
-active model; an image attachment is delivered with the prompt.
+active model; image/PDF attachments are relayed to the remote gateway before
+`prompt.submit`; gateway-local assistant images render through `/api/media`.

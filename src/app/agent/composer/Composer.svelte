@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { Popover } from 'bits-ui'
   import {
-    addImageFiles,
+    addAttachmentFiles,
     applySlashSuggestion,
     clearComposerAttachments,
     composerForSession,
@@ -287,7 +287,7 @@
     const input = event.currentTarget as HTMLInputElement
 
     if (input.files) {
-      await addImageFiles(sessionId, input.files)
+      await addAttachmentFiles(sessionId, input.files)
       input.value = ''
       focusTextarea()
     }
@@ -310,8 +310,8 @@
 
   function attachmentSummary(): string {
     if (composer.attachments.length === 0) return 'No attachments'
-    if (composer.attachments.length === 1) return '1 image attached'
-    return `${composer.attachments.length} images attached`
+    if (composer.attachments.length === 1) return '1 attachment'
+    return `${composer.attachments.length} attachments`
   }
 </script>
 
@@ -327,7 +327,7 @@
           {#each queuedPrompts as entry (entry.id)}
             <li class={queueItemClass}>
               <span class="min-w-0 flex-1 truncate">
-                {entry.text || `${entry.attachments.length} image attachment${entry.attachments.length === 1 ? '' : 's'}`}
+                {entry.text || `${entry.attachments.length} attachment${entry.attachments.length === 1 ? '' : 's'}`}
               </span>
               <Button
                 chrome="ghost"
@@ -368,6 +368,10 @@
           <div class={attachmentCardClass}>
             {#if attachment.previewUrl}
               <img class="h-10 w-10 rounded-control object-cover" src={attachment.previewUrl} alt="" />
+            {:else if attachment.kind === 'pdf'}
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-danger">
+                PDF
+              </div>
             {/if}
             <div class="min-w-0 max-w-48">
               <p class="truncate font-medium text-ink-bright">{attachment.label}</p>
@@ -461,7 +465,7 @@
                 class="hidden"
                 bind:this={fileInputElement}
                 type="file"
-                accept="image/*"
+                accept="image/*,.pdf,application/pdf"
                 multiple
                 onchange={(event) => void handleFileInput(event)}
               />
@@ -471,8 +475,8 @@
                 size="icon"
                 onclick={handleAttachClick}
                 disabled={!canAttach}
-                aria-label="Attach image"
-                title="Attach image"
+                aria-label="Attach image or PDF"
+                title="Attach image or PDF"
               >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
@@ -484,7 +488,7 @@
                   chrome="ghost"
                   onclick={() => clearComposerAttachments(sessionId)}
                 >
-                  Clear images
+                  Clear attachments
                 </Button>
               {/if}
 
