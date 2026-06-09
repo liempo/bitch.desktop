@@ -76,8 +76,13 @@ function liveSessionIdForStored(sessionId: null | string | undefined): string | 
 async function profileForPromptRequest(
   sessionId: null | string | undefined,
   profileHint: null | string | undefined
-): Promise<string> {
+): Promise<string | null> {
   const profile = normalizeProfileKey(profileHint ?? profileForSession(sessionId))
+
+  if (!profileHint && profileForSession(sessionId) == null) {
+    return null
+  }
+
   await ensureGatewayProfile(profile)
   return profile
 }
@@ -174,6 +179,11 @@ export async function respondToClarify(sessionId: null | string | undefined, ans
 
   try {
     const profile = await profileForPromptRequest(request.sessionId, request.profile)
+
+    if (!profile) {
+      throw new Error('Cannot route clarify response without a known profile.')
+    }
+
     await requestGateway('clarify.respond', {
       request_id: request.requestId,
       answer,
@@ -203,6 +213,11 @@ export async function respondToApproval(choice: ApprovalChoice): Promise<boolean
 
   try {
     const profile = await profileForPromptRequest(request.sessionId, request.profile)
+
+    if (!profile) {
+      throw new Error('Cannot route approval response without a known profile.')
+    }
+
     await requestGateway('approval.respond', {
       choice,
       session_id: liveSessionIdForStored(request.sessionId),
@@ -231,6 +246,11 @@ export async function respondToSudo(password: string): Promise<boolean> {
 
   try {
     const profile = await profileForPromptRequest(request.sessionId, request.profile)
+
+    if (!profile) {
+      throw new Error('Cannot route sudo response without a known profile.')
+    }
+
     await requestGateway('sudo.respond', {
       request_id: request.requestId,
       password,
@@ -259,6 +279,11 @@ export async function respondToSecret(value: string): Promise<boolean> {
 
   try {
     const profile = await profileForPromptRequest(request.sessionId, request.profile)
+
+    if (!profile) {
+      throw new Error('Cannot route secret response without a known profile.')
+    }
+
     await requestGateway('secret.respond', {
       request_id: request.requestId,
       value,
