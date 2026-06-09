@@ -2,7 +2,7 @@
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
-  import { gatewayMediaDataUrl, isRemoteGatewayMediaPath } from '$lib/media'
+  import { gatewayMediaDataUrl, isRemoteGatewayMediaPath, renderPreviewMediaReferences } from '$lib/media'
   import './markdown.css'
 
   interface Props {
@@ -67,7 +67,7 @@
   }
 
   function renderMarkdown(value: string): string {
-    const raw = marked.parse(value || '', {
+    const raw = marked.parse(renderPreviewMediaReferences(value || ''), {
       async: false,
       breaks: true,
       gfm: true,

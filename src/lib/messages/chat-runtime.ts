@@ -4,6 +4,32 @@ const THINKING_STATUS_PREFIX_RE =
 const EMPTY_THINKING_PLACEHOLDER_RE =
   /\b(?:current rewritten thinking|next thinking to process|provide the thinking content|don't see any .*thinking)\b/i
 
+const EMBEDDED_IMAGE_RE =
+  /(\{\s*"type"\s*:\s*"image_url"\s*,\s*"image_url"\s*:\s*\{\s*"url"\s*:\s*")?(data:image\/[\w.+-]+;base64,[A-Za-z0-9+/=]+)("\s*\}\s*\})?/g
+
+export interface EmbeddedImageExtraction {
+  cleanedText: string
+  images: string[]
+}
+
+export function extractEmbeddedImages(text: string): EmbeddedImageExtraction {
+  if (!text || !text.includes('data:image/')) {
+    return { cleanedText: text, images: [] }
+  }
+
+  const images: string[] = []
+  const cleanedText = text
+    .replace(EMBEDDED_IMAGE_RE, (_match, _open, dataUrl: string) => {
+      images.push(dataUrl)
+      return ''
+    })
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return { cleanedText, images }
+}
+
 /**
  * Normalize gateway payload text from strings, OpenAI-style content parts, or
  * small structured payloads. Mirrors the upstream Hermes desktop helper but

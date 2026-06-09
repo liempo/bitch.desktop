@@ -1,5 +1,6 @@
 <script lang="ts">
   import Markdown from './Markdown.svelte'
+  import MessageAttachments from './MessageAttachments.svelte'
   import Reasoning from './Reasoning.svelte'
   import System from './System.svelte'
   import Tool from './Tool.svelte'
@@ -86,9 +87,12 @@
   <!-- User message — bubble style -->
   <div class="group mx-auto flex w-full max-w-4xl justify-end px-4 py-3" data-role="user">
     <div class={userMessageClass}>
-      <p class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-6 text-ink-bright">
-        {message.text}
-      </p>
+      {#if message.text}
+        <p class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-6 text-ink-bright">
+          {message.text}
+        </p>
+      {/if}
+      <MessageAttachments attachments={message.attachments ?? []} profile={messageProfile} />
       {#if timestamp}
         <div class="mt-2 text-right text-[0.62rem] uppercase tracking-[0.16em] text-warning/80">
           <time class="text-ink-muted/70">{timestamp}</time>
