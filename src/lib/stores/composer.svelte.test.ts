@@ -53,7 +53,8 @@ import {
   selectComposerFastMode,
   selectComposerModel,
   selectComposerReasoningEffort,
-  submitPrompt
+  submitPrompt,
+  type ComposerAttachment
 } from '$lib/stores/composer.svelte'
 import { clearQueuedPrompts, getQueuedPrompts } from '$lib/stores/composer-queue'
 import { messageState, threadForSession } from '$lib/stores/messages.svelte'
@@ -93,6 +94,101 @@ describe('composer runtime targeting', () => {
     })
     expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual(['hello cached runtime'])
     expect(messageState.sessions['live-A']).toBeUndefined()
+  })
+
+  it('uploads image bytes before submitting text to the remote gateway', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    const image: ComposerAttachment = {
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      id: 'image-1',
+      kind: 'image',
+      label: 'screen.png',
+      mediaType: 'image/png',
+      previewUrl: 'data:image/png;base64,aW1hZ2U=',
+      size: 5
+    }
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'image.attach_bytes') {
+        return Promise.resolve({ attached: true, path: '/opt/data/.hermes/images/upload.png' })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt('stored-A', { attachments: [image], text: 'inspect this' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('image.attach_bytes', {
+      content_base64: 'aW1hZ2U=',
+      filename: 'screen.png',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-A',
+      text: 'inspect this'
+    })
+    const attachCall = mockRequestGateway.mock.calls.findIndex(([method]) => method === 'image.attach_bytes')
+    const submitCall = mockRequestGateway.mock.calls.findIndex(([method]) => method === 'prompt.submit')
+    expect(attachCall).toBeGreaterThanOrEqual(0)
+    expect(submitCall).toBeGreaterThan(attachCall)
+  })
+
+  it('uploads PDFs through pdf.attach and uses a PDF fallback prompt', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    const pdf: ComposerAttachment = {
+      dataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
+      detail: 'PDF · 8 B',
+      id: 'pdf-1',
+      kind: 'pdf',
+      label: 'brief.pdf',
+      mediaType: 'application/pdf',
+      size: 8
+    }
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'pdf.attach') return Promise.resolve({ attached: true, pages_attached: 1 })
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt('stored-A', { attachments: [pdf], text: '' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('pdf.attach', {
+      content_base64: 'JVBERi0xLjQ=',
+      filename: 'brief.pdf',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-A',
+      text: 'Please review the attached PDF.'
+    })
+    expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe(
+      'Please review the attached PDF.\n\nAttached files:\n- brief.pdf (8 B)'
+    )
+  })
+
+  it('does not submit the prompt when attachment byte upload fails', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    const image: ComposerAttachment = {
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      id: 'image-1',
+      kind: 'image',
+      label: 'broken.png',
+      mediaType: 'image/png',
+      size: 5
+    }
+
+    mockRequestGateway.mockResolvedValueOnce({ attached: false, message: 'unsupported image extension' })
+
+    await expect(submitPrompt('stored-A', { attachments: [image], text: 'inspect this' })).resolves.toBe(false)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('image.attach_bytes', expect.anything())
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
+    expect(composerState.sessions['stored-A']?.error).toBe('unsupported image extension')
   })
 
   it('creates a session on first submit from the new-chat route and navigates afterward', async () => {

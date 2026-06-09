@@ -23,7 +23,7 @@ import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } fro
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'
 
-export type ComposerAttachmentKind = 'image'
+export type ComposerAttachmentKind = 'image' | 'pdf'
 
 export interface ComposerAttachment {
   attachedSessionId?: string
@@ -35,6 +35,17 @@ export interface ComposerAttachment {
   mediaType: string
   previewUrl?: string
   size: number
+}
+
+export interface AttachmentRelayResponse {
+  attached?: boolean
+  bytes?: number
+  count?: number
+  filename?: string
+  message?: string
+  pages_attached?: number
+  path?: string
+  text?: string
 }
 
 export interface CommandCatalogCategory {
@@ -88,20 +99,7 @@ export interface ComposerModelGroup {
 
 export type ReasoningEffort = 'high' | 'low' | 'medium' | 'minimal' | 'none' | 'xhigh'
 
-export interface PromptTextPart {
-  text: string
-  type: 'text'
-}
-
-export interface PromptImagePart {
-  image_url: {
-    detail?: 'auto' | 'high' | 'low'
-    url: string
-  }
-  type: 'image_url'
-}
-
-export type PromptSubmitPayload = string | Array<PromptImagePart | PromptTextPart>
+export type PromptSubmitPayload = string
 
 export interface ComposerSessionState {
   attachments: ComposerAttachment[]
@@ -136,8 +134,10 @@ export interface SubmitPromptOptions {
 }
 
 const NEW_SESSION_KEY = '__new__'
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024
+const MAX_PDF_BYTES = 50 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'])
+const PDF_TYPES = new Set(['application/pdf'])
 
 export const composerState = $state<ComposerState>({
   model: {
@@ -293,26 +293,54 @@ function cloneAttachments(attachments: ComposerAttachment[]): ComposerAttachment
   return attachments.map(cloneAttachment)
 }
 
+function base64FromDataUrl(dataUrl: string): string {
+  const comma = dataUrl.indexOf(',')
+  const raw = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl
+
+  return raw.replace(/\s+/g, '')
+}
+
+function fallbackPromptForAttachments(attachments: ComposerAttachment[]): string {
+  if (attachments.length === 0) return ''
+  if (attachments.every(attachment => attachment.kind === 'image')) return 'What do you see in this image?'
+  if (attachments.every(attachment => attachment.kind === 'pdf')) return 'Please review the attached PDF.'
+  return 'Please review the attached files.'
+}
+
 function buildPayload(text: string, attachments: ComposerAttachment[]): PromptSubmitPayload {
-  const visibleText = text.trim()
+  return text.trim() || fallbackPromptForAttachments(attachments)
+}
 
-  if (attachments.length === 0) {
-    return visibleText
+function attachMethodFor(attachment: ComposerAttachment): 'image.attach_bytes' | 'pdf.attach' {
+  return attachment.kind === 'pdf' ? 'pdf.attach' : 'image.attach_bytes'
+}
+
+async function syncAttachmentsForSubmit(
+  sessionId: string,
+  profile: string,
+  attachments: ComposerAttachment[]
+): Promise<void> {
+  for (const attachment of attachments) {
+    if (attachment.attachedSessionId === sessionId) continue
+
+    const contentBase64 = base64FromDataUrl(attachment.dataUrl)
+    if (!contentBase64) {
+      throw new Error(`Could not read ${attachment.label || 'attachment'}`)
+    }
+
+    const result = await requestGateway<AttachmentRelayResponse>(attachMethodFor(attachment), {
+      content_base64: contentBase64,
+      filename: attachment.label || (attachment.kind === 'pdf' ? 'document.pdf' : 'image.png'),
+      profile,
+      session_id: sessionId
+    })
+
+    if (!result.attached) {
+      throw new Error(result.message || `Could not attach ${attachment.label || attachment.kind}`)
+    }
+
+    attachment.attachedSessionId = sessionId
   }
-
-  return [
-    {
-      text: visibleText || 'What do you see in this image?',
-      type: 'text'
-    },
-    ...attachments.map(attachment => ({
-      image_url: {
-        detail: 'auto' as const,
-        url: attachment.dataUrl
-      },
-      type: 'image_url' as const
-    }))
-  ]
 }
 
 function commandPairs(catalog: CommandsCatalogResponse): SlashCommandItem[] {
@@ -458,20 +486,36 @@ export function removeComposerAttachment(sessionId: null | string | undefined, i
   session.attachments = session.attachments.filter(attachment => attachment.id !== id)
 }
 
-export async function addImageFiles(sessionId: null | string | undefined, files: FileList | File[]): Promise<void> {
+function attachmentKindFor(file: File): ComposerAttachmentKind | null {
+  if (file.type.startsWith('image/') && (IMAGE_TYPES.size === 0 || IMAGE_TYPES.has(file.type))) return 'image'
+  if (PDF_TYPES.has(file.type) || file.name.toLowerCase().endsWith('.pdf')) return 'pdf'
+  return null
+}
+
+function maxBytesFor(kind: ComposerAttachmentKind): number {
+  return kind === 'pdf' ? MAX_PDF_BYTES : MAX_IMAGE_BYTES
+}
+
+export async function addAttachmentFiles(
+  sessionId: null | string | undefined,
+  files: FileList | File[]
+): Promise<void> {
   const session = ensureComposerSession(sessionId)
   session.error = null
 
   const candidates = Array.from(files)
 
   for (const file of candidates) {
-    if (!file.type.startsWith('image/') || (IMAGE_TYPES.size > 0 && !IMAGE_TYPES.has(file.type))) {
-      session.error = `${file.name || 'Selected file'} is not a supported image.`
+    const kind = attachmentKindFor(file)
+
+    if (!kind) {
+      session.error = `${file.name || 'Selected file'} is not a supported image or PDF.`
       continue
     }
 
-    if (file.size > MAX_IMAGE_BYTES) {
-      session.error = `${file.name || 'Image'} is ${formatBytes(file.size)}. The composer currently accepts images up to ${formatBytes(MAX_IMAGE_BYTES)}.`
+    const maxBytes = maxBytesFor(kind)
+    if (file.size > maxBytes) {
+      session.error = `${file.name || (kind === 'pdf' ? 'PDF' : 'Image')} is ${formatBytes(file.size)}. The composer currently accepts ${kind === 'pdf' ? 'PDFs' : 'images'} up to ${formatBytes(maxBytes)}.`
       continue
     }
 
@@ -479,12 +523,12 @@ export async function addImageFiles(sessionId: null | string | undefined, files:
       const dataUrl = await readFileAsDataUrl(file)
       const attachment: ComposerAttachment = {
         dataUrl,
-        detail: formatBytes(file.size),
-        id: nextId('image'),
-        kind: 'image',
-        label: file.name || 'image',
-        mediaType: file.type || 'application/octet-stream',
-        previewUrl: dataUrl,
+        detail: kind === 'pdf' ? `PDF · ${formatBytes(file.size)}` : formatBytes(file.size),
+        id: nextId(kind),
+        kind,
+        label: file.name || (kind === 'pdf' ? 'document.pdf' : 'image'),
+        mediaType: file.type || (kind === 'pdf' ? 'application/pdf' : 'application/octet-stream'),
+        previewUrl: kind === 'image' ? dataUrl : undefined,
         size: file.size
       }
 
@@ -494,6 +538,8 @@ export async function addImageFiles(sessionId: null | string | undefined, files:
     }
   }
 }
+
+export const addImageFiles = addAttachmentFiles
 
 export function markComposerInterrupted(sessionId: null | string | undefined, interrupted: boolean): void {
   ensureComposerSession(sessionId).userInterrupted = interrupted
@@ -1024,7 +1070,7 @@ export async function submitPrompt(
   }
 
   const attachmentLines = attachments.map(attachmentLabel)
-  const displayText = compactWhitespace(visibleText) || (attachments.length ? 'What do you see in this image?' : '')
+  const displayText = compactWhitespace(visibleText) || fallbackPromptForAttachments(attachments)
   const targetProfile = targetProfileForSession(sessionId)
 
   try {
@@ -1045,6 +1091,7 @@ export async function submitPrompt(
   }
 
   try {
+    await syncAttachmentsForSubmit(targetSessionId, targetProfile, attachments)
     await requestGateway('prompt.submit', {
       session_id: targetSessionId,
       text: buildPayload(visibleText, attachments),

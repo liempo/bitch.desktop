@@ -818,7 +818,7 @@ export function appendUserMessage(sessionId: string, text: string, attachmentLab
   const threadId = displaySessionId(sessionId)
   const thread = ensureThreadSession(threadId)
   const attachments = attachmentLabels.map(label => `- ${label}`).join('\n')
-  const attachmentBlock = attachments ? `\n\nAttached images:\n${attachments}` : ''
+  const attachmentBlock = attachments ? `\n\nAttached files:\n${attachments}` : ''
 
   thread.messages.push({
     id: newMessageId('user'),
