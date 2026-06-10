@@ -53,6 +53,7 @@ import {
   selectComposerFastMode,
   selectComposerModel,
   selectComposerReasoningEffort,
+  shouldDispatchSlashImmediately,
   submitPrompt,
   type ComposerAttachment
 } from '$lib/stores/composer.svelte'
@@ -60,6 +61,15 @@ import { clearQueuedPrompts, getQueuedPrompts } from '$lib/stores/composer-queue
 import { messageState, threadForSession } from '$lib/stores/messages.svelte'
 import { profileState } from '$lib/stores/profile.svelte'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
+
+describe('composer slash dispatch policy', () => {
+  it('treats slash commands as immediate control-plane commands even while busy', () => {
+    expect(shouldDispatchSlashImmediately('/compact', true)).toBe(true)
+    expect(shouldDispatchSlashImmediately('  /goal status  ', true)).toBe(true)
+    expect(shouldDispatchSlashImmediately('/compact', false)).toBe(true)
+    expect(shouldDispatchSlashImmediately('normal prompt', true)).toBe(false)
+  })
+})
 
 describe('composer runtime targeting', () => {
   beforeEach(() => {

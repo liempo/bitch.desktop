@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ContextMenu } from 'bits-ui'
   import type { Snippet } from 'svelte'
+  import Button from '@/components/ui/Button.svelte'
+  import Dialog from '@/components/ui/Dialog.svelte'
   import { menuItemClass, popoverClass } from '@/components/ui/styles'
   import type { SessionInfo } from '$lib/types/hermes'
 
@@ -26,15 +28,44 @@
     session
   }: Props = $props()
 
+  let renameOpen = $state(false)
+  let renameDraft = $state('')
+  let renameError = $state<string | null>(null)
+  let renameSubmitting = $state(false)
+
   function currentTitle(): string {
     return session.title?.trim() || 'Untitled session'
   }
 
-  function handleRename(): void {
-    const nextTitle = window.prompt('Rename session', currentTitle())
+  function openRenameDialog(): void {
+    renameDraft = currentTitle()
+    renameError = null
+    renameOpen = true
+  }
 
-    if (nextTitle?.trim()) {
-      void onRename(nextTitle.trim())
+  async function submitRename(event: SubmitEvent): Promise<void> {
+    event.preventDefault()
+    const trimmed = renameDraft.trim()
+
+    if (!trimmed) {
+      renameError = 'Title is required.'
+      return
+    }
+
+    renameSubmitting = true
+    renameError = null
+
+    try {
+      const result = await onRename(trimmed)
+      if (result === false) {
+        renameError = 'Rename failed. Check the session error banner for details.'
+        return
+      }
+      renameOpen = false
+    } catch (error) {
+      renameError = error instanceof Error ? error.message : 'Rename failed.'
+    } finally {
+      renameSubmitting = false
     }
   }
 
@@ -62,7 +93,7 @@
   >
     <ContextMenu.Item
       class={itemClass}
-      onSelect={handleRename}
+      onSelect={openRenameDialog}
     >
       <span>rename</span>
       <span class="text-[10px] text-ink-muted">mv</span>
@@ -95,3 +126,45 @@
     </ContextMenu.Item>
   </ContextMenu.Content>
 </ContextMenu.Root>
+
+<Dialog
+  bind:open={renameOpen}
+  title="Rename Session"
+  description="assign a stable sidebar label"
+  class="w-[min(26rem,calc(100vw-2rem))]"
+  contentClass="p-3"
+>
+  <form class="grid gap-3" onsubmit={submitRename}>
+    <label class="grid gap-1 text-[10px] uppercase tracking-[0.12em] text-ink-muted">
+      <span>title</span>
+      <input
+        bind:value={renameDraft}
+        class="rounded-control border border-line bg-surface px-2 py-2 font-mono text-[12px] text-ink-bright outline-none focus:border-primary/70"
+        disabled={renameSubmitting || disabled}
+        maxlength="160"
+      />
+    </label>
+
+    {#if renameError}
+      <p class="text-[11px] text-danger">{renameError}</p>
+    {/if}
+
+    <div class="flex justify-end gap-2">
+      <Button
+        variant="secondary"
+        type="button"
+        onclick={() => (renameOpen = false)}
+        disabled={renameSubmitting}
+      >
+        cancel
+      </Button>
+      <Button
+        variant="primary"
+        type="submit"
+        disabled={renameSubmitting || disabled || !renameDraft.trim()}
+      >
+        {renameSubmitting ? 'renaming…' : 'rename'}
+      </Button>
+    </div>
+  </form>
+</Dialog>

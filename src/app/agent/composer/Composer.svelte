@@ -20,6 +20,7 @@
     selectComposerModel,
     selectComposerReasoningEffort,
     setComposerDraft,
+    shouldDispatchSlashImmediately,
     slashSuggestions,
     submitPrompt,
     type ComposerSessionState,
@@ -231,7 +232,7 @@
     // resuming, do not submit into the previously selected live session.
     if (sessionId && !liveSid) return
 
-    if (command.startsWith('/') && !busy) {
+    if (shouldDispatchSlashImmediately(command, busy)) {
       await executeSlashCommand(sessionId, command)
       focusTextarea()
       return
