@@ -227,7 +227,7 @@ function collapseSessionGroup(threadId: string, sessions: SessionInfo[]): Sessio
   const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
   const lastActive = Math.max(...sessions.map(recentValue))
   const startedAt = Math.min(...sessions.map(session => session.started_at))
-  const title = root.title?.trim() || latest.title
+  const title = latest.title?.trim() || root.title
 
   return {
     ...latest,

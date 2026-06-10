@@ -506,7 +506,7 @@ describe('session lineage threads', () => {
     expect(sessionThreadId({ id: 'solo', _lineage_root_id: null })).toBe('solo')
   })
 
-  it('collapses archived compression predecessors behind the latest visible continuation tip', () => {
+  it('collapses archived compression predecessors behind the latest visible continuation tip without masking its title', () => {
     const threads = collapseSessionsToThreads([
       {
         _lineage_root_id: null,
@@ -576,7 +576,7 @@ describe('session lineage threads', () => {
       last_active: 60,
       message_count: 21,
       preview: 'latest preview',
-      title: 'BITCH',
+      title: 'BITCH #3',
       tool_call_count: 6
     })
   })
