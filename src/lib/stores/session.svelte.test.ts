@@ -56,6 +56,8 @@ import {
   deleteSession,
   hasMoreSessions,
   loadArchivedSessions,
+  loadSessions,
+  lineageMessageSessionIds,
   rememberRuntimeSession,
   renameSession,
   restoreArchivedSession,
@@ -760,6 +762,19 @@ describe('profile-scoped pagination', () => {
 })
 
 describe('session lineage threads', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    gatewayState.connectionState = 'open'
+    profileState.showAllProfiles = true
+    rawSessionState.sessionLineageIdsByThreadId = {}
+    rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionStartedAtById = {}
+    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessions = []
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
   it('uses the lineage root as the stable thread id', () => {
     expect(sessionThreadId({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })).toBe('BITCH')
     expect(sessionThreadId({ id: 'BITCH-3', lineage_root: 'BITCH' })).toBe('BITCH')
@@ -802,6 +817,46 @@ describe('session lineage threads', () => {
     ])
 
     expect(threads[0]).toMatchObject({ id: 'solo', title: 'Plan #2' })
+  })
+
+  it('records lineage members in chronological order for compressed threads loaded from the gateway', async () => {
+    mockApiListAllProfileSessions.mockResolvedValueOnce({
+      sessions: [
+        session({
+          _lineage_root_id: 'BITCH',
+          archived: false,
+          id: 'BITCH-3',
+          last_active: 60,
+          started_at: 50,
+          title: 'BITCH #3'
+        }),
+        session({
+          _lineage_root_id: null,
+          archived: true,
+          id: 'BITCH',
+          last_active: 20,
+          started_at: 10,
+          title: 'BITCH'
+        }),
+        session({
+          _lineage_root_id: 'BITCH',
+          archived: true,
+          id: 'BITCH-2',
+          last_active: 40,
+          started_at: 30,
+          title: 'BITCH #2'
+        })
+      ],
+      total: 3,
+      limit: 40,
+      offset: 0
+    })
+
+    await loadSessions()
+
+    expect(lineageMessageSessionIds('BITCH-3')).toEqual(['BITCH', 'BITCH-2', 'BITCH-3'])
+    expect(rawSessionState.sessions).toHaveLength(1)
+    expect(rawSessionState.sessions[0]).toMatchObject({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })
   })
 
   it('collapses archived compression predecessors behind the latest visible continuation tip without masking its title', () => {

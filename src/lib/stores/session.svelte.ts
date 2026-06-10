@@ -80,6 +80,11 @@ export interface SessionState {
   sessionsTotal: number
   sessionProfileTotals: Record<string, number>
   sessionProfilesById: Record<string, string>
+  /** Ordered stored-session ids that belong to a compression/renewal lineage,
+   *  keyed by the durable thread/root id. Used to hydrate the visible thread
+   *  from every remote stored segment instead of only the latest compression tip. */
+  sessionLineageIdsByThreadId: Record<string, string[]>
+  sessionStartedAtById: Record<string, number>
   sessionThreadIdsById: Record<string, string>
   workingSessionIds: string[]
 }
@@ -117,6 +122,8 @@ export const sessionState = $state<SessionState>({
   sessionsTotal: 0,
   sessionProfileTotals: {},
   sessionProfilesById: {},
+  sessionLineageIdsByThreadId: {},
+  sessionStartedAtById: {},
   sessionThreadIdsById: {},
   workingSessionIds: []
 })
@@ -150,20 +157,72 @@ export function threadIdForSessionId(sessionId: string | null | undefined): stri
   return sessionState.sessionThreadIdsById[displayId] ?? displayId
 }
 
+export function lineageMessageSessionIds(sessionId: string | null | undefined): string[] {
+  const id = sessionId?.trim()
+  if (!id) return []
+
+  const threadId = threadIdForSessionId(id) ?? id
+  const lineageIds = sessionState.sessionLineageIdsByThreadId[threadId]
+  const orderedIds = lineageIds?.length ? lineageIds : [threadId]
+  const result = orderedIds.filter(Boolean)
+
+  if (!result.includes(id)) {
+    result.push(id)
+  }
+
+  return [...new Set(result)]
+}
+
 function recordSessionProfiles(sessions: SessionInfo[]): void {
   const nextProfiles = { ...sessionState.sessionProfilesById }
+  const nextLineages = { ...sessionState.sessionLineageIdsByThreadId }
+  const nextStartedAt = { ...sessionState.sessionStartedAtById }
   const nextThreads = { ...sessionState.sessionThreadIdsById }
+  const touchedThreadIds = new Set<string>()
 
   for (const session of sessions) {
     const profile = normalizeProfileKey(session.profile)
     const threadId = sessionThreadId(session)
+    const lineageIds = new Set(nextLineages[threadId] ?? [])
+
+    lineageIds.add(threadId)
+    lineageIds.add(session.id)
+    nextLineages[threadId] = [...lineageIds]
     nextProfiles[session.id] = profile
     nextProfiles[threadId] ??= profile
+    nextStartedAt[session.id] = session.started_at
     nextThreads[session.id] = threadId
     nextThreads[threadId] = threadId
+    touchedThreadIds.add(threadId)
+  }
+
+  for (const threadId of touchedThreadIds) {
+    const originalOrder = new Map((nextLineages[threadId] ?? []).map((id, index) => [id, index]))
+    const ordered = [...new Set(nextLineages[threadId] ?? [threadId])]
+
+    ordered.sort((left, right) => {
+      if (left === threadId && right !== threadId) return -1
+      if (right === threadId && left !== threadId) return 1
+
+      const leftStarted = nextStartedAt[left]
+      const rightStarted = nextStartedAt[right]
+
+      if (leftStarted != null && rightStarted != null && leftStarted !== rightStarted) {
+        return leftStarted - rightStarted
+      }
+
+      if (leftStarted != null && rightStarted == null) return -1
+      if (rightStarted != null && leftStarted == null) return 1
+
+      return (originalOrder.get(left) ?? 0) - (originalOrder.get(right) ?? 0)
+    })
+
+    nextLineages[threadId] = ordered
   }
 
   sessionState.sessionProfilesById = nextProfiles
+  sessionState.sessionLineageIdsByThreadId = nextLineages
+  sessionState.sessionStartedAtById = nextStartedAt
   sessionState.sessionThreadIdsById = nextThreads
 }
 
@@ -204,11 +263,15 @@ function removeSessionFromLocalState(sessionId: string): void {
     if (id === sessionId || id === threadId || mappedThreadId === threadId) {
       delete sessionState.sessionThreadIdsById[id]
       delete sessionState.sessionProfilesById[id]
+      delete sessionState.sessionStartedAtById[id]
     }
   }
 
+  delete sessionState.sessionLineageIdsByThreadId[threadId]
   delete sessionState.sessionProfilesById[sessionId]
   delete sessionState.sessionProfilesById[threadId]
+  delete sessionState.sessionStartedAtById[sessionId]
+  delete sessionState.sessionStartedAtById[threadId]
   delete sessionState.sessionThreadIdsById[sessionId]
   delete sessionState.sessionThreadIdsById[threadId]
 
@@ -807,6 +870,8 @@ export async function createSession(): Promise<string | null> {
     rememberRuntimeSession(storedKey, liveSid)
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
+    sessionState.sessionLineageIdsByThreadId[storedKey] = [storedKey]
+    sessionState.sessionStartedAtById[storedKey] = Date.now() / 1000
     sessionState.sessionThreadIdsById[storedKey] = storedKey
 
     if (profile) {
@@ -877,6 +942,8 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
 
     sessionState.activeSessionId = cachedRuntimeId
     sessionState.storedSessionId = sessionId
+    sessionState.sessionLineageIdsByThreadId[threadIdForSessionId(sessionId) ?? sessionId] ??=
+      lineageMessageSessionIds(sessionId)
     sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
     if (profile) {
@@ -912,6 +979,8 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
     rememberRuntimeSession(sessionId, response.session_id)
     sessionState.activeSessionId = response.session_id
     sessionState.storedSessionId = sessionId
+    sessionState.sessionLineageIdsByThreadId[threadIdForSessionId(sessionId) ?? sessionId] ??=
+      lineageMessageSessionIds(sessionId)
     sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
     if (profile) {
