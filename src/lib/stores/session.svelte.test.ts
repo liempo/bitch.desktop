@@ -766,6 +766,44 @@ describe('session lineage threads', () => {
     expect(sessionThreadId({ id: 'solo', _lineage_root_id: null })).toBe('solo')
   })
 
+  it('strips generated lineage suffixes from sidebar titles when a thread advances', () => {
+    const threads = collapseSessionsToThreads([
+      session({
+        id: 'thread-root',
+        last_active: 10,
+        started_at: 10,
+        title: 'Deploy plan'
+      }),
+      session({
+        _lineage_root_id: 'thread-root',
+        id: 'thread-tip',
+        last_active: 20,
+        started_at: 20,
+        title: 'Deploy plan #2'
+      })
+    ])
+
+    expect(threads).toHaveLength(1)
+    expect(threads[0]).toMatchObject({
+      _lineage_root_id: 'thread-root',
+      id: 'thread-tip',
+      title: 'Deploy plan'
+    })
+  })
+
+  it('preserves hash-number titles for standalone sessions', () => {
+    const threads = collapseSessionsToThreads([
+      session({
+        id: 'solo',
+        last_active: 10,
+        started_at: 10,
+        title: 'Plan #2'
+      })
+    ])
+
+    expect(threads[0]).toMatchObject({ id: 'solo', title: 'Plan #2' })
+  })
+
   it('collapses archived compression predecessors behind the latest visible continuation tip without masking its title', () => {
     const threads = collapseSessionsToThreads([
       {
@@ -836,7 +874,7 @@ describe('session lineage threads', () => {
       last_active: 60,
       message_count: 21,
       preview: 'latest preview',
-      title: 'BITCH #3',
+      title: 'BITCH',
       tool_call_count: 6
     })
   })

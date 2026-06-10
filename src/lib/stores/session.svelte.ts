@@ -243,6 +243,17 @@ function oldestSession(sessions: SessionInfo[]): SessionInfo {
   return sessions.reduce((oldest, session) => (session.started_at < oldest.started_at ? session : oldest))
 }
 
+function threadTitle(title: null | string | undefined, stripLineageSuffix: boolean): null | string {
+  const trimmed = title?.trim()
+  if (!trimmed) return null
+
+  return stripLineageSuffix ? trimmed.replace(/\s+#\d+$/, '') : trimmed
+}
+
+function shouldStripLineageTitleSuffix(session: SessionInfo, sessions: SessionInfo[]): boolean {
+  return sessions.length > 1 || sessionThreadId(session) !== session.id
+}
+
 function collapseSessionGroup(threadId: string, sessions: SessionInfo[]): SessionInfo | null {
   const latest = newestSession(sessions)
   if (latest.archived) return null
@@ -255,7 +266,8 @@ function collapseSessionGroup(threadId: string, sessions: SessionInfo[]): Sessio
   const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
   const lastActive = Math.max(...sessions.map(recentValue))
   const startedAt = Math.min(...sessions.map(session => session.started_at))
-  const title = latest.title?.trim() || root.title
+  const stripLineageSuffix = shouldStripLineageTitleSuffix(latest, sessions)
+  const title = threadTitle(latest.title, stripLineageSuffix) ?? threadTitle(root.title, stripLineageSuffix)
 
   return {
     ...latest,
@@ -301,7 +313,8 @@ function collapseArchivedSessionGroup(threadId: string, sessions: SessionInfo[])
   const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
   const lastActive = Math.max(...sessions.map(recentValue))
   const startedAt = Math.min(...sessions.map(session => session.started_at))
-  const title = latest.title?.trim() || root.title
+  const stripLineageSuffix = shouldStripLineageTitleSuffix(latest, sessions)
+  const title = threadTitle(latest.title, stripLineageSuffix) ?? threadTitle(root.title, stripLineageSuffix)
 
   return {
     ...latest,
