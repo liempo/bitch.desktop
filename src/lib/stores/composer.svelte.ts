@@ -17,6 +17,7 @@ import {
   profileForSession,
   runtimeSessionIdForStored,
   sessionState,
+  startNewSession,
   threadIdForSessionId
 } from '$lib/stores/session.svelte'
 import { navigate, routerState, sessionRoute } from '@/app/agent/router.svelte'
@@ -139,6 +140,7 @@ export interface ComposerState {
 export interface SubmitPromptOptions {
   attachments?: ComposerAttachment[]
   fromQueue?: boolean
+  queue?: boolean
   text?: string
 }
 
@@ -478,8 +480,28 @@ function parseSlashCommand(command: string): { arg: string; name: string } {
   return match ? { arg: match[2].trim(), name: match[1] } : { arg: '', name: '' }
 }
 
+function isCommandNotFoundError(error: unknown): boolean {
+  const message = inlineErrorMessage(error, '').toLowerCase()
+
+  return (
+    /not a quick\/plugin\/skill command/.test(message) ||
+    /unknown (slash )?command/.test(message) ||
+    /command not found/.test(message) ||
+    /not a slash command/.test(message)
+  )
+}
+
+function commandNotFoundMessage(name: string): string {
+  return `Command not found: /${name}`
+}
+
 function slashExecCommand(command: string): string {
   return command.replace(/^\/+/, '')
+}
+
+function clearComposerPayload(sessionId: null | string | undefined): void {
+  clearComposerDraft(sessionId)
+  clearComposerAttachments(sessionId)
 }
 
 function parseCommandDispatch(raw: unknown): CommandDispatchResponse | null {
@@ -839,66 +861,89 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
   const parsed = parseSlashCommand(command)
   const displayKey = displaySessionKey(sessionId) ?? sessionId
   const composer = ensureComposerSession(displayKey)
+  const targetComposerKey = displayKey ?? sessionId
 
   if (!command.startsWith('/') || !parsed.name) return false
 
-  const profileArg = profileSlashArg(command)
-  if (profileArg !== undefined) {
-    return executeProfileCommand(sessionId, command, profileArg, composer)
-  }
-
-  let targetSessionId = liveSessionKey(sessionId)
-
-  if (!targetSessionId) {
-    targetSessionId = await createSession()
-  }
-
-  if (!targetSessionId) {
-    composer.error = 'Could not create a session for the slash command.'
-    return false
-  }
+  composer.submitting = true
+  composer.error = null
+  clearComposerPayload(targetComposerKey)
 
   try {
-    const profile = targetProfileForSession(sessionId)
-    await ensureGatewayProfile(profile)
-    const result = await requestGateway<SlashExecResponse>('slash.exec', {
-      command: slashExecCommand(command),
-      session_id: targetSessionId,
-      profile
-    })
-    appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
-    clearComposerDraft(sessionId)
-    clearComposerAttachments(sessionId)
-    commitActiveSessionRoute()
-    void loadSessions().catch(() => undefined)
+    const normalizedName = parsed.name.toLowerCase()
 
-    return true
-  } catch (error) {
+    if (normalizedName === 'new' || normalizedName === 'reset') {
+      startNewSession()
+      return true
+    }
+
+    const profileArg = profileSlashArg(command)
+    if (profileArg !== undefined) {
+      return executeProfileCommand(sessionId, command, profileArg, composer)
+    }
+
+    let targetSessionId = liveSessionKey(sessionId)
+
+    if (!targetSessionId) {
+      targetSessionId = await createSession()
+    }
+
+    if (!targetSessionId) {
+      composer.error = 'Could not create a session for the slash command.'
+      return false
+    }
+
     try {
-      const handled = await executeCommandDispatch({
-        arg: parsed.arg,
-        command,
-        composer,
-        name: parsed.name,
-        profile: targetProfileForSession(sessionId),
-        sessionId,
-        targetSessionId
+      const profile = targetProfileForSession(sessionId)
+      await ensureGatewayProfile(profile)
+      const result = await requestGateway<SlashExecResponse>('slash.exec', {
+        command: slashExecCommand(command),
+        session_id: targetSessionId,
+        profile
       })
+      appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
+      commitActiveSessionRoute()
+      void loadSessions().catch(() => undefined)
 
-      if (handled) return true
-    } catch (dispatchError) {
-      const message = inlineErrorMessage(dispatchError, 'Command dispatch failed')
+      return true
+    } catch (error) {
+      if (isCommandNotFoundError(error)) {
+        const message = commandNotFoundMessage(parsed.name)
+        composer.error = message
+        appendAssistantErrorMessage(targetSessionId, message)
+        return false
+      }
+
+      try {
+        const handled = await executeCommandDispatch({
+          arg: parsed.arg,
+          command,
+          composer,
+          name: parsed.name,
+          profile: targetProfileForSession(sessionId),
+          sessionId,
+          targetSessionId
+        })
+
+        if (handled || composer.error) return handled
+      } catch (dispatchError) {
+        const message = isCommandNotFoundError(dispatchError)
+          ? commandNotFoundMessage(parsed.name)
+          : inlineErrorMessage(dispatchError, 'Command dispatch failed')
+        composer.error = message
+        appendAssistantErrorMessage(targetSessionId, message)
+
+        return false
+      }
+
+      const message = inlineErrorMessage(error, 'Slash command failed')
       composer.error = message
       appendAssistantErrorMessage(targetSessionId, message)
 
       return false
     }
-
-    const message = inlineErrorMessage(error, 'Slash command failed')
-    composer.error = message
-    appendAssistantErrorMessage(targetSessionId, message)
-
-    return false
+  } finally {
+    composer.submitting = false
   }
 }
 
@@ -957,7 +1002,7 @@ async function executeCommandDispatch(options: {
         options.targetSessionId,
         renderSlashOutput(options.command, { output: `loading skill: ${dispatch.name}` })
       )
-      return submitPrompt(options.sessionId, { text: message })
+      return submitPrompt(options.sessionId, { queue: false, text: message })
     }
 
     case 'send': {
@@ -974,7 +1019,7 @@ async function executeCommandDispatch(options: {
         appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: dispatch.notice }))
       }
 
-      return submitPrompt(options.sessionId, { text: message })
+      return submitPrompt(options.sessionId, { queue: false, text: message })
     }
   }
 }
@@ -1239,12 +1284,13 @@ export async function submitPrompt(
   const visibleText = rawText.trim()
   const attachments = cloneAttachments(options.attachments ?? composer.attachments)
   const hasPayload = Boolean(visibleText || attachments.length)
+  const allowQueue = options.queue ?? true
 
   if (!hasPayload) return false
 
   const activeThread = threadForSession(sessionId)
 
-  if (!options.fromQueue && sessionId && activeThread?.busy) {
+  if (allowQueue && !options.fromQueue && sessionId && activeThread?.busy) {
     const entry = enqueueQueuedPrompt(sessionId, { attachments, text: visibleText })
 
     if (entry) {
@@ -1311,11 +1357,16 @@ export async function submitPrompt(
         thread.messages.pop()
       }
 
-      const queueKey = sessionId ?? displayKey
-      enqueueQueuedPrompt(queueKey, { attachments, text: visibleText })
-      composer.error = null
+      if (allowQueue) {
+        const queueKey = sessionId ?? displayKey
+        enqueueQueuedPrompt(queueKey, { attachments, text: visibleText })
+        composer.error = null
 
-      return true
+        return true
+      }
+
+      composer.error = inlineErrorMessage(error, 'Session busy')
+      return false
     }
 
     const message = inlineErrorMessage(error, 'Prompt failed')
