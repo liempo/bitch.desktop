@@ -108,8 +108,8 @@
     </div>
   {:else}
     <div class="py-4">
-      {#each messages as message (message.id)}
-        <Message {message} {sessionId} />
+      {#each messages as message, index (message.id)}
+        <Message {message} {sessionId} isLast={index === messages.length - 1} />
       {/each}
 
       {#if sessionId}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/components/ui/Button.svelte'
+  import Loader from '@/components/ui/Loader.svelte'
   import SessionActionsMenu from './SessionActionsMenu.svelte'
   import type { SessionInfo, SessionSearchResult } from '$lib/types/hermes'
 
@@ -29,7 +30,8 @@
     onTogglePin = () => undefined,
     pinned = false,
     searchResult = null,
-    session = null
+    session = null,
+    working = false
   }: Props = $props()
 
   const id = $derived(session?.id ?? searchResult?.session_id ?? '')
@@ -109,6 +111,9 @@
     >
       <span class="flex min-w-0 items-center gap-1.5 text-[11px]">
         <span class="flex min-w-0 flex-1 items-center gap-1 truncate uppercase tracking-[0.05em]" title={title}>
+          {#if working}
+            <Loader size="sm" tone="secondary" label="Session thinking" />
+          {/if}
           <span class="min-w-0 truncate">{title}</span>
         </span>
         {#if pinned}

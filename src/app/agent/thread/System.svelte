@@ -2,20 +2,23 @@
   import { cardClass } from '@/components/ui/styles'
 
   interface Props {
+    lastInThread?: boolean
     text: string
   }
 
-  let { text }: Props = $props()
+  let { lastInThread = false, text }: Props = $props()
 
-  let open = $state(false)
+  let userOpen: boolean | null = $state(null)
 
   const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g')
   const systemCardClass = `${cardClass} my-1.5 overflow-hidden border-dashed border-line text-xs text-ink-muted`
   const parsed = $derived(parseSystemText(text))
   const hasBody = $derived(Boolean(parsed.body))
+  const autoOpen = $derived(lastInThread && hasBody)
+  const open = $derived(userOpen ?? autoOpen)
 
   function toggle(): void {
-    if (hasBody) open = !open
+    if (hasBody) userOpen = !open
   }
 
   function parseSystemText(value: string): { body: string; context: string } {
