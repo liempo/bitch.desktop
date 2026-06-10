@@ -553,6 +553,11 @@ export async function addAttachmentFiles(
 
 export const addImageFiles = addAttachmentFiles
 
+export function shouldDispatchSlashImmediately(draft: string, busy = false): boolean {
+  void busy
+  return draft.trim().startsWith('/')
+}
+
 export function markComposerInterrupted(sessionId: null | string | undefined, interrupted: boolean): void {
   ensureComposerSession(sessionId).userInterrupted = interrupted
 }

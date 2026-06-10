@@ -1,10 +1,29 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-const { mockRequestGateway, mockNavigate, mockSessionRoute, mockEnsureGatewayForProfile } = vi.hoisted(() => ({
+const {
+  mockRequestGateway,
+  mockNavigate,
+  mockSessionRoute,
+  mockEnsureGatewayForProfile,
+  mockApiRenameSession,
+  mockApiSetSessionArchived,
+  mockApiDeleteSession,
+  mockApiListSessions,
+  mockApiListAllProfileSessions,
+  mockApiSearchSessions,
+  mockSetApiRequestProfile
+} = vi.hoisted(() => ({
   mockRequestGateway: vi.fn(),
   mockNavigate: vi.fn(),
   mockSessionRoute: vi.fn((id: string) => `/${id}`),
-  mockEnsureGatewayForProfile: vi.fn()
+  mockEnsureGatewayForProfile: vi.fn(),
+  mockApiRenameSession: vi.fn(),
+  mockApiSetSessionArchived: vi.fn(),
+  mockApiDeleteSession: vi.fn(),
+  mockApiListSessions: vi.fn(),
+  mockApiListAllProfileSessions: vi.fn(),
+  mockApiSearchSessions: vi.fn(),
+  mockSetApiRequestProfile: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
@@ -19,10 +38,23 @@ vi.mock('@/app/agent/router.svelte', () => ({
   routerState: {}
 }))
 
+vi.mock('$lib/api/dashboard', () => ({
+  deleteSession: mockApiDeleteSession,
+  listAllProfileSessions: mockApiListAllProfileSessions,
+  listSessions: mockApiListSessions,
+  renameSession: mockApiRenameSession,
+  searchSessions: mockApiSearchSessions,
+  setApiRequestProfile: mockSetApiRequestProfile,
+  setSessionArchived: mockApiSetSessionArchived
+}))
+
 import {
+  archiveSession,
   createSession,
+  deleteSession,
   hasMoreSessions,
   rememberRuntimeSession,
+  renameSession,
   resumeSession,
   runtimeSessionIdForStored,
   selectSession,
@@ -349,6 +381,90 @@ describe('resumeSession', () => {
     expect(result).toBeNull()
     expect(rawSessionState.error).toBeTruthy()
     expect(rawSessionState.storedSessionId).toBe('bad_id')
+  })
+})
+
+describe('session mutations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = null
+    rawSessionState.storedSessionId = null
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.sessions = [
+      {
+        archived: false,
+        cwd: null,
+        ended_at: 123,
+        id: 'stored-A',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 456,
+        message_count: 3,
+        model: null,
+        output_tokens: 0,
+        preview: null,
+        profile: 'crypto/profile',
+        source: 'cli',
+        started_at: 100,
+        title: 'Old title',
+        tool_call_count: 0
+      }
+    ]
+    rawSessionState.sessionsTotal = 1
+    rawSessionState.sessionProfileTotals = { 'crypto/profile': 1 }
+    rawSessionState.sessionProfilesById = { 'stored-A': 'crypto/profile' }
+    rawSessionState.runtimeIdsByStoredSessionId = { 'stored-A': 'live-A' }
+    rawSessionState.storedSessionIdsByRuntimeId = { 'live-A': 'stored-A' }
+    profileState.activeGatewayProfile = 'default'
+    profileState.showAllProfiles = true
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('renames using the row owning profile and updates local title', async () => {
+    mockApiRenameSession.mockResolvedValueOnce({ ok: true, title: 'New title' })
+
+    await expect(renameSession('stored-A', ' New title ')).resolves.toBe(true)
+
+    expect(mockApiRenameSession).toHaveBeenCalledWith('stored-A', 'New title', 'crypto/profile')
+    expect(rawSessionState.sessions[0]?.title).toBe('New title')
+  })
+
+  it('archives using the row owning profile and removes only that profile count locally', async () => {
+    mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true, archived: true })
+
+    await expect(archiveSession('stored-A')).resolves.toBe(true)
+
+    expect(mockApiSetSessionArchived).toHaveBeenCalledWith('stored-A', true, 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.sessionsTotal).toBe(0)
+    expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(0)
+    expect(runtimeSessionIdForStored('stored-A')).toBeNull()
+  })
+
+  it('deletes using the row owning profile and navigates away when selected', async () => {
+    rawSessionState.activeSessionId = 'live-A'
+    rawSessionState.storedSessionId = 'stored-A'
+    mockApiDeleteSession.mockResolvedValueOnce({ ok: true })
+
+    await expect(deleteSession('stored-A')).resolves.toBe(true)
+
+    expect(mockApiDeleteSession).toHaveBeenCalledWith('stored-A', 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(rawSessionState.storedSessionId).toBeNull()
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('leaves profile-owned rows in place when delete fails', async () => {
+    mockApiDeleteSession.mockRejectedValueOnce(new Error('not found in profile'))
+
+    await expect(deleteSession('stored-A')).resolves.toBe(false)
+
+    expect(rawSessionState.sessions.map(session => session.id)).toEqual(['stored-A'])
+    expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(1)
+    expect(rawSessionState.error).toBe('not found in profile')
   })
 })
 
