@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockRequestGateway,
@@ -50,21 +50,48 @@ vi.mock('$lib/api/dashboard', () => ({
 
 import {
   archiveSession,
+  collapseArchivedSessionsToThreads,
   collapseSessionsToThreads,
   createSession,
   deleteSession,
   hasMoreSessions,
+  loadArchivedSessions,
   rememberRuntimeSession,
   renameSession,
+  restoreArchivedSession,
   resumeSession,
   runtimeSessionIdForStored,
   selectSession,
+  setSearchQuery,
   sessionState as rawSessionState,
   sessionThreadId,
   startNewSession,
   storedSessionIdForRuntime
 } from '$lib/stores/session.svelte'
 import { profileState } from '$lib/stores/profile.svelte'
+import { gatewayState } from '$lib/stores/gateway.svelte'
+import type { SessionInfo } from '$lib/types/hermes'
+
+function session(overrides: Partial<SessionInfo>): SessionInfo {
+  return {
+    archived: false,
+    cwd: null,
+    ended_at: null,
+    id: 'session-id',
+    input_tokens: 0,
+    is_active: false,
+    last_active: 100,
+    message_count: 1,
+    model: null,
+    output_tokens: 0,
+    preview: null,
+    source: 'cli',
+    started_at: 100,
+    title: 'Session title',
+    tool_call_count: 0,
+    ...overrides
+  }
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -468,6 +495,163 @@ describe('session mutations', () => {
     expect(rawSessionState.sessions.map(session => session.id)).toEqual(['stored-A'])
     expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(1)
     expect(rawSessionState.error).toBe('not found in profile')
+  })
+})
+
+describe('archived sessions', () => {
+  afterEach(() => {
+    gatewayState.connectionState = 'idle'
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    gatewayState.connectionState = 'open'
+    profileState.showAllProfiles = true
+    profileState.activeGatewayProfile = 'default'
+    rawSessionState.archivedError = null
+    rawSessionState.archivedSessionProfileTotals = {}
+    rawSessionState.archivedSessions = []
+    rawSessionState.archivedSessionsInitialized = false
+    rawSessionState.archivedSessionsLoading = false
+    rawSessionState.archivedSessionsLoadingMore = false
+    rawSessionState.archivedSessionsOffset = 0
+    rawSessionState.archivedSessionsTotal = 0
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessions = []
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('loads only archived sessions for the active profile scope', async () => {
+    const archived = session({
+      archived: true,
+      id: 'archived-A',
+      last_active: 456,
+      message_count: 3,
+      profile: 'crypto/profile',
+      title: 'Archived plan'
+    })
+
+    mockApiListAllProfileSessions.mockResolvedValueOnce({
+      sessions: [archived],
+      total: 1,
+      limit: 40,
+      offset: 0,
+      profile_totals: { 'crypto/profile': 1 }
+    })
+
+    await loadArchivedSessions()
+
+    expect(mockApiListAllProfileSessions).toHaveBeenCalledWith(40, 0, 0, 'only', 'recent', 'all')
+    expect(rawSessionState.archivedSessions).toHaveLength(1)
+    expect(rawSessionState.archivedSessions[0]).toMatchObject({ id: 'archived-A', title: 'Archived plan' })
+    expect(rawSessionState.sessionProfilesById['archived-A']).toBe('crypto/profile')
+  })
+
+  it('restores archived sessions using their owning profile and refreshes recents', async () => {
+    const archived = session({
+      archived: true,
+      id: 'archived-A',
+      profile: 'crypto/profile',
+      title: 'Archived plan'
+    })
+
+    rawSessionState.archivedSessions = [archived]
+    rawSessionState.archivedSessionsTotal = 1
+    rawSessionState.archivedSessionProfileTotals = { 'crypto/profile': 1 }
+    rawSessionState.sessionProfilesById = { 'archived-A': 'crypto/profile' }
+    rawSessionState.sessionThreadIdsById = { 'archived-A': 'archived-A' }
+    mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true })
+
+    await expect(restoreArchivedSession(archived)).resolves.toBe(true)
+
+    expect(mockApiSetSessionArchived).toHaveBeenCalledWith('archived-A', false, 'crypto/profile')
+    expect(rawSessionState.archivedSessions).toEqual([])
+    expect(rawSessionState.archivedSessionsTotal).toBe(0)
+    expect(mockApiListAllProfileSessions).toHaveBeenCalledWith(40, 0, 0, 'include', 'recent', 'all')
+  })
+
+  it('collapses archived lineage rows into one restorable thread row', () => {
+    const rows = collapseArchivedSessionsToThreads([
+      session({
+        archived: true,
+        id: 'thread-root',
+        last_active: 10,
+        message_count: 2,
+        title: 'Root title'
+      }),
+      session({
+        _lineage_root_id: 'thread-root',
+        archived: true,
+        id: 'thread-tip',
+        last_active: 20,
+        message_count: 4,
+        title: 'Tip title'
+      })
+    ])
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      _lineage_root_id: 'thread-root',
+      archived: true,
+      id: 'thread-tip',
+      message_count: 6,
+      title: 'Tip title'
+    })
+  })
+})
+
+describe('session search', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    rawSessionState.searchError = null
+    rawSessionState.searchQuery = ''
+    rawSessionState.searchResults = []
+    rawSessionState.searching = false
+    rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessions = [
+      session({
+        id: 'stored-A',
+        profile: 'crypto/profile',
+        title: 'Deploy plan'
+      })
+    ]
+  })
+
+  afterEach(() => {
+    setSearchQuery('')
+    vi.useRealTimers()
+  })
+
+  it('enriches search rows with session titles and matching previews', async () => {
+    mockApiSearchSessions.mockResolvedValueOnce({
+      results: [
+        {
+          lineage_root: null,
+          model: 'claude-opus',
+          role: 'user',
+          session_id: 'stored-A',
+          session_started: 100,
+          snippet: 'matching\nquery text',
+          source: 'cli'
+        }
+      ]
+    })
+
+    setSearchQuery('matching')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(mockApiSearchSessions).toHaveBeenCalledWith('matching')
+    expect(rawSessionState.searchResults[0]).toMatchObject({
+      preview: 'matching query text',
+      profile: 'crypto/profile',
+      title: 'Deploy plan'
+    })
   })
 })
 

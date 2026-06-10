@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
 
-  type LoaderSize = 'sm' | 'md' | 'lg'
+  type LoaderSize = 'sm' | 'md' | 'lg' | 'xl'
   type LoaderTone = 'primary' | 'secondary'
 
   interface Props {
@@ -17,7 +17,13 @@
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
   const sizeClass = $derived(
-    size === 'sm' ? 'h-2.5 w-2.5 text-[0.7rem]' : size === 'lg' ? 'h-5 w-5 text-base' : 'h-3.5 w-3.5 text-xs'
+    size === 'sm'
+      ? 'h-2.5 w-2.5 text-[0.7rem]'
+      : size === 'lg'
+        ? 'h-5 w-5 text-base'
+        : size === 'xl'
+          ? 'h-10 w-10 text-3xl'
+          : 'h-3.5 w-3.5 text-xs'
   )
   const toneClass = $derived(tone === 'secondary' ? 'text-secondary' : 'text-primary')
 

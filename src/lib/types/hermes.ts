@@ -96,12 +96,18 @@ export interface SessionSearchResult {
    *  used as the durable pin id; falls back to session_id when absent. */
   lineage_root?: string | null
   model: string | null
+  /** Matching query preview/snippet returned by search, normalized by the UI when present. */
+  preview?: string | null
+  /** Owning profile name, present on multi-profile search payloads or inferred locally. */
+  profile?: string
   role: string | null
   /** Live compression tip of the matched conversation — resume by this id. */
   session_id: string
   session_started: number | null
   snippet: string
   source: string | null
+  /** Stable session title returned by search, or inferred from the loaded session index. */
+  title?: string | null
 }
 
 export interface SessionSearchResponse {

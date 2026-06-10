@@ -2,6 +2,7 @@
   import { tick } from 'svelte'
   import Approval from '../prompts/Approval.svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
+  import Glyph from '@/components/ui/Glyph.svelte'
   import Loader from '@/components/ui/Loader.svelte'
   import Panel from '@/components/ui/Panel.svelte'
   import Message from './Message.svelte'
@@ -83,20 +84,11 @@
 >
   {#if !sessionId}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <Panel title="Remote Hermes Client" titleClass="text-primary" class="max-w-lg" contentClass="p-6 text-center" padded={false} fullHeight={false}>
-        <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-secondary">awaiting_route</p>
-        <h1 class="mt-3 text-2xl font-semibold tracking-[0.08em] text-ink-bright">BITCH</h1>
-        <p class="mt-3 text-sm leading-6 text-ink-muted">
-          Select a session from the index. The chrome is installed; the operator still has to feed it work.
-        </p>
-      </Panel>
+      <Glyph />
     </div>
   {:else if loadingSession}
-    <div class="flex min-h-full items-center justify-center px-6 py-16" aria-label="Loading session" role="status">
-      <Panel title="Hydrating Transcript" titleClass="text-primary" contentClass="flex flex-col items-center gap-3 p-5 text-center" padded={false} fullHeight={false}>
-        <Loader size="lg" />
-        <p class="text-xs uppercase tracking-[0.16em] text-ink-muted">loading session history</p>
-      </Panel>
+    <div class="flex min-h-full items-center justify-center px-6 py-16">
+      <Loader size="xl" label="Loading session" />
     </div>
   {:else if thread?.error && messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">

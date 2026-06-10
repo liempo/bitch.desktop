@@ -56,6 +56,14 @@ export interface SessionState {
   runtimeIdsByStoredSessionId: Record<string, string>
   /** Stored key by runtime sid. Reverse index for stream event routing. */
   storedSessionIdsByRuntimeId: Record<string, string>
+  archivedError: string | null
+  archivedSessionProfileTotals: Record<string, number>
+  archivedSessions: SessionInfo[]
+  archivedSessionsInitialized: boolean
+  archivedSessionsLoading: boolean
+  archivedSessionsLoadingMore: boolean
+  archivedSessionsOffset: number
+  archivedSessionsTotal: number
   error: string | null
   mutatingSessionIds: string[]
   needsInputSessionIds: string[]
@@ -85,6 +93,14 @@ export const sessionState = $state<SessionState>({
   storedSessionId: null,
   runtimeIdsByStoredSessionId: {},
   storedSessionIdsByRuntimeId: {},
+  archivedError: null,
+  archivedSessionProfileTotals: {},
+  archivedSessions: [],
+  archivedSessionsInitialized: false,
+  archivedSessionsLoading: false,
+  archivedSessionsLoadingMore: false,
+  archivedSessionsOffset: 0,
+  archivedSessionsTotal: 0,
   error: null,
   mutatingSessionIds: [],
   needsInputSessionIds: [],
@@ -276,6 +292,51 @@ export function collapseSessionsToThreads(sessions: SessionInfo[]): SessionInfo[
     .sort((left, right) => recentValue(right) - recentValue(left))
 }
 
+function collapseArchivedSessionGroup(threadId: string, sessions: SessionInfo[]): SessionInfo {
+  const latest = newestSession(sessions)
+  const root = sessions.find(session => session.id === threadId) ?? oldestSession(sessions)
+  const inputTokens = sessions.reduce((total, session) => total + (session.input_tokens ?? 0), 0)
+  const outputTokens = sessions.reduce((total, session) => total + (session.output_tokens ?? 0), 0)
+  const messageCount = sessions.reduce((total, session) => total + (session.message_count ?? 0), 0)
+  const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
+  const lastActive = Math.max(...sessions.map(recentValue))
+  const startedAt = Math.min(...sessions.map(session => session.started_at))
+  const title = latest.title?.trim() || root.title
+
+  return {
+    ...latest,
+    _lineage_root_id: latest.id === threadId ? (latest._lineage_root_id ?? null) : threadId,
+    archived: true,
+    input_tokens: inputTokens,
+    is_active: sessions.some(session => session.is_active),
+    last_active: lastActive,
+    message_count: messageCount,
+    output_tokens: outputTokens,
+    started_at: startedAt,
+    title,
+    tool_call_count: toolCallCount
+  }
+}
+
+export function collapseArchivedSessionsToThreads(sessions: SessionInfo[]): SessionInfo[] {
+  const groups = new Map<string, { sessions: SessionInfo[]; threadId: string }>()
+
+  for (const session of sessions) {
+    const key = sessionGroupKey(session)
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.sessions.push(session)
+    } else {
+      groups.set(key, { sessions: [session], threadId: sessionThreadId(session) })
+    }
+  }
+
+  return [...groups.values()]
+    .map(group => collapseArchivedSessionGroup(group.threadId, group.sessions))
+    .sort((left, right) => recentValue(right) - recentValue(left))
+}
+
 function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
   const existingKeepers =
     offset === 0
@@ -290,6 +351,40 @@ function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
   }
 
   return collapseSessionsToThreads([...merged.values()])
+}
+
+function mergeArchivedSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
+  const merged = new Map<string, SessionInfo>()
+
+  for (const session of [...incoming, ...(offset === 0 ? [] : sessionState.archivedSessions)]) {
+    if (!merged.has(session.id)) {
+      merged.set(session.id, session)
+    }
+  }
+
+  return collapseArchivedSessionsToThreads([...merged.values()])
+}
+
+function removeArchivedSessionFromLocalState(sessionId: string): void {
+  const threadId = threadIdForSessionId(sessionId) ?? sessionId
+  const before = sessionState.archivedSessions.length
+  const profile = profileForSession(sessionId) ?? profileForSession(threadId)
+
+  sessionState.archivedSessions = sessionState.archivedSessions.filter(session => sessionThreadId(session) !== threadId)
+
+  if (sessionState.archivedSessions.length !== before && sessionState.archivedSessionsTotal > 0) {
+    sessionState.archivedSessionsTotal -= 1
+    if (
+      profile &&
+      sessionState.archivedSessionProfileTotals[profile] != null &&
+      sessionState.archivedSessionProfileTotals[profile] > 0
+    ) {
+      sessionState.archivedSessionProfileTotals = {
+        ...sessionState.archivedSessionProfileTotals,
+        [profile]: sessionState.archivedSessionProfileTotals[profile] - 1
+      }
+    }
+  }
 }
 
 function setSessionFlag(list: string[], sessionId: string, enabled: boolean): void {
@@ -391,6 +486,54 @@ async function refreshSessionLists(): Promise<void> {
   }
 }
 
+function normalizeSearchPreview(value: null | string | undefined): string | null {
+  const preview = value?.replace(/\s+/g, ' ').trim()
+  return preview || null
+}
+
+function sessionForSearchResult(result: SessionSearchResult): SessionInfo | null {
+  const threadId = result.lineage_root?.trim() || result.session_id
+
+  return (
+    sessionState.sessions.find(session => session.id === result.session_id || sessionThreadId(session) === threadId) ??
+    null
+  )
+}
+
+function enrichSearchResult(result: SessionSearchResult): SessionSearchResult {
+  const knownSession = sessionForSearchResult(result)
+  const lineageRoot = result.lineage_root?.trim() || null
+  const profile = normalizeProfileKey(
+    result.profile ??
+      knownSession?.profile ??
+      sessionState.sessionProfilesById[result.session_id] ??
+      (lineageRoot ? sessionState.sessionProfilesById[lineageRoot] : null)
+  )
+  const title = result.title?.trim() || knownSession?.title?.trim() || 'Untitled session'
+  const preview = normalizeSearchPreview(result.preview ?? result.snippet ?? knownSession?.preview)
+
+  sessionState.sessionProfilesById = {
+    ...sessionState.sessionProfilesById,
+    [result.session_id]: profile,
+    ...(lineageRoot ? { [lineageRoot]: profile } : {})
+  }
+
+  if (lineageRoot) {
+    sessionState.sessionThreadIdsById = {
+      ...sessionState.sessionThreadIdsById,
+      [result.session_id]: lineageRoot,
+      [lineageRoot]: lineageRoot
+    }
+  }
+
+  return {
+    ...result,
+    preview,
+    profile,
+    title
+  }
+}
+
 async function runSearch(query: string, revision = ++searchRevision): Promise<void> {
   if (!query) {
     sessionState.searchResults = []
@@ -406,7 +549,7 @@ async function runSearch(query: string, revision = ++searchRevision): Promise<vo
     const result = await apiSearchSessions(query)
 
     if (revision === searchRevision) {
-      sessionState.searchResults = result.results
+      sessionState.searchResults = result.results.map(enrichSearchResult)
       sessionState.searching = false
     }
   } catch (error) {
@@ -482,6 +625,70 @@ export async function loadSessions(offset = 0): Promise<void> {
 export async function loadMoreSessions(): Promise<void> {
   if (sessionState.sessionsLoadingMore || !hasMoreSessions()) return
   await loadSessions(sessionState.sessionsOffset)
+}
+
+export async function loadArchivedSessions(offset = 0): Promise<void> {
+  if (gatewayState.connectionState !== 'open') return
+
+  const firstPage = offset === 0
+
+  if (firstPage) {
+    sessionState.archivedSessionsLoading = true
+  } else {
+    sessionState.archivedSessionsLoadingMore = true
+  }
+
+  sessionState.archivedError = null
+
+  try {
+    const scope = getProfileScope() === ALL_PROFILES ? 'all' : normalizeProfileKey(getProfileScope())
+    let result: PaginatedSessions
+
+    try {
+      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'only', 'recent', scope)
+    } catch (error) {
+      if (scope !== 'all') {
+        result = await apiListSessions(PAGE_SIZE, offset, 0, 'only', 'recent', scope)
+      } else {
+        throw error
+      }
+    }
+
+    const fallbackProfile = scope === 'all' ? 'default' : scope
+    const sessions = result.sessions.map(session => sessionWithProfile({ ...session, archived: true }, fallbackProfile))
+
+    recordSessionProfiles(sessions)
+    sessionState.archivedSessions = mergeArchivedSessions(sessions, offset)
+    sessionState.archivedSessionProfileTotals = result.profile_totals ?? {}
+    sessionState.archivedSessionsTotal =
+      scope !== 'all' && result.profile_totals?.[scope] != null ? result.profile_totals[scope] : result.total
+    sessionState.archivedSessionsOffset = offset + sessions.length
+    sessionState.archivedSessionsInitialized = true
+  } catch (error) {
+    sessionState.archivedError = messageForError(error)
+    console.error('Failed to load archived sessions:', error)
+  } finally {
+    sessionState.archivedSessionsLoading = false
+    sessionState.archivedSessionsLoadingMore = false
+  }
+}
+
+export async function loadMoreArchivedSessions(): Promise<void> {
+  if (sessionState.archivedSessionsLoadingMore || !hasMoreArchivedSessions()) return
+  await loadArchivedSessions(sessionState.archivedSessionsOffset)
+}
+
+export function hasMoreArchivedSessions(): boolean {
+  if (getProfileScope() !== ALL_PROFILES) {
+    const scope = normalizeProfileKey(getProfileScope())
+    const scopedTotal = sessionState.archivedSessionProfileTotals[scope]
+
+    if (scopedTotal != null) {
+      return sessionState.archivedSessionsOffset < scopedTotal
+    }
+  }
+
+  return sessionState.archivedSessionsOffset < sessionState.archivedSessionsTotal
 }
 
 export function hasMoreSessions(): boolean {
@@ -773,6 +980,35 @@ export async function archiveSession(sessionId: string, archived = true): Promis
     return false
   } finally {
     setMutating(sessionId, false)
+  }
+}
+
+export async function restoreArchivedSession(session: SessionInfo): Promise<boolean> {
+  const sessionId = session.id
+  const mutationSessionId = sessionThreadId(session)
+  const profile = normalizeProfileKey(
+    session.profile ?? profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
+  )
+
+  setMutating(sessionId, true)
+  if (mutationSessionId !== sessionId) {
+    setMutating(mutationSessionId, true)
+  }
+
+  try {
+    await apiSetSessionArchived(mutationSessionId, false, profile)
+    removeArchivedSessionFromLocalState(mutationSessionId)
+    await refreshSessionLists()
+    return true
+  } catch (error) {
+    sessionState.archivedError = messageForError(error)
+    console.error('Failed to restore archived session:', error)
+    return false
+  } finally {
+    setMutating(sessionId, false)
+    if (mutationSessionId !== sessionId) {
+      setMutating(mutationSessionId, false)
+    }
   }
 }
 
