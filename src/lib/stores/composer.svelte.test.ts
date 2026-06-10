@@ -48,6 +48,7 @@ vi.mock('@/app/agent/router.svelte', () => ({
 
 import {
   composerState,
+  currentModelLabel,
   executeSlashCommand,
   groupedModelOptions,
   selectComposerFastMode,
@@ -77,6 +78,9 @@ describe('composer runtime targeting', () => {
     mockRouterState.route = 'session'
     mockRouterState.sessionId = 'other-stored'
     composerState.sessions = {}
+    composerState.threadFastSelections = {}
+    composerState.threadModelSelections = {}
+    composerState.threadReasoningSelections = {}
     resetComposerModelState()
     messageState.sessions = {}
     sessionState.activeSessionId = 'other-live'
@@ -86,6 +90,7 @@ describe('composer runtime targeting', () => {
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
     sessionState.sessionProfilesById = {}
+    sessionState.sessionThreadIdsById = {}
     profileState.activeGatewayProfile = 'default'
     profileState.newChatProfile = null
     profileState.profiles = []
@@ -348,6 +353,49 @@ describe('composer runtime targeting', () => {
     )
   })
 
+  it('keeps a selected model attached to the lineage when a continuation gets a new stored id', async () => {
+    sessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    rememberRuntimeSession('stored-root', 'live-root')
+    mockRequestGateway.mockResolvedValueOnce({ output: 'model switched' })
+
+    await expect(selectComposerModel('stored-root', 'openrouter\u0000anthropic/claude-opus-4.1')).resolves.toBe(true)
+
+    composerState.model.info = { model: 'default-model', provider: 'default-provider' }
+    expect(currentModelLabel('stored-tip')).toBe('openrouter / anthropic/claude-opus-4.1')
+  })
+
+  it('reapplies the lineage-selected model before submitting through a renewed continuation runtime', async () => {
+    sessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    rememberRuntimeSession('stored-tip', 'live-tip')
+    composerState.threadModelSelections = {
+      'stored-root': { model: 'anthropic/claude-opus-4.1', provider: 'openrouter' }
+    }
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'slash.exec') return Promise.resolve({ output: 'model preserved' })
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt('stored-tip', { text: 'continue same thread' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenNthCalledWith(1, 'slash.exec', {
+      command: '/model anthropic/claude-opus-4.1 --provider openrouter',
+      profile: 'default',
+      session_id: 'live-tip'
+    })
+    expect(mockRequestGateway).toHaveBeenNthCalledWith(2, 'prompt.submit', {
+      profile: 'default',
+      session_id: 'live-tip',
+      text: 'continue same thread'
+    })
+  })
+
   it('uses /reasoning to update the current session reasoning effort', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     mockRequestGateway.mockResolvedValueOnce({ output: 'reasoning set to high' })
@@ -495,6 +543,9 @@ describe('composer session busy recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     composerState.sessions = {}
+    composerState.threadFastSelections = {}
+    composerState.threadModelSelections = {}
+    composerState.threadReasoningSelections = {}
     resetComposerModelState()
     messageState.sessions = {}
     clearQueuedPrompts('stored-A')
@@ -504,6 +555,7 @@ describe('composer session busy recovery', () => {
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
+    sessionState.sessionThreadIdsById = {}
     rememberRuntimeSession('stored-A', 'live-A')
   })
 
