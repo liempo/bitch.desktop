@@ -605,4 +605,49 @@ describe('session lineage threads', () => {
 
     expect(threads).toEqual([])
   })
+
+  it('keeps an archived continuation tip hidden instead of restoring an older ancestor', () => {
+    const threads = collapseSessionsToThreads([
+      {
+        _lineage_root_id: null,
+        archived: false,
+        cwd: null,
+        ended_at: 20,
+        id: 'BITCH',
+        input_tokens: 10,
+        is_active: false,
+        last_active: 20,
+        message_count: 5,
+        model: 'claude-opus',
+        output_tokens: 20,
+        preview: 'root preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 10,
+        title: 'BITCH',
+        tool_call_count: 1
+      },
+      {
+        _lineage_root_id: 'BITCH',
+        archived: true,
+        cwd: null,
+        ended_at: 40,
+        id: 'BITCH-2',
+        input_tokens: 30,
+        is_active: false,
+        last_active: 40,
+        message_count: 7,
+        model: 'claude-opus',
+        output_tokens: 40,
+        preview: 'middle preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 30,
+        title: 'BITCH #2',
+        tool_call_count: 2
+      }
+    ])
+
+    expect(threads).toEqual([])
+  })
 })

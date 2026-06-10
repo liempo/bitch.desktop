@@ -216,10 +216,10 @@ function oldestSession(sessions: SessionInfo[]): SessionInfo {
 }
 
 function collapseSessionGroup(threadId: string, sessions: SessionInfo[]): SessionInfo | null {
-  const visible = sessions.filter(session => !session.archived)
-  if (visible.length === 0) return null
+  const latest = newestSession(sessions)
+  if (latest.archived) return null
 
-  const latest = newestSession(visible)
+  const visible = sessions.filter(session => !session.archived)
   const root = sessions.find(session => session.id === threadId) ?? oldestSession(sessions)
   const inputTokens = sessions.reduce((total, session) => total + (session.input_tokens ?? 0), 0)
   const outputTokens = sessions.reduce((total, session) => total + (session.output_tokens ?? 0), 0)
