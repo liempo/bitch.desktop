@@ -178,11 +178,23 @@ function updateSession(sessionId: string, patch: Partial<SessionInfo>): void {
 }
 
 function removeSessionFromLocalState(sessionId: string): void {
+  const threadId = threadIdForSessionId(sessionId) ?? sessionId
   const before = sessionState.sessions.length
-  const profile = profileForSession(sessionId)
-  sessionState.sessions = sessionState.sessions.filter(session => session.id !== sessionId)
+  const profile = profileForSession(sessionId) ?? profileForSession(threadId)
+
+  sessionState.sessions = sessionState.sessions.filter(session => sessionThreadId(session) !== threadId)
+
+  for (const [id, mappedThreadId] of Object.entries(sessionState.sessionThreadIdsById)) {
+    if (id === sessionId || id === threadId || mappedThreadId === threadId) {
+      delete sessionState.sessionThreadIdsById[id]
+      delete sessionState.sessionProfilesById[id]
+    }
+  }
+
   delete sessionState.sessionProfilesById[sessionId]
+  delete sessionState.sessionProfilesById[threadId]
   delete sessionState.sessionThreadIdsById[sessionId]
+  delete sessionState.sessionThreadIdsById[threadId]
 
   if (sessionState.sessions.length !== before && sessionState.sessionsTotal > 0) {
     sessionState.sessionsTotal -= 1
@@ -735,14 +747,18 @@ export async function archiveSession(sessionId: string, archived = true): Promis
   setMutating(sessionId, true)
 
   try {
-    const profile = profileForMutation(sessionId)
-    await apiSetSessionArchived(sessionId, archived, profile)
+    const mutationSessionId = threadIdForSessionId(sessionId) ?? sessionId
+    const profile = profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
+    await apiSetSessionArchived(mutationSessionId, archived, profile)
 
     if (archived) {
       removeSessionFromLocalState(sessionId)
       forgetRuntimeSession(sessionId)
+      if (mutationSessionId !== sessionId) {
+        forgetRuntimeSession(mutationSessionId)
+      }
 
-      if (sessionState.storedSessionId === sessionId) {
+      if (sessionState.storedSessionId === sessionId || sessionState.storedSessionId === mutationSessionId) {
         sessionState.activeSessionId = null
         sessionState.storedSessionId = null
         navigate('/')
@@ -764,12 +780,16 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
   setMutating(sessionId, true)
 
   try {
-    const profile = profileForMutation(sessionId)
-    await apiDeleteSession(sessionId, profile)
+    const mutationSessionId = threadIdForSessionId(sessionId) ?? sessionId
+    const profile = profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
+    await apiDeleteSession(mutationSessionId, profile)
     removeSessionFromLocalState(sessionId)
     forgetRuntimeSession(sessionId)
+    if (mutationSessionId !== sessionId) {
+      forgetRuntimeSession(mutationSessionId)
+    }
 
-    if (sessionState.storedSessionId === sessionId) {
+    if (sessionState.storedSessionId === sessionId || sessionState.storedSessionId === mutationSessionId) {
       sessionState.activeSessionId = null
       sessionState.storedSessionId = null
       navigate('/')

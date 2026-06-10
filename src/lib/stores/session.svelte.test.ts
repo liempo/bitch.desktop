@@ -471,6 +471,82 @@ describe('session mutations', () => {
   })
 })
 
+describe('session lineage mutations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = null
+    rawSessionState.storedSessionId = null
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.sessions = [
+      {
+        _lineage_root_id: 'stored-root',
+        archived: false,
+        cwd: null,
+        ended_at: 123,
+        id: 'stored-tip',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 456,
+        message_count: 3,
+        model: null,
+        output_tokens: 0,
+        preview: null,
+        profile: 'crypto/profile',
+        source: 'cli',
+        started_at: 100,
+        title: 'Old title #2',
+        tool_call_count: 0
+      }
+    ]
+    rawSessionState.sessionsTotal = 1
+    rawSessionState.sessionProfileTotals = { 'crypto/profile': 1 }
+    rawSessionState.sessionProfilesById = {
+      'stored-root': 'crypto/profile',
+      'stored-tip': 'crypto/profile'
+    }
+    rawSessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    rawSessionState.runtimeIdsByStoredSessionId = { 'stored-tip': 'live-tip' }
+    rawSessionState.storedSessionIdsByRuntimeId = { 'live-tip': 'stored-tip' }
+    profileState.activeGatewayProfile = 'default'
+    profileState.showAllProfiles = true
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('archives continuation rows through their lineage root and clears the collapsed row', async () => {
+    mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true, archived: true })
+
+    await expect(archiveSession('stored-tip')).resolves.toBe(true)
+
+    expect(mockApiSetSessionArchived).toHaveBeenCalledWith('stored-root', true, 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.sessionsTotal).toBe(0)
+    expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(0)
+    expect(rawSessionState.runtimeIdsByStoredSessionId).toEqual({})
+    expect(rawSessionState.storedSessionIdsByRuntimeId).toEqual({})
+  })
+
+  it('deletes continuation rows through their lineage root and navigates away when selected', async () => {
+    rawSessionState.activeSessionId = 'live-tip'
+    rawSessionState.storedSessionId = 'stored-tip'
+    mockApiDeleteSession.mockResolvedValueOnce({ ok: true })
+
+    await expect(deleteSession('stored-tip')).resolves.toBe(true)
+
+    expect(mockApiDeleteSession).toHaveBeenCalledWith('stored-root', 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(rawSessionState.storedSessionId).toBeNull()
+    expect(rawSessionState.runtimeIdsByStoredSessionId).toEqual({})
+    expect(rawSessionState.storedSessionIdsByRuntimeId).toEqual({})
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+})
+
 describe('profile-scoped pagination', () => {
   beforeEach(() => {
     rawSessionState.sessionsOffset = 0
