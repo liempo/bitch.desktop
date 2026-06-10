@@ -72,6 +72,7 @@ export interface SessionState {
   sessionsTotal: number
   sessionProfileTotals: Record<string, number>
   sessionProfilesById: Record<string, string>
+  sessionThreadIdsById: Record<string, string>
   workingSessionIds: string[]
 }
 
@@ -100,6 +101,7 @@ export const sessionState = $state<SessionState>({
   sessionsTotal: 0,
   sessionProfileTotals: {},
   sessionProfilesById: {},
+  sessionThreadIdsById: {},
   workingSessionIds: []
 })
 
@@ -120,14 +122,33 @@ function sessionWithProfile(session: SessionInfo, fallbackProfile = defaultProfi
   return { ...session, profile, is_default_profile: session.is_default_profile ?? profile === 'default' }
 }
 
+export function sessionThreadId(session: Pick<SessionInfo, '_lineage_root_id' | 'id' | 'lineage_root'>): string {
+  return session._lineage_root_id?.trim() || session.lineage_root?.trim() || session.id
+}
+
+export function threadIdForSessionId(sessionId: string | null | undefined): string | null {
+  const id = sessionId?.trim()
+  if (!id) return null
+
+  const displayId = displaySessionIdFor(id)
+  return sessionState.sessionThreadIdsById[displayId] ?? displayId
+}
+
 function recordSessionProfiles(sessions: SessionInfo[]): void {
-  const next = { ...sessionState.sessionProfilesById }
+  const nextProfiles = { ...sessionState.sessionProfilesById }
+  const nextThreads = { ...sessionState.sessionThreadIdsById }
 
   for (const session of sessions) {
-    next[session.id] = normalizeProfileKey(session.profile)
+    const profile = normalizeProfileKey(session.profile)
+    const threadId = sessionThreadId(session)
+    nextProfiles[session.id] = profile
+    nextProfiles[threadId] ??= profile
+    nextThreads[session.id] = threadId
+    nextThreads[threadId] = threadId
   }
 
-  sessionState.sessionProfilesById = next
+  sessionState.sessionProfilesById = nextProfiles
+  sessionState.sessionThreadIdsById = nextThreads
 }
 
 export function profileForSession(sessionId: string | null | undefined): string | null {
@@ -161,6 +182,7 @@ function removeSessionFromLocalState(sessionId: string): void {
   const profile = profileForSession(sessionId)
   sessionState.sessions = sessionState.sessions.filter(session => session.id !== sessionId)
   delete sessionState.sessionProfilesById[sessionId]
+  delete sessionState.sessionThreadIdsById[sessionId]
 
   if (sessionState.sessions.length !== before && sessionState.sessionsTotal > 0) {
     sessionState.sessionsTotal -= 1
@@ -177,6 +199,71 @@ function removeSessionFromLocalState(sessionId: string): void {
   }
 }
 
+function sessionGroupKey(session: SessionInfo): string {
+  return `${normalizeProfileKey(session.profile)}\u0000${sessionThreadId(session)}`
+}
+
+function recentValue(session: SessionInfo): number {
+  return session.last_active ?? session.ended_at ?? session.started_at ?? 0
+}
+
+function newestSession(sessions: SessionInfo[]): SessionInfo {
+  return sessions.reduce((newest, session) => (recentValue(session) > recentValue(newest) ? session : newest))
+}
+
+function oldestSession(sessions: SessionInfo[]): SessionInfo {
+  return sessions.reduce((oldest, session) => (session.started_at < oldest.started_at ? session : oldest))
+}
+
+function collapseSessionGroup(threadId: string, sessions: SessionInfo[]): SessionInfo | null {
+  const visible = sessions.filter(session => !session.archived)
+  if (visible.length === 0) return null
+
+  const latest = newestSession(visible)
+  const root = sessions.find(session => session.id === threadId) ?? oldestSession(sessions)
+  const inputTokens = sessions.reduce((total, session) => total + (session.input_tokens ?? 0), 0)
+  const outputTokens = sessions.reduce((total, session) => total + (session.output_tokens ?? 0), 0)
+  const messageCount = sessions.reduce((total, session) => total + (session.message_count ?? 0), 0)
+  const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
+  const lastActive = Math.max(...sessions.map(recentValue))
+  const startedAt = Math.min(...sessions.map(session => session.started_at))
+  const title = root.title?.trim() || latest.title
+
+  return {
+    ...latest,
+    _lineage_root_id: latest.id === threadId ? (latest._lineage_root_id ?? null) : threadId,
+    archived: false,
+    input_tokens: inputTokens,
+    is_active: visible.some(session => session.is_active),
+    last_active: lastActive,
+    message_count: messageCount,
+    output_tokens: outputTokens,
+    started_at: startedAt,
+    title,
+    tool_call_count: toolCallCount
+  }
+}
+
+export function collapseSessionsToThreads(sessions: SessionInfo[]): SessionInfo[] {
+  const groups = new Map<string, { sessions: SessionInfo[]; threadId: string }>()
+
+  for (const session of sessions) {
+    const key = sessionGroupKey(session)
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.sessions.push(session)
+    } else {
+      groups.set(key, { sessions: [session], threadId: sessionThreadId(session) })
+    }
+  }
+
+  return [...groups.values()]
+    .map(group => collapseSessionGroup(group.threadId, group.sessions))
+    .filter((session): session is SessionInfo => Boolean(session))
+    .sort((left, right) => recentValue(right) - recentValue(left))
+}
+
 function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
   const existingKeepers =
     offset === 0
@@ -190,7 +277,7 @@ function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
     }
   }
 
-  return [...merged.values()]
+  return collapseSessionsToThreads([...merged.values()])
 }
 
 function setSessionFlag(list: string[], sessionId: string, enabled: boolean): void {
@@ -350,12 +437,12 @@ export async function loadSessions(offset = 0): Promise<void> {
     let result: PaginatedSessions
 
     try {
-      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent', scope)
+      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'include', 'recent', scope)
     } catch (error) {
       // Backward-compatible safety valve for older single-profile dashboards.
       // The upstream multi-profile endpoint is preferred whenever available.
       if (scope !== 'all') {
-        result = await apiListSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent', scope)
+        result = await apiListSessions(PAGE_SIZE, offset, 0, 'include', 'recent', scope)
       } else {
         throw error
       }
@@ -488,6 +575,7 @@ export async function createSession(): Promise<string | null> {
     rememberRuntimeSession(storedKey, liveSid)
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
+    sessionState.sessionThreadIdsById[storedKey] = storedKey
 
     if (profile) {
       sessionState.sessionProfilesById[storedKey] = normalizeProfileKey(profile)
@@ -557,6 +645,7 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
 
     sessionState.activeSessionId = cachedRuntimeId
     sessionState.storedSessionId = sessionId
+    sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
     if (profile) {
       sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
@@ -591,6 +680,7 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
     rememberRuntimeSession(sessionId, response.session_id)
     sessionState.activeSessionId = response.session_id
     sessionState.storedSessionId = sessionId
+    sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
     if (profile) {
       sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
@@ -701,7 +791,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
 /* ------------------------------------------------------------------ */
 
 export function sessionPinId(session: SessionInfo): string {
-  return session._lineage_root_id ?? session.id
+  return sessionThreadId(session)
 }
 
 export function searchResultPinId(result: SessionSearchResult): string {

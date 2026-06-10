@@ -7,7 +7,9 @@
     clearComposerAttachments,
     composerForSession,
     composerState,
+    currentFastModeForSession,
     currentModelLabel,
+    currentReasoningEffortForSession,
     drainNextQueuedPrompt,
     executeSlashCommand,
     groupedModelOptions,
@@ -106,12 +108,12 @@
   const canSubmit = $derived(connected && hasDraftPayload && !composer.submitting && (!sessionId || Boolean(liveSid)))
   const canAttach = $derived(connected && !composer.submitting)
   const commandSuggestions = $derived(sessionId ? slashSuggestions(sessionId, composer.draft) : [])
-  const modelGroups = $derived(groupedModelOptions())
+  const modelGroups = $derived(groupedModelOptions(sessionId))
   const modelOptions = $derived(modelGroups.flatMap(group => group.options))
   const modelLabel = $derived(currentModelLabel(sessionId))
   const currentModelOption = $derived(modelOptions.find(option => option.current) ?? null)
-  const currentReasoningEffort = $derived((thread?.reasoningEffort as ReasoningEffort | undefined) ?? 'medium')
-  const currentFastMode = $derived(Boolean(thread?.fast))
+  const currentReasoningEffort = $derived(currentReasoningEffortForSession(sessionId))
+  const currentFastMode = $derived(currentFastModeForSession(sessionId))
   const panelTitle = $derived(sessionTitle.trim() || 'New session')
   const activeProfileName = $derived(normalizeProfileKey(profileName))
   const profileLabel = $derived(activeProfileName)

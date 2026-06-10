@@ -50,6 +50,7 @@ vi.mock('$lib/api/dashboard', () => ({
 
 import {
   archiveSession,
+  collapseSessionsToThreads,
   createSession,
   deleteSession,
   hasMoreSessions,
@@ -59,6 +60,7 @@ import {
   runtimeSessionIdForStored,
   selectSession,
   sessionState as rawSessionState,
+  sessionThreadId,
   startNewSession,
   storedSessionIdForRuntime
 } from '$lib/stores/session.svelte'
@@ -84,6 +86,7 @@ describe('createSession', () => {
     rawSessionState.runtimeIdsByStoredSessionId = {}
     rawSessionState.storedSessionIdsByRuntimeId = {}
     rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionThreadIdsById = {}
     profileState.activeGatewayProfile = 'default'
     profileState.newChatProfile = null
   })
@@ -493,5 +496,113 @@ describe('profile-scoped pagination', () => {
     rawSessionState.sessionProfileTotals = { default: 40 }
 
     expect(hasMoreSessions()).toBe(true)
+  })
+})
+
+describe('session lineage threads', () => {
+  it('uses the lineage root as the stable thread id', () => {
+    expect(sessionThreadId({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })).toBe('BITCH')
+    expect(sessionThreadId({ id: 'BITCH-3', lineage_root: 'BITCH' })).toBe('BITCH')
+    expect(sessionThreadId({ id: 'solo', _lineage_root_id: null })).toBe('solo')
+  })
+
+  it('collapses archived compression predecessors behind the latest visible continuation tip', () => {
+    const threads = collapseSessionsToThreads([
+      {
+        _lineage_root_id: null,
+        archived: true,
+        cwd: null,
+        ended_at: 20,
+        id: 'BITCH',
+        input_tokens: 10,
+        is_active: false,
+        last_active: 20,
+        message_count: 5,
+        model: 'claude-opus',
+        output_tokens: 20,
+        preview: 'root preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 10,
+        title: 'BITCH',
+        tool_call_count: 1
+      },
+      {
+        _lineage_root_id: 'BITCH',
+        archived: true,
+        cwd: null,
+        ended_at: 40,
+        id: 'BITCH-2',
+        input_tokens: 30,
+        is_active: false,
+        last_active: 40,
+        message_count: 7,
+        model: 'claude-opus',
+        output_tokens: 40,
+        preview: 'middle preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 30,
+        title: 'BITCH #2',
+        tool_call_count: 2
+      },
+      {
+        _lineage_root_id: 'BITCH',
+        archived: false,
+        cwd: null,
+        ended_at: null,
+        id: 'BITCH-3',
+        input_tokens: 50,
+        is_active: true,
+        last_active: 60,
+        message_count: 9,
+        model: 'claude-opus',
+        output_tokens: 60,
+        preview: 'latest preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 50,
+        title: 'BITCH #3',
+        tool_call_count: 3
+      }
+    ])
+
+    expect(threads).toHaveLength(1)
+    expect(threads[0]).toMatchObject({
+      _lineage_root_id: 'BITCH',
+      archived: false,
+      id: 'BITCH-3',
+      is_active: true,
+      last_active: 60,
+      message_count: 21,
+      preview: 'latest preview',
+      title: 'BITCH',
+      tool_call_count: 6
+    })
+  })
+
+  it('does not resurrect explicitly archived sessions that have no visible continuation tip', () => {
+    const threads = collapseSessionsToThreads([
+      {
+        archived: true,
+        cwd: null,
+        ended_at: 20,
+        id: 'archived-solo',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 20,
+        message_count: 5,
+        model: null,
+        output_tokens: 0,
+        preview: 'hidden',
+        profile: 'default',
+        source: 'cli',
+        started_at: 10,
+        title: 'Archived solo',
+        tool_call_count: 0
+      }
+    ])
+
+    expect(threads).toEqual([])
   })
 })
