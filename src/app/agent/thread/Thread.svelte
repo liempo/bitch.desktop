@@ -92,7 +92,7 @@
     </div>
   {:else if thread?.error && messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <Panel title="Transcript Error" titleClass="text-danger" class="max-w-lg border-danger/40 !bg-danger/10" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
+      <Panel title="Transcript Error" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
         <p class="font-semibold uppercase tracking-[0.12em]">Could not load the transcript.</p>
         <p class="mt-2 text-danger/80">{thread.error}</p>
       </Panel>

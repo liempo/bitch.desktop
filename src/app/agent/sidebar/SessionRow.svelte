@@ -110,7 +110,7 @@
       aria-pressed={active}
     >
       <span class="flex min-w-0 items-center gap-1.5 text-[11px]">
-        <span class="flex min-w-0 flex-1 items-center gap-1 truncate uppercase tracking-[0.05em]" title={title}>
+        <span class="flex min-w-0 flex-1 items-center gap-1 truncate uppercase tracking-wider" title={title}>
           {#if working}
             <Loader size="sm" tone="secondary" label="Session thinking" />
           {/if}
