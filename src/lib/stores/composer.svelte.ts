@@ -504,6 +504,12 @@ function clearComposerPayload(sessionId: null | string | undefined): void {
   clearComposerAttachments(sessionId)
 }
 
+function isReloadMcpCommand(command: string): boolean {
+  const normalized = slashExecCommand(command).split(/\s+/, 1)[0]?.toLowerCase() ?? ''
+
+  return normalized === 'reload-mcp' || normalized === 'reload_mcp'
+}
+
 function parseCommandDispatch(raw: unknown): CommandDispatchResponse | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
 
@@ -856,6 +862,46 @@ async function executeProfileCommand(
   }
 }
 
+async function executeReloadMcpCommand(
+  sessionId: null | string | undefined,
+  command: string,
+  composer: ComposerSessionState
+): Promise<boolean> {
+  let targetSessionId = liveSessionKey(sessionId)
+
+  if (!targetSessionId) {
+    targetSessionId = await createSession()
+  }
+
+  if (!targetSessionId) {
+    composer.error = 'Could not create a session for the MCP reload command.'
+    return false
+  }
+
+  try {
+    const profile = targetProfileForSession(sessionId)
+    await ensureGatewayProfile(profile)
+    await requestGateway('reload.mcp', {
+      confirm: true,
+      profile,
+      session_id: targetSessionId
+    })
+    appendSystemMessage(targetSessionId, renderSlashOutput(command, { output: 'MCP servers reloaded.' }))
+    clearComposerDraft(sessionId)
+    clearComposerAttachments(sessionId)
+    commitActiveSessionRoute()
+    void loadSessions().catch(() => undefined)
+
+    return true
+  } catch (error) {
+    const message = inlineErrorMessage(error, 'MCP reload failed')
+    composer.error = message
+    appendAssistantErrorMessage(targetSessionId, message)
+
+    return false
+  }
+}
+
 export async function executeSlashCommand(sessionId: null | string | undefined, rawCommand: string): Promise<boolean> {
   const command = rawCommand.trim()
   const parsed = parseSlashCommand(command)
@@ -880,6 +926,10 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
     const profileArg = profileSlashArg(command)
     if (profileArg !== undefined) {
       return executeProfileCommand(sessionId, command, profileArg, composer)
+    }
+
+    if (isReloadMcpCommand(command)) {
+      return executeReloadMcpCommand(sessionId, command, composer)
     }
 
     let targetSessionId = liveSessionKey(sessionId)
