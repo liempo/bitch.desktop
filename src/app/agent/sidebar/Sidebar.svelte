@@ -17,7 +17,6 @@
     hasMoreSessions,
     isPinned,
     isPinnedId,
-    isSessionWorking,
     loadMoreSessions,
     renameSession,
     searchResultPinId,
@@ -34,6 +33,7 @@
     profileState,
     selectMainNewSessionProfile
   } from '$lib/stores/profile.svelte'
+  import { shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
   import type { SessionInfo } from '$lib/types/hermes'
 
   const GROUP_BY_PROFILE_STORAGE_KEY = 'bitch.desktop.groupSessionsByProfile'
@@ -243,7 +243,7 @@
                         searchResult={result}
                         active={sessionState.storedSessionId === result.session_id}
                         pinned={isPinnedId(searchResultPinId(result))}
-                        working={isSessionWorking(result.session_id) || sessionState.resumingSessionId === result.session_id}
+                        working={shouldShowSessionSidebarLoader(result.session_id)}
                         needsInput={sessionNeedsInput(result.session_id)}
                         onSelect={selectSession}
                       />

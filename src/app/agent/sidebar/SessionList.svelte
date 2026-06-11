@@ -1,11 +1,7 @@
 <script lang="ts">
   import SessionRow from './SessionRow.svelte'
-  import {
-    isSessionMutating,
-    isSessionWorking,
-    sessionNeedsInput,
-    sessionState
-  } from '$lib/stores/session.svelte'
+  import { shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
+  import { isSessionMutating, sessionNeedsInput, sessionState } from '$lib/stores/session.svelte'
   import type { SessionInfo } from '$lib/types/hermes'
 
   interface Props {
@@ -36,7 +32,7 @@
       active={sessionState.storedSessionId === session.id}
       {pinned}
       disabled={isSessionMutating(session.id)}
-      working={isSessionWorking(session.id) || sessionState.resumingSessionId === session.id}
+      working={shouldShowSessionSidebarLoader(session.id)}
       needsInput={sessionNeedsInput(session.id)}
       {onSelect}
       onRename={(target, title) => onRename(target, title)}

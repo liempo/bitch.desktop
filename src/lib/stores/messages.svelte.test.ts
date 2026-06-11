@@ -17,8 +17,10 @@ import {
   handleGatewayEvent,
   hydrateSessionMessagesFromGateway,
   messageState,
+  setThreadBusy,
   threadForSession
 } from '$lib/stores/messages.svelte'
+import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
 import {
   promptsState,
   setApprovalRequest,
@@ -128,6 +130,27 @@ describe('message session id mapping', () => {
 
     expect(threadForSession(storedKey)?.messages.map(message => message.text)).toEqual(['operator payload'])
     expect(Object.keys(messageState.sessions)).toEqual([storedKey])
+  })
+
+  it('only shows the sidebar loader for resume-only sessions until messages have loaded', () => {
+    sessionState.resumingSessionId = storedKey
+
+    expect(sessionMessagesLoaded(storedKey)).toBe(false)
+    expect(shouldShowSessionSidebarLoader(storedKey)).toBe(true)
+
+    hydrateSessionMessagesFromGateway(storedKey, [])
+
+    expect(sessionMessagesLoaded(storedKey)).toBe(true)
+    expect(shouldShowSessionSidebarLoader(storedKey)).toBe(false)
+  })
+
+  it('keeps the sidebar loader for hydrated sessions that are still busy', () => {
+    hydrateSessionMessagesFromGateway(storedKey, [])
+    sessionState.resumingSessionId = storedKey
+    setThreadBusy(storedKey, true)
+
+    expect(sessionMessagesLoaded(storedKey)).toBe(true)
+    expect(shouldShowSessionSidebarLoader(storedKey)).toBe(true)
   })
 
   it('preserves optimistic user image and PDF attachments on the visible thread message', () => {
