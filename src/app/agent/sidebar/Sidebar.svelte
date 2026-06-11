@@ -4,6 +4,7 @@
   import Panel from '@/components/ui/Panel.svelte'
   import TextInput from '@/components/ui/TextInput.svelte'
   import { cardClass } from '@/components/ui/styles'
+  import ArchivedSessionsDialog from './ArchivedSessionsDialog.svelte'
   import ProfileFilterDialog from './ProfileFilterDialog.svelte'
   import SessionList from './SessionList.svelte'
   import SessionRow from './SessionRow.svelte'
@@ -55,6 +56,7 @@
     scope !== ALL_PROFILES && normalizeProfileKey(scope) !== normalizeProfileKey(defaultProfileName)
   )
   const loadingRows = [0, 1, 2, 3, 4, 5]
+  let archivesOpen = $state(false)
   let profileFilterOpen = $state(false)
   let groupSessionsByProfileEnabled = $state(readGroupSessionsByProfile())
 
@@ -136,6 +138,18 @@
           title="New chat (Ctrl/⌘+N)."
         >
           +
+        </Button>
+        <Button
+          variant="unstyled"
+          class="flex h-5 w-6 items-center justify-center p-0 text-ink-muted hover:text-ink-bright"
+          onclick={() => (archivesOpen = true)}
+          disabled={!connected}
+          aria-label="Open archives"
+          title="Archives"
+        >
+          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M6 7l1.25-3h9.5L18 7M6 7v13h12V7M9 12h6" />
+          </svg>
         </Button>
         <Button
           variant="unstyled"
@@ -319,5 +333,6 @@
     </Panel>
   </div>
 
+  <ArchivedSessionsDialog bind:open={archivesOpen} />
   <ProfileFilterDialog bind:open={profileFilterOpen} bind:groupByProfile={groupSessionsByProfileEnabled} />
 </aside>

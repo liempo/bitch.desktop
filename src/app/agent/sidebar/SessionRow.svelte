@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/components/ui/Button.svelte'
+  import Loader from '@/components/ui/Loader.svelte'
   import SessionActionsMenu from './SessionActionsMenu.svelte'
   import type { SessionInfo, SessionSearchResult } from '$lib/types/hermes'
 
@@ -29,13 +30,14 @@
     onTogglePin = () => undefined,
     pinned = false,
     searchResult = null,
-    session = null
+    session = null,
+    working = false
   }: Props = $props()
 
   const id = $derived(session?.id ?? searchResult?.session_id ?? '')
-  const title = $derived(session?.title?.trim() || (searchResult ? 'Search match' : 'Untitled session'))
+  const title = $derived(formatTitle(session, searchResult))
   const subtitle = $derived(formatSubtitle(session, searchResult))
-  const profileTag = $derived(formatProfileTag(session))
+  const profileTag = $derived(formatProfileTag(session, searchResult))
 
   const SESSION_ROW =
     'group relative -mx-2 flex min-w-0 items-stretch border border-transparent bg-transparent ' +
@@ -44,6 +46,12 @@
     'data-[selected=true]:text-ink-bright ' +
     'data-[disabled=true]:opacity-50'
 
+  function formatTitle(info: SessionInfo | null, result: SessionSearchResult | null): string {
+    if (info) return info.title?.trim() || 'Untitled session'
+    if (result) return result.title?.trim() || 'Untitled session'
+    return 'Untitled session'
+  }
+
   function formatSubtitle(info: SessionInfo | null, result: SessionSearchResult | null): string {
     if (info) {
       const parts = [formatRelativeTime(info.last_active), `${info.message_count} msg`]
@@ -51,14 +59,18 @@
     }
 
     if (result) {
-      return [formatRelativeTime(result.session_started), result.model, result.source].filter(Boolean).join(' · ')
+      return normalizePreview(result.preview ?? result.snippet)
     }
 
     return ''
   }
 
-  function formatProfileTag(info: SessionInfo | null): string {
-    const profile = info?.profile?.trim()
+  function normalizePreview(value: null | string | undefined): string {
+    return value?.replace(/\s+/g, ' ').trim() ?? ''
+  }
+
+  function formatProfileTag(info: SessionInfo | null, result: SessionSearchResult | null): string {
+    const profile = (info?.profile ?? result?.profile)?.trim()
 
     if (!profile || info?.is_default_profile || profile.toLowerCase() === 'default') return ''
 
@@ -98,7 +110,10 @@
       aria-pressed={active}
     >
       <span class="flex min-w-0 items-center gap-1.5 text-[11px]">
-        <span class="flex min-w-0 flex-1 items-center gap-1 truncate uppercase tracking-[0.05em]" title={title}>
+        <span class="flex min-w-0 flex-1 items-center gap-1 truncate uppercase tracking-wider" title={title}>
+          {#if working}
+            <Loader size="sm" tone="secondary" label="Session thinking" />
+          {/if}
           <span class="min-w-0 truncate">{title}</span>
         </span>
         {#if pinned}

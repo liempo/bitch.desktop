@@ -16,7 +16,9 @@ import {
   loadSessions,
   profileForSession,
   runtimeSessionIdForStored,
-  sessionState
+  sessionState,
+  startNewSession,
+  threadIdForSessionId
 } from '$lib/stores/session.svelte'
 import { navigate, routerState, sessionRoute } from '@/app/agent/router.svelte'
 import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } from '$lib/types/hermes'
@@ -99,6 +101,11 @@ export interface ComposerModelGroup {
 
 export type ReasoningEffort = 'high' | 'low' | 'medium' | 'minimal' | 'none' | 'xhigh'
 
+interface ThreadModelSelection {
+  model: string
+  provider: string
+}
+
 export type PromptSubmitPayload = string
 
 export interface ComposerSessionState {
@@ -125,11 +132,15 @@ interface ComposerModelState {
 export interface ComposerState {
   model: ComposerModelState
   sessions: Record<string, ComposerSessionState>
+  threadFastSelections: Record<string, boolean>
+  threadModelSelections: Record<string, ThreadModelSelection>
+  threadReasoningSelections: Record<string, ReasoningEffort>
 }
 
 export interface SubmitPromptOptions {
   attachments?: ComposerAttachment[]
   fromQueue?: boolean
+  queue?: boolean
   text?: string
 }
 
@@ -149,7 +160,10 @@ export const composerState = $state<ComposerState>({
     reasoningSwitching: false,
     switching: false
   },
-  sessions: {}
+  sessions: {},
+  threadFastSelections: {},
+  threadModelSelections: {},
+  threadReasoningSelections: {}
 })
 
 let nextAttachmentId = 0
@@ -166,6 +180,72 @@ function displaySessionKey(sessionId: null | string | undefined): null | string 
   }
 
   return sessionState.storedSessionId
+}
+
+function threadKeyForDisplay(displayKey: null | string | undefined): null | string {
+  return displayKey ? threadIdForSessionId(displayKey) : null
+}
+
+function threadKeyForSession(sessionId: null | string | undefined, targetSessionId?: null | string): null | string {
+  const displayKey = displaySessionKey(sessionId) ?? (targetSessionId ? displaySessionIdFor(targetSessionId) : null)
+  return threadKeyForDisplay(displayKey)
+}
+
+function modelSelectionForSession(sessionId: null | string | undefined): ThreadModelSelection | undefined {
+  const threadKey = threadKeyForSession(sessionId)
+  return threadKey ? composerState.threadModelSelections[threadKey] : undefined
+}
+
+function selectedReasoningForSession(sessionId: null | string | undefined): ReasoningEffort | undefined {
+  const threadKey = threadKeyForSession(sessionId)
+  return threadKey ? composerState.threadReasoningSelections[threadKey] : undefined
+}
+
+function selectedFastModeForSession(sessionId: null | string | undefined): boolean | undefined {
+  const threadKey = threadKeyForSession(sessionId)
+  return threadKey ? composerState.threadFastSelections[threadKey] : undefined
+}
+
+function rememberThreadModelSelection(
+  sessionId: null | string | undefined,
+  targetSessionId: null | string,
+  selection: ThreadModelSelection
+): void {
+  const threadKey = threadKeyForSession(sessionId, targetSessionId)
+  if (!threadKey) return
+
+  composerState.threadModelSelections = {
+    ...composerState.threadModelSelections,
+    [threadKey]: selection
+  }
+}
+
+function rememberThreadReasoningSelection(
+  sessionId: null | string | undefined,
+  targetSessionId: null | string,
+  effort: ReasoningEffort
+): void {
+  const threadKey = threadKeyForSession(sessionId, targetSessionId)
+  if (!threadKey) return
+
+  composerState.threadReasoningSelections = {
+    ...composerState.threadReasoningSelections,
+    [threadKey]: effort
+  }
+}
+
+function rememberThreadFastSelection(
+  sessionId: null | string | undefined,
+  targetSessionId: null | string,
+  enabled: boolean
+): void {
+  const threadKey = threadKeyForSession(sessionId, targetSessionId)
+  if (!threadKey) return
+
+  composerState.threadFastSelections = {
+    ...composerState.threadFastSelections,
+    [threadKey]: enabled
+  }
 }
 
 function commitActiveSessionRoute(): void {
@@ -384,6 +464,10 @@ function modelQuote(value: string): string {
   return /\s/.test(value) ? JSON.stringify(value) : value
 }
 
+function modelSwitchCommand(selection: ThreadModelSelection): string {
+  return `/model ${modelQuote(selection.model)} --provider ${modelQuote(selection.provider)}`
+}
+
 function renderSlashOutput(command: string, result: SlashExecResponse | undefined): string {
   const output = result?.output?.trim() || '(no output)'
   const warning = result?.warning?.trim()
@@ -396,8 +480,28 @@ function parseSlashCommand(command: string): { arg: string; name: string } {
   return match ? { arg: match[2].trim(), name: match[1] } : { arg: '', name: '' }
 }
 
+function isCommandNotFoundError(error: unknown): boolean {
+  const message = inlineErrorMessage(error, '').toLowerCase()
+
+  return (
+    /not a quick\/plugin\/skill command/.test(message) ||
+    /unknown (slash )?command/.test(message) ||
+    /command not found/.test(message) ||
+    /not a slash command/.test(message)
+  )
+}
+
+function commandNotFoundMessage(name: string): string {
+  return `Command not found: /${name}`
+}
+
 function slashExecCommand(command: string): string {
   return command.replace(/^\/+/, '')
+}
+
+function clearComposerPayload(sessionId: null | string | undefined): void {
+  clearComposerDraft(sessionId)
+  clearComposerAttachments(sessionId)
 }
 
 function isReloadMcpCommand(command: string): boolean {
@@ -559,6 +663,11 @@ export async function addAttachmentFiles(
 
 export const addImageFiles = addAttachmentFiles
 
+export function shouldDispatchSlashImmediately(draft: string, busy = false): boolean {
+  void busy
+  return draft.trim().startsWith('/')
+}
+
 export function markComposerInterrupted(sessionId: null | string | undefined, interrupted: boolean): void {
   ensureComposerSession(sessionId).userInterrupted = interrupted
 }
@@ -568,16 +677,37 @@ export function queuedSessionKey(sessionId: null | string | undefined): null | s
 }
 
 export function currentModelLabel(sessionId: null | string | undefined): string {
+  const selection = modelSelectionForSession(sessionId)
   const thread = threadForSession(sessionId)
-  const provider = thread?.provider ?? composerState.model.info?.provider ?? composerState.model.options?.provider
-  const model = thread?.model ?? composerState.model.info?.model ?? composerState.model.options?.model
+  const provider =
+    selection?.provider ??
+    thread?.provider ??
+    composerState.model.info?.provider ??
+    composerState.model.options?.provider
+  const model =
+    selection?.model ?? thread?.model ?? composerState.model.info?.model ?? composerState.model.options?.model
 
   return [provider, model].filter(Boolean).join(' / ') || 'Model unavailable'
 }
 
-export function groupedModelOptions(): ComposerModelGroup[] {
-  const currentProvider = composerState.model.options?.provider ?? composerState.model.info?.provider ?? ''
-  const currentModel = composerState.model.options?.model ?? composerState.model.info?.model ?? ''
+export function currentReasoningEffortForSession(sessionId: null | string | undefined): ReasoningEffort {
+  return (
+    selectedReasoningForSession(sessionId) ??
+    (threadForSession(sessionId)?.reasoningEffort as ReasoningEffort | undefined) ??
+    'medium'
+  )
+}
+
+export function currentFastModeForSession(sessionId: null | string | undefined): boolean {
+  const selected = selectedFastModeForSession(sessionId)
+  return selected ?? Boolean(threadForSession(sessionId)?.fast)
+}
+
+export function groupedModelOptions(sessionId?: null | string): ComposerModelGroup[] {
+  const selection = modelSelectionForSession(sessionId)
+  const currentProvider =
+    selection?.provider ?? composerState.model.options?.provider ?? composerState.model.info?.provider ?? ''
+  const currentModel = selection?.model ?? composerState.model.options?.model ?? composerState.model.info?.model ?? ''
   const providers = composerState.model.options?.providers ?? []
 
   return providers
@@ -777,70 +907,93 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
   const parsed = parseSlashCommand(command)
   const displayKey = displaySessionKey(sessionId) ?? sessionId
   const composer = ensureComposerSession(displayKey)
+  const targetComposerKey = displayKey ?? sessionId
 
   if (!command.startsWith('/') || !parsed.name) return false
 
-  const profileArg = profileSlashArg(command)
-  if (profileArg !== undefined) {
-    return executeProfileCommand(sessionId, command, profileArg, composer)
-  }
-
-  if (isReloadMcpCommand(command)) {
-    return executeReloadMcpCommand(sessionId, command, composer)
-  }
-
-  let targetSessionId = liveSessionKey(sessionId)
-
-  if (!targetSessionId) {
-    targetSessionId = await createSession()
-  }
-
-  if (!targetSessionId) {
-    composer.error = 'Could not create a session for the slash command.'
-    return false
-  }
+  composer.submitting = true
+  composer.error = null
+  clearComposerPayload(targetComposerKey)
 
   try {
-    const profile = targetProfileForSession(sessionId)
-    await ensureGatewayProfile(profile)
-    const result = await requestGateway<SlashExecResponse>('slash.exec', {
-      command: slashExecCommand(command),
-      session_id: targetSessionId,
-      profile
-    })
-    appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
-    clearComposerDraft(sessionId)
-    clearComposerAttachments(sessionId)
-    commitActiveSessionRoute()
-    void loadSessions().catch(() => undefined)
+    const normalizedName = parsed.name.toLowerCase()
 
-    return true
-  } catch (error) {
+    if (normalizedName === 'new' || normalizedName === 'reset') {
+      startNewSession()
+      return true
+    }
+
+    const profileArg = profileSlashArg(command)
+    if (profileArg !== undefined) {
+      return executeProfileCommand(sessionId, command, profileArg, composer)
+    }
+
+    if (isReloadMcpCommand(command)) {
+      return executeReloadMcpCommand(sessionId, command, composer)
+    }
+
+    let targetSessionId = liveSessionKey(sessionId)
+
+    if (!targetSessionId) {
+      targetSessionId = await createSession()
+    }
+
+    if (!targetSessionId) {
+      composer.error = 'Could not create a session for the slash command.'
+      return false
+    }
+
     try {
-      const handled = await executeCommandDispatch({
-        arg: parsed.arg,
-        command,
-        composer,
-        name: parsed.name,
-        profile: targetProfileForSession(sessionId),
-        sessionId,
-        targetSessionId
+      const profile = targetProfileForSession(sessionId)
+      await ensureGatewayProfile(profile)
+      const result = await requestGateway<SlashExecResponse>('slash.exec', {
+        command: slashExecCommand(command),
+        session_id: targetSessionId,
+        profile
       })
+      appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
+      commitActiveSessionRoute()
+      void loadSessions().catch(() => undefined)
 
-      if (handled) return true
-    } catch (dispatchError) {
-      const message = inlineErrorMessage(dispatchError, 'Command dispatch failed')
+      return true
+    } catch (error) {
+      if (isCommandNotFoundError(error)) {
+        const message = commandNotFoundMessage(parsed.name)
+        composer.error = message
+        appendAssistantErrorMessage(targetSessionId, message)
+        return false
+      }
+
+      try {
+        const handled = await executeCommandDispatch({
+          arg: parsed.arg,
+          command,
+          composer,
+          name: parsed.name,
+          profile: targetProfileForSession(sessionId),
+          sessionId,
+          targetSessionId
+        })
+
+        if (handled || composer.error) return handled
+      } catch (dispatchError) {
+        const message = isCommandNotFoundError(dispatchError)
+          ? commandNotFoundMessage(parsed.name)
+          : inlineErrorMessage(dispatchError, 'Command dispatch failed')
+        composer.error = message
+        appendAssistantErrorMessage(targetSessionId, message)
+
+        return false
+      }
+
+      const message = inlineErrorMessage(error, 'Slash command failed')
       composer.error = message
       appendAssistantErrorMessage(targetSessionId, message)
 
       return false
     }
-
-    const message = inlineErrorMessage(error, 'Slash command failed')
-    composer.error = message
-    appendAssistantErrorMessage(targetSessionId, message)
-
-    return false
+  } finally {
+    composer.submitting = false
   }
 }
 
@@ -899,7 +1052,7 @@ async function executeCommandDispatch(options: {
         options.targetSessionId,
         renderSlashOutput(options.command, { output: `loading skill: ${dispatch.name}` })
       )
-      return submitPrompt(options.sessionId, { text: message })
+      return submitPrompt(options.sessionId, { queue: false, text: message })
     }
 
     case 'send': {
@@ -916,9 +1069,80 @@ async function executeCommandDispatch(options: {
         appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: dispatch.notice }))
       }
 
-      return submitPrompt(options.sessionId, { text: message })
+      return submitPrompt(options.sessionId, { queue: false, text: message })
     }
   }
+}
+
+async function applyRememberedModelSelection(
+  sessionId: null | string | undefined,
+  targetSessionId: string,
+  profile: string
+): Promise<void> {
+  const selection = modelSelectionForSession(sessionId)
+  if (!selection) return
+
+  const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+  const thread = threadForSession(displayKey)
+
+  if (thread?.model === selection.model && thread.provider === selection.provider) return
+
+  await requestGateway<SlashExecResponse>('slash.exec', {
+    command: modelSwitchCommand(selection),
+    session_id: targetSessionId,
+    profile
+  })
+}
+
+async function applyRememberedReasoningSelection(
+  sessionId: null | string | undefined,
+  targetSessionId: string,
+  profile: string
+): Promise<void> {
+  const effort = selectedReasoningForSession(sessionId)
+  if (effort === undefined) return
+
+  const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+  const thread = threadForSession(displayKey)
+
+  if (thread?.reasoningEffort === effort) return
+
+  const command = `/reasoning ${effort === 'none' ? 'off' : effort}`
+  await requestGateway<SlashExecResponse>('slash.exec', {
+    command,
+    session_id: targetSessionId,
+    profile
+  })
+}
+
+async function applyRememberedFastSelection(
+  sessionId: null | string | undefined,
+  targetSessionId: string,
+  profile: string
+): Promise<void> {
+  const enabled = selectedFastModeForSession(sessionId)
+  if (enabled === undefined) return
+
+  const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+  const thread = threadForSession(displayKey)
+
+  if (thread?.fast === enabled) return
+
+  await requestGateway<SlashExecResponse>('slash.exec', {
+    command: `/fast ${enabled ? 'on' : 'off'}`,
+    session_id: targetSessionId,
+    profile
+  })
+}
+
+async function applyRememberedRuntimeSelections(
+  sessionId: null | string | undefined,
+  targetSessionId: string,
+  profile: string
+): Promise<void> {
+  await applyRememberedModelSelection(sessionId, targetSessionId, profile)
+  await applyRememberedReasoningSelection(sessionId, targetSessionId, profile)
+  await applyRememberedFastSelection(sessionId, targetSessionId, profile)
 }
 
 export async function selectComposerReasoningEffort(
@@ -954,6 +1178,7 @@ export async function selectComposerReasoningEffort(
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
 
     const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+    rememberThreadReasoningSelection(displayKey, targetSessionId, normalized)
     const thread = threadForSession(displayKey)
     if (thread) {
       thread.reasoningEffort = normalized
@@ -998,6 +1223,7 @@ export async function selectComposerFastMode(sessionId: null | string | undefine
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
 
     const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+    rememberThreadFastSelection(displayKey, targetSessionId, enabled)
     const thread = threadForSession(displayKey)
     if (thread) {
       thread.fast = enabled
@@ -1039,7 +1265,8 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
   try {
     const profile = targetProfileForSession(sessionId)
     await ensureGatewayProfile(profile)
-    const command = `/model ${modelQuote(model)} --provider ${modelQuote(provider)}`
+    const selection = { model, provider }
+    const command = modelSwitchCommand(selection)
     const result = await requestGateway<SlashExecResponse>('slash.exec', {
       command,
       session_id: targetSessionId,
@@ -1056,7 +1283,14 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
       model,
       provider
     }
+    rememberThreadModelSelection(sessionId, targetSessionId, selection)
     appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
+    const displayKey = displaySessionKey(sessionId) ?? displaySessionIdFor(targetSessionId)
+    const thread = threadForSession(displayKey)
+    if (thread) {
+      thread.model = model
+      thread.provider = provider
+    }
     commitActiveSessionRoute()
     void loadSessions().catch(() => undefined)
 
@@ -1100,12 +1334,13 @@ export async function submitPrompt(
   const visibleText = rawText.trim()
   const attachments = cloneAttachments(options.attachments ?? composer.attachments)
   const hasPayload = Boolean(visibleText || attachments.length)
+  const allowQueue = options.queue ?? true
 
   if (!hasPayload) return false
 
   const activeThread = threadForSession(sessionId)
 
-  if (!options.fromQueue && sessionId && activeThread?.busy) {
+  if (allowQueue && !options.fromQueue && sessionId && activeThread?.busy) {
     const entry = enqueueQueuedPrompt(sessionId, { attachments, text: visibleText })
 
     if (entry) {
@@ -1136,9 +1371,10 @@ export async function submitPrompt(
 
   try {
     await ensureGatewayProfile(targetProfile)
+    await applyRememberedRuntimeSelections(sessionId, targetSessionId, targetProfile)
   } catch (error) {
     composer.submitting = false
-    composer.error = inlineErrorMessage(error, 'Could not switch profile gateway')
+    composer.error = inlineErrorMessage(error, 'Could not prepare session runtime')
     return false
   }
 
@@ -1171,11 +1407,16 @@ export async function submitPrompt(
         thread.messages.pop()
       }
 
-      const queueKey = sessionId ?? displayKey
-      enqueueQueuedPrompt(queueKey, { attachments, text: visibleText })
-      composer.error = null
+      if (allowQueue) {
+        const queueKey = sessionId ?? displayKey
+        enqueueQueuedPrompt(queueKey, { attachments, text: visibleText })
+        composer.error = null
 
-      return true
+        return true
+      }
+
+      composer.error = inlineErrorMessage(error, 'Session busy')
+      return false
     }
 
     const message = inlineErrorMessage(error, 'Prompt failed')

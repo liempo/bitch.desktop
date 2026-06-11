@@ -56,6 +56,14 @@ export interface SessionState {
   runtimeIdsByStoredSessionId: Record<string, string>
   /** Stored key by runtime sid. Reverse index for stream event routing. */
   storedSessionIdsByRuntimeId: Record<string, string>
+  archivedError: string | null
+  archivedSessionProfileTotals: Record<string, number>
+  archivedSessions: SessionInfo[]
+  archivedSessionsInitialized: boolean
+  archivedSessionsLoading: boolean
+  archivedSessionsLoadingMore: boolean
+  archivedSessionsOffset: number
+  archivedSessionsTotal: number
   error: string | null
   mutatingSessionIds: string[]
   needsInputSessionIds: string[]
@@ -72,6 +80,12 @@ export interface SessionState {
   sessionsTotal: number
   sessionProfileTotals: Record<string, number>
   sessionProfilesById: Record<string, string>
+  /** Ordered stored-session ids that belong to a compression/renewal lineage,
+   *  keyed by the durable thread/root id. Used to hydrate the visible thread
+   *  from every remote stored segment instead of only the latest compression tip. */
+  sessionLineageIdsByThreadId: Record<string, string[]>
+  sessionStartedAtById: Record<string, number>
+  sessionThreadIdsById: Record<string, string>
   workingSessionIds: string[]
 }
 
@@ -84,6 +98,14 @@ export const sessionState = $state<SessionState>({
   storedSessionId: null,
   runtimeIdsByStoredSessionId: {},
   storedSessionIdsByRuntimeId: {},
+  archivedError: null,
+  archivedSessionProfileTotals: {},
+  archivedSessions: [],
+  archivedSessionsInitialized: false,
+  archivedSessionsLoading: false,
+  archivedSessionsLoadingMore: false,
+  archivedSessionsOffset: 0,
+  archivedSessionsTotal: 0,
   error: null,
   mutatingSessionIds: [],
   needsInputSessionIds: [],
@@ -100,6 +122,9 @@ export const sessionState = $state<SessionState>({
   sessionsTotal: 0,
   sessionProfileTotals: {},
   sessionProfilesById: {},
+  sessionLineageIdsByThreadId: {},
+  sessionStartedAtById: {},
+  sessionThreadIdsById: {},
   workingSessionIds: []
 })
 
@@ -120,14 +145,85 @@ function sessionWithProfile(session: SessionInfo, fallbackProfile = defaultProfi
   return { ...session, profile, is_default_profile: session.is_default_profile ?? profile === 'default' }
 }
 
-function recordSessionProfiles(sessions: SessionInfo[]): void {
-  const next = { ...sessionState.sessionProfilesById }
+export function sessionThreadId(session: Pick<SessionInfo, '_lineage_root_id' | 'id' | 'lineage_root'>): string {
+  return session._lineage_root_id?.trim() || session.lineage_root?.trim() || session.id
+}
 
-  for (const session of sessions) {
-    next[session.id] = normalizeProfileKey(session.profile)
+export function threadIdForSessionId(sessionId: string | null | undefined): string | null {
+  const id = sessionId?.trim()
+  if (!id) return null
+
+  const displayId = displaySessionIdFor(id)
+  return sessionState.sessionThreadIdsById[displayId] ?? displayId
+}
+
+export function lineageMessageSessionIds(sessionId: string | null | undefined): string[] {
+  const id = sessionId?.trim()
+  if (!id) return []
+
+  const threadId = threadIdForSessionId(id) ?? id
+  const lineageIds = sessionState.sessionLineageIdsByThreadId[threadId]
+  const orderedIds = lineageIds?.length ? lineageIds : [threadId]
+  const result = orderedIds.filter(Boolean)
+
+  if (!result.includes(id)) {
+    result.push(id)
   }
 
-  sessionState.sessionProfilesById = next
+  return [...new Set(result)]
+}
+
+function recordSessionProfiles(sessions: SessionInfo[]): void {
+  const nextProfiles = { ...sessionState.sessionProfilesById }
+  const nextLineages = { ...sessionState.sessionLineageIdsByThreadId }
+  const nextStartedAt = { ...sessionState.sessionStartedAtById }
+  const nextThreads = { ...sessionState.sessionThreadIdsById }
+  const touchedThreadIds = new Set<string>()
+
+  for (const session of sessions) {
+    const profile = normalizeProfileKey(session.profile)
+    const threadId = sessionThreadId(session)
+    const lineageIds = new Set(nextLineages[threadId] ?? [])
+
+    lineageIds.add(threadId)
+    lineageIds.add(session.id)
+    nextLineages[threadId] = [...lineageIds]
+    nextProfiles[session.id] = profile
+    nextProfiles[threadId] ??= profile
+    nextStartedAt[session.id] = session.started_at
+    nextThreads[session.id] = threadId
+    nextThreads[threadId] = threadId
+    touchedThreadIds.add(threadId)
+  }
+
+  for (const threadId of touchedThreadIds) {
+    const originalOrder = new Map((nextLineages[threadId] ?? []).map((id, index) => [id, index]))
+    const ordered = [...new Set(nextLineages[threadId] ?? [threadId])]
+
+    ordered.sort((left, right) => {
+      if (left === threadId && right !== threadId) return -1
+      if (right === threadId && left !== threadId) return 1
+
+      const leftStarted = nextStartedAt[left]
+      const rightStarted = nextStartedAt[right]
+
+      if (leftStarted != null && rightStarted != null && leftStarted !== rightStarted) {
+        return leftStarted - rightStarted
+      }
+
+      if (leftStarted != null && rightStarted == null) return -1
+      if (rightStarted != null && leftStarted == null) return 1
+
+      return (originalOrder.get(left) ?? 0) - (originalOrder.get(right) ?? 0)
+    })
+
+    nextLineages[threadId] = ordered
+  }
+
+  sessionState.sessionProfilesById = nextProfiles
+  sessionState.sessionLineageIdsByThreadId = nextLineages
+  sessionState.sessionStartedAtById = nextStartedAt
+  sessionState.sessionThreadIdsById = nextThreads
 }
 
 export function profileForSession(sessionId: string | null | undefined): string | null {
@@ -157,10 +253,27 @@ function updateSession(sessionId: string, patch: Partial<SessionInfo>): void {
 }
 
 function removeSessionFromLocalState(sessionId: string): void {
+  const threadId = threadIdForSessionId(sessionId) ?? sessionId
   const before = sessionState.sessions.length
-  const profile = profileForSession(sessionId)
-  sessionState.sessions = sessionState.sessions.filter(session => session.id !== sessionId)
+  const profile = profileForSession(sessionId) ?? profileForSession(threadId)
+
+  sessionState.sessions = sessionState.sessions.filter(session => sessionThreadId(session) !== threadId)
+
+  for (const [id, mappedThreadId] of Object.entries(sessionState.sessionThreadIdsById)) {
+    if (id === sessionId || id === threadId || mappedThreadId === threadId) {
+      delete sessionState.sessionThreadIdsById[id]
+      delete sessionState.sessionProfilesById[id]
+      delete sessionState.sessionStartedAtById[id]
+    }
+  }
+
+  delete sessionState.sessionLineageIdsByThreadId[threadId]
   delete sessionState.sessionProfilesById[sessionId]
+  delete sessionState.sessionProfilesById[threadId]
+  delete sessionState.sessionStartedAtById[sessionId]
+  delete sessionState.sessionStartedAtById[threadId]
+  delete sessionState.sessionThreadIdsById[sessionId]
+  delete sessionState.sessionThreadIdsById[threadId]
 
   if (sessionState.sessions.length !== before && sessionState.sessionsTotal > 0) {
     sessionState.sessionsTotal -= 1
@@ -177,6 +290,129 @@ function removeSessionFromLocalState(sessionId: string): void {
   }
 }
 
+function sessionGroupKey(session: SessionInfo): string {
+  return `${normalizeProfileKey(session.profile)}\u0000${sessionThreadId(session)}`
+}
+
+function recentValue(session: SessionInfo): number {
+  return session.last_active ?? session.ended_at ?? session.started_at ?? 0
+}
+
+function newestSession(sessions: SessionInfo[]): SessionInfo {
+  return sessions.reduce((newest, session) => (recentValue(session) > recentValue(newest) ? session : newest))
+}
+
+function oldestSession(sessions: SessionInfo[]): SessionInfo {
+  return sessions.reduce((oldest, session) => (session.started_at < oldest.started_at ? session : oldest))
+}
+
+function threadTitle(title: null | string | undefined, stripLineageSuffix: boolean): null | string {
+  const trimmed = title?.trim()
+  if (!trimmed) return null
+
+  return stripLineageSuffix ? trimmed.replace(/\s+#\d+$/, '') : trimmed
+}
+
+function shouldStripLineageTitleSuffix(session: SessionInfo, sessions: SessionInfo[]): boolean {
+  return sessions.length > 1 || sessionThreadId(session) !== session.id
+}
+
+function collapseSessionGroup(threadId: string, sessions: SessionInfo[]): SessionInfo | null {
+  const latest = newestSession(sessions)
+  if (latest.archived) return null
+
+  const visible = sessions.filter(session => !session.archived)
+  const root = sessions.find(session => session.id === threadId) ?? oldestSession(sessions)
+  const inputTokens = sessions.reduce((total, session) => total + (session.input_tokens ?? 0), 0)
+  const outputTokens = sessions.reduce((total, session) => total + (session.output_tokens ?? 0), 0)
+  const messageCount = sessions.reduce((total, session) => total + (session.message_count ?? 0), 0)
+  const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
+  const lastActive = Math.max(...sessions.map(recentValue))
+  const startedAt = Math.min(...sessions.map(session => session.started_at))
+  const stripLineageSuffix = shouldStripLineageTitleSuffix(latest, sessions)
+  const title = threadTitle(latest.title, stripLineageSuffix) ?? threadTitle(root.title, stripLineageSuffix)
+
+  return {
+    ...latest,
+    _lineage_root_id: latest.id === threadId ? (latest._lineage_root_id ?? null) : threadId,
+    archived: false,
+    input_tokens: inputTokens,
+    is_active: visible.some(session => session.is_active),
+    last_active: lastActive,
+    message_count: messageCount,
+    output_tokens: outputTokens,
+    started_at: startedAt,
+    title,
+    tool_call_count: toolCallCount
+  }
+}
+
+export function collapseSessionsToThreads(sessions: SessionInfo[]): SessionInfo[] {
+  const groups = new Map<string, { sessions: SessionInfo[]; threadId: string }>()
+
+  for (const session of sessions) {
+    const key = sessionGroupKey(session)
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.sessions.push(session)
+    } else {
+      groups.set(key, { sessions: [session], threadId: sessionThreadId(session) })
+    }
+  }
+
+  return [...groups.values()]
+    .map(group => collapseSessionGroup(group.threadId, group.sessions))
+    .filter((session): session is SessionInfo => Boolean(session))
+    .sort((left, right) => recentValue(right) - recentValue(left))
+}
+
+function collapseArchivedSessionGroup(threadId: string, sessions: SessionInfo[]): SessionInfo {
+  const latest = newestSession(sessions)
+  const root = sessions.find(session => session.id === threadId) ?? oldestSession(sessions)
+  const inputTokens = sessions.reduce((total, session) => total + (session.input_tokens ?? 0), 0)
+  const outputTokens = sessions.reduce((total, session) => total + (session.output_tokens ?? 0), 0)
+  const messageCount = sessions.reduce((total, session) => total + (session.message_count ?? 0), 0)
+  const toolCallCount = sessions.reduce((total, session) => total + (session.tool_call_count ?? 0), 0)
+  const lastActive = Math.max(...sessions.map(recentValue))
+  const startedAt = Math.min(...sessions.map(session => session.started_at))
+  const stripLineageSuffix = shouldStripLineageTitleSuffix(latest, sessions)
+  const title = threadTitle(latest.title, stripLineageSuffix) ?? threadTitle(root.title, stripLineageSuffix)
+
+  return {
+    ...latest,
+    _lineage_root_id: latest.id === threadId ? (latest._lineage_root_id ?? null) : threadId,
+    archived: true,
+    input_tokens: inputTokens,
+    is_active: sessions.some(session => session.is_active),
+    last_active: lastActive,
+    message_count: messageCount,
+    output_tokens: outputTokens,
+    started_at: startedAt,
+    title,
+    tool_call_count: toolCallCount
+  }
+}
+
+export function collapseArchivedSessionsToThreads(sessions: SessionInfo[]): SessionInfo[] {
+  const groups = new Map<string, { sessions: SessionInfo[]; threadId: string }>()
+
+  for (const session of sessions) {
+    const key = sessionGroupKey(session)
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.sessions.push(session)
+    } else {
+      groups.set(key, { sessions: [session], threadId: sessionThreadId(session) })
+    }
+  }
+
+  return [...groups.values()]
+    .map(group => collapseArchivedSessionGroup(group.threadId, group.sessions))
+    .sort((left, right) => recentValue(right) - recentValue(left))
+}
+
 function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
   const existingKeepers =
     offset === 0
@@ -190,7 +426,41 @@ function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
     }
   }
 
-  return [...merged.values()]
+  return collapseSessionsToThreads([...merged.values()])
+}
+
+function mergeArchivedSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
+  const merged = new Map<string, SessionInfo>()
+
+  for (const session of [...incoming, ...(offset === 0 ? [] : sessionState.archivedSessions)]) {
+    if (!merged.has(session.id)) {
+      merged.set(session.id, session)
+    }
+  }
+
+  return collapseArchivedSessionsToThreads([...merged.values()])
+}
+
+function removeArchivedSessionFromLocalState(sessionId: string): void {
+  const threadId = threadIdForSessionId(sessionId) ?? sessionId
+  const before = sessionState.archivedSessions.length
+  const profile = profileForSession(sessionId) ?? profileForSession(threadId)
+
+  sessionState.archivedSessions = sessionState.archivedSessions.filter(session => sessionThreadId(session) !== threadId)
+
+  if (sessionState.archivedSessions.length !== before && sessionState.archivedSessionsTotal > 0) {
+    sessionState.archivedSessionsTotal -= 1
+    if (
+      profile &&
+      sessionState.archivedSessionProfileTotals[profile] != null &&
+      sessionState.archivedSessionProfileTotals[profile] > 0
+    ) {
+      sessionState.archivedSessionProfileTotals = {
+        ...sessionState.archivedSessionProfileTotals,
+        [profile]: sessionState.archivedSessionProfileTotals[profile] - 1
+      }
+    }
+  }
 }
 
 function setSessionFlag(list: string[], sessionId: string, enabled: boolean): void {
@@ -292,6 +562,54 @@ async function refreshSessionLists(): Promise<void> {
   }
 }
 
+function normalizeSearchPreview(value: null | string | undefined): string | null {
+  const preview = value?.replace(/\s+/g, ' ').trim()
+  return preview || null
+}
+
+function sessionForSearchResult(result: SessionSearchResult): SessionInfo | null {
+  const threadId = result.lineage_root?.trim() || result.session_id
+
+  return (
+    sessionState.sessions.find(session => session.id === result.session_id || sessionThreadId(session) === threadId) ??
+    null
+  )
+}
+
+function enrichSearchResult(result: SessionSearchResult): SessionSearchResult {
+  const knownSession = sessionForSearchResult(result)
+  const lineageRoot = result.lineage_root?.trim() || null
+  const profile = normalizeProfileKey(
+    result.profile ??
+      knownSession?.profile ??
+      sessionState.sessionProfilesById[result.session_id] ??
+      (lineageRoot ? sessionState.sessionProfilesById[lineageRoot] : null)
+  )
+  const title = result.title?.trim() || knownSession?.title?.trim() || 'Untitled session'
+  const preview = normalizeSearchPreview(result.preview ?? result.snippet ?? knownSession?.preview)
+
+  sessionState.sessionProfilesById = {
+    ...sessionState.sessionProfilesById,
+    [result.session_id]: profile,
+    ...(lineageRoot ? { [lineageRoot]: profile } : {})
+  }
+
+  if (lineageRoot) {
+    sessionState.sessionThreadIdsById = {
+      ...sessionState.sessionThreadIdsById,
+      [result.session_id]: lineageRoot,
+      [lineageRoot]: lineageRoot
+    }
+  }
+
+  return {
+    ...result,
+    preview,
+    profile,
+    title
+  }
+}
+
 async function runSearch(query: string, revision = ++searchRevision): Promise<void> {
   if (!query) {
     sessionState.searchResults = []
@@ -307,7 +625,7 @@ async function runSearch(query: string, revision = ++searchRevision): Promise<vo
     const result = await apiSearchSessions(query)
 
     if (revision === searchRevision) {
-      sessionState.searchResults = result.results
+      sessionState.searchResults = result.results.map(enrichSearchResult)
       sessionState.searching = false
     }
   } catch (error) {
@@ -350,12 +668,12 @@ export async function loadSessions(offset = 0): Promise<void> {
     let result: PaginatedSessions
 
     try {
-      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent', scope)
+      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'include', 'recent', scope)
     } catch (error) {
       // Backward-compatible safety valve for older single-profile dashboards.
       // The upstream multi-profile endpoint is preferred whenever available.
       if (scope !== 'all') {
-        result = await apiListSessions(PAGE_SIZE, offset, 0, 'exclude', 'recent', scope)
+        result = await apiListSessions(PAGE_SIZE, offset, 0, 'include', 'recent', scope)
       } else {
         throw error
       }
@@ -383,6 +701,70 @@ export async function loadSessions(offset = 0): Promise<void> {
 export async function loadMoreSessions(): Promise<void> {
   if (sessionState.sessionsLoadingMore || !hasMoreSessions()) return
   await loadSessions(sessionState.sessionsOffset)
+}
+
+export async function loadArchivedSessions(offset = 0): Promise<void> {
+  if (gatewayState.connectionState !== 'open') return
+
+  const firstPage = offset === 0
+
+  if (firstPage) {
+    sessionState.archivedSessionsLoading = true
+  } else {
+    sessionState.archivedSessionsLoadingMore = true
+  }
+
+  sessionState.archivedError = null
+
+  try {
+    const scope = getProfileScope() === ALL_PROFILES ? 'all' : normalizeProfileKey(getProfileScope())
+    let result: PaginatedSessions
+
+    try {
+      result = await listAllProfileSessions(PAGE_SIZE, offset, 0, 'only', 'recent', scope)
+    } catch (error) {
+      if (scope !== 'all') {
+        result = await apiListSessions(PAGE_SIZE, offset, 0, 'only', 'recent', scope)
+      } else {
+        throw error
+      }
+    }
+
+    const fallbackProfile = scope === 'all' ? 'default' : scope
+    const sessions = result.sessions.map(session => sessionWithProfile({ ...session, archived: true }, fallbackProfile))
+
+    recordSessionProfiles(sessions)
+    sessionState.archivedSessions = mergeArchivedSessions(sessions, offset)
+    sessionState.archivedSessionProfileTotals = result.profile_totals ?? {}
+    sessionState.archivedSessionsTotal =
+      scope !== 'all' && result.profile_totals?.[scope] != null ? result.profile_totals[scope] : result.total
+    sessionState.archivedSessionsOffset = offset + sessions.length
+    sessionState.archivedSessionsInitialized = true
+  } catch (error) {
+    sessionState.archivedError = messageForError(error)
+    console.error('Failed to load archived sessions:', error)
+  } finally {
+    sessionState.archivedSessionsLoading = false
+    sessionState.archivedSessionsLoadingMore = false
+  }
+}
+
+export async function loadMoreArchivedSessions(): Promise<void> {
+  if (sessionState.archivedSessionsLoadingMore || !hasMoreArchivedSessions()) return
+  await loadArchivedSessions(sessionState.archivedSessionsOffset)
+}
+
+export function hasMoreArchivedSessions(): boolean {
+  if (getProfileScope() !== ALL_PROFILES) {
+    const scope = normalizeProfileKey(getProfileScope())
+    const scopedTotal = sessionState.archivedSessionProfileTotals[scope]
+
+    if (scopedTotal != null) {
+      return sessionState.archivedSessionsOffset < scopedTotal
+    }
+  }
+
+  return sessionState.archivedSessionsOffset < sessionState.archivedSessionsTotal
 }
 
 export function hasMoreSessions(): boolean {
@@ -488,6 +870,9 @@ export async function createSession(): Promise<string | null> {
     rememberRuntimeSession(storedKey, liveSid)
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
+    sessionState.sessionLineageIdsByThreadId[storedKey] = [storedKey]
+    sessionState.sessionStartedAtById[storedKey] = Date.now() / 1000
+    sessionState.sessionThreadIdsById[storedKey] = storedKey
 
     if (profile) {
       sessionState.sessionProfilesById[storedKey] = normalizeProfileKey(profile)
@@ -557,6 +942,9 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
 
     sessionState.activeSessionId = cachedRuntimeId
     sessionState.storedSessionId = sessionId
+    sessionState.sessionLineageIdsByThreadId[threadIdForSessionId(sessionId) ?? sessionId] ??=
+      lineageMessageSessionIds(sessionId)
+    sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
     if (profile) {
       sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
@@ -591,6 +979,9 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
     rememberRuntimeSession(sessionId, response.session_id)
     sessionState.activeSessionId = response.session_id
     sessionState.storedSessionId = sessionId
+    sessionState.sessionLineageIdsByThreadId[threadIdForSessionId(sessionId) ?? sessionId] ??=
+      lineageMessageSessionIds(sessionId)
+    sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
     if (profile) {
       sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
@@ -645,14 +1036,18 @@ export async function archiveSession(sessionId: string, archived = true): Promis
   setMutating(sessionId, true)
 
   try {
-    const profile = profileForMutation(sessionId)
-    await apiSetSessionArchived(sessionId, archived, profile)
+    const mutationSessionId = threadIdForSessionId(sessionId) ?? sessionId
+    const profile = profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
+    await apiSetSessionArchived(mutationSessionId, archived, profile)
 
     if (archived) {
       removeSessionFromLocalState(sessionId)
       forgetRuntimeSession(sessionId)
+      if (mutationSessionId !== sessionId) {
+        forgetRuntimeSession(mutationSessionId)
+      }
 
-      if (sessionState.storedSessionId === sessionId) {
+      if (sessionState.storedSessionId === sessionId || sessionState.storedSessionId === mutationSessionId) {
         sessionState.activeSessionId = null
         sessionState.storedSessionId = null
         navigate('/')
@@ -670,16 +1065,49 @@ export async function archiveSession(sessionId: string, archived = true): Promis
   }
 }
 
+export async function restoreArchivedSession(session: SessionInfo): Promise<boolean> {
+  const sessionId = session.id
+  const mutationSessionId = sessionThreadId(session)
+  const profile = normalizeProfileKey(
+    session.profile ?? profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
+  )
+
+  setMutating(sessionId, true)
+  if (mutationSessionId !== sessionId) {
+    setMutating(mutationSessionId, true)
+  }
+
+  try {
+    await apiSetSessionArchived(mutationSessionId, false, profile)
+    removeArchivedSessionFromLocalState(mutationSessionId)
+    await refreshSessionLists()
+    return true
+  } catch (error) {
+    sessionState.archivedError = messageForError(error)
+    console.error('Failed to restore archived session:', error)
+    return false
+  } finally {
+    setMutating(sessionId, false)
+    if (mutationSessionId !== sessionId) {
+      setMutating(mutationSessionId, false)
+    }
+  }
+}
+
 export async function deleteSession(sessionId: string): Promise<boolean> {
   setMutating(sessionId, true)
 
   try {
-    const profile = profileForMutation(sessionId)
-    await apiDeleteSession(sessionId, profile)
+    const mutationSessionId = threadIdForSessionId(sessionId) ?? sessionId
+    const profile = profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
+    await apiDeleteSession(mutationSessionId, profile)
     removeSessionFromLocalState(sessionId)
     forgetRuntimeSession(sessionId)
+    if (mutationSessionId !== sessionId) {
+      forgetRuntimeSession(mutationSessionId)
+    }
 
-    if (sessionState.storedSessionId === sessionId) {
+    if (sessionState.storedSessionId === sessionId || sessionState.storedSessionId === mutationSessionId) {
       sessionState.activeSessionId = null
       sessionState.storedSessionId = null
       navigate('/')
@@ -701,7 +1129,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
 /* ------------------------------------------------------------------ */
 
 export function sessionPinId(session: SessionInfo): string {
-  return session._lineage_root_id ?? session.id
+  return sessionThreadId(session)
 }
 
 export function searchResultPinId(result: SessionSearchResult): string {

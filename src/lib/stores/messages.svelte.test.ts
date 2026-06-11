@@ -39,6 +39,9 @@ function resetState(): void {
   sessionState.workingSessionIds = []
   sessionState.needsInputSessionIds = []
   sessionState.runtimeIdsByStoredSessionId = {}
+  sessionState.sessionLineageIdsByThreadId = {}
+  sessionState.sessionStartedAtById = {}
+  sessionState.sessionThreadIdsById = {}
   sessionState.storedSessionIdsByRuntimeId = {}
   promptsState.clarifyRequests = {}
   promptsState.approvalRequest = null

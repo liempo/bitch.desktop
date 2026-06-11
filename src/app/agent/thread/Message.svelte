@@ -9,11 +9,12 @@
   import type { ThreadMessage } from '$lib/stores/messages.svelte'
 
   interface Props {
+    isLast?: boolean
     message: ThreadMessage
     sessionId?: null | string
   }
 
-  let { message, sessionId = null }: Props = $props()
+  let { isLast = false, message, sessionId = null }: Props = $props()
 
   const assistant = $derived(message.role === 'assistant')
   const user = $derived(message.role === 'user')
@@ -81,7 +82,7 @@
   </div>
 {:else if system}
   <div class="mx-auto w-full max-w-4xl px-4" data-role="system">
-    <System text={message.text} />
+    <System text={message.text} lastInThread={isLast} />
   </div>
 {:else if user}
   <!-- User message — bubble style -->

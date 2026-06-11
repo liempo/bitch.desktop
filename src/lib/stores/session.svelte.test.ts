@@ -1,10 +1,29 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockRequestGateway, mockNavigate, mockSessionRoute, mockEnsureGatewayForProfile } = vi.hoisted(() => ({
+const {
+  mockRequestGateway,
+  mockNavigate,
+  mockSessionRoute,
+  mockEnsureGatewayForProfile,
+  mockApiRenameSession,
+  mockApiSetSessionArchived,
+  mockApiDeleteSession,
+  mockApiListSessions,
+  mockApiListAllProfileSessions,
+  mockApiSearchSessions,
+  mockSetApiRequestProfile
+} = vi.hoisted(() => ({
   mockRequestGateway: vi.fn(),
   mockNavigate: vi.fn(),
   mockSessionRoute: vi.fn((id: string) => `/${id}`),
-  mockEnsureGatewayForProfile: vi.fn()
+  mockEnsureGatewayForProfile: vi.fn(),
+  mockApiRenameSession: vi.fn(),
+  mockApiSetSessionArchived: vi.fn(),
+  mockApiDeleteSession: vi.fn(),
+  mockApiListSessions: vi.fn(),
+  mockApiListAllProfileSessions: vi.fn(),
+  mockApiSearchSessions: vi.fn(),
+  mockSetApiRequestProfile: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
@@ -19,18 +38,62 @@ vi.mock('@/app/agent/router.svelte', () => ({
   routerState: {}
 }))
 
+vi.mock('$lib/api/dashboard', () => ({
+  deleteSession: mockApiDeleteSession,
+  listAllProfileSessions: mockApiListAllProfileSessions,
+  listSessions: mockApiListSessions,
+  renameSession: mockApiRenameSession,
+  searchSessions: mockApiSearchSessions,
+  setApiRequestProfile: mockSetApiRequestProfile,
+  setSessionArchived: mockApiSetSessionArchived
+}))
+
 import {
+  archiveSession,
+  collapseArchivedSessionsToThreads,
+  collapseSessionsToThreads,
   createSession,
+  deleteSession,
   hasMoreSessions,
+  loadArchivedSessions,
+  loadSessions,
+  lineageMessageSessionIds,
   rememberRuntimeSession,
+  renameSession,
+  restoreArchivedSession,
   resumeSession,
   runtimeSessionIdForStored,
   selectSession,
+  setSearchQuery,
   sessionState as rawSessionState,
+  sessionThreadId,
   startNewSession,
   storedSessionIdForRuntime
 } from '$lib/stores/session.svelte'
 import { profileState } from '$lib/stores/profile.svelte'
+import { gatewayState } from '$lib/stores/gateway.svelte'
+import type { SessionInfo } from '$lib/types/hermes'
+
+function session(overrides: Partial<SessionInfo>): SessionInfo {
+  return {
+    archived: false,
+    cwd: null,
+    ended_at: null,
+    id: 'session-id',
+    input_tokens: 0,
+    is_active: false,
+    last_active: 100,
+    message_count: 1,
+    model: null,
+    output_tokens: 0,
+    preview: null,
+    source: 'cli',
+    started_at: 100,
+    title: 'Session title',
+    tool_call_count: 0,
+    ...overrides
+  }
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -52,6 +115,7 @@ describe('createSession', () => {
     rawSessionState.runtimeIdsByStoredSessionId = {}
     rawSessionState.storedSessionIdsByRuntimeId = {}
     rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionThreadIdsById = {}
     profileState.activeGatewayProfile = 'default'
     profileState.newChatProfile = null
   })
@@ -352,6 +416,323 @@ describe('resumeSession', () => {
   })
 })
 
+describe('session mutations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = null
+    rawSessionState.storedSessionId = null
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.sessions = [
+      {
+        archived: false,
+        cwd: null,
+        ended_at: 123,
+        id: 'stored-A',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 456,
+        message_count: 3,
+        model: null,
+        output_tokens: 0,
+        preview: null,
+        profile: 'crypto/profile',
+        source: 'cli',
+        started_at: 100,
+        title: 'Old title',
+        tool_call_count: 0
+      }
+    ]
+    rawSessionState.sessionsTotal = 1
+    rawSessionState.sessionProfileTotals = { 'crypto/profile': 1 }
+    rawSessionState.sessionProfilesById = { 'stored-A': 'crypto/profile' }
+    rawSessionState.runtimeIdsByStoredSessionId = { 'stored-A': 'live-A' }
+    rawSessionState.storedSessionIdsByRuntimeId = { 'live-A': 'stored-A' }
+    profileState.activeGatewayProfile = 'default'
+    profileState.showAllProfiles = true
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('renames using the row owning profile and updates local title', async () => {
+    mockApiRenameSession.mockResolvedValueOnce({ ok: true, title: 'New title' })
+
+    await expect(renameSession('stored-A', ' New title ')).resolves.toBe(true)
+
+    expect(mockApiRenameSession).toHaveBeenCalledWith('stored-A', 'New title', 'crypto/profile')
+    expect(rawSessionState.sessions[0]?.title).toBe('New title')
+  })
+
+  it('archives using the row owning profile and removes only that profile count locally', async () => {
+    mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true, archived: true })
+
+    await expect(archiveSession('stored-A')).resolves.toBe(true)
+
+    expect(mockApiSetSessionArchived).toHaveBeenCalledWith('stored-A', true, 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.sessionsTotal).toBe(0)
+    expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(0)
+    expect(runtimeSessionIdForStored('stored-A')).toBeNull()
+  })
+
+  it('deletes using the row owning profile and navigates away when selected', async () => {
+    rawSessionState.activeSessionId = 'live-A'
+    rawSessionState.storedSessionId = 'stored-A'
+    mockApiDeleteSession.mockResolvedValueOnce({ ok: true })
+
+    await expect(deleteSession('stored-A')).resolves.toBe(true)
+
+    expect(mockApiDeleteSession).toHaveBeenCalledWith('stored-A', 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(rawSessionState.storedSessionId).toBeNull()
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('leaves profile-owned rows in place when delete fails', async () => {
+    mockApiDeleteSession.mockRejectedValueOnce(new Error('not found in profile'))
+
+    await expect(deleteSession('stored-A')).resolves.toBe(false)
+
+    expect(rawSessionState.sessions.map(session => session.id)).toEqual(['stored-A'])
+    expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(1)
+    expect(rawSessionState.error).toBe('not found in profile')
+  })
+})
+
+describe('archived sessions', () => {
+  afterEach(() => {
+    gatewayState.connectionState = 'idle'
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    gatewayState.connectionState = 'open'
+    profileState.showAllProfiles = true
+    profileState.activeGatewayProfile = 'default'
+    rawSessionState.archivedError = null
+    rawSessionState.archivedSessionProfileTotals = {}
+    rawSessionState.archivedSessions = []
+    rawSessionState.archivedSessionsInitialized = false
+    rawSessionState.archivedSessionsLoading = false
+    rawSessionState.archivedSessionsLoadingMore = false
+    rawSessionState.archivedSessionsOffset = 0
+    rawSessionState.archivedSessionsTotal = 0
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessions = []
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('loads only archived sessions for the active profile scope', async () => {
+    const archived = session({
+      archived: true,
+      id: 'archived-A',
+      last_active: 456,
+      message_count: 3,
+      profile: 'crypto/profile',
+      title: 'Archived plan'
+    })
+
+    mockApiListAllProfileSessions.mockResolvedValueOnce({
+      sessions: [archived],
+      total: 1,
+      limit: 40,
+      offset: 0,
+      profile_totals: { 'crypto/profile': 1 }
+    })
+
+    await loadArchivedSessions()
+
+    expect(mockApiListAllProfileSessions).toHaveBeenCalledWith(40, 0, 0, 'only', 'recent', 'all')
+    expect(rawSessionState.archivedSessions).toHaveLength(1)
+    expect(rawSessionState.archivedSessions[0]).toMatchObject({ id: 'archived-A', title: 'Archived plan' })
+    expect(rawSessionState.sessionProfilesById['archived-A']).toBe('crypto/profile')
+  })
+
+  it('restores archived sessions using their owning profile and refreshes recents', async () => {
+    const archived = session({
+      archived: true,
+      id: 'archived-A',
+      profile: 'crypto/profile',
+      title: 'Archived plan'
+    })
+
+    rawSessionState.archivedSessions = [archived]
+    rawSessionState.archivedSessionsTotal = 1
+    rawSessionState.archivedSessionProfileTotals = { 'crypto/profile': 1 }
+    rawSessionState.sessionProfilesById = { 'archived-A': 'crypto/profile' }
+    rawSessionState.sessionThreadIdsById = { 'archived-A': 'archived-A' }
+    mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true })
+
+    await expect(restoreArchivedSession(archived)).resolves.toBe(true)
+
+    expect(mockApiSetSessionArchived).toHaveBeenCalledWith('archived-A', false, 'crypto/profile')
+    expect(rawSessionState.archivedSessions).toEqual([])
+    expect(rawSessionState.archivedSessionsTotal).toBe(0)
+    expect(mockApiListAllProfileSessions).toHaveBeenCalledWith(40, 0, 0, 'include', 'recent', 'all')
+  })
+
+  it('collapses archived lineage rows into one restorable thread row', () => {
+    const rows = collapseArchivedSessionsToThreads([
+      session({
+        archived: true,
+        id: 'thread-root',
+        last_active: 10,
+        message_count: 2,
+        title: 'Root title'
+      }),
+      session({
+        _lineage_root_id: 'thread-root',
+        archived: true,
+        id: 'thread-tip',
+        last_active: 20,
+        message_count: 4,
+        title: 'Tip title'
+      })
+    ])
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      _lineage_root_id: 'thread-root',
+      archived: true,
+      id: 'thread-tip',
+      message_count: 6,
+      title: 'Tip title'
+    })
+  })
+})
+
+describe('session search', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    rawSessionState.searchError = null
+    rawSessionState.searchQuery = ''
+    rawSessionState.searchResults = []
+    rawSessionState.searching = false
+    rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessions = [
+      session({
+        id: 'stored-A',
+        profile: 'crypto/profile',
+        title: 'Deploy plan'
+      })
+    ]
+  })
+
+  afterEach(() => {
+    setSearchQuery('')
+    vi.useRealTimers()
+  })
+
+  it('enriches search rows with session titles and matching previews', async () => {
+    mockApiSearchSessions.mockResolvedValueOnce({
+      results: [
+        {
+          lineage_root: null,
+          model: 'claude-opus',
+          role: 'user',
+          session_id: 'stored-A',
+          session_started: 100,
+          snippet: 'matching\nquery text',
+          source: 'cli'
+        }
+      ]
+    })
+
+    setSearchQuery('matching')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(mockApiSearchSessions).toHaveBeenCalledWith('matching')
+    expect(rawSessionState.searchResults[0]).toMatchObject({
+      preview: 'matching query text',
+      profile: 'crypto/profile',
+      title: 'Deploy plan'
+    })
+  })
+})
+
+describe('session lineage mutations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = null
+    rawSessionState.storedSessionId = null
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.sessions = [
+      {
+        _lineage_root_id: 'stored-root',
+        archived: false,
+        cwd: null,
+        ended_at: 123,
+        id: 'stored-tip',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 456,
+        message_count: 3,
+        model: null,
+        output_tokens: 0,
+        preview: null,
+        profile: 'crypto/profile',
+        source: 'cli',
+        started_at: 100,
+        title: 'Old title #2',
+        tool_call_count: 0
+      }
+    ]
+    rawSessionState.sessionsTotal = 1
+    rawSessionState.sessionProfileTotals = { 'crypto/profile': 1 }
+    rawSessionState.sessionProfilesById = {
+      'stored-root': 'crypto/profile',
+      'stored-tip': 'crypto/profile'
+    }
+    rawSessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    rawSessionState.runtimeIdsByStoredSessionId = { 'stored-tip': 'live-tip' }
+    rawSessionState.storedSessionIdsByRuntimeId = { 'live-tip': 'stored-tip' }
+    profileState.activeGatewayProfile = 'default'
+    profileState.showAllProfiles = true
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('archives continuation rows through their lineage root and clears the collapsed row', async () => {
+    mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true, archived: true })
+
+    await expect(archiveSession('stored-tip')).resolves.toBe(true)
+
+    expect(mockApiSetSessionArchived).toHaveBeenCalledWith('stored-root', true, 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.sessionsTotal).toBe(0)
+    expect(rawSessionState.sessionProfileTotals['crypto/profile']).toBe(0)
+    expect(rawSessionState.runtimeIdsByStoredSessionId).toEqual({})
+    expect(rawSessionState.storedSessionIdsByRuntimeId).toEqual({})
+  })
+
+  it('deletes continuation rows through their lineage root and navigates away when selected', async () => {
+    rawSessionState.activeSessionId = 'live-tip'
+    rawSessionState.storedSessionId = 'stored-tip'
+    mockApiDeleteSession.mockResolvedValueOnce({ ok: true })
+
+    await expect(deleteSession('stored-tip')).resolves.toBe(true)
+
+    expect(mockApiDeleteSession).toHaveBeenCalledWith('stored-root', 'crypto/profile')
+    expect(rawSessionState.sessions).toHaveLength(0)
+    expect(rawSessionState.activeSessionId).toBeNull()
+    expect(rawSessionState.storedSessionId).toBeNull()
+    expect(rawSessionState.runtimeIdsByStoredSessionId).toEqual({})
+    expect(rawSessionState.storedSessionIdsByRuntimeId).toEqual({})
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+})
+
 describe('profile-scoped pagination', () => {
   beforeEach(() => {
     rawSessionState.sessionsOffset = 0
@@ -377,5 +758,249 @@ describe('profile-scoped pagination', () => {
     rawSessionState.sessionProfileTotals = { default: 40 }
 
     expect(hasMoreSessions()).toBe(true)
+  })
+})
+
+describe('session lineage threads', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    gatewayState.connectionState = 'open'
+    profileState.showAllProfiles = true
+    rawSessionState.sessionLineageIdsByThreadId = {}
+    rawSessionState.sessionProfilesById = {}
+    rawSessionState.sessionStartedAtById = {}
+    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessions = []
+    mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+    mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
+  })
+
+  it('uses the lineage root as the stable thread id', () => {
+    expect(sessionThreadId({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })).toBe('BITCH')
+    expect(sessionThreadId({ id: 'BITCH-3', lineage_root: 'BITCH' })).toBe('BITCH')
+    expect(sessionThreadId({ id: 'solo', _lineage_root_id: null })).toBe('solo')
+  })
+
+  it('strips generated lineage suffixes from sidebar titles when a thread advances', () => {
+    const threads = collapseSessionsToThreads([
+      session({
+        id: 'thread-root',
+        last_active: 10,
+        started_at: 10,
+        title: 'Deploy plan'
+      }),
+      session({
+        _lineage_root_id: 'thread-root',
+        id: 'thread-tip',
+        last_active: 20,
+        started_at: 20,
+        title: 'Deploy plan #2'
+      })
+    ])
+
+    expect(threads).toHaveLength(1)
+    expect(threads[0]).toMatchObject({
+      _lineage_root_id: 'thread-root',
+      id: 'thread-tip',
+      title: 'Deploy plan'
+    })
+  })
+
+  it('preserves hash-number titles for standalone sessions', () => {
+    const threads = collapseSessionsToThreads([
+      session({
+        id: 'solo',
+        last_active: 10,
+        started_at: 10,
+        title: 'Plan #2'
+      })
+    ])
+
+    expect(threads[0]).toMatchObject({ id: 'solo', title: 'Plan #2' })
+  })
+
+  it('records lineage members in chronological order for compressed threads loaded from the gateway', async () => {
+    mockApiListAllProfileSessions.mockResolvedValueOnce({
+      sessions: [
+        session({
+          _lineage_root_id: 'BITCH',
+          archived: false,
+          id: 'BITCH-3',
+          last_active: 60,
+          started_at: 50,
+          title: 'BITCH #3'
+        }),
+        session({
+          _lineage_root_id: null,
+          archived: true,
+          id: 'BITCH',
+          last_active: 20,
+          started_at: 10,
+          title: 'BITCH'
+        }),
+        session({
+          _lineage_root_id: 'BITCH',
+          archived: true,
+          id: 'BITCH-2',
+          last_active: 40,
+          started_at: 30,
+          title: 'BITCH #2'
+        })
+      ],
+      total: 3,
+      limit: 40,
+      offset: 0
+    })
+
+    await loadSessions()
+
+    expect(lineageMessageSessionIds('BITCH-3')).toEqual(['BITCH', 'BITCH-2', 'BITCH-3'])
+    expect(rawSessionState.sessions).toHaveLength(1)
+    expect(rawSessionState.sessions[0]).toMatchObject({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })
+  })
+
+  it('collapses archived compression predecessors behind the latest visible continuation tip without masking its title', () => {
+    const threads = collapseSessionsToThreads([
+      {
+        _lineage_root_id: null,
+        archived: true,
+        cwd: null,
+        ended_at: 20,
+        id: 'BITCH',
+        input_tokens: 10,
+        is_active: false,
+        last_active: 20,
+        message_count: 5,
+        model: 'claude-opus',
+        output_tokens: 20,
+        preview: 'root preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 10,
+        title: 'BITCH',
+        tool_call_count: 1
+      },
+      {
+        _lineage_root_id: 'BITCH',
+        archived: true,
+        cwd: null,
+        ended_at: 40,
+        id: 'BITCH-2',
+        input_tokens: 30,
+        is_active: false,
+        last_active: 40,
+        message_count: 7,
+        model: 'claude-opus',
+        output_tokens: 40,
+        preview: 'middle preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 30,
+        title: 'BITCH #2',
+        tool_call_count: 2
+      },
+      {
+        _lineage_root_id: 'BITCH',
+        archived: false,
+        cwd: null,
+        ended_at: null,
+        id: 'BITCH-3',
+        input_tokens: 50,
+        is_active: true,
+        last_active: 60,
+        message_count: 9,
+        model: 'claude-opus',
+        output_tokens: 60,
+        preview: 'latest preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 50,
+        title: 'BITCH #3',
+        tool_call_count: 3
+      }
+    ])
+
+    expect(threads).toHaveLength(1)
+    expect(threads[0]).toMatchObject({
+      _lineage_root_id: 'BITCH',
+      archived: false,
+      id: 'BITCH-3',
+      is_active: true,
+      last_active: 60,
+      message_count: 21,
+      preview: 'latest preview',
+      title: 'BITCH',
+      tool_call_count: 6
+    })
+  })
+
+  it('does not resurrect explicitly archived sessions that have no visible continuation tip', () => {
+    const threads = collapseSessionsToThreads([
+      {
+        archived: true,
+        cwd: null,
+        ended_at: 20,
+        id: 'archived-solo',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 20,
+        message_count: 5,
+        model: null,
+        output_tokens: 0,
+        preview: 'hidden',
+        profile: 'default',
+        source: 'cli',
+        started_at: 10,
+        title: 'Archived solo',
+        tool_call_count: 0
+      }
+    ])
+
+    expect(threads).toEqual([])
+  })
+
+  it('keeps an archived continuation tip hidden instead of restoring an older ancestor', () => {
+    const threads = collapseSessionsToThreads([
+      {
+        _lineage_root_id: null,
+        archived: false,
+        cwd: null,
+        ended_at: 20,
+        id: 'BITCH',
+        input_tokens: 10,
+        is_active: false,
+        last_active: 20,
+        message_count: 5,
+        model: 'claude-opus',
+        output_tokens: 20,
+        preview: 'root preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 10,
+        title: 'BITCH',
+        tool_call_count: 1
+      },
+      {
+        _lineage_root_id: 'BITCH',
+        archived: true,
+        cwd: null,
+        ended_at: 40,
+        id: 'BITCH-2',
+        input_tokens: 30,
+        is_active: false,
+        last_active: 40,
+        message_count: 7,
+        model: 'claude-opus',
+        output_tokens: 40,
+        preview: 'middle preview',
+        profile: 'default',
+        source: 'cli',
+        started_at: 30,
+        title: 'BITCH #2',
+        tool_call_count: 2
+      }
+    ])
+
+    expect(threads).toEqual([])
   })
 })

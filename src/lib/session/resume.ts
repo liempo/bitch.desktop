@@ -9,6 +9,7 @@ import {
 import {
   beginResumeSession,
   isCurrentResumeRequest,
+  lineageMessageSessionIds,
   profileForSession,
   resumeSession,
   sessionState
@@ -27,25 +28,33 @@ function releaseStaleThreadLoading(sessionId: string, requestId: number): void {
 }
 
 async function loadStoredSnapshot(sessionId: string, requestId: number): Promise<SessionMessage[] | null> {
-  try {
-    const response = await getSessionMessages(sessionId, profileForSession(sessionId))
+  const profile = profileForSession(sessionId)
+  const lineageIds = lineageMessageSessionIds(sessionId)
+  const snapshotRequests = lineageIds.map(id => getSessionMessages(id, profile))
+  const results = await Promise.allSettled(snapshotRequests)
 
-    if (!isCurrentResumeRequest(sessionId, requestId)) {
-      return null
+  if (!isCurrentResumeRequest(sessionId, requestId)) {
+    return null
+  }
+
+  const messages: SessionMessage[] = []
+
+  for (const [index, result] of results.entries()) {
+    if (result.status === 'fulfilled') {
+      messages.push(...result.value.messages)
+      continue
     }
 
-    return response.messages
-  } catch (error) {
-    if (isCurrentResumeRequest(sessionId, requestId) && !isStoredSessionNotFound(error)) {
+    if (!isStoredSessionNotFound(result.reason)) {
       // A stored-history miss should not prevent resume; the gateway may still
       // return a projected transcript. Preserve the error for diagnostics while
       // keeping the live resume path available.
-      sessionState.error = messageForError(error)
-      console.error('Failed to load stored session snapshot:', error)
+      sessionState.error = messageForError(result.reason)
+      console.error(`Failed to load stored session snapshot for ${lineageIds[index]}:`, result.reason)
     }
-
-    return []
   }
+
+  return messages
 }
 
 /**

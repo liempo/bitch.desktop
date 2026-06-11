@@ -73,6 +73,10 @@ describe('resumeAndHydrateStoredSession', () => {
     sessionState.workingSessionIds = []
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
+    sessionState.sessionLineageIdsByThreadId = {}
+    sessionState.sessionProfilesById = {}
+    sessionState.sessionStartedAtById = {}
+    sessionState.sessionThreadIdsById = {}
     sessionState.storedSessionIdsByRuntimeId = {}
   })
 
@@ -140,6 +144,47 @@ describe('resumeAndHydrateStoredSession', () => {
     await expect(resumeAndHydrateStoredSession('stored-empty')).resolves.toBe(true)
 
     expect(threadForSession('stored-empty')?.messages.map(message => message.text)).toEqual(['gateway fallback'])
+  })
+
+  it('hydrates compressed session history from every known lineage segment', async () => {
+    sessionState.sessionLineageIdsByThreadId = {
+      'stored-root': ['stored-root', 'stored-middle', 'stored-tip']
+    }
+    sessionState.sessionProfilesById = {
+      'stored-root': 'default',
+      'stored-middle': 'default',
+      'stored-tip': 'default'
+    }
+    sessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-middle': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    mockGetSessionMessages.mockImplementation(async (sessionId: string) => ({
+      session_id: sessionId,
+      messages: [storedMessage(`${sessionId} message`)]
+    }))
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'live-tip',
+      resumed: 'stored-tip',
+      message_count: 3,
+      messages: [storedMessage('gateway compression projection')],
+      info: { model: 'test-model' }
+    })
+
+    await expect(resumeAndHydrateStoredSession('stored-tip')).resolves.toBe(true)
+
+    expect(mockGetSessionMessages).toHaveBeenCalledTimes(3)
+    expect(mockGetSessionMessages.mock.calls.map(call => call[0])).toEqual([
+      'stored-root',
+      'stored-middle',
+      'stored-tip'
+    ])
+    expect(threadForSession('stored-tip')?.messages.map(message => message.text)).toEqual([
+      'stored-root message',
+      'stored-middle message',
+      'stored-tip message'
+    ])
   })
 
   it('does not resume or hydrate a stale route after another session is selected', async () => {

@@ -48,18 +48,62 @@ vi.mock('@/app/agent/router.svelte', () => ({
 
 import {
   composerState,
+  currentModelLabel,
   executeSlashCommand,
   groupedModelOptions,
   selectComposerFastMode,
   selectComposerModel,
   selectComposerReasoningEffort,
+  shouldDispatchSlashImmediately,
+  slashSuggestions,
   submitPrompt,
   type ComposerAttachment
 } from '$lib/stores/composer.svelte'
 import { clearQueuedPrompts, getQueuedPrompts } from '$lib/stores/composer-queue'
-import { messageState, threadForSession } from '$lib/stores/messages.svelte'
+import { messageState, setThreadBusy, threadForSession } from '$lib/stores/messages.svelte'
 import { profileState } from '$lib/stores/profile.svelte'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
+
+describe('composer slash dispatch policy', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    composerState.sessions = {}
+  })
+
+  it('treats slash commands as immediate control-plane commands even while busy', () => {
+    expect(shouldDispatchSlashImmediately('/compact', true)).toBe(true)
+    expect(shouldDispatchSlashImmediately('  /goal status  ', true)).toBe(true)
+    expect(shouldDispatchSlashImmediately('/compact', false)).toBe(true)
+    expect(shouldDispatchSlashImmediately('normal prompt', true)).toBe(false)
+  })
+
+  it('treats every slash-prefixed draft as a command', () => {
+    expect(shouldDispatchSlashImmediately('/reset', true)).toBe(true)
+    expect(shouldDispatchSlashImmediately('/new', false)).toBe(true)
+    expect(shouldDispatchSlashImmediately('/not-real', false)).toBe(true)
+  })
+
+  it('shows slash aliases from the loaded command catalog', () => {
+    composerState.sessions['stored-A'] = {
+      attachments: [],
+      commandCatalog: [
+        { command: '/compact', description: 'compact context' },
+        { command: '/reset', description: 'reset session state' },
+        { command: '/new', description: 'start new session' }
+      ],
+      commandError: null,
+      draft: '',
+      error: null,
+      loadingCommands: false,
+      submitting: false,
+      userInterrupted: false
+    }
+
+    expect(slashSuggestions('stored-A', '/c').map(item => item.command)).toEqual(['/compact'])
+    expect(slashSuggestions('stored-A', '/n').map(item => item.command)).toEqual(['/new'])
+    expect(slashSuggestions('stored-A', '/res').map(item => item.command)).toEqual(['/reset'])
+  })
+})
 
 describe('composer runtime targeting', () => {
   beforeEach(() => {
@@ -67,6 +111,9 @@ describe('composer runtime targeting', () => {
     mockRouterState.route = 'session'
     mockRouterState.sessionId = 'other-stored'
     composerState.sessions = {}
+    composerState.threadFastSelections = {}
+    composerState.threadModelSelections = {}
+    composerState.threadReasoningSelections = {}
     resetComposerModelState()
     messageState.sessions = {}
     sessionState.activeSessionId = 'other-live'
@@ -76,6 +123,7 @@ describe('composer runtime targeting', () => {
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
     sessionState.sessionProfilesById = {}
+    sessionState.sessionThreadIdsById = {}
     profileState.activeGatewayProfile = 'default'
     profileState.newChatProfile = null
     profileState.profiles = []
@@ -338,6 +386,49 @@ describe('composer runtime targeting', () => {
     )
   })
 
+  it('keeps a selected model attached to the lineage when a continuation gets a new stored id', async () => {
+    sessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    rememberRuntimeSession('stored-root', 'live-root')
+    mockRequestGateway.mockResolvedValueOnce({ output: 'model switched' })
+
+    await expect(selectComposerModel('stored-root', 'openrouter\u0000anthropic/claude-opus-4.1')).resolves.toBe(true)
+
+    composerState.model.info = { model: 'default-model', provider: 'default-provider' }
+    expect(currentModelLabel('stored-tip')).toBe('openrouter / anthropic/claude-opus-4.1')
+  })
+
+  it('reapplies the lineage-selected model before submitting through a renewed continuation runtime', async () => {
+    sessionState.sessionThreadIdsById = {
+      'stored-root': 'stored-root',
+      'stored-tip': 'stored-root'
+    }
+    rememberRuntimeSession('stored-tip', 'live-tip')
+    composerState.threadModelSelections = {
+      'stored-root': { model: 'anthropic/claude-opus-4.1', provider: 'openrouter' }
+    }
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'slash.exec') return Promise.resolve({ output: 'model preserved' })
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt('stored-tip', { text: 'continue same thread' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenNthCalledWith(1, 'slash.exec', {
+      command: '/model anthropic/claude-opus-4.1 --provider openrouter',
+      profile: 'default',
+      session_id: 'live-tip'
+    })
+    expect(mockRequestGateway).toHaveBeenNthCalledWith(2, 'prompt.submit', {
+      profile: 'default',
+      session_id: 'live-tip',
+      text: 'continue same thread'
+    })
+  })
+
   it('uses /reasoning to update the current session reasoning effort', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     mockRequestGateway.mockResolvedValueOnce({ output: 'reasoning set to high' })
@@ -407,6 +498,38 @@ describe('composer runtime targeting', () => {
     expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/profile crypto\nnew chat profile: crypto'
     ])
+  })
+
+  it('reports unknown slash commands without submitting them as prompts', async () => {
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+    rememberRuntimeSession('stored-A', 'live-A')
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'slash.exec') {
+        return Promise.reject(new Error('pending-input command: use command.dispatch for /not-real'))
+      }
+      if (method === 'command.dispatch') {
+        return Promise.reject(new Error('not a quick/plugin/skill command: not-real'))
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(executeSlashCommand('stored-A', '/not-real')).resolves.toBe(false)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('slash.exec', {
+      command: 'not-real',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).toHaveBeenCalledWith('command.dispatch', {
+      name: 'not-real',
+      arg: '',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
+    expect(threadForSession('stored-A')?.messages.at(-1)?.error).toBe('Command not found: /not-real')
   })
 
   it('falls back to command.dispatch for /goal status when slash.exec rejects pending-input commands', async () => {
@@ -479,12 +602,50 @@ describe('composer runtime targeting', () => {
       'build a rocket'
     ])
   })
+
+  it('does not queue command.dispatch send payloads from slash commands while busy', async () => {
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+    rememberRuntimeSession('stored-A', 'live-A')
+    clearQueuedPrompts('stored-A')
+    setThreadBusy('stored-A', true)
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'slash.exec') {
+        return Promise.reject(new Error('pending-input command: use command.dispatch for /goal'))
+      }
+      if (method === 'command.dispatch') {
+        return Promise.resolve({
+          message: 'build a rocket',
+          notice: 'Goal set. 20-turn budget.',
+          type: 'send'
+        })
+      }
+      if (method === 'prompt.submit') return Promise.reject(new Error('session busy'))
+      return Promise.resolve({})
+    })
+
+    await expect(executeSlashCommand('stored-A', '/goal build a rocket')).resolves.toBe(false)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-A',
+      text: 'build a rocket'
+    })
+    expect(getQueuedPrompts('stored-A')).toEqual([])
+    expect(composerState.sessions['stored-A']?.error).toBe('session busy')
+    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+      'slash:/goal build a rocket\nGoal set. 20-turn budget.'
+    ])
+  })
 })
 
 describe('composer session busy recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     composerState.sessions = {}
+    composerState.threadFastSelections = {}
+    composerState.threadModelSelections = {}
+    composerState.threadReasoningSelections = {}
     resetComposerModelState()
     messageState.sessions = {}
     clearQueuedPrompts('stored-A')
@@ -494,6 +655,7 @@ describe('composer session busy recovery', () => {
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
+    sessionState.sessionThreadIdsById = {}
     rememberRuntimeSession('stored-A', 'live-A')
   })
 
