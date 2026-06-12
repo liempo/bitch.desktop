@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "bits-ui": "^2.18.1",
     "dompurify": "^3.4.8",
     "marked": "^18.0.5"
