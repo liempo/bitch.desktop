@@ -1,5 +1,10 @@
 import { getSessionMessages } from '$lib/api/dashboard'
 import { messageForError } from '$lib/errors'
+import {
+  buildAssistantCompleteNotification,
+  buildInputNeededNotification,
+  sendMacosNotification
+} from '$lib/notifications/macos'
 import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
 import {
   loadSessions,
@@ -226,6 +231,32 @@ function completionErrorText(finalText: string): string | null {
   const text = finalText.trim()
 
   return text && COMPLETION_ERROR_PATTERNS.some(pattern => pattern.test(text)) ? text : null
+}
+
+function queueMacosNotification(notification: ReturnType<typeof buildAssistantCompleteNotification>): void {
+  void Promise.resolve(sendMacosNotification(notification)).catch(error => {
+    console.warn('Failed to send macOS notification', error)
+  })
+}
+
+function inputNeededNotificationText(eventType: GatewayEvent['type'], payload: GatewayPayload): string {
+  if (eventType === 'clarify.request') {
+    return firstText(payload.question)
+  }
+
+  if (eventType === 'approval.request') {
+    return firstText(payload.description, payload.command)
+  }
+
+  if (eventType === 'sudo.request') {
+    return 'Sudo password required'
+  }
+
+  if (eventType === 'secret.request') {
+    return firstText(payload.prompt, payload.env_var)
+  }
+
+  return ''
 }
 
 function setBusy(sessionId: string, busy: boolean): void {
@@ -901,6 +932,7 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
   thread.error = null
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
+  queueMacosNotification(buildAssistantCompleteNotification({ error: completionError, text: finalText }))
   void loadSessions().catch(() => undefined)
 }
 
@@ -914,6 +946,7 @@ function failAssistantMessage(sessionId: string, errorMessage: string): void {
   thread.error = message.error
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
+  queueMacosNotification(buildAssistantCompleteNotification({ error: message.error }))
 }
 
 function usageFrom(payload: GatewayPayload): Partial<UsageStats> | undefined {
@@ -1132,6 +1165,7 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   ) {
     recordInteractivePrompt(event.type, sessionId, payload)
     setNeedsInput(sessionId, true)
+    queueMacosNotification(buildInputNeededNotification(inputNeededNotificationText(event.type, payload)))
   } else if (event.type === 'error') {
     clearAllPrompts()
     setNeedsInput(sessionId, false)

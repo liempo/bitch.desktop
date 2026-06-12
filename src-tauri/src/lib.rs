@@ -1182,6 +1182,7 @@ pub fn run() {
     let http_client = http_client().expect("failed to create HTTP client");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(http_client)
         .setup(|app| {
             create_main_window(app)?;

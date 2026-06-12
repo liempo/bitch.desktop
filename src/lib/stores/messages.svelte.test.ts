@@ -1,7 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockGetSessionMessages } = vi.hoisted(() => ({
-  mockGetSessionMessages: vi.fn()
+const { mockGetSessionMessages, mockSendMacosNotification } = vi.hoisted(() => ({
+  mockGetSessionMessages: vi.fn(),
+  mockSendMacosNotification: vi.fn()
+}))
+
+vi.mock('$lib/notifications/macos', () => ({
+  buildAssistantCompleteNotification: ({ error, text }: { error?: string | null; text?: string | null }) => ({
+    title: error ? 'BITCH needs attention' : 'BITCH finished',
+    body: error || text || 'Agent response completed.'
+  }),
+  buildInputNeededNotification: (text: string | null | undefined) => ({
+    title: 'BITCH needs input',
+    body: text || 'The agent is waiting for your response.'
+  }),
+  sendMacosNotification: mockSendMacosNotification
 }))
 
 vi.mock('$lib/api/dashboard', () => ({
@@ -249,6 +262,21 @@ describe('message session id mapping', () => {
       sessionId: storedKey
     })
     expect(sessionState.needsInputSessionIds).toContain(storedKey)
+  })
+
+  it('sends a macOS notification when a prompt needs operator input', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { choices: ['red', 'blue'], question: 'Pick a color', request_id: 'clarify-1' },
+      session_id: liveSid,
+      type: 'clarify.request'
+    })
+
+    expect(mockSendMacosNotification).toHaveBeenCalledWith({
+      title: 'BITCH needs input',
+      body: 'Pick a color'
+    })
   })
 
   it('keeps gateway tool context on running rows and preserves it after completion', () => {
@@ -533,6 +561,10 @@ describe('message session id mapping', () => {
     expect(thread?.messages[0]?.parts?.[0]).toMatchObject({
       type: 'tool',
       tool: { id: 'tool-1', status: 'complete' }
+    })
+    expect(mockSendMacosNotification).toHaveBeenCalledWith({
+      title: 'BITCH finished',
+      body: 'All done.'
     })
   })
 
