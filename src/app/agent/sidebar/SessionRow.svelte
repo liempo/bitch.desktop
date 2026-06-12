@@ -54,8 +54,7 @@
 
   function formatSubtitle(info: SessionInfo | null, result: SessionSearchResult | null): string {
     if (info) {
-      const parts = [formatRelativeTime(info.last_active), `${info.message_count} msg`]
-      return parts.filter(Boolean).join(' · ')
+      return formatRelativeTime(info.last_active)
     }
 
     if (result) {
