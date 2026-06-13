@@ -4,6 +4,7 @@
   import AppShell from './app/AppShell.svelte'
   import { installCustomScrollbars } from '$lib/ui/custom-scrollbars'
   import { connectGateway, disconnectGateway } from '$lib/stores/gateway.svelte'
+  import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
   import { refreshActiveProfile } from '$lib/stores/profile.svelte'
 
   onMount(() => {
@@ -30,6 +31,7 @@
     window.addEventListener('contextmenu', handleContextMenu)
     window.addEventListener('click', handleClick)
     const uninstallCustomScrollbars = installCustomScrollbars()
+    startMessageStream()
 
     void (async () => {
       await connectGateway()
@@ -40,6 +42,7 @@
       window.removeEventListener('contextmenu', handleContextMenu)
       window.removeEventListener('click', handleClick)
       uninstallCustomScrollbars()
+      stopMessageStream()
       disconnectGateway()
     }
   })

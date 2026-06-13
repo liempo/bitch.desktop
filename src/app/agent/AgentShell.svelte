@@ -9,7 +9,6 @@
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import { getProfileScope, profileState } from '$lib/stores/profile.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
-  import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
   import { initializeSessions, loadSessions, sessionState, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
 
   let lastResumedSessionId: string | null = null
@@ -49,17 +48,6 @@
       lastResumedSessionId = null
       startNewSession()
     }
-  })
-
-  $effect(() => {
-    if (connectionState !== 'open') return
-
-    const profile = activeGatewayProfile
-    if (!profile) return
-
-    startMessageStream()
-
-    return () => stopMessageStream()
   })
 
   async function resumeAndHydrate(sessionId: string): Promise<boolean> {
