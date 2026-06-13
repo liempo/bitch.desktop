@@ -32,13 +32,13 @@ function syncRoute(): void {
 function parseHash(hash: string): RouterState {
   const path = hash || '/'
 
-  /* /agent → new chat */
-  if (path === '/' || path === '/agent') {
+  /* /cmd and legacy /agent → new chat */
+  if (path === '/' || path === '/cmd' || path === '/agent') {
     return { route: 'new', sessionId: null }
   }
 
-  /* /agent/:sessionId → resume session */
-  const match = path.match(/^\/agent\/([a-zA-Z0-9_-]+)(?:\/.*)?$/)
+  /* /cmd/:sessionId and legacy /agent/:sessionId → resume session */
+  const match = path.match(/^\/(?:cmd|agent)\/([a-zA-Z0-9_-]+)(?:\/.*)?$/)
 
   if (match) {
     return { route: 'session', sessionId: match[1] }
@@ -55,12 +55,12 @@ function parseHash(hash: string): RouterState {
  * @param hash - e.g. `'/'`, `'/agent'`, or `'/agent/abc123'`
  */
 export function navigate(hash: string): void {
-  window.location.hash = hash === '/' ? '/agent' : hash
+  window.location.hash = hash === '/' ? '/cmd' : hash
   /* Immediately sync so state updates without waiting for hashchange */
   syncRoute()
 }
 
 /** Build a hash for a session id */
 export function sessionRoute(sessionId: string): string {
-  return `/agent/${sessionId}`
+  return `/cmd/${encodeURIComponent(sessionId)}`
 }

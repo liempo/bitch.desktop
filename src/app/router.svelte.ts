@@ -36,8 +36,9 @@ export function mainRoute(): string {
   return '/main'
 }
 
-export function agentRoute(): string {
-  return '/cmd'
+export function agentRoute(sessionId?: null | string): string {
+  const id = sessionId?.trim()
+  return id ? `/cmd/${encodeURIComponent(id)}` : '/cmd'
 }
 
 export function boxRoute(): string {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { agentRoute, appRouterState, boxRoute, mainRoute, type AppPage } from '../router.svelte'
+  import { sessionState } from '$lib/stores/session.svelte'
 
   interface NavItem {
     href: string
@@ -7,10 +8,10 @@
     page: AppPage
   }
 
-  const navItems: NavItem[] = [
-    { href: `#${agentRoute()}`, label: 'CMD', page: 'agent' },
+  const navItems = $derived<NavItem[]>([
+    { href: `#${agentRoute(sessionState.storedSessionId)}`, label: 'CMD', page: 'agent' },
     { href: `#${boxRoute()}`, label: 'BOX', page: 'box' }
-  ]
+  ])
 
   function linkClass(page: AppPage): string {
     const base =
