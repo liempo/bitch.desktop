@@ -241,6 +241,58 @@ describe('message session id mapping', () => {
     })
   })
 
+  it('extracts assistant MEDIA references into visible attachments', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: 'rendered output\nMEDIA:/box/bitch-neon-box.png',
+        role: 'assistant',
+        timestamp: 102
+      } as SessionMessage,
+      {
+        content: 'artifact: MEDIA:/box/wiki/personal/notes.pdf',
+        role: 'assistant',
+        timestamp: 103
+      } as SessionMessage
+    ])
+
+    const messages = threadForSession(storedKey)?.messages ?? []
+    expect(messages[0]?.text).toBe('rendered output')
+    expect(messages[0]?.attachments?.[0]).toMatchObject({
+      kind: 'image',
+      label: 'bitch-neon-box.png',
+      path: '/box/bitch-neon-box.png'
+    })
+    expect(messages[1]?.text).toBe('artifact:')
+    expect(messages[1]?.attachments?.[0]).toMatchObject({
+      kind: 'pdf',
+      label: 'notes.pdf',
+      path: '/box/wiki/personal/notes.pdf'
+    })
+  })
+
+  it('extracts live assistant MEDIA references on completion', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+    handleGatewayEvent({
+      session_id: liveSid,
+      type: 'message.complete',
+      payload: { text: 'Done\nMEDIA:/box/live.png' }
+    })
+
+    const message = threadForSession(storedKey)?.messages[0]
+    expect(message?.text).toBe('Done')
+    expect(message?.attachments?.[0]).toMatchObject({
+      kind: 'image',
+      label: 'live.png',
+      path: '/box/live.png'
+    })
+  })
+
   it('stores interactive prompt events under the visible stored session key', () => {
     rememberRuntimeSession(storedKey, liveSid)
 
