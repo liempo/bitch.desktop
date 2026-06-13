@@ -293,6 +293,47 @@ describe('message session id mapping', () => {
     })
   })
 
+  it('extracts stored assistant canvas references into the thread canvas sidebar state', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: 'rendered output\nCANVAS:/box/render.html',
+        role: 'assistant',
+        timestamp: 104
+      } as SessionMessage
+    ])
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages[0]?.text).toBe('rendered output')
+    expect(thread?.canvas).toMatchObject({
+      label: 'render.html',
+      path: '/box/render.html',
+      source: '/box/render.html'
+    })
+  })
+
+  it('extracts live assistant canvas references on completion', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+    handleGatewayEvent({
+      session_id: liveSid,
+      type: 'message.complete',
+      payload: { text: 'Canvas ready\nCANVAS:/box/live-render.html' }
+    })
+
+    const thread = threadForSession(storedKey)
+    expect(thread?.messages[0]?.text).toBe('Canvas ready')
+    expect(thread?.canvas).toMatchObject({
+      label: 'live-render.html',
+      path: '/box/live-render.html',
+      source: '/box/live-render.html'
+    })
+  })
+
   it('stores interactive prompt events under the visible stored session key', () => {
     rememberRuntimeSession(storedKey, liveSid)
 
