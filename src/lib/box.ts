@@ -1,4 +1,8 @@
-export const BOX_BASE_URL = import.meta.env.VITE_BOX_BASE_URL || 'https://box.airplane-skilift.ts.net'
+function normalizeBaseUrl(value: string): string {
+  return value.trim().replace(/\/+$/, '')
+}
+
+export const BOX_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_BOX_BASE_URL ?? '')
 
 export type BoxEntryKind = 'directory' | 'file'
 
@@ -83,10 +87,21 @@ function joinDufsPath(basePath: string, name: string): string {
   return `${base}/${cleanName}`
 }
 
+function requireBoxBaseUrl(baseUrl: string): string {
+  const normalized = normalizeBaseUrl(baseUrl)
+
+  if (!normalized) {
+    throw new Error('VITE_BOX_BASE_URL is not configured. Declare it in .env.')
+  }
+
+  return normalized
+}
+
 function boxUrlForDufsPath(path: string, baseUrl = BOX_BASE_URL, directory = false): string {
   const normalized = normalizeDufsPath(path)
   const encoded = encodePath(normalized)
-  const url = new URL(encoded, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
+  const configuredBaseUrl = requireBoxBaseUrl(baseUrl)
+  const url = new URL(encoded, configuredBaseUrl.endsWith('/') ? configuredBaseUrl : `${configuredBaseUrl}/`)
 
   if (directory && !url.pathname.endsWith('/')) {
     url.pathname = `${url.pathname}/`
@@ -101,6 +116,8 @@ export function boxUrlForAgentPath(path: string, baseUrl = BOX_BASE_URL): string
   if (filePath !== '/box' && !filePath.startsWith('/box/')) {
     return null
   }
+
+  if (!normalizeBaseUrl(baseUrl)) return null
 
   const dufsPath = filePath === '/box' ? '/' : filePath.slice('/box'.length)
   return boxUrlForDufsPath(dufsPath, baseUrl)

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const TEST_BOX_BASE_URL = 'https://box.example.test'
 const { mockDashboardRequest } = vi.hoisted(() => ({
   mockDashboardRequest: vi.fn()
 }))
@@ -8,28 +9,37 @@ vi.mock('$lib/api/dashboard', () => ({
   dashboardRequest: mockDashboardRequest
 }))
 
-import {
-  filePathFromMediaPath,
-  gatewayMediaDataUrl,
-  isRemoteGatewayMediaPath,
-  mediaExtension,
-  renderPreviewMediaReferences
-} from './media'
+async function loadMediaHelpers(): Promise<typeof import('./media')> {
+  vi.resetModules()
+  vi.stubEnv('VITE_BOX_BASE_URL', TEST_BOX_BASE_URL)
+  return import('./media')
+}
 
 describe('media path helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('passes through a plain gateway path', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('passes through a plain gateway path', async () => {
+    const { filePathFromMediaPath } = await loadMediaHelpers()
+
     expect(filePathFromMediaPath('/opt/data/.hermes/images/a.png')).toBe('/opt/data/.hermes/images/a.png')
   })
 
-  it('decodes file URLs with encoded characters', () => {
+  it('decodes file URLs with encoded characters', async () => {
+    const { filePathFromMediaPath } = await loadMediaHelpers()
+
     expect(filePathFromMediaPath('file:///tmp/a%20b.png')).toBe('/tmp/a b.png')
   })
 
-  it('detects relayable image paths without touching remote URLs or data URLs', () => {
+  it('detects relayable image paths without touching remote URLs or data URLs', async () => {
+    const { isRemoteGatewayMediaPath } = await loadMediaHelpers()
+
     expect(isRemoteGatewayMediaPath('/opt/data/.hermes/images/a.PNG')).toBe(true)
     expect(isRemoteGatewayMediaPath('file:///tmp/a%20b.webp')).toBe(true)
     expect(isRemoteGatewayMediaPath('https://example.com/a.png')).toBe(false)
@@ -37,11 +47,15 @@ describe('media path helpers', () => {
     expect(isRemoteGatewayMediaPath('/opt/data/report.pdf')).toBe(false)
   })
 
-  it('extracts image extensions before query strings', () => {
+  it('extracts image extensions before query strings', async () => {
+    const { mediaExtension } = await loadMediaHelpers()
+
     expect(mediaExtension('/tmp/image.png?cache=1')).toBe('.png')
   })
 
-  it('turns Hermes MEDIA and @image references into markdown image previews', () => {
+  it('turns Hermes MEDIA and @image references into markdown image previews', async () => {
+    const { renderPreviewMediaReferences } = await loadMediaHelpers()
+
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/.hermes/images/render.png')).toBe(
       '![Image: render.png](/opt/data/.hermes/images/render.png)'
     )
@@ -51,16 +65,19 @@ describe('media path helpers', () => {
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
   })
 
-  it('derives agent /box MEDIA references into public BOX preview URLs', () => {
+  it('derives agent /box MEDIA references into public BOX preview URLs', async () => {
+    const { renderPreviewMediaReferences } = await loadMediaHelpers()
+
     expect(renderPreviewMediaReferences('MEDIA:/box/.hermes/images/render 1.png')).toBe(
-      '![Image: render 1.png](https://box.airplane-skilift.ts.net/.hermes/images/render%201.png)'
+      `![Image: render 1.png](${TEST_BOX_BASE_URL}/.hermes/images/render%201.png)`
     )
     expect(renderPreviewMediaReferences('artifact: MEDIA:/box/wiki/personal/notes.pdf')).toBe(
-      'artifact: [Attachment: notes.pdf](https://box.airplane-skilift.ts.net/wiki/personal/notes.pdf)'
+      `artifact: [Attachment: notes.pdf](${TEST_BOX_BASE_URL}/wiki/personal/notes.pdf)`
     )
   })
 
   it('fetches gateway media through the authenticated dashboard bridge', async () => {
+    const { gatewayMediaDataUrl } = await loadMediaHelpers()
     mockDashboardRequest.mockResolvedValueOnce({ data_url: 'data:image/png;base64,ZHVtbXk=' })
 
     await expect(gatewayMediaDataUrl('/opt/data/.hermes/images/a b.png', 'astra')).resolves.toBe(

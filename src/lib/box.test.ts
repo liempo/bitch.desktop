@@ -1,28 +1,61 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import exampleEnv from '../../.env.example?raw'
+import boxSource from './box.ts?raw'
 
-import { BOX_BASE_URL, boxListingUrl, boxUrlForAgentPath, fetchBoxListing, normalizeBoxListing } from './box'
+const TEST_BOX_BASE_URL = 'https://box.example.test'
+const exampleBoxBaseUrl = exampleEnv.match(/^VITE_BOX_BASE_URL=(.+)$/m)?.[1] ?? ''
+
+async function loadBoxHelpers(boxBaseUrl = TEST_BOX_BASE_URL): Promise<typeof import('./box')> {
+  vi.resetModules()
+  vi.stubEnv('VITE_BOX_BASE_URL', boxBaseUrl)
+  return import('./box')
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.resetModules()
+})
 
 describe('BOX browser helpers', () => {
-  it('uses the Homestation BOX base URL by default', () => {
-    expect(BOX_BASE_URL).toBe('https://box.airplane-skilift.ts.net')
+  it('does not hardcode the configured public BOX origin in helper code', () => {
+    expect(exampleBoxBaseUrl).toBeTruthy()
+    expect(boxSource).not.toContain(exampleBoxBaseUrl)
   })
 
-  it('derives Dufs URLs from agent-visible /box paths', () => {
+  it('uses the configured Vite BOX base URL by default', async () => {
+    const { BOX_BASE_URL } = await loadBoxHelpers()
+
+    expect(BOX_BASE_URL).toBe(TEST_BOX_BASE_URL)
+  })
+
+  it('does not fall back to a production URL when VITE_BOX_BASE_URL is blank', async () => {
+    const { BOX_BASE_URL } = await loadBoxHelpers('')
+
+    expect(BOX_BASE_URL).toBe('')
+  })
+
+  it('derives Dufs URLs from agent-visible /box paths', async () => {
+    const { boxUrlForAgentPath } = await loadBoxHelpers()
+
     expect(boxUrlForAgentPath('/box/.hermes/audio cache/render 1.png')).toBe(
-      'https://box.airplane-skilift.ts.net/.hermes/audio%20cache/render%201.png'
+      `${TEST_BOX_BASE_URL}/.hermes/audio%20cache/render%201.png`
     )
     expect(boxUrlForAgentPath('file:///box/wiki/personal/Hermes%20Box.md')).toBe(
-      'https://box.airplane-skilift.ts.net/wiki/personal/Hermes%20Box.md'
+      `${TEST_BOX_BASE_URL}/wiki/personal/Hermes%20Box.md`
     )
     expect(boxUrlForAgentPath('/opt/data/not-box.png')).toBeNull()
   })
 
-  it('builds JSON listing URLs for Dufs paths', () => {
-    expect(boxListingUrl('/')).toBe('https://box.airplane-skilift.ts.net/?json')
-    expect(boxListingUrl('/wiki/personal')).toBe('https://box.airplane-skilift.ts.net/wiki/personal/?json')
+  it('builds JSON listing URLs for Dufs paths', async () => {
+    const { boxListingUrl } = await loadBoxHelpers()
+
+    expect(boxListingUrl('/')).toBe(`${TEST_BOX_BASE_URL}/?json`)
+    expect(boxListingUrl('/wiki/personal')).toBe(`${TEST_BOX_BASE_URL}/wiki/personal/?json`)
   })
 
-  it('normalizes Dufs JSON listings into sorted browser entries', () => {
+  it('normalizes Dufs JSON listings into sorted browser entries', async () => {
+    const { normalizeBoxListing } = await loadBoxHelpers()
+
     expect(
       normalizeBoxListing(
         {
@@ -44,7 +77,7 @@ describe('BOX browser helpers', () => {
           name: 'personal',
           path: '/wiki/personal',
           size: 2,
-          url: 'https://box.airplane-skilift.ts.net/wiki/personal/'
+          url: `${TEST_BOX_BASE_URL}/wiki/personal/`
         },
         {
           kind: 'file',
@@ -52,7 +85,7 @@ describe('BOX browser helpers', () => {
           name: 'note.md',
           path: '/wiki/note.md',
           size: 512,
-          url: 'https://box.airplane-skilift.ts.net/wiki/note.md'
+          url: `${TEST_BOX_BASE_URL}/wiki/note.md`
         }
       ],
       path: '/wiki'
@@ -60,6 +93,7 @@ describe('BOX browser helpers', () => {
   })
 
   it('fetches and normalizes a Dufs listing', async () => {
+    const { fetchBoxListing } = await loadBoxHelpers()
     const fetchImpl = vi.fn(
       async () =>
         new Response(
@@ -75,7 +109,7 @@ describe('BOX browser helpers', () => {
       entries: [{ kind: 'directory', name: '.hermes', path: '/.hermes' }],
       path: '/'
     })
-    expect(fetchImpl).toHaveBeenCalledWith('https://box.airplane-skilift.ts.net/?json', {
+    expect(fetchImpl).toHaveBeenCalledWith(`${TEST_BOX_BASE_URL}/?json`, {
       headers: { Accept: 'application/json' }
     })
   })
