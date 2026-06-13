@@ -38,8 +38,19 @@ describe('BOX page source contract', () => {
     expect(boxPageSource).not.toContain('Dufs')
   })
 
+  it('uses a two-pane tree plus viewer layout without the icon view', () => {
+    expect(boxPageSource).toContain('grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)]')
+    expect(boxPageSource).not.toContain('Icon View')
+    expect(boxPageSource).not.toContain('iconActions')
+  })
+
   it('includes a first-class file viewer panel', () => {
     expect(boxPageSource).toContain('File Viewer')
     expect(boxPageSource).toContain('selectFile')
+  })
+
+  it('does not render open action buttons in the BOX viewer chrome', () => {
+    expect(boxPageSource).not.toContain('viewerActions')
+    expect(boxPageSource).not.toMatch(/>\s*Open(?: file)?\s*</)
   })
 })

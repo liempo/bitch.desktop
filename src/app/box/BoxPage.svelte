@@ -25,12 +25,9 @@
   let textPreviewError = $state('')
   let textPreviewLoading = $state(false)
 
-  const selectedListing = $derived(listings[selectedPath] ?? null)
-  const selectedEntries = $derived(selectedListing?.entries ?? [])
   const selectedError = $derived(errorsByPath[selectedPath] ?? '')
   const selectedLoading = $derived(loadingPaths[selectedPath] === true)
   const selectedFilePresentation = $derived(selectedFile ? boxFilePresentation(selectedFile.name) : null)
-  const breadcrumbs = $derived.by(() => breadcrumbParts(selectedPath))
   const treeRows = $derived.by(() => buildTreeRows())
 
   onMount(() => {
@@ -90,21 +87,6 @@
 
     visit('/', 'box', 0)
     return rows
-  }
-
-  function breadcrumbParts(path: string): Array<{ label: string; path: string }> {
-    if (path === '/') return [{ label: 'box', path: '/' }]
-
-    const parts = path.split('/').filter(Boolean)
-    const result = [{ label: 'box', path: '/' }]
-    let current = ''
-
-    for (const part of parts) {
-      current = `${current}/${part}`
-      result.push({ label: part, path: current })
-    }
-
-    return result
   }
 
   function messageForError(error: unknown): string {
@@ -221,18 +203,6 @@
     }
   }
 
-  function folderThumbnailClass(): string {
-    return 'flex h-20 w-full items-center justify-center rounded-control border border-secondary/45 bg-secondary/10 font-hud text-3xl text-secondary'
-  }
-
-  function fileCardClass(entry: BoxEntry): string {
-    const base =
-      'group flex min-h-36 flex-col items-start gap-2 rounded-panel border bg-surface-raised/60 p-3 text-left no-underline hover:border-primary/60 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus'
-    const active = entry.path === selectedFile?.path ? 'border-primary bg-primary/10' : 'border-line'
-
-    return `${base} ${active}`
-  }
-
   function formatBytes(size: number | undefined): string {
     if (typeof size !== 'number') return '—'
     if (size < 1024) return `${size} B`
@@ -267,15 +237,25 @@
 </script>
 
 <section
-  class="grid h-full min-h-0 grid-cols-[minmax(15rem,21rem)_minmax(21rem,1fr)_minmax(19rem,28rem)] gap-3 bg-chat-scroll/40 p-4"
+  class="grid h-full min-h-0 grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)] gap-3 bg-chat-scroll/40 p-4"
   aria-label="BOX browser"
 >
-  <Panel title="BOX Tree" padded={false} contentClass="p-2" class="min-w-0" actions={treeActions}>
+  <Panel title="BOX Tree" padded={false} contentClass="flex min-h-0 flex-col p-2" class="min-w-0" actions={treeActions}>
     <div class="mb-2 flex items-center border-b border-line pb-2">
       <span class="min-w-0 truncate text-[0.65rem] text-ink-muted" title={BOX_BASE_URL}>{BOX_BASE_URL}</span>
     </div>
 
-    <div class="h-full min-h-0 overflow-auto" data-selectable="true">
+    {#if selectedError}
+      <div class="mb-2 rounded-control border border-danger/40 bg-danger/10 p-2 text-xs leading-5 text-danger" role="alert">
+        BOX listing unavailable: {selectedError}
+      </div>
+    {:else if selectedLoading}
+      <div class="mb-2 rounded-control border border-primary/30 bg-primary/10 p-2 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary">
+        Reading BOX index…
+      </div>
+    {/if}
+
+    <div class="min-h-0 flex-1 overflow-auto" data-selectable="true">
       {#each treeRows as row (row.entry.path)}
         {#if row.entry.kind === 'directory'}
           <button
@@ -312,83 +292,10 @@
     </div>
   </Panel>
 
-  <Panel title="Icon View" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0" actions={iconActions}>
-    <div class="mb-3 flex min-h-8 items-center gap-1 border-b border-line pb-2 font-hud text-[0.68rem] uppercase tracking-[0.14em] text-ink-muted">
-      {#each breadcrumbs as crumb, index (crumb.path)}
-        {#if index > 0}
-          <span class="text-line-strong">/</span>
-        {/if}
-        <button
-          type="button"
-          class="rounded-control px-1 text-primary hover:bg-primary/10 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus"
-          onclick={() => openDirectory(crumb.path)}
-        >
-          {crumb.label}
-        </button>
-      {/each}
-    </div>
-
-    {#if selectedError}
-      <div class="rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">
-        BOX listing unavailable: {selectedError}
-      </div>
-    {:else if selectedLoading && !selectedListing}
-      <div class="flex flex-1 items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-        Reading BOX index…
-      </div>
-    {:else if selectedEntries.length === 0}
-      <div class="flex flex-1 items-center justify-center text-center text-sm text-ink-muted">
-        No entries here. The shelf is clean, which is either discipline or evidence tampering.
-      </div>
-    {:else}
-      <div class="grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2 overflow-auto pr-1" data-selectable="true">
-        {#each selectedEntries as entry (entry.path)}
-          {#if entry.kind === 'directory'}
-            <button
-              type="button"
-              class="group flex min-h-36 flex-col items-start gap-2 rounded-panel border border-line bg-surface-raised/60 p-3 text-left hover:border-secondary/60 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus"
-              title={entry.path}
-              onclick={() => openDirectory(entry.path)}
-            >
-              <span class={folderThumbnailClass()}>▣</span>
-              <span class="w-full truncate text-[0.78rem] font-semibold text-ink-bright group-hover:text-secondary">{entry.name}</span>
-              <span class="text-[0.62rem] uppercase tracking-[0.14em] text-ink-muted">{formatBytes(entry.size)} · folder</span>
-            </button>
-          {:else}
-            {@const presentation = boxFilePresentation(entry.name)}
-            <button
-              type="button"
-              class={fileCardClass(entry)}
-              title={entry.path}
-              onclick={() => selectFile(entry)}
-            >
-              <span class={thumbnailClass(presentation.accent)}>
-                {#if presentation.viewerKind === 'image'}
-                  <img src={entry.url} alt="" loading="lazy" class="h-full w-full object-cover" />
-                  <span class="absolute right-1 bottom-1 rounded-control border border-primary/50 bg-canvas/80 px-1 text-[0.55rem] text-primary">
-                    {presentation.extension || 'img'}
-                  </span>
-                {:else}
-                  <span>{presentation.glyph}</span>
-                  <span class="absolute right-1 bottom-1 rounded-control border border-line bg-canvas/70 px-1 text-[0.55rem] text-ink-muted">
-                    {presentation.title}
-                  </span>
-                {/if}
-              </span>
-              <span class="w-full truncate text-[0.78rem] font-semibold text-ink-bright group-hover:text-primary">{entry.name}</span>
-              <span class="text-[0.62rem] uppercase tracking-[0.14em] text-ink-muted">{formatBytes(entry.size)}</span>
-              <span class="text-[0.6rem] uppercase tracking-[0.12em] text-ink-muted/80">{formatMtime(entry.mtime)}</span>
-            </button>
-          {/if}
-        {/each}
-      </div>
-    {/if}
-  </Panel>
-
-  <Panel title="File Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0" actions={viewerActions}>
+  <Panel title="File Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0">
     {#if !selectedFile || !selectedFilePresentation}
       <div class="flex flex-1 items-center justify-center rounded-panel border border-dashed border-line bg-surface-raised/40 p-6 text-center text-sm leading-6 text-ink-muted">
-        Select a file to inspect it. The viewer will comply. Eventually.
+        Select a file from the tree to inspect it. The viewer will comply. Eventually.
       </div>
     {:else}
       <div class="mb-3 flex min-h-0 items-start gap-3 border-b border-line pb-3">
@@ -440,10 +347,7 @@
         {:else}
           <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm leading-6 text-ink-muted">
             <span class="font-hud text-4xl text-warning">{selectedFilePresentation.glyph}</span>
-            <p>No inline viewer for this file type. Open it directly; the chrome will not judge. Much.</p>
-            <a class="font-hud text-[0.7rem] font-bold uppercase tracking-[0.14em] text-primary hover:text-ink-bright" href={selectedFile.url}>
-              Open file
-            </a>
+            <p>No inline viewer for this file type. Metadata is all we get without external launch chrome.</p>
           </div>
         {/if}
       </div>
@@ -453,18 +357,4 @@
 
 {#snippet treeActions()}
   <Button size="sm" chrome="ghost" variant="primary" onclick={() => openDirectory(selectedPath, true)}>Refresh</Button>
-{/snippet}
-
-{#snippet iconActions()}
-  <a class="font-hud text-[0.65rem] font-bold uppercase tracking-[0.14em] text-primary hover:text-ink-bright" href={boxDirectoryUrl(selectedListing?.path ?? selectedPath)}>
-    Open
-  </a>
-{/snippet}
-
-{#snippet viewerActions()}
-  {#if selectedFile}
-    <a class="font-hud text-[0.65rem] font-bold uppercase tracking-[0.14em] text-primary hover:text-ink-bright" href={selectedFile.url}>
-      Open
-    </a>
-  {/if}
 {/snippet}
