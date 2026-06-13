@@ -1,4 +1,5 @@
 import { dashboardRequest } from '$lib/api/dashboard'
+import { boxUrlForAgentPath } from '$lib/box'
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
 
@@ -59,13 +60,23 @@ function isPreviewableImageSource(path: string): boolean {
   return isRemoteGatewayMediaPath(value)
 }
 
+function markdownUrlForMedia(path: string): string {
+  return boxUrlForAgentPath(path) ?? path
+}
+
 function markdownImageForMedia(path: string): string {
   const label = mediaName(path).replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
 
-  return `![Image: ${label}](${path})`
+  return `![Image: ${label}](${markdownUrlForMedia(path)})`
 }
 
-const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?[\t ]*(\n|$)/g
+function markdownAttachmentForMedia(path: string): string {
+  const label = mediaName(path).replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+
+  return `[Attachment: ${label}](${markdownUrlForMedia(path)})`
+}
+
+const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
 const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
 const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
 
@@ -73,11 +84,15 @@ export function renderPreviewMediaReferences(text: string): string {
   return text
     .replace(MEDIA_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
       const path = unquoteMediaRef(rawPath)
-      return isPreviewableImageSource(path) ? `${lead}${markdownImageForMedia(path)}${trailer}` : _match
+      if (isPreviewableImageSource(path)) return `${lead}${markdownImageForMedia(path)}${trailer}`
+      if (boxUrlForAgentPath(path)) return `${lead}${markdownAttachmentForMedia(path)}${trailer}`
+      return _match
     })
     .replace(MEDIA_TAG_RE, (_match, rawPath: string) => {
       const path = unquoteMediaRef(rawPath)
-      return isPreviewableImageSource(path) ? markdownImageForMedia(path) : _match
+      if (isPreviewableImageSource(path)) return markdownImageForMedia(path)
+      if (boxUrlForAgentPath(path)) return markdownAttachmentForMedia(path)
+      return _match
     })
     .replace(IMAGE_REF_RE, (_match, rawPath: string) => {
       const path = unquoteMediaRef(rawPath)

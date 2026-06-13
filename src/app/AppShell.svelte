@@ -1,5 +1,6 @@
 <script lang="ts">
   import AgentShell from './agent/AgentShell.svelte'
+  import BoxPage from './box/BoxPage.svelte'
   import MainPage from './main/MainPage.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState } from './router.svelte'
@@ -12,6 +13,8 @@
     <main class="relative z-10 min-h-0 flex-1 overflow-hidden">
       {#if appRouterState.page === 'agent'}
         <AgentShell />
+      {:else if appRouterState.page === 'box'}
+        <BoxPage />
       {:else}
         <MainPage />
       {/if}

@@ -51,7 +51,7 @@ back to `~/.config/bitch.desktop/connection.json` when `XDG_CONFIG_HOME` is not
 set. If the file is absent, Rust seeds the connection from the existing `.env`
 variables:
 
-- `VITE_BITCH_GATEWAY_URL`
+- `VITE_HERMES_DASHBOARD_URL`
 - `BITCH_DASHBOARD_API_KEY`
 
 New Tauri commands:

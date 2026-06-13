@@ -29,6 +29,7 @@ import {
   coerceThinkingText,
   extractEmbeddedImages
 } from '$lib/messages/chat-runtime'
+import { mediaExtension } from '$lib/media'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
@@ -295,8 +296,10 @@ function unquoteRefValue(raw: string): string {
   return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
 }
 
-function mediaLabelFromSource(source: string): string {
-  if (source.startsWith('data:')) return 'image'
+const IMAGE_ATTACHMENT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
+
+function mediaLabelFromSource(source: string, kind: ThreadAttachmentKind = 'image'): string {
+  if (source.startsWith('data:')) return kind === 'pdf' ? 'document.pdf' : 'image'
 
   try {
     const url = new URL(source)
@@ -310,17 +313,32 @@ function mimeTypeFromDataUrl(source: string): string | undefined {
   return source.match(/^data:([^;,]+)[;,]/i)?.[1]
 }
 
-function attachmentFromImageSource(source: string, prefix: string): ThreadAttachment | null {
+function attachmentKindFromMediaSource(source: string): ThreadAttachmentKind | null {
+  if (/^data:image\//i.test(source)) return 'image'
+  if (/^data:application\/pdf[;,]/i.test(source)) return 'pdf'
+
+  const extension = mediaExtension(source)
+
+  if (IMAGE_ATTACHMENT_EXTENSIONS.has(extension)) return 'image'
+  if (extension === '.pdf') return 'pdf'
+
+  return null
+}
+
+function attachmentFromMediaSource(source: string, prefix: string): ThreadAttachment | null {
   const value = source.trim()
   if (!value) return null
 
+  const kind = attachmentKindFromMediaSource(value)
+  if (!kind) return null
+
   const attachment: ThreadAttachment = {
     id: newAttachmentId(prefix),
-    kind: 'image',
-    label: mediaLabelFromSource(value)
+    kind,
+    label: mediaLabelFromSource(value, kind)
   }
 
-  if (/^data:image\//i.test(value)) {
+  if (/^data:/i.test(value)) {
     attachment.dataUrl = value
     attachment.mediaType = mimeTypeFromDataUrl(value)
   } else if (/^https?:/i.test(value)) {
@@ -361,6 +379,8 @@ function formatBytes(bytes: number): string {
 }
 
 const IMAGE_DIRECTIVE_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
+const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
+const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
 
 function imageSourcesFromContent(value: unknown): string[] {
   if (typeof value === 'string') {
@@ -413,19 +433,36 @@ function extractImageDirectiveSources(text: string): { cleanedText: string; sour
   return { cleanedText, sources }
 }
 
-function storedDisplayForMessage(
+function extractMediaDirectiveSources(text: string): { cleanedText: string; sources: string[] } {
+  const sources: string[] = []
+  const cleanedText = text
+    .replace(MEDIA_LINE_RE, (_match, lead: string, rawSource: string, trailer: string) => {
+      const source = unquoteRefValue(rawSource)
+      if (source) sources.push(source)
+      return `${lead}${trailer}`
+    })
+    .replace(MEDIA_TAG_RE, (_match, rawSource: string) => {
+      const source = unquoteRefValue(rawSource)
+      if (source) sources.push(source)
+      return ''
+    })
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return { cleanedText, sources }
+}
+
+function displayForMessage(
   message: SessionMessage,
   role: ThreadMessageRole
 ): { attachments: ThreadAttachment[]; text: string } {
   const rawText = firstText(message.text, message.content)
-
-  if (role !== 'user') {
-    return { attachments: [], text: rawText }
-  }
-
   const embedded = extractEmbeddedImages(rawText)
-  const directives = extractImageDirectiveSources(embedded.cleanedText)
-  const sources = [...embedded.images, ...directives.sources, ...imageSourcesFromContent(message.content)]
+  const mediaDirectives = extractMediaDirectiveSources(embedded.cleanedText)
+  const imageDirectives = extractImageDirectiveSources(mediaDirectives.cleanedText)
+  const contentSources = role === 'user' ? imageSourcesFromContent(message.content) : []
+  const sources = [...embedded.images, ...mediaDirectives.sources, ...imageDirectives.sources, ...contentSources]
   const seen = new Set<string>()
   const attachments: ThreadAttachment[] = []
 
@@ -434,11 +471,11 @@ function storedDisplayForMessage(
     if (!key || seen.has(key)) continue
     seen.add(key)
 
-    const attachment = attachmentFromImageSource(key, 'stored-image')
+    const attachment = attachmentFromMediaSource(key, 'stored-media')
     if (attachment) attachments.push(attachment)
   }
 
-  return { attachments, text: directives.cleanedText }
+  return { attachments, text: imageDirectives.cleanedText }
 }
 
 function ensureParts(message: ThreadMessage): ThreadMessagePart[] {
@@ -481,7 +518,7 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
     message.role === 'assistant' || message.role === 'system' || message.role === 'tool' || message.role === 'user'
       ? message.role
       : 'assistant'
-  const display = storedDisplayForMessage(message, role)
+  const display = displayForMessage(message, role)
   const reasoning =
     coerceThinkingBlocks(message.codex_reasoning_items).length > 0
       ? coerceThinkingBlocks(message.codex_reasoning_items)
@@ -880,12 +917,13 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
 
 function completeAssistantMessage(sessionId: string, text: string, usage?: Partial<UsageStats>): void {
   const thread = ensureThreadSession(sessionId)
-  const finalText = text.trim()
+  const display = displayForMessage({ content: text, role: 'assistant', text } as SessionMessage, 'assistant')
+  const finalText = display.text.trim()
   const completionError = completionErrorText(finalText)
   const message =
     thread.currentAssistantId && thread.messages.some(item => item.id === thread.currentAssistantId)
       ? ensureAssistantMessage(sessionId)
-      : finalText || completionError
+      : finalText || completionError || display.attachments.length > 0
         ? ensureAssistantMessage(sessionId)
         : null
 
@@ -893,29 +931,34 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
     if (completionError) {
       message.error = completionError
       message.text = ''
-    } else if (finalText) {
-      const previous = compactWhitespace(message.text)
-      const next = compactWhitespace(finalText)
+      message.attachments = undefined
+    } else {
+      message.attachments = display.attachments.length > 0 ? display.attachments : message.attachments
 
-      if (!previous || previous !== next) {
-        message.text = finalText
+      if (finalText) {
+        const previous = compactWhitespace(message.text)
+        const next = compactWhitespace(finalText)
 
-        const parts = ensureParts(message)
-        let lastTextPart: Extract<ThreadMessagePart, { type: 'text' }> | null = null
+        if (!previous || previous !== next) {
+          message.text = finalText
 
-        for (let index = parts.length - 1; index >= 0; index -= 1) {
-          const part = parts[index]
+          const parts = ensureParts(message)
+          let lastTextPart: Extract<ThreadMessagePart, { type: 'text' }> | null = null
 
-          if (part.type === 'text') {
-            lastTextPart = part
-            break
+          for (let index = parts.length - 1; index >= 0; index -= 1) {
+            const part = parts[index]
+
+            if (part.type === 'text') {
+              lastTextPart = part
+              break
+            }
           }
-        }
 
-        if (lastTextPart) {
-          lastTextPart.text = finalText
-        } else {
-          parts.push({ type: 'text', text: finalText })
+          if (lastTextPart) {
+            lastTextPart.text = finalText
+          } else {
+            parts.push({ type: 'text', text: finalText })
+          }
         }
       }
     }
