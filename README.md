@@ -18,12 +18,12 @@ This repo is remote-only: it does not bootstrap or run a local Hermes server. Th
 Create a local `.env` from `.env.example` and set:
 
 ```bash
-VITE_BITCH_GATEWAY_URL=http://127.0.0.1:9119
+VITE_HERMES_DASHBOARD_URL=http://127.0.0.1:9119
 VITE_BOX_BASE_URL=https://box.airplane-skilift.ts.net
 BITCH_DASHBOARD_API_KEY=replace-me
 ```
 
-`VITE_BITCH_GATEWAY_URL` points at the Hermes dashboard HTTP origin. `VITE_BOX_BASE_URL` points renderer `/box/...` attachment and BOX browser URLs at the public BOX/Dufs origin. `BITCH_DASHBOARD_API_KEY` is consumed by the Tauri backend so the browser renderer does not need to set Hermes auth headers directly.
+`VITE_HERMES_DASHBOARD_URL` points at the Hermes dashboard HTTP origin. `VITE_BOX_BASE_URL` points renderer `/box/...` attachment and BOX browser URLs at the public BOX/Dufs origin. `BITCH_DASHBOARD_API_KEY` is consumed by the Tauri backend so the browser renderer does not need to set Hermes auth headers directly.
 
 ## Development
 

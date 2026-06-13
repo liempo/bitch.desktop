@@ -291,7 +291,7 @@ fn env_connection_config() -> ConnectionConfig {
         profiles: None,
         token: config_value("BITCH_DASHBOARD_API_KEY"),
         url: Some(
-            config_value("VITE_BITCH_GATEWAY_URL")
+            config_value("VITE_HERMES_DASHBOARD_URL")
                 .unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string()),
         ),
     }

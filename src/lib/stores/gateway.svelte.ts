@@ -109,7 +109,7 @@ async function resolveConnection(profile: string): Promise<ResolvedConnection> {
     if (typeof import.meta !== 'undefined') {
       return {
         authMode: 'token',
-        baseUrl: import.meta.env.VITE_BITCH_GATEWAY_URL ?? 'http://127.0.0.1:9119',
+        baseUrl: import.meta.env.VITE_HERMES_DASHBOARD_URL ?? 'http://127.0.0.1:9119',
         profile
       }
     }
