@@ -2,6 +2,7 @@
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
+  import { boxUrlForAgentPath } from '$lib/box'
   import { gatewayMediaDataUrl, isRemoteGatewayMediaPath, renderPreviewMediaReferences } from '$lib/media'
   import './markdown.css'
 
@@ -55,6 +56,11 @@
       const href = token.href || ''
       const title = token.title ? ` title="${escapeHtml(token.title)}"` : ''
       const alt = escapeHtml(token.text || '')
+      const boxUrl = boxUrlForAgentPath(href)
+
+      if (boxUrl) {
+        return `<img src="${escapeHtml(boxUrl)}" alt="${alt}"${title}>`
+      }
 
       if (isRemoteGatewayMediaPath(href)) {
         return `<img src="${remoteImagePlaceholder()}" data-gateway-media-src="${escapeHtml(href)}" alt="${alt}"${title}>`

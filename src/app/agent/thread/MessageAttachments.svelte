@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { boxUrlForAgentPath } from '$lib/box'
   import { gatewayMediaDataUrl } from '$lib/media'
   import type { ThreadAttachment } from '$lib/stores/messages.svelte'
 
@@ -20,8 +21,16 @@
     if (attachment.previewUrl) return attachment.previewUrl
     if (attachment.dataUrl) return attachment.dataUrl
     if (attachment.url) return attachment.url
+    if (attachment.path) return boxUrlForAgentPath(attachment.path) ?? (resolvedSources[keyFor(attachment, profile)] ?? '')
 
-    return attachment.path ? (resolvedSources[keyFor(attachment, profile)] ?? '') : ''
+    return ''
+  }
+
+  function attachmentHref(attachment: ThreadAttachment): string {
+    if (attachment.url) return attachment.url
+    if (attachment.path) return boxUrlForAgentPath(attachment.path) ?? ''
+
+    return ''
   }
 
   function detailFor(attachment: ThreadAttachment): string {
@@ -32,6 +41,7 @@
 
   async function hydratePath(attachment: ThreadAttachment, activeProfile: null | string): Promise<void> {
     if (!attachment.path || attachment.kind !== 'image') return
+    if (boxUrlForAgentPath(attachment.path)) return
 
     const key = keyFor(attachment, activeProfile)
     if (resolvedSources[key] || failedSources[key]) return
@@ -76,9 +86,14 @@
           </figcaption>
         </figure>
       {:else}
+        {@const href = attachmentHref(attachment)}
         <div class="flex items-center gap-2 border border-line bg-surface/70 px-3 py-2 text-xs text-ink">
           <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-warning">PDF</span>
-          <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
+          {#if href}
+            <a class="min-w-0 flex-1 truncate text-ink-bright hover:text-primary" href={href}>{attachment.label}</a>
+          {:else}
+            <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
+          {/if}
           <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
         </div>
       {/if}

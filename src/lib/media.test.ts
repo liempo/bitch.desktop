@@ -51,6 +51,15 @@ describe('media path helpers', () => {
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
   })
 
+  it('derives agent /box MEDIA references into public BOX preview URLs', () => {
+    expect(renderPreviewMediaReferences('MEDIA:/box/.hermes/images/render 1.png')).toBe(
+      '![Image: render 1.png](https://box.airplane-skilift.ts.net/.hermes/images/render%201.png)'
+    )
+    expect(renderPreviewMediaReferences('artifact: MEDIA:/box/wiki/personal/notes.pdf')).toBe(
+      'artifact: [Attachment: notes.pdf](https://box.airplane-skilift.ts.net/wiki/personal/notes.pdf)'
+    )
+  })
+
   it('fetches gateway media through the authenticated dashboard bridge', async () => {
     mockDashboardRequest.mockResolvedValueOnce({ data_url: 'data:image/png;base64,ZHVtbXk=' })
 

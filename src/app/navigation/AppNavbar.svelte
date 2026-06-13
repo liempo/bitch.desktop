@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { agentRoute, appRouterState, mainRoute, type AppPage } from '../router.svelte'
+  import { agentRoute, appRouterState, boxRoute, mainRoute, type AppPage } from '../router.svelte'
 
   interface NavItem {
     href: string
@@ -8,8 +8,8 @@
   }
 
   const navItems: NavItem[] = [
-    { href: `#${mainRoute()}`, label: 'MAIN', page: 'main' },
-    { href: `#${agentRoute()}`, label: 'AGENT', page: 'agent' }
+    { href: `#${agentRoute()}`, label: 'CMD', page: 'agent' },
+    { href: `#${boxRoute()}`, label: 'BOX', page: 'box' }
   ]
 
   function linkClass(page: AppPage): string {
@@ -28,11 +28,15 @@
   class="relative z-20 flex min-h-[var(--bits-navbar-height)] shrink-0 items-center border-b border-line bg-canvas px-4"
   aria-label="Primary navigation"
 >
-  <div class="flex min-w-0 items-center gap-3 pl-[74px]" data-tauri-drag-region>
+  <div class="flex min-w-0 items-center gap-3 pl-[74px]">
     <div class="ml-2 hidden h-4 w-px bg-line-strong/70 md:block" data-tauri-drag-region></div>
-    <div class="min-w-0 truncate font-hud text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted" data-tauri-drag-region>
+    <a
+      class={linkClass('main')}
+      href={`#${mainRoute()}`}
+      aria-current={appRouterState.page === 'main' ? 'page' : undefined}
+    >
       BITCH
-    </div>
+    </a>
   </div>
 
   <div class="min-w-4 flex-1 self-stretch" data-tauri-drag-region></div>

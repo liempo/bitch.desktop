@@ -145,6 +145,8 @@
           {/if}
         {/if}
 
+        <MessageAttachments attachments={message.attachments ?? []} profile={messageProfile} />
+
         {#if showThinkingPlaceholder}
           <Reasoning text="" pending={true} />
         {/if}
