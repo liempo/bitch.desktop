@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CanvasSidebar from './canvas/CanvasSidebar.svelte'
   import Composer from './composer/Composer.svelte'
   import SecretModal from './prompts/SecretModal.svelte'
   import SudoModal from './prompts/SudoModal.svelte'
@@ -8,6 +9,7 @@
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import { getProfileScope, profileState } from '$lib/stores/profile.svelte'
+  import { threadForSession } from '$lib/stores/messages.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import { initializeSessions, loadSessions, sessionState, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
 
@@ -18,6 +20,8 @@
   const activeGatewayProfile = $derived(gatewayState.activeProfile)
   const sidebarOpen = $derived(layoutState.sidebarOpen)
   const selectedSessionId = $derived(routerState.route === 'session' ? routerState.sessionId : null)
+  const selectedThread = $derived(threadForSession(selectedSessionId))
+  const activeCanvas = $derived(selectedThread?.canvas ?? null)
   const selectedSession = $derived(selectedSessionId ? (sessionState.sessions.find(session => session.id === selectedSessionId) ?? null) : null)
   const selectedSessionProfile = $derived(
     selectedSessionId ? (selectedSession?.profile ?? sessionState.sessionProfilesById[selectedSessionId] ?? null) : null
@@ -107,6 +111,10 @@
         onToggleSidebar={toggleSidebar}
       />
     </main>
+
+    {#if activeCanvas}
+      <CanvasSidebar canvas={activeCanvas} />
+    {/if}
   </div>
 
   <SudoModal />

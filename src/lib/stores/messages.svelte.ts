@@ -6,6 +6,7 @@ import {
   sendMacosNotification
 } from '$lib/notifications/macos'
 import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
+import { extractCanvasReferences, type ThreadCanvas } from '$lib/canvas'
 import {
   loadSessions,
   profileForSession,
@@ -81,6 +82,7 @@ export type ThreadMessagePart =
 
 export interface ThreadMessage {
   attachments?: ThreadAttachment[]
+  canvas?: ThreadCanvas
   error?: string
   id: string
   /** Chronological render order for assistant content. When present, the UI
@@ -100,6 +102,7 @@ export interface ThreadMessage {
 export interface ThreadSessionState {
   branch?: string
   busy: boolean
+  canvas?: ThreadCanvas
   cwd?: string
   currentAssistantId: string | null
   error: string | null
@@ -456,10 +459,14 @@ function extractMediaDirectiveSources(text: string): { cleanedText: string; sour
 function displayForMessage(
   message: SessionMessage,
   role: ThreadMessageRole
-): { attachments: ThreadAttachment[]; text: string } {
+): { attachments: ThreadAttachment[]; canvas: null | ThreadCanvas; text: string } {
   const rawText = firstText(message.text, message.content)
   const embedded = extractEmbeddedImages(rawText)
-  const mediaDirectives = extractMediaDirectiveSources(embedded.cleanedText)
+  const canvasDirectives =
+    role === 'assistant'
+      ? extractCanvasReferences(embedded.cleanedText)
+      : { canvases: [], cleanedText: embedded.cleanedText, latestCanvas: null }
+  const mediaDirectives = extractMediaDirectiveSources(canvasDirectives.cleanedText)
   const imageDirectives = extractImageDirectiveSources(mediaDirectives.cleanedText)
   const contentSources = role === 'user' ? imageSourcesFromContent(message.content) : []
   const sources = [...embedded.images, ...mediaDirectives.sources, ...imageDirectives.sources, ...contentSources]
@@ -475,7 +482,7 @@ function displayForMessage(
     if (attachment) attachments.push(attachment)
   }
 
-  return { attachments, text: imageDirectives.cleanedText }
+  return { attachments, canvas: canvasDirectives.latestCanvas, text: imageDirectives.cleanedText }
 }
 
 function ensureParts(message: ThreadMessage): ThreadMessagePart[] {
@@ -540,6 +547,7 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
 
   return {
     attachments: display.attachments.length > 0 ? display.attachments : undefined,
+    canvas: display.canvas ?? undefined,
     id: `stored-${sessionId}-${index}`,
     parts: buildAssistantPartsFromBuckets(reasoning, display.text),
     reasoning,
@@ -555,6 +563,7 @@ function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): v
   const thread = ensureThreadSession(threadId)
   const result: ThreadMessage[] = []
   let lastAssistant: ThreadMessage | null = null
+  let latestCanvas: ThreadCanvas | undefined
 
   for (let index = 0; index < messages.length; index += 1) {
     const normalized = normalizeStoredMessage(threadId, messages[index], index)
@@ -577,6 +586,9 @@ function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): v
 
     if (normalized.role === 'assistant') {
       lastAssistant = normalized
+      if (normalized.canvas) {
+        latestCanvas = normalized.canvas
+      }
     } else {
       lastAssistant = null
     }
@@ -585,6 +597,7 @@ function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): v
   }
 
   thread.messages = result
+  thread.canvas = latestCanvas
   thread.currentAssistantId = null
   thread.error = null
   thread.hydrated = true
@@ -923,7 +936,7 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
   const message =
     thread.currentAssistantId && thread.messages.some(item => item.id === thread.currentAssistantId)
       ? ensureAssistantMessage(sessionId)
-      : finalText || completionError || display.attachments.length > 0
+      : finalText || completionError || display.attachments.length > 0 || display.canvas
         ? ensureAssistantMessage(sessionId)
         : null
 
@@ -934,6 +947,10 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
       message.attachments = undefined
     } else {
       message.attachments = display.attachments.length > 0 ? display.attachments : message.attachments
+      message.canvas = display.canvas ?? message.canvas
+      if (display.canvas) {
+        thread.canvas = display.canvas
+      }
 
       if (finalText) {
         const previous = compactWhitespace(message.text)
