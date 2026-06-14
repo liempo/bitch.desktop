@@ -15,6 +15,11 @@ describe('CanvasSidebar source contract', () => {
     expect(canvasSidebarSource).not.toContain('box.airplane-skilift.ts.net')
   })
 
+  it('does not render a separator between the thread and canvas columns', () => {
+    expect(canvasSidebarSource).not.toContain('border-t border-line')
+    expect(canvasSidebarSource).not.toContain('md:border-l')
+  })
+
   it('is wired as a conditional right sidebar from the agent shell', () => {
     expect(agentShellSource).toContain('CanvasSidebar')
     expect(agentShellSource).toContain('{#if activeCanvas}')

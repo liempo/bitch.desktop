@@ -12,7 +12,7 @@
 </script>
 
 <aside
-  class="min-h-0 w-full shrink-0 border-t border-line bg-canvas/70 p-3 md:w-[min(42vw,38rem)] md:border-t-0 md:border-l"
+  class="min-h-0 w-full shrink-0 bg-canvas/70 p-3 md:w-[min(42vw,38rem)]"
   aria-label="Canvas preview"
 >
   <Panel title="Canvas" titleClass="text-primary" padded={false} contentClass="flex min-h-0 flex-col p-3" class="h-full">
