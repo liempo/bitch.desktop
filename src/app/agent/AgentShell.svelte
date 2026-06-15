@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CanvasSidebar from './canvas/CanvasSidebar.svelte'
+  import PreviewSidebar from './preview/PreviewSidebar.svelte'
   import Composer from './composer/Composer.svelte'
   import SecretModal from './prompts/SecretModal.svelte'
   import SudoModal from './prompts/SudoModal.svelte'
@@ -10,18 +10,26 @@
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import { getProfileScope, profileState } from '$lib/stores/profile.svelte'
   import { threadForSession } from '$lib/stores/messages.svelte'
+  import { previewFromCanvas, type ThreadPreview } from '$lib/preview'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import { initializeSessions, loadSessions, sessionState, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
 
   let lastResumedSessionId: string | null = null
   let lastFreshSessionRequest = profileState.freshSessionRequest
   let lastLoadedScope: string | null = null
+  let selectedPreview = $state<ThreadPreview | null>(null)
+  let previewSessionId = $state<string | null>(null)
+  let dismissedCanvasSource = $state<string | null>(null)
   const connectionState = $derived(gatewayState.connectionState)
   const activeGatewayProfile = $derived(gatewayState.activeProfile)
   const sidebarOpen = $derived(layoutState.sidebarOpen)
   const selectedSessionId = $derived(routerState.route === 'session' ? routerState.sessionId : null)
   const selectedThread = $derived(threadForSession(selectedSessionId))
   const activeCanvas = $derived(selectedThread?.canvas ?? null)
+  const canvasPreview = $derived(activeCanvas ? previewFromCanvas(activeCanvas) : null)
+  const activePreview = $derived(
+    selectedPreview ?? (canvasPreview && canvasPreview.source !== dismissedCanvasSource ? canvasPreview : null)
+  )
   const selectedSession = $derived(selectedSessionId ? (sessionState.sessions.find(session => session.id === selectedSessionId) ?? null) : null)
   const selectedSessionProfile = $derived(
     selectedSessionId ? (selectedSession?.profile ?? sessionState.sessionProfilesById[selectedSessionId] ?? null) : null
@@ -53,6 +61,35 @@
       startNewSession()
     }
   })
+
+  $effect(() => {
+    const sessionId = selectedSessionId
+    if (previewSessionId && previewSessionId !== sessionId) {
+      selectedPreview = null
+      previewSessionId = null
+      dismissedCanvasSource = null
+    }
+  })
+
+  function openPreview(preview: ThreadPreview): void {
+    selectedPreview = preview
+    previewSessionId = selectedSessionId
+    if (preview.kind === 'canvas') {
+      dismissedCanvasSource = null
+    }
+  }
+
+  function closePreview(): void {
+    if (selectedPreview) {
+      selectedPreview = null
+      previewSessionId = null
+      return
+    }
+
+    if (canvasPreview) {
+      dismissedCanvasSource = canvasPreview.source
+    }
+  }
 
   async function resumeAndHydrate(sessionId: string): Promise<boolean> {
     // Route/session selection is keyed by the persistent stored id. The shared
@@ -99,7 +136,7 @@
       {/if}
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <Thread sessionId={selectedSessionId} />
+        <Thread sessionId={selectedSessionId} onOpenPreview={openPreview} />
       </div>
 
       <Composer
@@ -112,8 +149,8 @@
       />
     </main>
 
-    {#if activeCanvas}
-      <CanvasSidebar canvas={activeCanvas} />
+    {#if activePreview}
+      <PreviewSidebar preview={activePreview} onClose={closePreview} />
     {/if}
   </div>
 

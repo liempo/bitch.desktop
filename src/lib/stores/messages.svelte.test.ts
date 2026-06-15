@@ -241,7 +241,7 @@ describe('message session id mapping', () => {
     })
   })
 
-  it('extracts assistant MEDIA references into visible attachments', () => {
+  it('keeps assistant /box MEDIA references in text for link-to-preview rendering', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -259,21 +259,44 @@ describe('message session id mapping', () => {
     ])
 
     const messages = threadForSession(storedKey)?.messages ?? []
-    expect(messages[0]?.text).toBe('rendered output')
-    expect(messages[0]?.attachments?.[0]).toMatchObject({
-      kind: 'image',
-      label: 'bitch-neon-box.png',
-      path: '/box/bitch-neon-box.png'
-    })
-    expect(messages[1]?.text).toBe('artifact:')
-    expect(messages[1]?.attachments?.[0]).toMatchObject({
-      kind: 'pdf',
-      label: 'notes.pdf',
-      path: '/box/wiki/personal/notes.pdf'
-    })
+    expect(messages[0]?.text).toBe('rendered output\nMEDIA:/box/bitch-neon-box.png')
+    expect(messages[0]?.attachments).toBeUndefined()
+    expect(messages[1]?.text).toBe('artifact: MEDIA:/box/wiki/personal/notes.pdf')
+    expect(messages[1]?.attachments).toBeUndefined()
   })
 
-  it('extracts live assistant MEDIA references on completion', () => {
+  it('keeps standalone /box paths as text links instead of visible attachments', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: 'rendered output\n/box/.hermes/cache/render 1.png',
+        role: 'assistant',
+        timestamp: 104
+      } as SessionMessage,
+      {
+        content: 'artifact ready\n`/box/wiki/personal/notes.pdf`',
+        role: 'assistant',
+        timestamp: 105
+      } as SessionMessage,
+      {
+        content: 'also linkable\n/box/wiki/personal/readme.txt',
+        role: 'assistant',
+        timestamp: 106
+      } as SessionMessage
+    ])
+
+    const messages = threadForSession(storedKey)?.messages ?? []
+    expect(messages[0]?.text).toBe('rendered output\n/box/.hermes/cache/render 1.png')
+    expect(messages[0]?.attachments).toBeUndefined()
+    expect(messages[1]?.text).toBe('artifact ready\n`/box/wiki/personal/notes.pdf`')
+    expect(messages[1]?.attachments).toBeUndefined()
+    expect(messages[2]?.text).toBe('also linkable\n/box/wiki/personal/readme.txt')
+    expect(messages[2]?.attachments).toBeUndefined()
+  })
+
+  it('keeps live assistant /box MEDIA references on completion as preview links', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -285,12 +308,8 @@ describe('message session id mapping', () => {
     })
 
     const message = threadForSession(storedKey)?.messages[0]
-    expect(message?.text).toBe('Done')
-    expect(message?.attachments?.[0]).toMatchObject({
-      kind: 'image',
-      label: 'live.png',
-      path: '/box/live.png'
-    })
+    expect(message?.text).toBe('Done\nMEDIA:/box/live.png')
+    expect(message?.attachments).toBeUndefined()
   })
 
   it('extracts stored assistant canvas references into the thread canvas sidebar state', () => {

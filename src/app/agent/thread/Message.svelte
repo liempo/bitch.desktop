@@ -7,14 +7,16 @@
   import { cardClass } from '@/components/ui/styles'
   import { profileForSession } from '$lib/stores/session.svelte'
   import type { ThreadMessage } from '$lib/stores/messages.svelte'
+  import type { ThreadPreview } from '$lib/preview'
 
   interface Props {
     isLast?: boolean
     message: ThreadMessage
+    onOpenPreview?: (preview: ThreadPreview) => void
     sessionId?: null | string
   }
 
-  let { isLast = false, message, sessionId = null }: Props = $props()
+  let { isLast = false, message, onOpenPreview, sessionId = null }: Props = $props()
 
   const assistant = $derived(message.role === 'assistant')
   const user = $derived(message.role === 'user')
@@ -120,7 +122,7 @@
                   <Tool tool={part.tool} />
                 </div>
               {:else if part.type === 'text'}
-                <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} profile={messageProfile} />
+                <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} profile={messageProfile} {onOpenPreview} />
               {/if}
             {/each}
           {/key}
@@ -141,7 +143,7 @@
           {/if}
 
           {#if message.text}
-            <Markdown text={message.text} streaming={isRunning} profile={messageProfile} />
+            <Markdown text={message.text} streaming={isRunning} profile={messageProfile} {onOpenPreview} />
           {/if}
         {/if}
 

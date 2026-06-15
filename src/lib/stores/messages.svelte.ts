@@ -30,7 +30,7 @@ import {
   coerceThinkingText,
   extractEmbeddedImages
 } from '$lib/messages/chat-runtime'
-import { mediaExtension } from '$lib/media'
+import { isAgentBoxPath, mediaExtension } from '$lib/media'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
@@ -441,13 +441,19 @@ function extractMediaDirectiveSources(text: string): { cleanedText: string; sour
   const cleanedText = text
     .replace(MEDIA_LINE_RE, (_match, lead: string, rawSource: string, trailer: string) => {
       const source = unquoteRefValue(rawSource)
-      if (source) sources.push(source)
-      return `${lead}${trailer}`
+      if (source && !isAgentBoxPath(source)) {
+        sources.push(source)
+        return `${lead}${trailer}`
+      }
+      return _match
     })
     .replace(MEDIA_TAG_RE, (_match, rawSource: string) => {
       const source = unquoteRefValue(rawSource)
-      if (source) sources.push(source)
-      return ''
+      if (source && !isAgentBoxPath(source)) {
+        sources.push(source)
+        return ''
+      }
+      return _match
     })
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
