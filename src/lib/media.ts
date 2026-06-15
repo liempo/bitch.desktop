@@ -2,7 +2,6 @@ import { dashboardRequest } from '$lib/api/dashboard'
 import { boxUrlForAgentPath } from '$lib/box'
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
-const PREVIEWABLE_ATTACHMENT_EXTENSIONS = new Set([...IMAGE_EXTENSIONS, '.pdf'])
 
 export interface GatewayMediaResponse {
   data_url: string
@@ -61,8 +60,12 @@ function isPreviewableImageSource(path: string): boolean {
   return isRemoteGatewayMediaPath(value)
 }
 
+function encodedAgentBoxHref(path: string): string {
+  return encodeURI(filePathFromMediaPath(path.trim()))
+}
+
 function markdownUrlForMedia(path: string): string {
-  return boxUrlForAgentPath(path) ?? path
+  return isAgentBoxPath(path) ? encodedAgentBoxHref(path) : (boxUrlForAgentPath(path) ?? path)
 }
 
 function markdownImageForMedia(path: string): string {
@@ -80,66 +83,37 @@ function markdownAttachmentForMedia(path: string): string {
 const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
 const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
 const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const BOX_PREVIEW_LINE_RE = /(^|\n)[\t ]*[`"']?(file:\/\/\/box\/[^`"'\n]+|\/box\/[^`"'\n]+)[`"']?[\t ]*(\n|$)/g
+const BOX_PATH_LINE_RE = /(^|\n)[\t ]*[`"']?(file:\/\/\/box\/[^`"'\n]+|\/box\/[^`"'\n]+)[`"']?[\t ]*(\n|$)/g
 
-export interface BoxPreviewReferenceExtraction {
-  cleanedText: string
-  sources: string[]
-}
-
-function isAgentBoxPath(path: string): boolean {
+export function isAgentBoxPath(path: string): boolean {
   const filePath = filePathFromMediaPath(path.trim())
   return filePath === '/box' || filePath.startsWith('/box/')
-}
-
-function isPreviewableBoxAttachmentSource(path: string): boolean {
-  return isAgentBoxPath(path) && PREVIEWABLE_ATTACHMENT_EXTENSIONS.has(mediaExtension(path))
-}
-
-function markdownForPreviewableBoxReference(path: string): string | null {
-  if (!boxUrlForAgentPath(path) || !isPreviewableBoxAttachmentSource(path)) return null
-  return isPreviewableImageSource(path) ? markdownImageForMedia(path) : markdownAttachmentForMedia(path)
-}
-
-export function extractBoxPreviewReferences(text: string): BoxPreviewReferenceExtraction {
-  const sources: string[] = []
-  const cleanedText = text
-    .replace(BOX_PREVIEW_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
-      const path = unquoteMediaRef(rawPath)
-      if (!isPreviewableBoxAttachmentSource(path)) return _match
-
-      sources.push(path)
-      return `${lead}${trailer}`
-    })
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
-  return { cleanedText, sources }
 }
 
 export function renderPreviewMediaReferences(text: string): string {
   return text
     .replace(MEDIA_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
       const path = unquoteMediaRef(rawPath)
+      if (isAgentBoxPath(path)) return `${lead}${markdownAttachmentForMedia(path)}${trailer}`
       if (isPreviewableImageSource(path)) return `${lead}${markdownImageForMedia(path)}${trailer}`
       if (boxUrlForAgentPath(path)) return `${lead}${markdownAttachmentForMedia(path)}${trailer}`
       return _match
     })
     .replace(MEDIA_TAG_RE, (_match, rawPath: string) => {
       const path = unquoteMediaRef(rawPath)
+      if (isAgentBoxPath(path)) return markdownAttachmentForMedia(path)
       if (isPreviewableImageSource(path)) return markdownImageForMedia(path)
       if (boxUrlForAgentPath(path)) return markdownAttachmentForMedia(path)
       return _match
     })
     .replace(IMAGE_REF_RE, (_match, rawPath: string) => {
       const path = unquoteMediaRef(rawPath)
+      if (isAgentBoxPath(path)) return markdownAttachmentForMedia(path)
       return isPreviewableImageSource(path) ? markdownImageForMedia(path) : _match
     })
-    .replace(BOX_PREVIEW_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
+    .replace(BOX_PATH_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
       const path = unquoteMediaRef(rawPath)
-      const markdown = markdownForPreviewableBoxReference(path)
-      return markdown ? `${lead}${markdown}${trailer}` : _match
+      return isAgentBoxPath(path) ? `${lead}${markdownAttachmentForMedia(path)}${trailer}` : _match
     })
 }
 

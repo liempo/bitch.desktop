@@ -8,12 +8,14 @@
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
+  import type { ThreadPreview } from '$lib/preview'
 
   interface Props {
+    onOpenPreview?: (preview: ThreadPreview) => void
     sessionId?: null | string
   }
 
-  let { sessionId = null }: Props = $props()
+  let { onOpenPreview, sessionId = null }: Props = $props()
 
   let scrollElement: HTMLElement | null = $state(null)
   let stickToBottom = $state(true)
@@ -109,7 +111,7 @@
   {:else}
     <div class="py-4">
       {#each messages as message, index (message.id)}
-        <Message {message} {sessionId} isLast={index === messages.length - 1} />
+        <Message {message} {sessionId} {onOpenPreview} isLast={index === messages.length - 1} />
       {/each}
 
       {#if sessionId}

@@ -30,7 +30,7 @@ import {
   coerceThinkingText,
   extractEmbeddedImages
 } from '$lib/messages/chat-runtime'
-import { extractBoxPreviewReferences, mediaExtension } from '$lib/media'
+import { isAgentBoxPath, mediaExtension } from '$lib/media'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
@@ -441,13 +441,19 @@ function extractMediaDirectiveSources(text: string): { cleanedText: string; sour
   const cleanedText = text
     .replace(MEDIA_LINE_RE, (_match, lead: string, rawSource: string, trailer: string) => {
       const source = unquoteRefValue(rawSource)
-      if (source) sources.push(source)
-      return `${lead}${trailer}`
+      if (source && !isAgentBoxPath(source)) {
+        sources.push(source)
+        return `${lead}${trailer}`
+      }
+      return _match
     })
     .replace(MEDIA_TAG_RE, (_match, rawSource: string) => {
       const source = unquoteRefValue(rawSource)
-      if (source) sources.push(source)
-      return ''
+      if (source && !isAgentBoxPath(source)) {
+        sources.push(source)
+        return ''
+      }
+      return _match
     })
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -468,15 +474,8 @@ function displayForMessage(
       : { canvases: [], cleanedText: embedded.cleanedText, latestCanvas: null }
   const mediaDirectives = extractMediaDirectiveSources(canvasDirectives.cleanedText)
   const imageDirectives = extractImageDirectiveSources(mediaDirectives.cleanedText)
-  const boxPreviews = extractBoxPreviewReferences(imageDirectives.cleanedText)
   const contentSources = role === 'user' ? imageSourcesFromContent(message.content) : []
-  const sources = [
-    ...embedded.images,
-    ...mediaDirectives.sources,
-    ...imageDirectives.sources,
-    ...boxPreviews.sources,
-    ...contentSources
-  ]
+  const sources = [...embedded.images, ...mediaDirectives.sources, ...imageDirectives.sources, ...contentSources]
   const seen = new Set<string>()
   const attachments: ThreadAttachment[] = []
 
@@ -489,7 +488,7 @@ function displayForMessage(
     if (attachment) attachments.push(attachment)
   }
 
-  return { attachments, canvas: canvasDirectives.latestCanvas, text: boxPreviews.cleanedText }
+  return { attachments, canvas: canvasDirectives.latestCanvas, text: imageDirectives.cleanedText }
 }
 
 function ensureParts(message: ThreadMessage): ThreadMessagePart[] {

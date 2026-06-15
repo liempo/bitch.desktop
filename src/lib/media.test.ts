@@ -65,34 +65,29 @@ describe('media path helpers', () => {
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
   })
 
-  it('derives agent /box MEDIA references into public BOX preview URLs', async () => {
+  it('renders /box MEDIA references as preview links instead of eager previews', async () => {
     const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
     expect(renderPreviewMediaReferences('MEDIA:/box/.hermes/images/render 1.png')).toBe(
-      `![Image: render 1.png](${TEST_BOX_BASE_URL}/.hermes/images/render%201.png)`
+      '[Attachment: render 1.png](/box/.hermes/images/render%201.png)'
     )
     expect(renderPreviewMediaReferences('artifact: MEDIA:/box/wiki/personal/notes.pdf')).toBe(
-      `artifact: [Attachment: notes.pdf](${TEST_BOX_BASE_URL}/wiki/personal/notes.pdf)`
+      'artifact: [Attachment: notes.pdf](/box/wiki/personal/notes.pdf)'
     )
   })
 
-  it('auto-detects standalone previewable /box paths without Hermes directives', async () => {
-    const { extractBoxPreviewReferences, renderPreviewMediaReferences } = await loadMediaHelpers()
+  it('auto-detects standalone /box paths as links without previewing by file type', async () => {
+    const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
     expect(renderPreviewMediaReferences('Preview ready:\n/box/.hermes/cache/render 1.png')).toBe(
-      `Preview ready:\n![Image: render 1.png](${TEST_BOX_BASE_URL}/.hermes/cache/render%201.png)`
+      'Preview ready:\n[Attachment: render 1.png](/box/.hermes/cache/render%201.png)'
     )
     expect(renderPreviewMediaReferences('Report:\n/box/wiki/personal/notes.pdf')).toBe(
-      `Report:\n[Attachment: notes.pdf](${TEST_BOX_BASE_URL}/wiki/personal/notes.pdf)`
+      'Report:\n[Attachment: notes.pdf](/box/wiki/personal/notes.pdf)'
     )
-    expect(extractBoxPreviewReferences('Preview ready:\n/box/.hermes/cache/render 1.png')).toEqual({
-      cleanedText: 'Preview ready:',
-      sources: ['/box/.hermes/cache/render 1.png']
-    })
-    expect(extractBoxPreviewReferences('Notes:\n/box/wiki/personal/readme.txt')).toEqual({
-      cleanedText: 'Notes:\n/box/wiki/personal/readme.txt',
-      sources: []
-    })
+    expect(renderPreviewMediaReferences('Notes:\n/box/wiki/personal/readme.txt')).toBe(
+      'Notes:\n[Attachment: readme.txt](/box/wiki/personal/readme.txt)'
+    )
   })
 
   it('fetches gateway media through the authenticated dashboard bridge', async () => {
