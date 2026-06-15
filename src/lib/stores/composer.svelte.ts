@@ -1369,15 +1369,6 @@ export async function submitPrompt(
   const displayText = compactWhitespace(visibleText) || fallbackPromptForAttachments(attachments)
   const targetProfile = targetProfileForSession(sessionId)
 
-  try {
-    await ensureGatewayProfile(targetProfile)
-    await applyRememberedRuntimeSelections(sessionId, targetSessionId, targetProfile)
-  } catch (error) {
-    composer.submitting = false
-    composer.error = inlineErrorMessage(error, 'Could not prepare session runtime')
-    return false
-  }
-
   appendUserMessage(targetSessionId, displayText, attachments)
   setThreadBusy(targetSessionId, true)
   commitActiveSessionRoute()
@@ -1385,6 +1376,17 @@ export async function submitPrompt(
   if (!options.fromQueue) {
     clearComposerDraft(sessionId)
     clearComposerAttachments(sessionId)
+  }
+
+  try {
+    await ensureGatewayProfile(targetProfile)
+    await applyRememberedRuntimeSelections(sessionId, targetSessionId, targetProfile)
+  } catch (error) {
+    const message = inlineErrorMessage(error, 'Could not prepare session runtime')
+    setThreadBusy(targetSessionId, false)
+    appendAssistantErrorMessage(targetSessionId, message)
+    composer.error = message
+    return false
   }
 
   try {
