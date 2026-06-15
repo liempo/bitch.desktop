@@ -273,6 +273,45 @@ describe('message session id mapping', () => {
     })
   })
 
+  it('auto-detects standalone /box image and PDF paths into visible attachments', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    hydrateSessionMessagesFromGateway(liveSid, [
+      {
+        content: 'rendered output\n/box/.hermes/cache/render 1.png',
+        role: 'assistant',
+        timestamp: 104
+      } as SessionMessage,
+      {
+        content: 'artifact ready\n`/box/wiki/personal/notes.pdf`',
+        role: 'assistant',
+        timestamp: 105
+      } as SessionMessage,
+      {
+        content: 'not previewable\n/box/wiki/personal/readme.txt',
+        role: 'assistant',
+        timestamp: 106
+      } as SessionMessage
+    ])
+
+    const messages = threadForSession(storedKey)?.messages ?? []
+    expect(messages[0]?.text).toBe('rendered output')
+    expect(messages[0]?.attachments?.[0]).toMatchObject({
+      kind: 'image',
+      label: 'render 1.png',
+      path: '/box/.hermes/cache/render 1.png'
+    })
+    expect(messages[1]?.text).toBe('artifact ready')
+    expect(messages[1]?.attachments?.[0]).toMatchObject({
+      kind: 'pdf',
+      label: 'notes.pdf',
+      path: '/box/wiki/personal/notes.pdf'
+    })
+    expect(messages[2]?.text).toBe('not previewable\n/box/wiki/personal/readme.txt')
+    expect(messages[2]?.attachments).toBeUndefined()
+  })
+
   it('extracts live assistant MEDIA references on completion', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey

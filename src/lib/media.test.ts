@@ -76,6 +76,25 @@ describe('media path helpers', () => {
     )
   })
 
+  it('auto-detects standalone previewable /box paths without Hermes directives', async () => {
+    const { extractBoxPreviewReferences, renderPreviewMediaReferences } = await loadMediaHelpers()
+
+    expect(renderPreviewMediaReferences('Preview ready:\n/box/.hermes/cache/render 1.png')).toBe(
+      `Preview ready:\n![Image: render 1.png](${TEST_BOX_BASE_URL}/.hermes/cache/render%201.png)`
+    )
+    expect(renderPreviewMediaReferences('Report:\n/box/wiki/personal/notes.pdf')).toBe(
+      `Report:\n[Attachment: notes.pdf](${TEST_BOX_BASE_URL}/wiki/personal/notes.pdf)`
+    )
+    expect(extractBoxPreviewReferences('Preview ready:\n/box/.hermes/cache/render 1.png')).toEqual({
+      cleanedText: 'Preview ready:',
+      sources: ['/box/.hermes/cache/render 1.png']
+    })
+    expect(extractBoxPreviewReferences('Notes:\n/box/wiki/personal/readme.txt')).toEqual({
+      cleanedText: 'Notes:\n/box/wiki/personal/readme.txt',
+      sources: []
+    })
+  })
+
   it('fetches gateway media through the authenticated dashboard bridge', async () => {
     const { gatewayMediaDataUrl } = await loadMediaHelpers()
     mockDashboardRequest.mockResolvedValueOnce({ data_url: 'data:image/png;base64,ZHVtbXk=' })

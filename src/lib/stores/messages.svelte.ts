@@ -30,7 +30,7 @@ import {
   coerceThinkingText,
   extractEmbeddedImages
 } from '$lib/messages/chat-runtime'
-import { mediaExtension } from '$lib/media'
+import { extractBoxPreviewReferences, mediaExtension } from '$lib/media'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
@@ -468,8 +468,15 @@ function displayForMessage(
       : { canvases: [], cleanedText: embedded.cleanedText, latestCanvas: null }
   const mediaDirectives = extractMediaDirectiveSources(canvasDirectives.cleanedText)
   const imageDirectives = extractImageDirectiveSources(mediaDirectives.cleanedText)
+  const boxPreviews = extractBoxPreviewReferences(imageDirectives.cleanedText)
   const contentSources = role === 'user' ? imageSourcesFromContent(message.content) : []
-  const sources = [...embedded.images, ...mediaDirectives.sources, ...imageDirectives.sources, ...contentSources]
+  const sources = [
+    ...embedded.images,
+    ...mediaDirectives.sources,
+    ...imageDirectives.sources,
+    ...boxPreviews.sources,
+    ...contentSources
+  ]
   const seen = new Set<string>()
   const attachments: ThreadAttachment[] = []
 
@@ -482,7 +489,7 @@ function displayForMessage(
     if (attachment) attachments.push(attachment)
   }
 
-  return { attachments, canvas: canvasDirectives.latestCanvas, text: imageDirectives.cleanedText }
+  return { attachments, canvas: canvasDirectives.latestCanvas, text: boxPreviews.cleanedText }
 }
 
 function ensureParts(message: ThreadMessage): ThreadMessagePart[] {
