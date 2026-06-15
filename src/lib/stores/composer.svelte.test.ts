@@ -144,6 +144,43 @@ describe('composer runtime targeting', () => {
     expect(messageState.sessions['live-A']).toBeUndefined()
   })
 
+  it('clears the composer and appends the user message before gateway preparation resolves', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    composerState.sessions['stored-A'] = {
+      attachments: [],
+      commandCatalog: [],
+      commandError: null,
+      draft: 'slow uplink payload',
+      error: null,
+      loadingCommands: false,
+      submitting: false,
+      userInterrupted: false
+    }
+
+    let releaseGateway!: () => void
+    const gatewayReady = new Promise<void>(resolve => {
+      releaseGateway = resolve
+    })
+    mockEnsureGatewayForProfile.mockReturnValueOnce(gatewayReady)
+    mockRequestGateway.mockResolvedValueOnce({ ok: true })
+
+    const submission = submitPrompt('stored-A')
+    await Promise.resolve()
+
+    const draftWhileGatewayPreparing = composerState.sessions['stored-A']?.draft
+    const busyWhileGatewayPreparing = threadForSession('stored-A')?.busy
+    const messagesWhileGatewayPreparing = threadForSession('stored-A')?.messages.map(message => message.text)
+    const submitCallWhilePreparing = mockRequestGateway.mock.calls.some(([method]) => method === 'prompt.submit')
+
+    releaseGateway()
+    await expect(submission).resolves.toBe(true)
+
+    expect(draftWhileGatewayPreparing).toBe('')
+    expect(busyWhileGatewayPreparing).toBe(true)
+    expect(messagesWhileGatewayPreparing).toEqual(['slow uplink payload'])
+    expect(submitCallWhilePreparing).toBe(false)
+  })
+
   it('uploads image bytes before submitting text to the remote gateway', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     const image: ComposerAttachment = {
