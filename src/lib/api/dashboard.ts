@@ -4,15 +4,12 @@ import type {
   ModelInfoResponse,
   ModelOptionsResponse,
   PaginatedSessions,
-  ProfileCreatePayload,
-  ProfileSetupCommand,
   ProfilesResponse,
-  ProfileSoul,
   SessionMessagesResponse,
   SessionSearchResponse
 } from '$lib/types/hermes'
 
-export type DashboardRequestMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
+type DashboardRequestMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
 
 export interface DashboardRequestOptions {
   body?: unknown
@@ -190,45 +187,4 @@ export function getProfiles(): Promise<ProfilesResponse> {
 
 export function getActiveProfile(): Promise<ActiveProfileResponse> {
   return dashboardRequest<ActiveProfileResponse>({ path: '/api/profiles/active' })
-}
-
-export function createProfile(body: ProfileCreatePayload): Promise<{ name: string; ok: boolean; path: string }> {
-  return dashboardRequest<{ name: string; ok: boolean; path: string }>({
-    body,
-    method: 'POST',
-    path: '/api/profiles'
-  })
-}
-
-export function renameProfile(name: string, newName: string): Promise<{ name: string; ok: boolean; path: string }> {
-  return dashboardRequest<{ name: string; ok: boolean; path: string }>({
-    body: { new_name: newName },
-    method: 'PATCH',
-    path: `/api/profiles/${encodeURIComponent(name)}`
-  })
-}
-
-export function deleteProfile(name: string): Promise<{ ok: boolean; path: string }> {
-  return dashboardRequest<{ ok: boolean; path: string }>({
-    method: 'DELETE',
-    path: `/api/profiles/${encodeURIComponent(name)}`
-  })
-}
-
-export function getProfileSoul(name: string): Promise<ProfileSoul> {
-  return dashboardRequest<ProfileSoul>({ path: `/api/profiles/${encodeURIComponent(name)}/soul` })
-}
-
-export function updateProfileSoul(name: string, content: string): Promise<{ ok: boolean }> {
-  return dashboardRequest<{ ok: boolean }>({
-    body: { content },
-    method: 'PUT',
-    path: `/api/profiles/${encodeURIComponent(name)}/soul`
-  })
-}
-
-export function getProfileSetupCommand(name: string): Promise<ProfileSetupCommand> {
-  return dashboardRequest<ProfileSetupCommand>({
-    path: `/api/profiles/${encodeURIComponent(name)}/setup-command`
-  })
 }

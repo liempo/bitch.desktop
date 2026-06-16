@@ -1,15 +1,3 @@
-export interface AudioTranscriptionResponse {
-  ok: boolean
-  provider?: string
-  transcript: string
-}
-
-export interface AudioSpeakResponse {
-  data_url: string
-  mime_type: string
-  ok: boolean
-}
-
 export interface UsageStats {
   calls: number
   context_max?: number
@@ -21,7 +9,7 @@ export interface UsageStats {
   total: number
 }
 
-export interface SessionRuntimeInfo {
+interface SessionRuntimeInfo {
   branch?: string
   config_warning?: string
   credential_warning?: string
@@ -151,7 +139,7 @@ export interface ModelInfoResponse {
   provider: string
 }
 
-export interface ModelPricing {
+interface ModelPricing {
   /** Formatted $/Mtok input price, e.g. "$3.00", or "free", or "" if unknown. */
   input: string
   /** Formatted $/Mtok output price. */
@@ -162,7 +150,7 @@ export interface ModelPricing {
   free: boolean
 }
 
-export interface ModelCapabilities {
+interface ModelCapabilities {
   fast: boolean
   reasoning: boolean
 }
@@ -192,14 +180,6 @@ export interface ModelOptionsResponse {
   providers?: ModelOptionProvider[]
 }
 
-export interface ProfileCreatePayload {
-  clone_all?: boolean
-  clone_from?: string
-  clone_from_default?: boolean
-  name: string
-  no_skills?: boolean
-}
-
 export interface ProfileInfo {
   has_env: boolean
   is_default: boolean
@@ -208,15 +188,6 @@ export interface ProfileInfo {
   path: string
   provider: null | string
   skill_count: number
-}
-
-export interface ProfileSetupCommand {
-  command: string
-}
-
-export interface ProfileSoul {
-  content: string
-  exists: boolean
 }
 
 export interface ProfilesResponse {

@@ -118,14 +118,6 @@ async function resolveConnection(profile: string): Promise<ResolvedConnection> {
   }
 }
 
-export function getGateway(profile?: null | string): HermesGateway {
-  if (profile) {
-    return entryForProfile(profile).gateway
-  }
-
-  return (activeEntry ?? entryForProfile(gatewayState.activeProfile)).gateway
-}
-
 export async function ensureGatewayForProfile(profile: null | string | undefined): Promise<HermesGateway> {
   const key = normalizeProfile(profile)
   const entry = entryForProfile(key)

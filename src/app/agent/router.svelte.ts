@@ -2,7 +2,7 @@
 /*  Hash-based router suitable for Tauri webview (no server needed)    */
 /* ------------------------------------------------------------------ */
 
-export type Route = 'new' | 'session'
+type Route = 'new' | 'session'
 
 export interface RouterState {
   route: Route

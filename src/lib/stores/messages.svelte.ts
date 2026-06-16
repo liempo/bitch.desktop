@@ -1,5 +1,3 @@
-import { getSessionMessages } from '$lib/api/dashboard'
-import { messageForError } from '$lib/errors'
 import {
   buildAssistantCompleteNotification,
   buildInputNeededNotification,
@@ -9,7 +7,6 @@ import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
 import { extractCanvasReferences, type ThreadCanvas } from '$lib/canvas'
 import {
   loadSessions,
-  profileForSession,
   sessionState,
   setSessionNeedsInput,
   setSessionWorking,
@@ -33,7 +30,7 @@ import {
 import { isAgentBoxPath, mediaExtension } from '$lib/media'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
-export type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
+type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'
 
 export interface ThreadTool {
@@ -47,7 +44,7 @@ export interface ThreadTool {
   summary: string
 }
 
-export type ThreadAttachmentKind = 'image' | 'pdf'
+type ThreadAttachmentKind = 'image' | 'pdf'
 
 export interface ThreadAttachment {
   dataUrl?: string
@@ -75,7 +72,7 @@ export interface ThreadAttachmentInput {
   url?: string
 }
 
-export type ThreadMessagePart =
+type ThreadMessagePart =
   | { type: 'reasoning'; text: string }
   | { type: 'text'; text: string }
   | { type: 'tool'; tool: ThreadTool }
@@ -1152,22 +1149,6 @@ export function appendAssistantErrorMessage(sessionId: string, text: string): vo
   ensureThreadSession(threadId).currentAssistantId = null
   setBusy(threadId, false)
   setNeedsInput(threadId, false)
-}
-
-export async function hydrateSessionMessages(sessionId: string, seed?: SessionMessage[]): Promise<void> {
-  const threadId = displaySessionId(sessionId)
-  const thread = ensureThreadSession(threadId)
-  thread.loading = true
-  thread.error = null
-
-  try {
-    const messages = seed ?? (await getSessionMessages(threadId, profileForSession(threadId))).messages
-    replaceStoredMessages(threadId, messages)
-  } catch (error) {
-    thread.error = messageForError(error)
-    thread.loading = false
-    console.error('Failed to hydrate session messages:', error)
-  }
 }
 
 export function hydrateSessionMessagesFromGateway(sessionId: string, messages: SessionMessage[] = []): void {

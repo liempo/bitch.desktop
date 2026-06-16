@@ -32,5 +32,3 @@ export const tagClass = [
   'bg-surface-raised',
   'px-1.5 py-1 font-hud text-[0.62rem] font-bold uppercase leading-none tracking-[0.13em] text-ink-muted'
 ].join(' ')
-
-export const dotClass = 'h-[0.45rem] w-[0.45rem] rounded-xs bg-current'

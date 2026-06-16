@@ -25,7 +25,7 @@ import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } fro
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'
 
-export type ComposerAttachmentKind = 'image' | 'pdf'
+type ComposerAttachmentKind = 'image' | 'pdf'
 
 export interface ComposerAttachment {
   attachedSessionId?: string
@@ -39,7 +39,7 @@ export interface ComposerAttachment {
   size: number
 }
 
-export interface AttachmentRelayResponse {
+interface AttachmentRelayResponse {
   attached?: boolean
   bytes?: number
   count?: number
@@ -50,12 +50,12 @@ export interface AttachmentRelayResponse {
   text?: string
 }
 
-export interface CommandCatalogCategory {
+interface CommandCatalogCategory {
   name: string
   pairs: [string, string][]
 }
 
-export interface CommandsCatalogResponse {
+interface CommandsCatalogResponse {
   canon?: Record<string, string>
   categories?: CommandCatalogCategory[]
   pairs?: [string, string][]
@@ -70,7 +70,7 @@ export interface SlashCommandItem {
   description: string
 }
 
-export interface SlashExecResponse {
+interface SlashExecResponse {
   output?: string
   warning?: string
 }
@@ -106,7 +106,7 @@ interface ThreadModelSelection {
   provider: string
 }
 
-export type PromptSubmitPayload = string
+type PromptSubmitPayload = string
 
 export interface ComposerSessionState {
   attachments: ComposerAttachment[]
@@ -594,7 +594,7 @@ export function setComposerDraft(sessionId: null | string | undefined, value: st
   saveDraft(key, value)
 }
 
-export function clearComposerDraft(sessionId: null | string | undefined): void {
+function clearComposerDraft(sessionId: null | string | undefined): void {
   setComposerDraft(sessionId, '')
 }
 
@@ -661,8 +661,6 @@ export async function addAttachmentFiles(
   }
 }
 
-export const addImageFiles = addAttachmentFiles
-
 export function shouldDispatchSlashImmediately(draft: string, busy = false): boolean {
   void busy
   return draft.trim().startsWith('/')
@@ -672,7 +670,7 @@ export function markComposerInterrupted(sessionId: null | string | undefined, in
   ensureComposerSession(sessionId).userInterrupted = interrupted
 }
 
-export function queuedSessionKey(sessionId: null | string | undefined): null | string {
+function queuedSessionKey(sessionId: null | string | undefined): null | string {
   return sessionId?.trim() || null
 }
 
@@ -732,10 +730,6 @@ export function groupedModelOptions(sessionId?: null | string): ComposerModelGro
       }
     })
     .filter(group => group.options.length > 0)
-}
-
-export function flattenedModelOptions(): ComposerModelOption[] {
-  return groupedModelOptions().flatMap(group => group.options)
 }
 
 export async function refreshComposerModels(): Promise<void> {
@@ -1386,6 +1380,7 @@ export async function submitPrompt(
     setThreadBusy(targetSessionId, false)
     appendAssistantErrorMessage(targetSessionId, message)
     composer.error = message
+    composer.submitting = false
     return false
   }
 

@@ -37,7 +37,6 @@ describe('profile store helpers', () => {
     profileState.gatewaySwapTarget = null
     profileState.loading = false
     profileState.newChatProfile = null
-    profileState.profileColors = {}
     profileState.profileOrder = []
     profileState.profiles = []
     profileState.showAllProfiles = false

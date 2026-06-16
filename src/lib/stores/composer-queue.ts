@@ -163,37 +163,6 @@ export function removeQueuedPrompt(key: null | string | undefined, id: string): 
   return true
 }
 
-export function updateQueuedPrompt(
-  key: null | string | undefined,
-  id: string,
-  update: { attachments?: ComposerAttachment[]; text: string }
-): boolean {
-  const sessionKey = sessionKeyOf(key)
-  if (!sessionKey) return false
-
-  const queue = queueFor(sessionKey)
-  let changed = false
-  const next = queue.map(entry => {
-    if (entry.id !== id) return entry
-
-    changed = true
-    return {
-      ...entry,
-      attachments: (update.attachments ?? entry.attachments).map(cloneAttachment),
-      text: update.text
-    }
-  })
-
-  if (!changed) return false
-
-  writeSession(sessionKey, next)
-  return true
-}
-
-export function updateQueuedPromptText(key: null | string | undefined, id: string, text: string): boolean {
-  return updateQueuedPrompt(key, id, { text })
-}
-
 export function clearQueuedPrompts(key: null | string | undefined): void {
   const sessionKey = sessionKeyOf(key)
   if (!sessionKey || !(sessionKey in queuedPromptsBySession)) return

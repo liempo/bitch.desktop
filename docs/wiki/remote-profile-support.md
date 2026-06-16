@@ -16,7 +16,6 @@ by mapping each profile to its own dashboard URL/port.
 profile response shapes and profile ownership metadata:
 
 - `ProfileInfo`, `ProfilesResponse`
-- `ProfileCreatePayload`, `ProfileSoul`, `ProfileSetupCommand`
 - `SessionInfo.profile`, `SessionInfo.is_default_profile`
 - `PaginatedSessions.profile_totals`, `PaginatedSessions.errors`
 
@@ -90,8 +89,9 @@ contains the profile execution state:
 - `selectProfile(profile)` — hides all-profiles mode, ensures the profile gateway,
   scopes REST helpers, and requests a fresh draft.
 
-Rail cosmetics are stored locally under `bitch.desktop.profileOrder`,
-`bitch.desktop.profileColors`, and `bitch.desktop.showAllProfiles`.
+Rail/session-list cosmetics are stored locally under `bitch.desktop.profileOrder`
+and `bitch.desktop.showAllProfiles`; unused per-profile color overrides were
+removed so the store only persists active UI state.
 
 ### Gateway registry
 
@@ -138,16 +138,16 @@ to switch to the owning profile before sending `sudo.respond` or `secret.respond
 
 ## UI
 
-[`src/app/sidebar/ProfileRail.svelte`](../../src/app/sidebar/ProfileRail.svelte)
-adds the compact profile rail at the sidebar footer. It is hidden for single
-profile users and shows:
+[`src/app/agent/sidebar/ProfileFilterDialog.svelte`](../../src/app/agent/sidebar/ProfileFilterDialog.svelte)
+adds the profile filter at the sidebar header. It is hidden for single-profile
+users and shows:
 
-- An `All` control for unified history browsing.
-- One colored profile button per profile.
-- Deterministic profile colors from
-  [`profile-color.ts`](../../src/lib/profile-color.ts), with local overrides.
+- An `all` control for unified history browsing.
+- One filter option per profile, sorted by default profile first and then local
+  profile order.
+- A `group by profile` toggle for all-profile history browsing.
 
-[`Sidebar.svelte`](../../src/app/sidebar/Sidebar.svelte) groups recent sessions
+[`Sidebar.svelte`](../../src/app/agent/sidebar/Sidebar.svelte) groups recent sessions
 by profile when the all-profiles scope is active and keeps normal scoped recents
 unchanged otherwise.
 
@@ -181,8 +181,8 @@ hermes --profile research dashboard --port 9122
   the profile that backend process booted with. Use one backend per profile.
 - **OAuth remote gateways:** per-profile overrides are token-first in this pass.
 - **Profile administration UI:** create/rename/delete/SOUL editor routes are not
-  ported yet. The API layer contains helper types for a later settings/profile
-  admin surface.
+  ported yet, so the renderer keeps only the profile list/scope types used by
+  the current UI.
 
 ## Tests
 

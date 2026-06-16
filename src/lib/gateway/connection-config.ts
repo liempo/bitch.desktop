@@ -1,9 +1,7 @@
-import { invoke } from '@tauri-apps/api/core'
+type ConnectionAuthMode = 'oauth' | 'token'
+type ConnectionMode = 'remote'
 
-export type ConnectionAuthMode = 'oauth' | 'token'
-export type ConnectionMode = 'remote'
-
-export interface ConnectionProfileConfig {
+interface ConnectionProfileConfig {
   authMode?: ConnectionAuthMode | null
   mode?: ConnectionMode | string | null
   token?: string | null
@@ -18,24 +16,6 @@ export interface ProfileRemoteOverride {
   authMode: ConnectionAuthMode
   token?: string | null
   url: string
-}
-
-export interface ResolvedConnection {
-  authMode: ConnectionAuthMode
-  baseUrl: string
-  profile?: string | null
-}
-
-export async function getConnectionConfig(): Promise<ConnectionConfig> {
-  return invoke<ConnectionConfig>('get_connection_config')
-}
-
-export async function saveConnectionConfig(config: ConnectionConfig): Promise<ConnectionConfig> {
-  return invoke<ConnectionConfig>('save_connection_config', { config })
-}
-
-export async function resolveConnection(profile?: null | string): Promise<ResolvedConnection> {
-  return invoke<ResolvedConnection>('resolve_connection', { profile: connectionScopeKey(profile) })
 }
 
 export function normalizeRemoteBaseUrl(rawUrl: string | null | undefined): string {
@@ -68,7 +48,7 @@ export function connectionScopeKey(profile: string | null | undefined): string |
   return String(profile ?? '').trim() || null
 }
 
-export function normAuthMode(mode: string | null | undefined): ConnectionAuthMode {
+function normAuthMode(mode: string | null | undefined): ConnectionAuthMode {
   return mode === 'oauth' ? 'oauth' : 'token'
 }
 
