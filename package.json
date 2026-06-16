@@ -55,6 +55,11 @@
     "vitest": "^4.1.9"
   },
   "knip": {
+    "ignore": [
+      ".cargo/**",
+      ".rustup/**",
+      "src-tauri/target/**"
+    ],
     "ignoreDependencies": [
       "@tauri-apps/cli"
     ]
