@@ -30,7 +30,7 @@ export interface GatewayEvent<P = unknown> {
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 export type GatewayRequestId = number | string
 
-interface JsonRpcFrame {
+export interface JsonRpcFrame {
   error?: { message?: string }
   id?: GatewayRequestId | null
   method?: string

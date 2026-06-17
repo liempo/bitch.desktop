@@ -10,5 +10,8 @@ trap 'rm -f "$TMP"' EXIT
 curl -fsSL "$SRC_URL" -o "$TMP"
 install -m 0644 "$TMP" "$DEST"
 
+npx --yes prettier --write "$DEST" --config "$ROOT/.prettierrc" >/dev/null
+
 echo "Updated $DEST from upstream Hermes transport layer."
+echo "Normalized formatting with the repo Prettier config."
 echo "Review the diff and migrate any local changes manually."

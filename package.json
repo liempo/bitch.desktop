@@ -58,7 +58,8 @@
     "ignore": [
       ".cargo/**",
       ".rustup/**",
-      "src-tauri/target/**"
+      "src-tauri/target/**",
+      "src/lib/gateway/json-rpc-gateway.ts"
     ],
     "ignoreDependencies": [
       "@tauri-apps/cli"
