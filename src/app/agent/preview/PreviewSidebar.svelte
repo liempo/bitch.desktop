@@ -18,7 +18,7 @@
 </script>
 
 <aside
-  class="min-h-0 w-full shrink-0 bg-canvas/70 p-3 md:w-[var(--agent-preview-width)]"
+  class="min-h-0 w-full shrink-0 bg-canvas/70 py-3 pr-3 md:w-[var(--agent-preview-width)]"
   style={previewStyle}
   aria-label="Preview sidebar"
 >

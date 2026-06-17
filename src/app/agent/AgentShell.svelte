@@ -24,6 +24,7 @@
   type ResizablePanel = 'sidebar' | 'preview'
 
   const RESIZE_STEP_PX = 24
+  const PANEL_RESIZE_GAP_CLASS = 'hidden w-1 shrink-0 cursor-col-resize focus-visible:outline-2 focus-visible:outline-focus md:block'
 
   let lastResumedSessionId: string | null = null
   let lastFreshSessionRequest = profileState.freshSessionRequest
@@ -200,7 +201,7 @@
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div
-        class="hidden w-2 shrink-0 cursor-col-resize focus-visible:outline-2 focus-visible:outline-focus md:block"
+        class={PANEL_RESIZE_GAP_CLASS}
         role="separator"
         tabindex="0"
         aria-label="Resize session sidebar"
@@ -239,7 +240,7 @@
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div
-        class="hidden w-2 shrink-0 cursor-col-resize focus-visible:outline-2 focus-visible:outline-focus md:block"
+        class={PANEL_RESIZE_GAP_CLASS}
         role="separator"
         tabindex="0"
         aria-label="Resize preview sidebar"
