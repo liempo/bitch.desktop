@@ -34,13 +34,21 @@
     selectMainNewSessionProfile
   } from '$lib/stores/profile.svelte'
   import { shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
+  import { panelWidthStyle, SESSION_SIDEBAR_WIDTH } from '$lib/layout/panel-resize'
   import type { SessionInfo } from '$lib/types/hermes'
+
+  interface Props {
+    width?: number
+  }
+
+  let { width = SESSION_SIDEBAR_WIDTH.defaultWidth }: Props = $props()
 
   const GROUP_BY_PROFILE_STORAGE_KEY = 'bitch.desktop.groupSessionsByProfile'
   const sectionHeadingClass = 'font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted'
   const mutedNoticeClass = `${cardClass} rounded-control !bg-surface-raised/40 p-3 text-xs text-ink-muted`
   const dangerNoticeClass = `${cardClass} rounded-control border-danger/35 !bg-danger/10 p-3 text-xs text-danger`
 
+  const sidebarStyle = $derived(panelWidthStyle('--agent-sidebar-width', width))
   const connected = $derived(gatewayState.connectionState === 'open')
   const hasLoadedSessionIndex = $derived(
     sessionState.sessionsInitialized || sessionState.sessions.length > 0 || sessionState.searchResults.length > 0
@@ -124,7 +132,11 @@
   }
 </script>
 
-<aside class="box-border flex h-64 w-full shrink-0 flex-col pb-3 pl-3 pt-3 md:h-full md:w-80" aria-label="Session index">
+<aside
+  class="box-border flex h-64 w-full shrink-0 flex-col pb-3 pl-3 pt-3 md:h-full md:w-[var(--agent-sidebar-width)]"
+  style={sidebarStyle}
+  aria-label="Session index"
+>
   <div class="min-h-0 flex-1">
     <Panel title="Sessions" padded={false}>
       {#snippet actions()}
