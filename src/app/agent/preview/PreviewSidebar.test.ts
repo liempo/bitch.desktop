@@ -30,6 +30,12 @@ describe('PreviewSidebar source contract', () => {
     expect(markdownSource).toContain('boxPreviewAnchor')
   })
 
+  it('routes explicit #preview links through the preview sidebar', () => {
+    expect(markdownSource).toContain("href.startsWith('#preview:')")
+    expect(markdownSource).toContain('previewFromFileReference')
+    expect(markdownSource).toContain('decodePreviewHref')
+  })
+
   it('does not hardcode the production BOX origin in the renderer', () => {
     expect(previewSidebarSource).not.toContain('box.airplane-skilift.ts.net')
     expect(markdownSource).not.toContain('box.airplane-skilift.ts.net')

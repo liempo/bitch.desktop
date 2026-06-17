@@ -4,7 +4,7 @@
   import DOMPurify from 'dompurify'
   import { boxUrlForAgentPath } from '$lib/box'
   import { gatewayMediaDataUrl, isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/media'
-  import { previewFromBoxPath, previewKindForBoxPath, type ThreadPreview } from '$lib/preview'
+  import { previewFromFileReference, previewKindForBoxPath, type ThreadPreview } from '$lib/preview'
   import './markdown.css'
 
   interface Props {
@@ -59,6 +59,32 @@
     return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
   }
 
+  function decodePreviewHref(href: string): string | null {
+    if (!href.startsWith('#preview:')) return null
+
+    const encoded = href.slice('#preview:'.length)
+    if (!encoded) return null
+
+    try {
+      return decodeURIComponent(encoded)
+    } catch {
+      return encoded
+    }
+  }
+
+  function explicitPreviewAnchor(href: string, label: string, title?: string | null): string | null {
+    const source = decodePreviewHref(href)
+    if (!source) return null
+
+    const preview = previewFromFileReference(source)
+    if (!preview) return null
+
+    const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
+    const text = label || preview.label
+
+    return `<a href="${escapeHtml(preview.url ?? href)}" data-preview-source="${escapeHtml(source)}" data-preview-kind="${preview.kind}"${titleAttr}>${escapeHtml(text)}</a>`
+  }
+
   function boxPreviewAnchor(href: string, label: string, title?: string | null): string | null {
     const boxUrl = boxUrlForAgentPath(href)
     if (!boxUrl) return null
@@ -75,6 +101,9 @@
 
     renderer.link = (token: Tokens.Link): string => {
       const href = token.href || ''
+      const previewAnchor = explicitPreviewAnchor(href, token.text || href, token.title)
+      if (previewAnchor) return previewAnchor
+
       const boxAnchor = boxPreviewAnchor(href, token.text || href, token.title)
 
       if (boxAnchor) return boxAnchor
@@ -127,7 +156,7 @@
 
     const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[data-preview-source]') : null
     const source = link?.dataset.previewSource
-    const preview = source ? previewFromBoxPath(source) : null
+    const preview = source ? previewFromFileReference(source) : null
 
     if (!preview) return
 
