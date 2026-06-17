@@ -29,6 +29,11 @@ function storageStub(initial: Record<string, string> = {}): Storage {
 }
 
 describe('panel resize width helpers', () => {
+  it('defaults both side panels to their minimum supported widths', () => {
+    expect(SESSION_SIDEBAR_WIDTH.defaultWidth).toBe(SESSION_SIDEBAR_WIDTH.minWidth)
+    expect(PREVIEW_PANEL_WIDTH.defaultWidth).toBe(PREVIEW_PANEL_WIDTH.minWidth)
+  })
+
   it('clamps session sidebar and preview panel widths to their supported ranges', () => {
     expect(clampPanelWidth(120, SESSION_SIDEBAR_WIDTH)).toBe(256)
     expect(clampPanelWidth(999, SESSION_SIDEBAR_WIDTH)).toBe(480)
@@ -36,7 +41,7 @@ describe('panel resize width helpers', () => {
 
     expect(clampPanelWidth(240, PREVIEW_PANEL_WIDTH)).toBe(320)
     expect(clampPanelWidth(900, PREVIEW_PANEL_WIDTH)).toBe(704)
-    expect(clampPanelWidth(Number.NaN, PREVIEW_PANEL_WIDTH)).toBe(PREVIEW_PANEL_WIDTH.defaultWidth)
+    expect(clampPanelWidth(Number.NaN, PREVIEW_PANEL_WIDTH)).toBe(PREVIEW_PANEL_WIDTH.minWidth)
   })
 
   it('reads persisted widths and falls back safely when storage is missing or invalid', () => {

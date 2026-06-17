@@ -5,12 +5,14 @@ import previewSidebarSource from './preview/PreviewSidebar.svelte?raw'
 import sidebarSource from './sidebar/Sidebar.svelte?raw'
 
 describe('AgentShell resizable panel source contract', () => {
-  it('renders pointer-accessible resize handles for both side panels', () => {
+  it('keeps resize behavior without rendering visible divider lines', () => {
     expect(agentShellSource).toContain('aria-label="Resize session sidebar"')
     expect(agentShellSource).toContain('aria-label="Resize preview sidebar"')
     expect(agentShellSource).toContain('role="separator"')
     expect(agentShellSource).toContain('onpointerdown')
     expect(agentShellSource).toContain('onkeydown')
+    expect(agentShellSource).not.toContain('w-px bg-line')
+    expect(agentShellSource).not.toContain('group-hover:bg-primary')
   })
 
   it('passes persisted widths into the left session sidebar and right preview sidebar', () => {
