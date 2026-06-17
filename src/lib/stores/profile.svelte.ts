@@ -6,7 +6,6 @@ import type { ProfileInfo } from '$lib/types/hermes'
 export const ALL_PROFILES = '__all__'
 
 const PROFILE_ORDER_STORAGE_KEY = 'bitch.desktop.profileOrder'
-const PROFILE_COLORS_STORAGE_KEY = 'bitch.desktop.profileColors'
 const SHOW_ALL_PROFILES_STORAGE_KEY = 'bitch.desktop.showAllProfiles'
 
 interface ProfileState {
@@ -17,7 +16,6 @@ interface ProfileState {
   gatewaySwapTarget: null | string
   loading: boolean
   newChatProfile: null | string
-  profileColors: Record<string, string>
   profileOrder: string[]
   profiles: ProfileInfo[]
   showAllProfiles: boolean
@@ -35,16 +33,6 @@ function readJson<T>(key: string, fallback: T): T {
     return raw ? (JSON.parse(raw) as T) : fallback
   } catch {
     return fallback
-  }
-}
-
-function writeJson(key: string, value: unknown): void {
-  if (!hasLocalStorage()) return
-
-  try {
-    globalThis.localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // Local cosmetic persistence should never break profile switching.
   }
 }
 
@@ -75,7 +63,6 @@ export const profileState = $state<ProfileState>({
   gatewaySwapTarget: null,
   loading: false,
   newChatProfile: null,
-  profileColors: readJson<Record<string, string>>(PROFILE_COLORS_STORAGE_KEY, {}),
   profileOrder: readJson<string[]>(PROFILE_ORDER_STORAGE_KEY, []),
   profiles: [],
   showAllProfiles: readBoolean(SHOW_ALL_PROFILES_STORAGE_KEY, false)
@@ -83,11 +70,6 @@ export const profileState = $state<ProfileState>({
 
 export function getProfileScope(): string {
   return profileState.showAllProfiles ? ALL_PROFILES : normalizeProfileKey(profileState.activeGatewayProfile)
-}
-
-export function setProfileOrder(names: string[]): void {
-  profileState.profileOrder = [...names]
-  writeJson(PROFILE_ORDER_STORAGE_KEY, profileState.profileOrder)
 }
 
 export function sortByProfileOrder<T extends { name: string }>(items: T[], order = profileState.profileOrder): T[] {
@@ -100,20 +82,6 @@ export function sortByProfileOrder<T extends { name: string }>(items: T[], order
     if (ra != null && rb != null) return ra - rb
     return ra != null ? -1 : rb != null ? 1 : a.name.localeCompare(b.name)
   })
-}
-
-export function setProfileColor(name: string, color: null | string): void {
-  const key = normalizeProfileKey(name)
-  const next = { ...profileState.profileColors }
-
-  if (color) {
-    next[key] = color
-  } else {
-    delete next[key]
-  }
-
-  profileState.profileColors = next
-  writeJson(PROFILE_COLORS_STORAGE_KEY, next)
 }
 
 export async function refreshActiveProfile(): Promise<void> {
@@ -218,7 +186,7 @@ export function selectNewSessionProfile(name: string): void {
   void ensureGatewayProfile(target)
 }
 
-export function mainProfileName(): string {
+function mainProfileName(): string {
   return normalizeProfileKey(profileState.profiles.find(profile => profile.is_default)?.name ?? 'default')
 }
 
@@ -226,21 +194,7 @@ export function selectMainNewSessionProfile(): void {
   selectNewSessionProfile(mainProfileName())
 }
 
-export function newSessionInProfile(name: string): void {
-  selectNewSessionProfile(name)
-  requestFreshSession()
-}
-
 export function setShowAllProfiles(value: boolean): void {
   profileState.showAllProfiles = value
   writeBoolean(SHOW_ALL_PROFILES_STORAGE_KEY, value)
-}
-
-export function toggleShowAllProfiles(): void {
-  setShowAllProfiles(!profileState.showAllProfiles)
-}
-
-export function switchToDefaultProfile(): void {
-  const def = profileState.profiles.find(profile => profile.is_default)
-  selectProfile(def?.name ?? 'default')
 }

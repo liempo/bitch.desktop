@@ -40,10 +40,6 @@ export function toggleSidebar(): void {
   layoutState.sidebarOpen = !layoutState.sidebarOpen
 }
 
-export function setSidebarOpen(open: boolean): void {
-  layoutState.sidebarOpen = open
-}
-
 export function pinSession(id: string): void {
   if (!layoutState.pinnedSessionIds.includes(id)) {
     layoutState.pinnedSessionIds.push(id)

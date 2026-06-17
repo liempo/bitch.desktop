@@ -181,6 +181,29 @@ describe('composer runtime targeting', () => {
     expect(submitCallWhilePreparing).toBe(false)
   })
 
+  it('resets submit state when gateway preparation fails before prompt.submit', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    composerState.sessions['stored-A'] = {
+      attachments: [],
+      commandCatalog: [],
+      commandError: null,
+      draft: 'profile-bound payload',
+      error: null,
+      loadingCommands: false,
+      submitting: false,
+      userInterrupted: false
+    }
+    mockEnsureGatewayForProfile.mockRejectedValueOnce(new Error('profile gateway unavailable'))
+
+    await expect(submitPrompt('stored-A')).resolves.toBe(false)
+
+    expect(composerState.sessions['stored-A']?.submitting).toBe(false)
+    expect(composerState.sessions['stored-A']?.error).toBe('profile gateway unavailable')
+    expect(threadForSession('stored-A')?.busy).toBe(false)
+    expect(threadForSession('stored-A')?.messages.map(message => message.role)).toEqual(['user', 'assistant'])
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
+  })
+
   it('uploads image bytes before submitting text to the remote gateway', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     const image: ComposerAttachment = {

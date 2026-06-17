@@ -130,7 +130,7 @@ export function setApprovalRequest(request: ApprovalRequest): void {
   promptsState.approvalRequest = request
 }
 
-export function clearApprovalRequest(): void {
+function clearApprovalRequest(): void {
   promptsState.approvalRequest = null
 }
 
@@ -138,7 +138,7 @@ export function setSudoRequest(request: SudoRequest): void {
   promptsState.sudoRequest = request
 }
 
-export function clearSudoRequest(requestId?: string): void {
+function clearSudoRequest(requestId?: string): void {
   const current = promptsState.sudoRequest
   if (!current || (requestId && current.requestId !== requestId)) return
 
@@ -149,7 +149,7 @@ export function setSecretRequest(request: SecretRequest): void {
   promptsState.secretRequest = request
 }
 
-export function clearSecretRequest(requestId?: string): void {
+function clearSecretRequest(requestId?: string): void {
   const current = promptsState.secretRequest
   if (!current || (requestId && current.requestId !== requestId)) return
 

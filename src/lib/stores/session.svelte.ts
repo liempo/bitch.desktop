@@ -505,7 +505,7 @@ export function rememberRuntimeSession(
   sessionState.storedSessionIdsByRuntimeId[runtime] = stored
 }
 
-export function forgetRuntimeSession(storedSessionId: string | null | undefined): void {
+function forgetRuntimeSession(storedSessionId: string | null | undefined): void {
   const stored = storedSessionId?.trim()
   if (!stored) return
 
@@ -1128,7 +1128,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
 /*  Pins                                                               */
 /* ------------------------------------------------------------------ */
 
-export function sessionPinId(session: SessionInfo): string {
+function sessionPinId(session: SessionInfo): string {
   return sessionThreadId(session)
 }
 
@@ -1136,11 +1136,11 @@ export function searchResultPinId(result: SessionSearchResult): string {
   return result.lineage_root ?? result.session_id
 }
 
-export function pinSession(session: SessionInfo): void {
+function pinSession(session: SessionInfo): void {
   storePin(sessionPinId(session))
 }
 
-export function unpinSession(session: SessionInfo): void {
+function unpinSession(session: SessionInfo): void {
   storeUnpin(sessionPinId(session))
 }
 

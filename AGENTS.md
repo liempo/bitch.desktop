@@ -24,10 +24,12 @@ Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BI
 
 ## Current upstream copy
 
-The only file currently copied verbatim from the official Hermes repo is:
+The only file currently synced from the official Hermes repo is:
 
 - `src/lib/gateway/json-rpc-gateway.ts` ← copied from `NousResearch/hermes-agent`:
   `apps/shared/src/json-rpc-gateway.ts`
+
+The sync command normalizes that file with this repo's Prettier config, so raw bytes may differ from upstream while the formatted source should have zero semantic diff. Knip suppresses unused-export findings for this vendored file so upstream's public type surface is not stripped locally.
 
 Everything else in this repo is local glue or Tauri-specific wiring unless the file header says otherwise.
 

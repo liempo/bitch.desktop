@@ -5,7 +5,7 @@ export interface MacosNotificationContent {
   title: string
 }
 
-export interface MacosNotificationBackend {
+interface MacosNotificationBackend {
   isPermissionGranted: () => Promise<boolean>
   requestPermission: () => Promise<string>
   sendNotification: (notification: MacosNotificationContent) => Promise<void> | void

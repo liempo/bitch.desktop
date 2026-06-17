@@ -22,10 +22,8 @@ remote dashboard's HTTP API without ever holding `BITCH_DASHBOARD_API_KEY`.
 - [`src/lib/types/hermes.ts`](../../src/lib/types/hermes.ts) — minimal types
   adapted from upstream: `SessionInfo`, `SessionMessage`, `SessionMessagesResponse`,
   `PaginatedSessions`, `SessionSearchResult`, `SessionSearchResponse`,
-  `AudioTranscriptionResponse`, `AudioSpeakResponse`,
-  `SessionCreateResponse`, `SessionResumeResponse`, `SessionRuntimeInfo`,
-  `UsageStats`, `ModelInfoResponse`, `ModelOptionsResponse`,
-  `ModelOptionProvider`.
+  `SessionCreateResponse`, `SessionResumeResponse`, `UsageStats`,
+  `ModelInfoResponse`, `ModelOptionsResponse`, `ModelOptionProvider`.
 - [`src/lib/api/dashboard.ts`](../../src/lib/api/dashboard.ts) — a
   `dashboardRequest<T>({ path, method?, body? })` wrapper over
   `invoke('dashboard_request', ...)` plus session helpers mirroring upstream

@@ -1,5 +1,19 @@
 import { getGlobalModelInfo, getModelOptions, getProfiles } from '$lib/api/dashboard'
 import { messageForError } from '$lib/errors'
+import {
+  commandNotFoundMessage,
+  commandPairs,
+  isCommandNotFoundError,
+  isReloadMcpCommand,
+  parseCommandDispatch,
+  parseSlashCommand,
+  renderSlashOutput,
+  shouldDispatchSlashImmediately,
+  slashExecCommand,
+  type CommandsCatalogResponse,
+  type SlashCommandItem,
+  type SlashExecResponse
+} from '$lib/composer/slash-commands'
 import { compactWhitespace } from '$lib/messages/chat-runtime'
 import { requestGateway } from '$lib/stores/gateway.svelte'
 import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
@@ -25,7 +39,10 @@ import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } fro
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from './composer-queue'
 
-export type ComposerAttachmentKind = 'image' | 'pdf'
+export { shouldDispatchSlashImmediately }
+export type { SlashCommandItem }
+
+type ComposerAttachmentKind = 'image' | 'pdf'
 
 export interface ComposerAttachment {
   attachedSessionId?: string
@@ -39,7 +56,7 @@ export interface ComposerAttachment {
   size: number
 }
 
-export interface AttachmentRelayResponse {
+interface AttachmentRelayResponse {
   attached?: boolean
   bytes?: number
   count?: number
@@ -49,37 +66,6 @@ export interface AttachmentRelayResponse {
   path?: string
   text?: string
 }
-
-export interface CommandCatalogCategory {
-  name: string
-  pairs: [string, string][]
-}
-
-export interface CommandsCatalogResponse {
-  canon?: Record<string, string>
-  categories?: CommandCatalogCategory[]
-  pairs?: [string, string][]
-  skill_count?: number
-  sub?: Record<string, string[]>
-  warning?: string
-}
-
-export interface SlashCommandItem {
-  category?: string
-  command: string
-  description: string
-}
-
-export interface SlashExecResponse {
-  output?: string
-  warning?: string
-}
-
-type CommandDispatchResponse =
-  | { output?: string; type: 'exec' | 'plugin' }
-  | { target: string; type: 'alias' }
-  | { message?: string; name: string; notice?: string; type: 'skill' }
-  | { message: string; notice?: string; type: 'send' }
 
 export interface ComposerModelOption {
   capabilities?: NonNullable<ModelOptionProvider['capabilities']>[string]
@@ -106,7 +92,7 @@ interface ThreadModelSelection {
   provider: string
 }
 
-export type PromptSubmitPayload = string
+type PromptSubmitPayload = string
 
 export interface ComposerSessionState {
   attachments: ComposerAttachment[]
@@ -435,27 +421,6 @@ async function syncAttachmentsForSubmit(
   }
 }
 
-function commandPairs(catalog: CommandsCatalogResponse): SlashCommandItem[] {
-  const seen = new Set<string>()
-  const items: SlashCommandItem[] = []
-
-  for (const category of catalog.categories ?? []) {
-    for (const [command, description] of category.pairs ?? []) {
-      if (!command || seen.has(command)) continue
-      seen.add(command)
-      items.push({ category: category.name, command, description })
-    }
-  }
-
-  for (const [command, description] of catalog.pairs ?? []) {
-    if (!command || seen.has(command)) continue
-    seen.add(command)
-    items.push({ command, description })
-  }
-
-  return items
-}
-
 function modelSelectionKey(provider: string, model: string): string {
   return `${provider}\u0000${model}`
 }
@@ -468,86 +433,9 @@ function modelSwitchCommand(selection: ThreadModelSelection): string {
   return `/model ${modelQuote(selection.model)} --provider ${modelQuote(selection.provider)}`
 }
 
-function renderSlashOutput(command: string, result: SlashExecResponse | undefined): string {
-  const output = result?.output?.trim() || '(no output)'
-  const warning = result?.warning?.trim()
-
-  return [`slash:${command}`, warning ? `warning: ${warning}` : '', output].filter(Boolean).join('\n')
-}
-
-function parseSlashCommand(command: string): { arg: string; name: string } {
-  const match = command.replace(/^\/+/, '').match(/^(\S+)\s*(.*)$/)
-  return match ? { arg: match[2].trim(), name: match[1] } : { arg: '', name: '' }
-}
-
-function isCommandNotFoundError(error: unknown): boolean {
-  const message = inlineErrorMessage(error, '').toLowerCase()
-
-  return (
-    /not a quick\/plugin\/skill command/.test(message) ||
-    /unknown (slash )?command/.test(message) ||
-    /command not found/.test(message) ||
-    /not a slash command/.test(message)
-  )
-}
-
-function commandNotFoundMessage(name: string): string {
-  return `Command not found: /${name}`
-}
-
-function slashExecCommand(command: string): string {
-  return command.replace(/^\/+/, '')
-}
-
 function clearComposerPayload(sessionId: null | string | undefined): void {
   clearComposerDraft(sessionId)
   clearComposerAttachments(sessionId)
-}
-
-function isReloadMcpCommand(command: string): boolean {
-  const normalized = slashExecCommand(command).split(/\s+/, 1)[0]?.toLowerCase() ?? ''
-
-  return normalized === 'reload-mcp' || normalized === 'reload_mcp'
-}
-
-function parseCommandDispatch(raw: unknown): CommandDispatchResponse | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-
-  const record = raw as Record<string, unknown>
-  const type = typeof record.type === 'string' ? record.type : ''
-
-  if (type === 'exec' || type === 'plugin') {
-    return {
-      output: typeof record.output === 'string' ? record.output : undefined,
-      type
-    }
-  }
-
-  if (type === 'alias') {
-    const target = typeof record.target === 'string' ? record.target : ''
-    return target ? { target, type } : null
-  }
-
-  if (type === 'skill') {
-    const name = typeof record.name === 'string' ? record.name : ''
-    return {
-      message: typeof record.message === 'string' ? record.message : undefined,
-      name,
-      notice: typeof record.notice === 'string' ? record.notice : undefined,
-      type
-    }
-  }
-
-  if (type === 'send') {
-    const message = typeof record.message === 'string' ? record.message : ''
-    return {
-      message,
-      notice: typeof record.notice === 'string' ? record.notice : undefined,
-      type
-    }
-  }
-
-  return null
 }
 
 function normalizeReasoningEffort(effort: string): ReasoningEffort {
@@ -594,7 +482,7 @@ export function setComposerDraft(sessionId: null | string | undefined, value: st
   saveDraft(key, value)
 }
 
-export function clearComposerDraft(sessionId: null | string | undefined): void {
+function clearComposerDraft(sessionId: null | string | undefined): void {
   setComposerDraft(sessionId, '')
 }
 
@@ -661,18 +549,11 @@ export async function addAttachmentFiles(
   }
 }
 
-export const addImageFiles = addAttachmentFiles
-
-export function shouldDispatchSlashImmediately(draft: string, busy = false): boolean {
-  void busy
-  return draft.trim().startsWith('/')
-}
-
 export function markComposerInterrupted(sessionId: null | string | undefined, interrupted: boolean): void {
   ensureComposerSession(sessionId).userInterrupted = interrupted
 }
 
-export function queuedSessionKey(sessionId: null | string | undefined): null | string {
+function queuedSessionKey(sessionId: null | string | undefined): null | string {
   return sessionId?.trim() || null
 }
 
@@ -732,10 +613,6 @@ export function groupedModelOptions(sessionId?: null | string): ComposerModelGro
       }
     })
     .filter(group => group.options.length > 0)
-}
-
-export function flattenedModelOptions(): ComposerModelOption[] {
-  return groupedModelOptions().flatMap(group => group.options)
 }
 
 export async function refreshComposerModels(): Promise<void> {
@@ -1386,6 +1263,7 @@ export async function submitPrompt(
     setThreadBusy(targetSessionId, false)
     appendAssistantErrorMessage(targetSessionId, message)
     composer.error = message
+    composer.submitting = false
     return false
   }
 
