@@ -200,7 +200,7 @@
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div
-        class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center py-3 focus-visible:outline-2 focus-visible:outline-focus md:flex"
+        class="hidden w-2 shrink-0 cursor-col-resize focus-visible:outline-2 focus-visible:outline-focus md:block"
         role="separator"
         tabindex="0"
         aria-label="Resize session sidebar"
@@ -210,9 +210,7 @@
         aria-valuenow={sidebarPanelWidth}
         onpointerdown={event => startPanelResize('sidebar', event)}
         onkeydown={event => handlePanelResizeKeydown('sidebar', event)}
-      >
-        <span class="h-full w-px bg-line transition group-hover:bg-primary group-focus-visible:bg-focus"></span>
-      </div>
+      ></div>
     {/if}
 
     <!-- ===== Main terminal ===== -->
@@ -241,7 +239,7 @@
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div
-        class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center py-3 focus-visible:outline-2 focus-visible:outline-focus md:flex"
+        class="hidden w-2 shrink-0 cursor-col-resize focus-visible:outline-2 focus-visible:outline-focus md:block"
         role="separator"
         tabindex="0"
         aria-label="Resize preview sidebar"
@@ -251,9 +249,7 @@
         aria-valuenow={previewPanelWidth}
         onpointerdown={event => startPanelResize('preview', event)}
         onkeydown={event => handlePanelResizeKeydown('preview', event)}
-      >
-        <span class="h-full w-px bg-line transition group-hover:bg-primary group-focus-visible:bg-focus"></span>
-      </div>
+      ></div>
       <PreviewSidebar preview={activePreview} width={previewPanelWidth} onClose={closePreview} />
     {/if}
   </div>

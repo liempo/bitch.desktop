@@ -6,14 +6,14 @@ export interface PanelWidthConfig {
 }
 
 export const SESSION_SIDEBAR_WIDTH: PanelWidthConfig = {
-  defaultWidth: 320,
+  defaultWidth: 256,
   maxWidth: 480,
   minWidth: 256,
   storageKey: 'bitch.desktop.agent.sidebarWidth'
 }
 
 export const PREVIEW_PANEL_WIDTH: PanelWidthConfig = {
-  defaultWidth: 608,
+  defaultWidth: 320,
   maxWidth: 704,
   minWidth: 320,
   storageKey: 'bitch.desktop.agent.previewWidth'
