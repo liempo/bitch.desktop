@@ -1,21 +1,25 @@
 <script lang="ts">
   import Panel from '@/components/ui/Panel.svelte'
+  import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
   import type { ThreadPreview } from '$lib/preview'
 
   interface Props {
     onClose?: () => void
     preview: ThreadPreview
+    width?: number
   }
 
-  let { onClose, preview }: Props = $props()
+  let { onClose, preview, width = PREVIEW_PANEL_WIDTH.defaultWidth }: Props = $props()
 
   const detail = $derived(preview.url ?? preview.error ?? preview.source)
+  const previewStyle = $derived(panelWidthStyle('--agent-preview-width', width))
   const title = $derived(preview.kind === 'canvas' ? 'Canvas' : 'Preview')
   const openLabel = $derived(preview.kind === 'canvas' ? 'Open canvas' : 'Open file')
 </script>
 
 <aside
-  class="min-h-0 w-full shrink-0 bg-canvas/70 p-3 md:w-[min(42vw,38rem)]"
+  class="min-h-0 w-full shrink-0 bg-canvas/70 p-3 md:w-[var(--agent-preview-width)]"
+  style={previewStyle}
   aria-label="Preview sidebar"
 >
   <Panel title={title} titleClass="text-primary" padded={false} contentClass="flex min-h-0 flex-col p-3" class="h-full">

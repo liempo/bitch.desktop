@@ -12,7 +12,18 @@
   import { threadForSession } from '$lib/stores/messages.svelte'
   import { previewFromCanvas, type ThreadPreview } from '$lib/preview'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
+  import {
+    clampPanelWidth,
+    PREVIEW_PANEL_WIDTH,
+    readPanelWidth,
+    SESSION_SIDEBAR_WIDTH,
+    writePanelWidth
+  } from '$lib/layout/panel-resize'
   import { initializeSessions, loadSessions, sessionState, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
+
+  type ResizablePanel = 'sidebar' | 'preview'
+
+  const RESIZE_STEP_PX = 24
 
   let lastResumedSessionId: string | null = null
   let lastFreshSessionRequest = profileState.freshSessionRequest
@@ -20,6 +31,8 @@
   let selectedPreview = $state<ThreadPreview | null>(null)
   let previewSessionId = $state<string | null>(null)
   let dismissedCanvasSource = $state<string | null>(null)
+  let sidebarPanelWidth = $state(readPanelWidth(SESSION_SIDEBAR_WIDTH))
+  let previewPanelWidth = $state(readPanelWidth(PREVIEW_PANEL_WIDTH))
   const connectionState = $derived(gatewayState.connectionState)
   const activeGatewayProfile = $derived(gatewayState.activeProfile)
   const sidebarOpen = $derived(layoutState.sidebarOpen)
@@ -91,6 +104,65 @@
     }
   }
 
+  function configForPanel(panel: ResizablePanel) {
+    return panel === 'sidebar' ? SESSION_SIDEBAR_WIDTH : PREVIEW_PANEL_WIDTH
+  }
+
+  function widthForPanel(panel: ResizablePanel): number {
+    return panel === 'sidebar' ? sidebarPanelWidth : previewPanelWidth
+  }
+
+  function updatePanelWidth(panel: ResizablePanel, width: number): void {
+    const config = configForPanel(panel)
+    const nextWidth = clampPanelWidth(width, config)
+
+    if (panel === 'sidebar') {
+      sidebarPanelWidth = nextWidth
+    } else {
+      previewPanelWidth = nextWidth
+    }
+
+    writePanelWidth(nextWidth, config)
+  }
+
+  function startPanelResize(panel: ResizablePanel, event: PointerEvent): void {
+    if (event.button !== 0) return
+
+    const startX = event.clientX
+    const startWidth = widthForPanel(panel)
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+
+    event.preventDefault()
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    function handlePointerMove(moveEvent: PointerEvent): void {
+      const delta = panel === 'sidebar' ? moveEvent.clientX - startX : startX - moveEvent.clientX
+      updatePanelWidth(panel, startWidth + delta)
+    }
+
+    function stopResize(): void {
+      window.removeEventListener('pointermove', handlePointerMove)
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', stopResize, { once: true })
+    window.addEventListener('pointercancel', stopResize, { once: true })
+  }
+
+  function handlePanelResizeKeydown(panel: ResizablePanel, event: KeyboardEvent): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+
+    event.preventDefault()
+    const dividerDelta = event.key === 'ArrowRight' ? RESIZE_STEP_PX : -RESIZE_STEP_PX
+    const widthDelta = panel === 'sidebar' ? dividerDelta : -dividerDelta
+
+    updatePanelWidth(panel, widthForPanel(panel) + widthDelta)
+  }
+
   async function resumeAndHydrate(sessionId: string): Promise<boolean> {
     // Route/session selection is keyed by the persistent stored id. The shared
     // helper mirrors upstream Desktop: fetch the stored snapshot first, resume
@@ -124,7 +196,23 @@
   <div class="flex min-h-0 w-full flex-1 flex-col gap-0 p-0 md:flex-row">
     <!-- ===== Sidebar ===== -->
     {#if sidebarOpen}
-      <Sidebar />
+      <Sidebar width={sidebarPanelWidth} />
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <div
+        class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center py-3 focus-visible:outline-2 focus-visible:outline-focus md:flex"
+        role="separator"
+        tabindex="0"
+        aria-label="Resize session sidebar"
+        aria-orientation="vertical"
+        aria-valuemin={SESSION_SIDEBAR_WIDTH.minWidth}
+        aria-valuemax={SESSION_SIDEBAR_WIDTH.maxWidth}
+        aria-valuenow={sidebarPanelWidth}
+        onpointerdown={event => startPanelResize('sidebar', event)}
+        onkeydown={event => handlePanelResizeKeydown('sidebar', event)}
+      >
+        <span class="h-full w-px bg-line transition group-hover:bg-primary group-focus-visible:bg-focus"></span>
+      </div>
     {/if}
 
     <!-- ===== Main terminal ===== -->
@@ -150,7 +238,23 @@
     </main>
 
     {#if activePreview}
-      <PreviewSidebar preview={activePreview} onClose={closePreview} />
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <div
+        class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center py-3 focus-visible:outline-2 focus-visible:outline-focus md:flex"
+        role="separator"
+        tabindex="0"
+        aria-label="Resize preview sidebar"
+        aria-orientation="vertical"
+        aria-valuemin={PREVIEW_PANEL_WIDTH.minWidth}
+        aria-valuemax={PREVIEW_PANEL_WIDTH.maxWidth}
+        aria-valuenow={previewPanelWidth}
+        onpointerdown={event => startPanelResize('preview', event)}
+        onkeydown={event => handlePanelResizeKeydown('preview', event)}
+      >
+        <span class="h-full w-px bg-line transition group-hover:bg-primary group-focus-visible:bg-focus"></span>
+      </div>
+      <PreviewSidebar preview={activePreview} width={previewPanelWidth} onClose={closePreview} />
     {/if}
   </div>
 
