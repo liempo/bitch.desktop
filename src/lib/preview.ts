@@ -31,12 +31,16 @@ function labelFromSource(source: string): string {
   return safeDecodeURIComponent(mediaName(source))
 }
 
+function previewKindForPath(path: string): Exclude<ThreadPreviewKind, 'canvas'> {
+  return IMAGE_PREVIEW_EXTENSIONS.has(mediaExtension(path)) ? 'image' : 'file'
+}
+
 export function previewKindForBoxPath(source: string): Exclude<ThreadPreviewKind, 'canvas'> | null {
   const path = sourcePath(source)
 
   if (path !== '/box' && !path.startsWith('/box/')) return null
 
-  return IMAGE_PREVIEW_EXTENSIONS.has(mediaExtension(path)) ? 'image' : 'file'
+  return previewKindForPath(path)
 }
 
 export function previewFromBoxPath(rawSource: string): ThreadPreview | null {
@@ -61,6 +65,23 @@ export function previewFromBoxPath(rawSource: string): ThreadPreview | null {
   }
 
   return preview
+}
+
+export function previewFromFileReference(rawSource: string): ThreadPreview | null {
+  const source = rawSource.trim()
+  if (!source) return null
+
+  const path = sourcePath(source)
+  if (path === '/box' || path.startsWith('/box/')) return previewFromBoxPath(source)
+
+  return {
+    error: 'Local file references are not browser-fetchable yet.',
+    kind: previewKindForPath(path),
+    label: labelFromSource(source),
+    path,
+    source,
+    url: null
+  }
 }
 
 export function previewFromCanvas(canvas: ThreadCanvas): ThreadPreview {

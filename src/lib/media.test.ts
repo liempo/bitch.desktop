@@ -76,18 +76,34 @@ describe('media path helpers', () => {
     )
   })
 
-  it('auto-detects standalone /box paths as links without previewing by file type', async () => {
+  it('leaves standalone /box paths as plain text', async () => {
     const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
+    expect(renderPreviewMediaReferences('/box/report.pdf')).toBe('/box/report.pdf')
     expect(renderPreviewMediaReferences('Preview ready:\n/box/.hermes/cache/render 1.png')).toBe(
-      'Preview ready:\n[Attachment: render 1.png](/box/.hermes/cache/render%201.png)'
+      'Preview ready:\n/box/.hermes/cache/render 1.png'
     )
     expect(renderPreviewMediaReferences('Report:\n/box/wiki/personal/notes.pdf')).toBe(
-      'Report:\n[Attachment: notes.pdf](/box/wiki/personal/notes.pdf)'
+      'Report:\n/box/wiki/personal/notes.pdf'
     )
     expect(renderPreviewMediaReferences('Notes:\n/box/wiki/personal/readme.txt')).toBe(
-      'Notes:\n[Attachment: readme.txt](/box/wiki/personal/readme.txt)'
+      'Notes:\n/box/wiki/personal/readme.txt'
     )
+  })
+
+  it('turns explicit @file and @local references into preview links', async () => {
+    const { renderPreviewMediaReferences } = await loadMediaHelpers()
+
+    expect(renderPreviewMediaReferences('See @file:/box/report.pdf')).toBe(
+      'See [report.pdf](#preview:%2Fbox%2Freport.pdf)'
+    )
+    expect(renderPreviewMediaReferences('See @local:`/opt/data/report 1.pdf`')).toBe(
+      'See [report 1.pdf](#preview:%2Fopt%2Fdata%2Freport%201.pdf)'
+    )
+    expect(renderPreviewMediaReferences('Open @file:/box/reports/a.pdf, please')).toBe(
+      'Open [a.pdf](#preview:%2Fbox%2Freports%2Fa.pdf), please'
+    )
+    expect(renderPreviewMediaReferences('MEDIA:/box/render.png')).not.toContain('#preview')
   })
 
   it('fetches gateway media through the authenticated dashboard bridge', async () => {

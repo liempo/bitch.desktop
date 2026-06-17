@@ -38,6 +38,26 @@ describe('preview targets', () => {
     })
   })
 
+  it('builds local explicit file references without a browser-fetchable URL', async () => {
+    const { previewFromFileReference } = await loadPreviewHelpers()
+
+    expect(previewFromFileReference('/opt/data/report 1.pdf')).toMatchObject({
+      kind: 'file',
+      label: 'report 1.pdf',
+      path: '/opt/data/report 1.pdf',
+      source: '/opt/data/report 1.pdf',
+      url: null,
+      error: 'Local file references are not browser-fetchable yet.'
+    })
+    expect(previewFromFileReference('/opt/data/render.png')).toMatchObject({
+      kind: 'image',
+      label: 'render.png',
+      path: '/opt/data/render.png',
+      source: '/opt/data/render.png',
+      url: null
+    })
+  })
+
   it('wraps canvas records as canvas preview targets', async () => {
     const { previewFromCanvas } = await loadPreviewHelpers()
 

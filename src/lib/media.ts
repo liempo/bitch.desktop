@@ -36,6 +36,22 @@ function unquoteMediaRef(value: string): string {
   return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
 }
 
+function splitFileRef(value: string): { path: string; trailing: string } {
+  const trimmed = value.trim()
+  const head = trimmed[0]
+  const tail = trimmed[trimmed.length - 1]
+  const quoted = (head === '`' && tail === '`') || (head === '"' && tail === '"') || (head === "'" && tail === "'")
+
+  if (quoted) {
+    return { path: trimmed.slice(1, -1).trim(), trailing: '' }
+  }
+
+  const trailing = trimmed.match(/[,.;!?]+$/)?.[0] ?? ''
+  const path = (trailing ? trimmed.slice(0, -trailing.length) : trimmed).trim()
+
+  return { path, trailing }
+}
+
 export function mediaName(path: string): string {
   const file = filePathFromMediaPath(path).split(/[?#]/, 1)[0] ?? ''
   return file.split(/[\\/]/).filter(Boolean).pop() || path
@@ -80,10 +96,20 @@ function markdownAttachmentForMedia(path: string): string {
   return `[Attachment: ${label}](${markdownUrlForMedia(path)})`
 }
 
+function markdownPreviewLinkForFileRef(rawPath: string): string | null {
+  const { path, trailing } = splitFileRef(rawPath)
+  if (!path) return null
+
+  const label = mediaName(path).replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+  const href = `#preview:${encodeURIComponent(filePathFromMediaPath(path))}`
+
+  return `[${label}](${href})${trailing}`
+}
+
 const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
 const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
 const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const BOX_PATH_LINE_RE = /(^|\n)[\t ]*[`"']?(file:\/\/\/box\/[^`"'\n]+|\/box\/[^`"'\n]+)[`"']?[\t ]*(\n|$)/g
+const FILE_REF_RE = /@(?:file|local):(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
 
 export function isAgentBoxPath(path: string): boolean {
   const filePath = filePathFromMediaPath(path.trim())
@@ -111,9 +137,8 @@ export function renderPreviewMediaReferences(text: string): string {
       if (isAgentBoxPath(path)) return markdownAttachmentForMedia(path)
       return isPreviewableImageSource(path) ? markdownImageForMedia(path) : _match
     })
-    .replace(BOX_PATH_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
-      const path = unquoteMediaRef(rawPath)
-      return isAgentBoxPath(path) ? `${lead}${markdownAttachmentForMedia(path)}${trailer}` : _match
+    .replace(FILE_REF_RE, (_match, rawPath: string) => {
+      return markdownPreviewLinkForFileRef(rawPath) ?? _match
     })
 }
 
