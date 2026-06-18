@@ -1,4 +1,4 @@
-import { mediaExtension, isAgentBoxPath } from '$lib/media'
+import { mediaExtension } from '$lib/media'
 import { extractEmbeddedImages } from '$lib/messages/chat-runtime'
 
 export type ThreadAttachmentKind = 'image' | 'pdf'
@@ -32,18 +32,6 @@ export interface ThreadAttachmentInput {
 export type AttachmentIdFactory = (prefix: string) => string
 
 const IMAGE_ATTACHMENT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
-const IMAGE_DIRECTIVE_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
-const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
-
-function unquoteRefValue(raw: string): string {
-  const trimmed = raw.trim()
-  const head = trimmed[0]
-  const tail = trimmed[trimmed.length - 1]
-  const quoted = (head === '`' && tail === '`') || (head === '"' && tail === '"') || (head === "'" && tail === "'")
-
-  return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
-}
 
 export function mediaLabelFromSource(source: string, kind: ThreadAttachmentKind = 'image'): string {
   if (source.startsWith('data:')) return kind === 'pdf' ? 'document.pdf' : 'image'
@@ -169,42 +157,9 @@ export function imageSourcesFromContent(value: unknown): string[] {
 }
 
 export function extractImageDirectiveSources(text: string): { cleanedText: string; sources: string[] } {
-  const sources: string[] = []
-  const cleanedText = text
-    .replace(IMAGE_DIRECTIVE_RE, (_match, rawSource: string) => {
-      const source = unquoteRefValue(rawSource)
-      if (source) sources.push(source)
-      return ''
-    })
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
-  return { cleanedText, sources }
+  return { cleanedText: text.trim(), sources: [] }
 }
 
 export function extractMediaDirectiveSources(text: string): { cleanedText: string; sources: string[] } {
-  const sources: string[] = []
-  const cleanedText = text
-    .replace(MEDIA_LINE_RE, (_match, lead: string, rawSource: string, trailer: string) => {
-      const source = unquoteRefValue(rawSource)
-      if (source && !isAgentBoxPath(source)) {
-        sources.push(source)
-        return `${lead}${trailer}`
-      }
-      return _match
-    })
-    .replace(MEDIA_TAG_RE, (_match, rawSource: string) => {
-      const source = unquoteRefValue(rawSource)
-      if (source && !isAgentBoxPath(source)) {
-        sources.push(source)
-        return ''
-      }
-      return _match
-    })
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
-  return { cleanedText, sources }
+  return { cleanedText: text.trim(), sources: [] }
 }

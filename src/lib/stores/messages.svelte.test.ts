@@ -203,7 +203,7 @@ describe('message session id mapping', () => {
     ])
   })
 
-  it('extracts persisted user image_url and @image references into thread attachments', () => {
+  it('extracts persisted user image_url attachments while preserving @image inline-media aliases', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
     const dataUrl = 'data:image/png;base64,aW1hZ2U='
@@ -233,15 +233,11 @@ describe('message session id mapping', () => {
       label: 'image',
       mediaType: 'image/png'
     })
-    expect(messages[1]?.text).toBe('stored preview')
-    expect(messages[1]?.attachments?.[0]).toMatchObject({
-      kind: 'image',
-      label: 'screen.webp',
-      path: gatewayPath
-    })
+    expect(messages[1]?.text).toBe(`stored preview @image:${gatewayPath}`)
+    expect(messages[1]?.attachments).toBeUndefined()
   })
 
-  it('keeps assistant /box MEDIA references in text for link-to-preview rendering', () => {
+  it('keeps assistant /box MEDIA references in text for inline media rendering', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -296,7 +292,7 @@ describe('message session id mapping', () => {
     expect(messages[2]?.attachments).toBeUndefined()
   })
 
-  it('keeps live assistant /box MEDIA references on completion as preview links', () => {
+  it('keeps live assistant /box MEDIA references on completion for inline media rendering', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 

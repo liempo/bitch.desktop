@@ -74,10 +74,10 @@ describe('message media attachment helpers', () => {
     expect(cloned).not.toBe(original)
   })
 
-  it('extracts image and media directives while preserving /box media references for preview rendering', () => {
+  it('preserves image and media directives for markdown media rendering', () => {
     expect(extractImageDirectiveSources('before\n@image:`/tmp/a.png`\nafter')).toEqual({
-      cleanedText: 'before\n\nafter',
-      sources: ['/tmp/a.png']
+      cleanedText: 'before\n@image:`/tmp/a.png`\nafter',
+      sources: []
     })
 
     expect(
@@ -85,8 +85,9 @@ describe('message media attachment helpers', () => {
         'before\nMEDIA: "/tmp/report.pdf"\nMEDIA: /box/keep.png\nafter MEDIA:`https://cdn.example.test/b.png` done'
       )
     ).toEqual({
-      cleanedText: 'before\n\nMEDIA: /box/keep.png\nafter  done',
-      sources: ['/tmp/report.pdf', 'https://cdn.example.test/b.png']
+      cleanedText:
+        'before\nMEDIA: "/tmp/report.pdf"\nMEDIA: /box/keep.png\nafter MEDIA:`https://cdn.example.test/b.png` done',
+      sources: []
     })
   })
 

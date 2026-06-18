@@ -3,7 +3,13 @@
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
   import { boxUrlForAgentPath } from '$lib/box'
-  import { gatewayMediaDataUrl, isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/media'
+  import {
+    gatewayMediaDataUrl,
+    isRemoteGatewayMediaPath,
+    mediaHtmlForMarkdownHref,
+    mediaName,
+    renderPreviewMediaReferences
+  } from '$lib/media'
   import { previewFromFileReference, previewKindForBoxPath, type ThreadPreview } from '$lib/preview'
   import './markdown.css'
 
@@ -101,6 +107,9 @@
 
     renderer.link = (token: Tokens.Link): string => {
       const href = token.href || ''
+      const mediaHtml = mediaHtmlForMarkdownHref(href, token.text || href)
+      if (mediaHtml) return mediaHtml
+
       const previewAnchor = explicitPreviewAnchor(href, token.text || href, token.title)
       if (previewAnchor) return previewAnchor
 
@@ -144,9 +153,16 @@
         'data-gateway-media-profile',
         'data-gateway-media-src',
         'data-gateway-media-state',
+        'data-media-kind',
         'data-preview-kind',
-        'data-preview-source'
+        'data-preview-source',
+        'controls',
+        'download',
+        'loading',
+        'playsinline',
+        'preload'
       ],
+      ADD_TAGS: ['audio', 'video', 'figure', 'figcaption'],
       USE_PROFILES: { html: true }
     })
   }
