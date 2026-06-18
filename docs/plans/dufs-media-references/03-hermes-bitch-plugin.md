@@ -138,7 +138,6 @@ Resolved packaging home:
 
 - Dedicated repository: `liempo/bitch.plugin`
 - Active-profile install name: `bitch`
-- Previous local name `bitch-files` is deprecated and should not be reintroduced.
 
 Completion proof:
 
