@@ -53,26 +53,52 @@ describe('media path helpers', () => {
     expect(mediaExtension('/tmp/image.png?cache=1')).toBe('.png')
   })
 
-  it('turns Hermes MEDIA and @image references into markdown image previews', async () => {
+  it('classifies upstream media kinds from file extensions', async () => {
+    const { mediaKind } = await loadMediaHelpers()
+
+    expect(mediaKind('/box/a.png')).toBe('image')
+    expect(mediaKind('/box/a.mp3')).toBe('audio')
+    expect(mediaKind('/box/a.mp4')).toBe('video')
+    expect(mediaKind('/box/a.pdf')).toBe('file')
+  })
+
+  it('encodes and decodes internal media markdown hrefs', async () => {
+    const { mediaMarkdownHref, mediaPathFromMarkdownHref } = await loadMediaHelpers()
+
+    expect(mediaMarkdownHref('/box/render 1.png')).toBe('#media:%2Fbox%2Frender%201.png')
+    expect(mediaPathFromMarkdownHref('#media:%2Fbox%2Frender%201.png')).toBe('/box/render 1.png')
+    expect(mediaPathFromMarkdownHref('#preview:%2Fbox%2Frender%201.png')).toBeNull()
+    expect(mediaPathFromMarkdownHref('#media:%E0%A4%A')).toBeNull()
+  })
+
+  it('turns Hermes MEDIA and @image references into internal media links', async () => {
     const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/.hermes/images/render.png')).toBe(
-      '![Image: render.png](/opt/data/.hermes/images/render.png)'
+      '[Image: render.png](#media:%2Fopt%2Fdata%2F.hermes%2Fimages%2Frender.png)'
     )
     expect(renderPreviewMediaReferences('See @image:/tmp/screen.webp now')).toBe(
-      'See ![Image: screen.webp](/tmp/screen.webp) now'
+      'See [Image: screen.webp](#media:%2Ftmp%2Fscreen.webp) now'
     )
-    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
+    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe(
+      '[File: report.pdf](#media:%2Fopt%2Fdata%2Freport.pdf)'
+    )
   })
 
-  it('renders /box MEDIA references as preview links instead of eager previews', async () => {
+  it('renders /box MEDIA references as internal media links instead of preview links', async () => {
     const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
     expect(renderPreviewMediaReferences('MEDIA:/box/.hermes/images/render 1.png')).toBe(
-      '[Attachment: render 1.png](/box/.hermes/images/render%201.png)'
+      '[Image: render 1.png](#media:%2Fbox%2F.hermes%2Fimages%2Frender%201.png)'
+    )
+    expect(renderPreviewMediaReferences('clip: MEDIA:/box/videos/demo.mp4')).toBe(
+      'clip: [Video: demo.mp4](#media:%2Fbox%2Fvideos%2Fdemo.mp4)'
+    )
+    expect(renderPreviewMediaReferences('sound: MEDIA:/box/audio/theme.ogg')).toBe(
+      'sound: [Audio: theme.ogg](#media:%2Fbox%2Faudio%2Ftheme.ogg)'
     )
     expect(renderPreviewMediaReferences('artifact: MEDIA:/box/wiki/personal/notes.pdf')).toBe(
-      'artifact: [Attachment: notes.pdf](/box/wiki/personal/notes.pdf)'
+      'artifact: [File: notes.pdf](#media:%2Fbox%2Fwiki%2Fpersonal%2Fnotes.pdf)'
     )
   })
 
@@ -104,6 +130,31 @@ describe('media path helpers', () => {
       'Open [a.pdf](#preview:%2Fbox%2Freports%2Fa.pdf), please'
     )
     expect(renderPreviewMediaReferences('MEDIA:/box/render.png')).not.toContain('#preview')
+  })
+
+  it('renders internal media markdown hrefs as inline media html', async () => {
+    const { mediaHtmlForMarkdownHref, mediaMarkdownHref } = await loadMediaHelpers()
+
+    const image = mediaHtmlForMarkdownHref(mediaMarkdownHref('/box/render.png'), 'Image: render.png')
+    expect(image).toContain('data-media-kind="image"')
+    expect(image).toContain('<img')
+    expect(image).toContain('src="https://box.example.test/render.png"')
+
+    const localImage = mediaHtmlForMarkdownHref(mediaMarkdownHref('/opt/data/render.png'), 'Image: render.png')
+    expect(localImage).toContain('data-gateway-media-src="/opt/data/render.png"')
+
+    const audio = mediaHtmlForMarkdownHref(mediaMarkdownHref('/box/theme.mp3'), 'Audio: theme.mp3')
+    expect(audio).toContain('data-media-kind="audio"')
+    expect(audio).toContain('<audio controls preload="metadata"')
+
+    const video = mediaHtmlForMarkdownHref(mediaMarkdownHref('/box/demo.mp4'), 'Video: demo.mp4')
+    expect(video).toContain('data-media-kind="video"')
+    expect(video).toContain('<video controls')
+
+    const file = mediaHtmlForMarkdownHref(mediaMarkdownHref('/box/report.pdf'), 'File: report.pdf')
+    expect(file).toContain('data-media-kind="file"')
+    expect(file).toContain('<a href="https://box.example.test/report.pdf"')
+    expect(file).not.toContain('data-preview-source')
   })
 
   it('fetches gateway media through the authenticated dashboard bridge', async () => {
