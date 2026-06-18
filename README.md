@@ -29,13 +29,12 @@ BITCH_DASHBOARD_API_KEY=replace-me
 
 bitch.desktop treats file and media rendering as an explicit chat syntax contract. BOX/Dufs is the serving layer behind `/box/...` URLs, not the user-facing syntax name.
 
-| Syntax                        | Behavior                                                                                             |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `/box/raw.png`                | Stays plain markdown/text. Raw paths are informational only.                                         |
-| `@file:/box/report.pdf`       | Opens a BOX-backed file in the right preview sidebar. Quote paths that contain spaces.               |
-| `@local:/opt/data/render.png` | Opens an explicit local/gateway path in the right preview sidebar.                                   |
-| `MEDIA:/box/render.png`       | Renders images, audio, and video inline in the thread; other file types degrade to a file chip/link. |
-| `@image:/box/legacy.png`      | Legacy inline-image alias. Prefer `MEDIA:` for new output.                                           |
+| Syntax                   | Behavior                                                                                             |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `/box/raw.png`           | Stays plain markdown/text. Raw paths are informational only.                                         |
+| `@file:/box/report.pdf`  | Opens a BOX-backed file in the right preview sidebar. Quote paths that contain spaces.               |
+| `MEDIA:/box/render.png`  | Renders images, audio, and video inline in the thread; other file types degrade to a file chip/link. |
+| `@image:/box/legacy.png` | Legacy inline-image alias. Prefer `MEDIA:` for new output.                                           |
 
 Quoted path examples:
 
@@ -44,7 +43,7 @@ Quoted path examples:
 MEDIA:`/box/video 1.mp4`
 ```
 
-Migration note: earlier builds could turn standalone `/box/...` paths into preview links. New output should use `@file:/box/...` explicitly. That prevents accidental linkification and keeps markdown predictable.
+Migration note: earlier builds could turn standalone `/box/...` paths into preview links. New output should use `@file:/box/...` explicitly. That prevents accidental linkification and keeps markdown predictable. There is no `@local:` directive: bitch.desktop is a remote-only client and does not expose a local workspace filesystem to the remote Hermes agent.
 
 Agent/tooling convention: use `bitch_file_ref` when the user should open or preview a file, and `bitch_media_ref` when the user should see inline media in the thread. Do not emit a raw `/box/...` path when the file is meant to be interactive.
 

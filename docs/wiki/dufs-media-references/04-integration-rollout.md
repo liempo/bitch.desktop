@@ -22,7 +22,6 @@ Document the contract:
 ```text
 Raw /box paths stay plain text.
 @file:/box/path opens the right preview sidebar.
-@local:/absolute/path is an explicit local/gateway path reference.
 MEDIA:/box/path renders media inside the thread.
 @image:/box/path remains supported as a legacy alias; prefer MEDIA:.
 ```
@@ -77,7 +76,7 @@ Use representative message text in the app/test harness:
 /box/raw.png
 @file:/box/report.pdf
 @file:`/box/report 1.pdf`
-@local:/opt/data/render.png
+@file:/opt/data/render.png (unsupported; should remain plain text)
 MEDIA:/box/render.png
 MEDIA:/box/audio.mp3
 MEDIA:/box/video.mp4

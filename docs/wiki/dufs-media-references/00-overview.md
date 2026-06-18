@@ -8,13 +8,12 @@
 
 **Canonical semantics:**
 
-| Text emitted by user/agent | Meaning                                                                   |
-| -------------------------- | ------------------------------------------------------------------------- |
-| `/box/foo.png`             | plain markdown/text only                                                  |
-| `@file:/box/foo.pdf`       | simple visible link; click opens right preview sidebar                    |
-| `@local:/opt/data/foo.png` | explicit local/gateway reference; frontend/plugin decides bridge behavior |
-| `MEDIA:/box/foo.png`       | upstream-style in-thread media rendering                                  |
-| `@image:/box/foo.png`      | deprecated compatibility alias for inline image/media                     |
+| Text emitted by user/agent | Meaning                                                |
+| -------------------------- | ------------------------------------------------------ |
+| `/box/foo.png`             | plain markdown/text only                               |
+| `@file:/box/foo.pdf`       | simple visible link; click opens right preview sidebar |
+| `MEDIA:/box/foo.png`       | upstream-style in-thread media rendering               |
+| `@image:/box/foo.png`      | deprecated compatibility alias for inline image/media  |
 
 **Decision log:**
 
@@ -26,13 +25,13 @@
 - Media renderer: copy upstream Hermes Desktop behavior where possible.
 - Existence validation: no validation in v1.
 - Agent steering: plugin/tool, not prompt-only.
-- Namespace split: `@file:` for BOX/dufs, `@local:` for local/gateway paths. Optional `@box:` alias can be accepted but should not be emitted by the plugin unless later requested.
+- Namespace split: `@file:` is BOX/dufs only. Do not emit `@local:`; bitch.desktop is remote-only and has no local workspace bridge for the remote Hermes agent. Optional `@box:` alias can be accepted but should not be emitted by the plugin unless later requested.
 
 ---
 
 ## Reference Pages
 
-1. `01-frontend-file-references.md` — explicit `@file:` / `@local:` parser and right-preview behavior; remove raw `/box` auto-linking.
+1. `01-frontend-file-references.md` — explicit BOX-only `@file:` parser and right-preview behavior; remove raw `/box` auto-linking.
 2. `02-upstream-media-parity.md` — copy upstream-style `MEDIA:` behavior with image/audio/video/file media rendering.
 3. `03-hermes-bitch-plugin.md` — create/use the Hermes `bitch` plugin tools for canonical `@file:` and `MEDIA:` output.
 4. `04-integration-rollout.md` — integration, docs, validation, rollout, and PR slicing.

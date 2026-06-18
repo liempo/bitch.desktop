@@ -38,7 +38,7 @@ Rules:
 
 - `file:///box/a%20b.png` → `/box/a b.png`
 - `/box/...` source → `box`
-- non-`/box` absolute path source → `local`
+- non-`/box` absolute paths are unsupported for emitted interactive references.
 - filenames become labels unless caller provides a label.
 - quote emitted refs when path contains whitespace or shell-hostile punctuation.
 
@@ -72,7 +72,7 @@ Schema intent:
 Behavior:
 
 - `/box/report.pdf` → `@file:/box/report.pdf`
-- `/opt/data/report.pdf` → `@local:/opt/data/report.pdf`
+- `/opt/data/report.pdf` → JSON error; local absolute paths are not supported by bitch.desktop.
 - no existence check.
 
 Return:

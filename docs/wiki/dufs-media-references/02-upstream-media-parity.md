@@ -95,7 +95,7 @@ Behavior:
 Fetch strategy:
 
 - `/box/...`: prefer dufs URL via existing `boxUrlForAgentPath`.
-- remote/gateway local path: use existing `/api/media?path=...` bridge for images when needed.
+- local absolute paths: do not render as chat directives; bitch.desktop is remote-only and should use BOX/Dufs or browser-fetchable URLs for interactive media.
 - audio/video should prefer browser-fetchable dufs URL; if local bridge does not stream, show fallback open link.
 
 ## Task 5: Preserve `@image:` legacy alias

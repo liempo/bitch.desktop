@@ -2,7 +2,7 @@
 
 > **For Hermes:** Implement this plan with TDD. Keep changes scoped to explicit file-reference parsing and preview-sidebar behavior. Do not implement full media parity here.
 
-**Goal:** Add `@file:` / `@local:` explicit file references and stop raw `/box/...` paths from becoming links.
+**Goal:** Add explicit BOX-only `@file:` references and stop raw `/box/...` paths from becoming links.
 
 **Architecture:** Convert explicit file directives into internal preview links that the existing thread click handler can route to the right preview sidebar. Raw markdown stays untouched.
 
@@ -24,7 +24,7 @@ Add tests equivalent to:
 ```ts
 expect(renderPreviewMediaReferences('/box/report.pdf')).toBe('/box/report.pdf')
 expect(renderPreviewMediaReferences('See @file:/box/report.pdf')).toContain('#preview')
-expect(renderPreviewMediaReferences('See @local:/opt/data/report.pdf')).toContain('#preview')
+expect(renderPreviewMediaReferences('See @local:/opt/data/report.pdf')).toBe('See @local:/opt/data/report.pdf')
 expect(renderPreviewMediaReferences('MEDIA:/box/render.png')).not.toContain('#preview')
 ```
 
@@ -52,14 +52,14 @@ Expected test:
 expect(renderPreviewMediaReferences('Output:\n/box/render.png')).toBe('Output:\n/box/render.png')
 ```
 
-## Task 3: Add `@file:` and `@local:` rewriting
+## Task 3: Add BOX-only `@file:` rewriting
 
 **Objective:** Convert explicit file directives into preview-sidebar links.
 
 Suggested helper:
 
 ```ts
-const FILE_REF_RE = /@(?:file|local):(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
+const FILE_REF_RE = /@file:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
 ```
 
 Behavior:
@@ -73,7 +73,7 @@ Examples:
 
 ```text
 @file:/box/reports/a.pdf      → [a.pdf](#preview:%2Fbox%2Freports%2Fa.pdf)
-@local:`/opt/data/a b.png`    → [a b.png](#preview:%2Fopt%2Fdata%2Fa%20b.png)
+@file:/opt/data/a.pdf         → left as plain text; non-BOX local paths are unsupported
 ```
 
 ## Task 4: Route click to preview sidebar

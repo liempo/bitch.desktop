@@ -85,6 +85,10 @@ function browserMediaSource(path: string): string | null {
   return null
 }
 
+function isBrowserReachableMediaPath(path: string): boolean {
+  return Boolean(browserMediaSource(filePathFromMediaPath(path)))
+}
+
 function mediaFallbackHref(path: string): string {
   return browserMediaSource(path) ?? filePathFromMediaPath(path)
 }
@@ -94,6 +98,8 @@ function markdownMediaLinkForRef(rawPath: string): string | null {
   if (!path) return null
 
   const filePath = filePathFromMediaPath(path)
+  if (!isBrowserReachableMediaPath(filePath)) return null
+
   const kind = mediaKind(filePath)
   const label = escapeMarkdownLabel(`${titleCaseKind(kind)}: ${mediaName(filePath)}`)
 
@@ -132,17 +138,13 @@ export function mediaPathFromMarkdownHref(href?: string): string | null {
 }
 
 export function isRemoteGatewayMediaPath(path: string): boolean {
-  const value = path.trim()
-
-  if (!value) return false
-  if (/^(?:https?|data|blob):/i.test(value)) return false
-
-  return mediaKind(value) === 'image'
+  return path.trim().startsWith('data-gateway-media:')
 }
 
 export function mediaHtmlForMarkdownHref(href: string | undefined, label: string): string | null {
   const path = mediaPathFromMarkdownHref(href)
   if (!path) return null
+  if (!isBrowserReachableMediaPath(path)) return null
 
   const kind = mediaKind(path)
   const name = mediaName(path)
@@ -175,6 +177,7 @@ export function mediaHtmlForMarkdownHref(href: string | undefined, label: string
 function markdownPreviewLinkForFileRef(rawPath: string): string | null {
   const { path, trailing } = splitFileRef(rawPath)
   if (!path) return null
+  if (!isAgentBoxPath(path)) return null
 
   const label = escapeMarkdownLabel(mediaName(path))
   const href = `#preview:${encodeURIComponent(filePathFromMediaPath(path))}`
@@ -185,7 +188,7 @@ function markdownPreviewLinkForFileRef(rawPath: string): string | null {
 const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
 const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
 const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const FILE_REF_RE = /@(?:file|local):(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
+const FILE_REF_RE = /@file:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
 
 export function isAgentBoxPath(path: string): boolean {
   const filePath = filePathFromMediaPath(path.trim())

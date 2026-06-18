@@ -37,11 +37,11 @@ describe('media path helpers', () => {
     expect(filePathFromMediaPath('file:///tmp/a%20b.png')).toBe('/tmp/a b.png')
   })
 
-  it('detects relayable image paths without touching remote URLs or data URLs', async () => {
+  it('does not expose local workspace paths through markdown gateway media', async () => {
     const { isRemoteGatewayMediaPath } = await loadMediaHelpers()
 
-    expect(isRemoteGatewayMediaPath('/opt/data/.hermes/images/a.PNG')).toBe(true)
-    expect(isRemoteGatewayMediaPath('file:///tmp/a%20b.webp')).toBe(true)
+    expect(isRemoteGatewayMediaPath('/opt/data/.hermes/images/a.PNG')).toBe(false)
+    expect(isRemoteGatewayMediaPath('file:///tmp/a%20b.webp')).toBe(false)
     expect(isRemoteGatewayMediaPath('https://example.com/a.png')).toBe(false)
     expect(isRemoteGatewayMediaPath('data:image/png;base64,AAAA')).toBe(false)
     expect(isRemoteGatewayMediaPath('/opt/data/report.pdf')).toBe(false)
@@ -71,17 +71,16 @@ describe('media path helpers', () => {
     expect(mediaPathFromMarkdownHref('#media:%E0%A4%A')).toBeNull()
   })
 
-  it('turns Hermes MEDIA and @image references into internal media links', async () => {
+  it('leaves unsupported local MEDIA and @image references as text', async () => {
     const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/.hermes/images/render.png')).toBe(
-      '[Image: render.png](#media:%2Fopt%2Fdata%2F.hermes%2Fimages%2Frender.png)'
+      'MEDIA:/opt/data/.hermes/images/render.png'
     )
-    expect(renderPreviewMediaReferences('See @image:/tmp/screen.webp now')).toBe(
-      'See [Image: screen.webp](#media:%2Ftmp%2Fscreen.webp) now'
-    )
-    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe(
-      '[File: report.pdf](#media:%2Fopt%2Fdata%2Freport.pdf)'
+    expect(renderPreviewMediaReferences('See @image:/tmp/screen.webp now')).toBe('See @image:/tmp/screen.webp now')
+    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
+    expect(renderPreviewMediaReferences('MEDIA:https://example.com/render.png')).toBe(
+      '[Image: render.png](#media:https%3A%2F%2Fexample.com%2Frender.png)'
     )
   })
 
@@ -117,15 +116,16 @@ describe('media path helpers', () => {
     )
   })
 
-  it('turns explicit @file and @local references into preview links', async () => {
+  it('turns explicit @file references into preview links and leaves @local unsupported', async () => {
     const { renderPreviewMediaReferences } = await loadMediaHelpers()
 
     expect(renderPreviewMediaReferences('See @file:/box/report.pdf')).toBe(
       'See [report.pdf](#preview:%2Fbox%2Freport.pdf)'
     )
     expect(renderPreviewMediaReferences('See @local:`/opt/data/report 1.pdf`')).toBe(
-      'See [report 1.pdf](#preview:%2Fopt%2Fdata%2Freport%201.pdf)'
+      'See @local:`/opt/data/report 1.pdf`'
     )
+    expect(renderPreviewMediaReferences('See @file:/opt/data/report.pdf')).toBe('See @file:/opt/data/report.pdf')
     expect(renderPreviewMediaReferences('Open @file:/box/reports/a.pdf, please')).toBe(
       'Open [a.pdf](#preview:%2Fbox%2Freports%2Fa.pdf), please'
     )
@@ -139,6 +139,7 @@ describe('media path helpers', () => {
       '@file:/box/report.pdf',
       '@file:`/box/report 1.pdf`',
       '@local:/opt/data/render.png',
+      '@file:/opt/data/render.png',
       'MEDIA:/box/render.png',
       'MEDIA:/box/audio.mp3',
       'MEDIA:/box/video.mp4',
@@ -150,7 +151,8 @@ describe('media path helpers', () => {
         '/box/raw.png',
         '[report.pdf](#preview:%2Fbox%2Freport.pdf)',
         '[report 1.pdf](#preview:%2Fbox%2Freport%201.pdf)',
-        '[render.png](#preview:%2Fopt%2Fdata%2Frender.png)',
+        '@local:/opt/data/render.png',
+        '@file:/opt/data/render.png',
         '[Image: render.png](#media:%2Fbox%2Frender.png)',
         '[Audio: audio.mp3](#media:%2Fbox%2Faudio.mp3)',
         '[Video: video.mp4](#media:%2Fbox%2Fvideo.mp4)',
@@ -170,8 +172,7 @@ describe('media path helpers', () => {
     expect(missingPdf).toContain('<a href="https://box.example.test/missing.pdf"')
 
     const missingLocalImage = mediaHtmlForMarkdownHref(mediaMarkdownHref('/opt/data/missing.png'), 'Image: missing.png')
-    expect(missingLocalImage).toContain('data-media-kind="image"')
-    expect(missingLocalImage).toContain('data-gateway-media-src="/opt/data/missing.png"')
+    expect(missingLocalImage).toBeNull()
   })
 
   it('renders internal media markdown hrefs as inline media html', async () => {
@@ -183,7 +184,7 @@ describe('media path helpers', () => {
     expect(image).toContain('src="https://box.example.test/render.png"')
 
     const localImage = mediaHtmlForMarkdownHref(mediaMarkdownHref('/opt/data/render.png'), 'Image: render.png')
-    expect(localImage).toContain('data-gateway-media-src="/opt/data/render.png"')
+    expect(localImage).toBeNull()
 
     const audio = mediaHtmlForMarkdownHref(mediaMarkdownHref('/box/theme.mp3'), 'Audio: theme.mp3')
     expect(audio).toContain('data-media-kind="audio"')
