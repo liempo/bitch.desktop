@@ -54,6 +54,7 @@ import {
   collapseSessionsToThreads,
   createSession,
   deleteSession,
+  getRecentlySettledSessionIds,
   hasMoreSessions,
   loadArchivedSessions,
   loadSessions,
@@ -65,6 +66,7 @@ import {
   runtimeSessionIdForStored,
   selectSession,
   setSearchQuery,
+  setSessionWorking,
   sessionState as rawSessionState,
   sessionThreadId,
   startNewSession,
@@ -114,6 +116,9 @@ describe('createSession', () => {
     rawSessionState.error = null
     rawSessionState.runtimeIdsByStoredSessionId = {}
     rawSessionState.storedSessionIdsByRuntimeId = {}
+    rawSessionState.sessions = []
+    rawSessionState.sessionsTotal = 0
+    rawSessionState.sessionProfileTotals = {}
     rawSessionState.sessionProfilesById = {}
     rawSessionState.sessionThreadIdsById = {}
     profileState.activeGatewayProfile = 'default'
@@ -144,6 +149,33 @@ describe('createSession', () => {
 
     // Route stays put until the first successful submit
     expect(mockNavigate).not.toHaveBeenCalled()
+
+    // The sidebar gets an optimistic row immediately, like official Desktop.
+    expect(rawSessionState.sessions[0]).toMatchObject({
+      id: storedKey,
+      is_active: true,
+      message_count: 0,
+      model: 'test-model',
+      profile: 'default',
+      source: 'tui'
+    })
+  })
+
+  it('seeds the optimistic row preview from the first prompt', async () => {
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'live-preview',
+      stored_session_id: 'stored-preview',
+      message_count: 0,
+      messages: [],
+      info: { model: 'test-model' }
+    })
+
+    await createSession(' first user request ')
+
+    expect(rawSessionState.sessions[0]).toMatchObject({
+      id: 'stored-preview',
+      preview: 'first user request'
+    })
   })
 
   it('forwards the selected new-chat profile into session.create and caches it immediately', async () => {
@@ -284,6 +316,8 @@ describe('resumeSession', () => {
     rawSessionState.activeSessionId = null
     rawSessionState.storedSessionId = null
     rawSessionState.error = null
+    rawSessionState.resumeExhaustedSessionId = null
+    rawSessionState.resumeFailedSessionId = null
     rawSessionState.resumingSessionId = null
     rawSessionState.runtimeIdsByStoredSessionId = {}
     rawSessionState.storedSessionIdsByRuntimeId = {}
@@ -307,15 +341,46 @@ describe('resumeSession', () => {
     expect(storedSessionIdForRuntime(liveSid)).toBe(storedKey)
   })
 
-  it('reuses a cached runtime id for a stored session without re-resuming the gateway', async () => {
+  it('reuses a validated cached runtime id for a stored session without re-resuming the gateway', async () => {
     rememberRuntimeSession('stored-cached', 'livecache')
+    mockRequestGateway.mockResolvedValueOnce({ model: 'cached-model', running: false })
 
     const response = await resumeSession('stored-cached')
 
     expect(response?.session_id).toBe('livecache')
+    expect(response?.info).toMatchObject({ model: 'cached-model' })
     expect(rawSessionState.activeSessionId).toBe('livecache')
     expect(rawSessionState.storedSessionId).toBe('stored-cached')
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.info', { session_id: 'livecache', profile: 'default' })
     expect(mockRequestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
+  })
+
+  it('drops a stale cached runtime id and falls through to session.resume', async () => {
+    rememberRuntimeSession('stored-stale', 'deadbeef')
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'session.info') return Promise.reject(new Error('session not found'))
+      if (method === 'session.resume') {
+        return Promise.resolve({
+          session_id: 'live-fresh',
+          resumed: 'stored-stale',
+          message_count: 0,
+          messages: [],
+          info: { model: 'fresh-model' }
+        })
+      }
+      return Promise.resolve({})
+    })
+
+    const response = await resumeSession('stored-stale')
+
+    expect(response?.session_id).toBe('live-fresh')
+    expect(runtimeSessionIdForStored('stored-stale')).toBe('live-fresh')
+    expect(storedSessionIdForRuntime('deadbeef')).toBeNull()
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.info', { session_id: 'deadbeef', profile: 'default' })
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.resume', {
+      session_id: 'stored-stale',
+      profile: 'default'
+    })
   })
 
   it('ignores stale resume responses when another session became selected first', async () => {
@@ -365,6 +430,23 @@ describe('resumeSession', () => {
     expect(rawSessionState.activeSessionId).toBe('live-B')
     expect(rawSessionState.storedSessionId).toBe('stored-B')
     expect(runtimeSessionIdForStored('stored-A')).toBeNull()
+  })
+
+  it('clears failed and exhausted latches when a session is selected for a fresh resume', async () => {
+    rawSessionState.resumeFailedSessionId = 'stuck-session'
+    rawSessionState.resumeExhaustedSessionId = 'stuck-session'
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'live-restored',
+      resumed: 'stuck-session',
+      message_count: 0,
+      messages: [],
+      info: { model: 'restored-model' }
+    })
+
+    await resumeSession('stuck-session')
+
+    expect(rawSessionState.resumeFailedSessionId).toBeNull()
+    expect(rawSessionState.resumeExhaustedSessionId).toBeNull()
   })
 
   it('sets activeSessionId to response.session_id and storedSessionId to the param', async () => {
@@ -770,6 +852,7 @@ describe('session lineage threads', () => {
     rawSessionState.sessionProfilesById = {}
     rawSessionState.sessionStartedAtById = {}
     rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.workingSessionIds = []
     rawSessionState.sessions = []
     mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
     mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
@@ -817,6 +900,27 @@ describe('session lineage threads', () => {
     ])
 
     expect(threads[0]).toMatchObject({ id: 'solo', title: 'Plan #2' })
+  })
+
+  it('preserves recently settled sessions while the backend list catches up', async () => {
+    rawSessionState.sessions = [
+      session({
+        id: 'fresh-background-chat',
+        last_active: 90,
+        started_at: 80,
+        title: 'Fresh background chat'
+      })
+    ]
+    setSessionWorking('fresh-background-chat', true)
+    setSessionWorking('fresh-background-chat', false)
+
+    expect(getRecentlySettledSessionIds()).toContain('fresh-background-chat')
+
+    mockApiListAllProfileSessions.mockResolvedValueOnce({ sessions: [], total: 0, limit: 40, offset: 0 })
+
+    await loadSessions()
+
+    expect(rawSessionState.sessions.map(item => item.id)).toEqual(['fresh-background-chat'])
   })
 
   it('records lineage members in chronological order for compressed threads loaded from the gateway', async () => {

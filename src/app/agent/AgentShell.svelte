@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import PreviewSidebar from './preview/PreviewSidebar.svelte'
   import Composer from './composer/Composer.svelte'
   import SecretModal from './prompts/SecretModal.svelte'
@@ -24,7 +25,14 @@
   type ResizablePanel = 'sidebar' | 'preview'
 
   const RESIZE_STEP_PX = 24
+  const MAX_RESUME_RETRIES = 4
+  const RESUME_RETRY_BASE_MS = 1_000
+  const RESUME_RETRY_MAX_MS = 8_000
   const PANEL_RESIZE_GAP_CLASS = 'hidden w-1 shrink-0 cursor-col-resize focus-visible:outline-2 focus-visible:outline-focus md:block'
+
+  let resumeRetryTimer: ReturnType<typeof setTimeout> | null = null
+  let resumeRetrySessionId: string | null = null
+  let resumeRetryAttempt = 0
 
   let lastResumedSessionId: string | null = null
   let lastFreshSessionRequest = profileState.freshSessionRequest
@@ -126,6 +134,21 @@
     writePanelWidth(nextWidth, config)
   }
 
+  function resumeRetryDelayMs(attempt: number): number {
+    return Math.min(RESUME_RETRY_MAX_MS, RESUME_RETRY_BASE_MS * 2 ** attempt)
+  }
+
+  function clearResumeRetryTimer(): void {
+    if (resumeRetryTimer) {
+      clearTimeout(resumeRetryTimer)
+      resumeRetryTimer = null
+    }
+  }
+
+  onDestroy(() => {
+    clearResumeRetryTimer()
+  })
+
   function startPanelResize(panel: ResizablePanel, event: PointerEvent): void {
     if (event.button !== 0) return
 
@@ -190,6 +213,61 @@
         }
       })
     }
+  })
+
+  $effect(() => {
+    const sessionId = selectedSessionId
+    const stranded =
+      connectionState === 'open' &&
+      Boolean(sessionId) &&
+      sessionState.resumeFailedSessionId === sessionId &&
+      sessionState.resumeExhaustedSessionId !== sessionId
+
+    if (!stranded || !sessionId) {
+      clearResumeRetryTimer()
+      if (resumeRetrySessionId !== sessionId) {
+        resumeRetrySessionId = null
+        resumeRetryAttempt = 0
+      }
+      return
+    }
+
+    if (resumeRetrySessionId !== sessionId) {
+      clearResumeRetryTimer()
+      resumeRetrySessionId = sessionId
+      resumeRetryAttempt = 0
+    }
+
+    if (resumeRetryAttempt >= MAX_RESUME_RETRIES) {
+      sessionState.resumeExhaustedSessionId = sessionId
+      clearResumeRetryTimer()
+      return
+    }
+
+    if (resumeRetryTimer) return
+
+    const attempt = resumeRetryAttempt
+    resumeRetryTimer = setTimeout(() => {
+      resumeRetryTimer = null
+
+      if (
+        connectionState !== 'open' ||
+        selectedSessionId !== sessionId ||
+        sessionState.resumeFailedSessionId !== sessionId ||
+        sessionState.activeSessionId
+      ) {
+        return
+      }
+
+      resumeRetryAttempt += 1
+      lastResumedSessionId = null
+      void resumeAndHydrate(sessionId).then(applied => {
+        if (applied) {
+          resumeRetrySessionId = null
+          resumeRetryAttempt = 0
+        }
+      })
+    }, resumeRetryDelayMs(attempt))
   })
 </script>
 

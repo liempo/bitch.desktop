@@ -2,12 +2,14 @@
   import { tick } from 'svelte'
   import Approval from '../prompts/Approval.svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
+  import Button from '@/components/ui/Button.svelte'
   import Glyph from '@/components/ui/Glyph.svelte'
   import Loader from '@/components/ui/Loader.svelte'
   import Panel from '@/components/ui/Panel.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
+  import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import type { ThreadPreview } from '$lib/preview'
 
   interface Props {
@@ -22,8 +24,10 @@
 
   const thread = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(thread?.messages ?? [])
+  const resumeExhausted = $derived(Boolean(sessionId) && sessionState.resumeExhaustedSessionId === sessionId)
   const loadingSession = $derived(
     Boolean(sessionId) &&
+      !resumeExhausted &&
       messages.length === 0 &&
       (thread?.loading || sessionState.resumingSessionId === sessionId)
   )
@@ -74,6 +78,14 @@
     scrollElement.scrollTop = scrollElement.scrollHeight
   }
 
+  function retryResume(): void {
+    if (!sessionId) return
+    sessionState.resumeFailedSessionId = null
+    sessionState.resumeExhaustedSessionId = null
+    sessionState.resumingSessionId = null
+    void resumeAndHydrateStoredSession(sessionId)
+  }
+
 
 </script>
 
@@ -91,6 +103,16 @@
   {:else if loadingSession}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
       <Loader size="xl" label="Loading session" />
+    </div>
+  {:else if resumeExhausted}
+    <div class="flex min-h-full items-center justify-center px-6 py-16">
+      <Panel title="Resume Failed" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
+        <p class="font-semibold uppercase tracking-[0.12em]">Could not resume this session.</p>
+        <p class="mt-2 text-danger/80">
+          The gateway resume path failed after bounded retries. Retry will request a fresh runtime session for the same stored thread.
+        </p>
+        <Button class="mt-4" variant="secondary" onclick={retryResume}>Retry resume</Button>
+      </Panel>
     </div>
   {:else if thread?.error && messages.length === 0}
     <div class="flex min-h-full items-center justify-center px-6 py-16">

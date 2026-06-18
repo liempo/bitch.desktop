@@ -67,6 +67,8 @@ export interface SessionState {
   error: string | null
   mutatingSessionIds: string[]
   needsInputSessionIds: string[]
+  resumeExhaustedSessionId: string | null
+  resumeFailedSessionId: string | null
   resumingSessionId: string | null
   searchError: string | null
   searchQuery: string
@@ -109,6 +111,8 @@ export const sessionState = $state<SessionState>({
   error: null,
   mutatingSessionIds: [],
   needsInputSessionIds: [],
+  resumeExhaustedSessionId: null,
+  resumeFailedSessionId: null,
   resumingSessionId: null,
   searchError: null,
   searchQuery: '',
@@ -131,6 +135,10 @@ export const sessionState = $state<SessionState>({
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 let searchRevision = 0
 let resumeRequestId = 0
+const SESSION_SETTLE_GRACE_MS = 30 * 1000
+const SESSION_WATCHDOG_TIMEOUT_MS = 8 * 60 * 1000
+const settledSessionExpiry = new Map<string, number>()
+const sessionWatchdogTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -290,6 +298,12 @@ function removeSessionFromLocalState(sessionId: string): void {
   }
 }
 
+function clearSessionPins(sessionId: string): void {
+  const threadId = threadIdForSessionId(sessionId) ?? sessionId
+  storeUnpin(sessionId)
+  storeUnpin(threadId)
+}
+
 function sessionGroupKey(session: SessionInfo): string {
   return `${normalizeProfileKey(session.profile)}\u0000${sessionThreadId(session)}`
 }
@@ -413,20 +427,91 @@ export function collapseArchivedSessionsToThreads(sessions: SessionInfo[]): Sess
     .sort((left, right) => recentValue(right) - recentValue(left))
 }
 
-function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
-  const existingKeepers =
-    offset === 0
-      ? sessionState.sessions.filter(session => isPinned(session) || session.id === sessionState.storedSessionId)
-      : sessionState.sessions
-  const merged = new Map<string, SessionInfo>()
+function sessionKeepIds(): Set<string> {
+  return new Set(
+    [
+      ...layoutState.pinnedSessionIds,
+      ...sessionState.workingSessionIds,
+      ...getRecentlySettledSessionIds(),
+      sessionState.storedSessionId
+    ].filter((id): id is string => Boolean(id))
+  )
+}
 
-  for (const session of [...incoming, ...existingKeepers]) {
-    if (!merged.has(session.id)) {
-      merged.set(session.id, session)
+function shouldKeepExistingSession(
+  session: SessionInfo,
+  keepIds: Set<string>,
+  incomingIds: Set<string>,
+  incomingGroupKeys: Set<string>
+): boolean {
+  const threadId = sessionThreadId(session)
+
+  return (
+    !incomingIds.has(session.id) &&
+    !incomingGroupKeys.has(sessionGroupKey(session)) &&
+    (keepIds.has(session.id) || keepIds.has(threadId))
+  )
+}
+
+function mergeSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
+  if (offset !== 0) {
+    const merged = new Map<string, SessionInfo>()
+
+    for (const session of [...sessionState.sessions, ...incoming]) {
+      if (!merged.has(session.id)) {
+        merged.set(session.id, session)
+      }
     }
+
+    return collapseSessionsToThreads([...merged.values()])
   }
 
-  return collapseSessionsToThreads([...merged.values()])
+  const keepIds = sessionKeepIds()
+  const incomingIds = new Set(incoming.map(session => session.id))
+  const incomingGroupKeys = new Set(incoming.map(sessionGroupKey))
+  const survivors = sessionState.sessions.filter(session =>
+    shouldKeepExistingSession(session, keepIds, incomingIds, incomingGroupKeys)
+  )
+
+  return collapseSessionsToThreads([...incoming, ...survivors])
+}
+
+function upsertOptimisticSession(
+  response: SessionCreateResponse,
+  storedKey: string,
+  profile: string,
+  preview: null | string
+): void {
+  const now = Date.now() / 1000
+  const session = sessionWithProfile(
+    {
+      archived: false,
+      cwd: response.info?.cwd ?? null,
+      ended_at: null,
+      id: storedKey,
+      input_tokens: 0,
+      is_active: true,
+      last_active: now,
+      message_count: response.message_count ?? response.messages?.length ?? 0,
+      model: response.info?.model ?? null,
+      output_tokens: 0,
+      preview: preview?.trim() || null,
+      profile,
+      source: 'tui',
+      started_at: now,
+      title: null,
+      tool_call_count: 0
+    },
+    profile
+  )
+  const threadId = sessionThreadId(session)
+
+  recordSessionProfiles([session])
+  sessionState.sessions = collapseSessionsToThreads([
+    session,
+    ...sessionState.sessions.filter(existing => existing.id !== session.id && sessionThreadId(existing) !== threadId)
+  ])
+  sessionState.sessionsTotal = Math.max(sessionState.sessionsTotal, sessionState.sessions.length)
 }
 
 function mergeArchivedSessions(incoming: SessionInfo[], offset: number): SessionInfo[] {
@@ -471,6 +556,56 @@ function setSessionFlag(list: string[], sessionId: string, enabled: boolean): vo
   } else if (!enabled && index !== -1) {
     list.splice(index, 1)
   }
+}
+
+function armSessionWatchdog(sessionId: string): void {
+  clearSessionWatchdog(sessionId)
+  sessionWatchdogTimers.set(
+    sessionId,
+    setTimeout(() => {
+      sessionWatchdogTimers.delete(sessionId)
+
+      if (sessionState.workingSessionIds.includes(sessionId)) {
+        setSessionFlag(sessionState.workingSessionIds, sessionId, false)
+      }
+    }, SESSION_WATCHDOG_TIMEOUT_MS)
+  )
+}
+
+function clearSessionWatchdog(sessionId: string): void {
+  const timer = sessionWatchdogTimers.get(sessionId)
+
+  if (timer) {
+    clearTimeout(timer)
+    sessionWatchdogTimers.delete(sessionId)
+  }
+}
+
+function markSessionSettled(sessionId: string): void {
+  settledSessionExpiry.set(sessionId, Date.now() + SESSION_SETTLE_GRACE_MS)
+}
+
+function clearSessionSettled(sessionId: string): void {
+  settledSessionExpiry.delete(sessionId)
+}
+
+export function getRecentlySettledSessionIds(now = Date.now()): string[] {
+  const live: string[] = []
+
+  for (const [sessionId, expiry] of settledSessionExpiry.entries()) {
+    if (expiry > now) {
+      live.push(sessionId)
+    } else {
+      settledSessionExpiry.delete(sessionId)
+    }
+  }
+
+  return live
+}
+
+export function noteSessionActivity(sessionId: string | null | undefined): void {
+  if (!sessionId || !sessionState.workingSessionIds.includes(sessionId)) return
+  armSessionWatchdog(sessionId)
 }
 
 function currentRouteToken(): string {
@@ -539,6 +674,10 @@ export function beginResumeSession(sessionId: string): number {
   resumeRequestId += 1
   sessionState.resumingSessionId = sessionId
   sessionState.error = null
+  sessionState.resumeFailedSessionId =
+    sessionState.resumeFailedSessionId === sessionId ? null : sessionState.resumeFailedSessionId
+  sessionState.resumeExhaustedSessionId =
+    sessionState.resumeExhaustedSessionId === sessionId ? null : sessionState.resumeExhaustedSessionId
   sessionState.storedSessionId = sessionId
   sessionState.activeSessionId = runtimeSessionIdForStored(sessionId)
   return resumeRequestId
@@ -837,7 +976,7 @@ export function startNewSession(): void {
   navigate('/')
 }
 
-export async function createSession(): Promise<string | null> {
+export async function createSession(preview: null | string = null): Promise<string | null> {
   const startingActiveSessionId = sessionState.activeSessionId
   const startingStoredSessionId = sessionState.storedSessionId
   const startingRouteToken = currentRouteToken()
@@ -877,6 +1016,8 @@ export async function createSession(): Promise<string | null> {
     if (profile) {
       sessionState.sessionProfilesById[storedKey] = normalizeProfileKey(profile)
     }
+
+    upsertOptimisticSession(response, storedKey, profile, preview)
 
     return liveSid
   } catch (error) {
@@ -936,28 +1077,32 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
       if (isCurrentResumeRequest(sessionId, activeRequestId)) {
         console.error('Failed to fetch cached session info:', error)
       }
+      forgetRuntimeSession(sessionId)
+      sessionState.activeSessionId = null
     }
 
-    if (!isCurrentResumeRequest(sessionId, activeRequestId)) return null
+    if (info) {
+      if (!isCurrentResumeRequest(sessionId, activeRequestId)) return null
 
-    sessionState.activeSessionId = cachedRuntimeId
-    sessionState.storedSessionId = sessionId
-    sessionState.sessionLineageIdsByThreadId[threadIdForSessionId(sessionId) ?? sessionId] ??=
-      lineageMessageSessionIds(sessionId)
-    sessionState.sessionThreadIdsById[sessionId] ??= sessionId
+      sessionState.activeSessionId = cachedRuntimeId
+      sessionState.storedSessionId = sessionId
+      sessionState.sessionLineageIdsByThreadId[threadIdForSessionId(sessionId) ?? sessionId] ??=
+        lineageMessageSessionIds(sessionId)
+      sessionState.sessionThreadIdsById[sessionId] ??= sessionId
 
-    if (profile) {
-      sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
-    }
+      if (profile) {
+        sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
+      }
 
-    finishResumeSession(sessionId, activeRequestId)
+      finishResumeSession(sessionId, activeRequestId)
 
-    return {
-      session_id: cachedRuntimeId,
-      resumed: sessionId,
-      message_count: 0,
-      messages: [],
-      info
+      return {
+        session_id: cachedRuntimeId,
+        resumed: sessionId,
+        message_count: 0,
+        messages: [],
+        info
+      }
     }
   }
 
@@ -986,6 +1131,11 @@ export async function resumeSession(sessionId: string, requestId?: number): Prom
     if (profile) {
       sessionState.sessionProfilesById[sessionId] = normalizeProfileKey(profile)
     }
+
+    sessionState.resumeFailedSessionId =
+      sessionState.resumeFailedSessionId === sessionId ? null : sessionState.resumeFailedSessionId
+    sessionState.resumeExhaustedSessionId =
+      sessionState.resumeExhaustedSessionId === sessionId ? null : sessionState.resumeExhaustedSessionId
 
     return response
   } catch (error) {
@@ -1042,8 +1192,10 @@ export async function archiveSession(sessionId: string, archived = true): Promis
 
     if (archived) {
       removeSessionFromLocalState(sessionId)
+      clearSessionPins(sessionId)
       forgetRuntimeSession(sessionId)
       if (mutationSessionId !== sessionId) {
+        clearSessionPins(mutationSessionId)
         forgetRuntimeSession(mutationSessionId)
       }
 
@@ -1102,8 +1254,10 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
     const profile = profileForMutation(mutationSessionId) ?? profileForMutation(sessionId)
     await apiDeleteSession(mutationSessionId, profile)
     removeSessionFromLocalState(sessionId)
+    clearSessionPins(sessionId)
     forgetRuntimeSession(sessionId)
     if (mutationSessionId !== sessionId) {
+      clearSessionPins(mutationSessionId)
       forgetRuntimeSession(mutationSessionId)
     }
 
@@ -1165,7 +1319,18 @@ export function isPinnedId(pinId: string): boolean {
 /* ------------------------------------------------------------------ */
 
 export function setSessionWorking(sessionId: string, working: boolean): void {
+  const wasWorking = sessionState.workingSessionIds.includes(sessionId)
   setSessionFlag(sessionState.workingSessionIds, sessionId, working)
+
+  if (working) {
+    clearSessionSettled(sessionId)
+    armSessionWatchdog(sessionId)
+  } else {
+    clearSessionWatchdog(sessionId)
+    if (wasWorking) {
+      markSessionSettled(sessionId)
+    }
+  }
 }
 
 export function isSessionWorking(sessionId: string): boolean {

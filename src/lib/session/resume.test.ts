@@ -69,6 +69,8 @@ describe('resumeAndHydrateStoredSession', () => {
     sessionState.activeSessionId = null
     sessionState.storedSessionId = null
     sessionState.error = null
+    sessionState.resumeExhaustedSessionId = null
+    sessionState.resumeFailedSessionId = null
     sessionState.resumingSessionId = null
     sessionState.workingSessionIds = []
     sessionState.needsInputSessionIds = []
@@ -278,6 +280,32 @@ describe('resumeAndHydrateStoredSession', () => {
     await expect(resumeAndHydrateStoredSession('stored-fresh')).resolves.toBe(true)
 
     expect(threadForSession('stored-fresh')?.messages.map(message => message.text)).toEqual(['first message'])
+  })
+
+  it('marks a resume failure when no stored snapshot can paint the thread', async () => {
+    mockGetSessionMessages.mockResolvedValueOnce({ session_id: 'stored-empty-fail', messages: [] })
+    mockRequestGateway.mockRejectedValueOnce(new Error('gateway restarting'))
+
+    await expect(resumeAndHydrateStoredSession('stored-empty-fail')).resolves.toBe(false)
+
+    expect(sessionState.resumeFailedSessionId).toBe('stored-empty-fail')
+    expect(sessionState.resumingSessionId).toBeNull()
+    expect(threadForSession('stored-empty-fail')?.loading).not.toBe(true)
+  })
+
+  it('does not mark resume failure when stored history was painted', async () => {
+    mockGetSessionMessages.mockResolvedValueOnce({
+      session_id: 'stored-history-fail',
+      messages: [storedMessage('stored history survives')]
+    })
+    mockRequestGateway.mockRejectedValueOnce(new Error('gateway restarting'))
+
+    await expect(resumeAndHydrateStoredSession('stored-history-fail')).resolves.toBe(false)
+
+    expect(sessionState.resumeFailedSessionId).toBeNull()
+    expect(threadForSession('stored-history-fail')?.messages.map(message => message.text)).toEqual([
+      'stored history survives'
+    ])
   })
 
   it('does not surface a stored-history 404 when the session has not been persisted yet', async () => {
