@@ -1,18 +1,19 @@
-# Plan 03 — Hermes `bitch-files` Plugin
+# Plan 03 — Hermes `bitch` Plugin
 
 > **For Hermes:** Implement after or in parallel with Plan 01. This is the server-side/reference-generation piece so the agent does not have to remember raw string syntax.
 
-**Goal:** Create a Hermes plugin that exposes tools for generating canonical bitch.desktop file/media references.
+**Goal:** Create/use the Hermes `bitch` plugin that exposes tools for generating canonical bitch.desktop file/media references.
 
-**Architecture:** A user/profile Hermes plugin registers tools via `ctx.register_tool`. Tools return JSON containing the canonical directive string (`@file:` or `MEDIA:`), normalized path, label, media kind, and optional dufs URL metadata. The plugin does not validate file existence in v1.
+**Architecture:** A user/profile Hermes plugin registers tools via `ctx.register_tool`. Tools return JSON containing the canonical directive string (`@file:` or `MEDIA:`), normalized path, label, and media kind. The plugin does not validate file existence in v1.
 
 **Primary location:**
 
-- Create: `/box/.hermes/plugins/bitch-files/plugin.yaml`
-- Create: `/box/.hermes/plugins/bitch-files/__init__.py`
-- Create: `/box/.hermes/plugins/bitch-files/schemas.py`
-- Create: `/box/.hermes/plugins/bitch-files/tools.py`
-- Optional repo mirror later: `liempo/homestation` or a dedicated plugin repo if this should deploy with homestation.
+- Repository: `liempo/bitch.plugin`
+- Installed plugin path: `/box/.hermes/plugins/bitch`
+- Manifest: `/box/.hermes/plugins/bitch/plugin.yaml`
+- Registration: `/box/.hermes/plugins/bitch/__init__.py`
+- Schemas: `/box/.hermes/plugins/bitch/schemas.py`
+- Handlers: `/box/.hermes/plugins/bitch/tools.py`
 
 ---
 
@@ -21,7 +22,7 @@
 `plugin.yaml`:
 
 ```yaml
-name: bitch-files
+name: bitch
 version: 0.1.0
 description: Generate canonical bitch.desktop file and media references for BOX/dufs and local gateway files.
 provides_tools:
@@ -115,8 +116,8 @@ Return:
 Commands:
 
 ```bash
-/opt/hermes/bin/hermes plugins list
-/opt/hermes/bin/hermes plugins enable bitch-files
+/opt/hermes/bin/hermes plugins install liempo/bitch.plugin
+/opt/hermes/bin/hermes plugins enable bitch
 /opt/hermes/bin/hermes doctor
 ```
 
@@ -125,15 +126,19 @@ Then start a fresh Hermes session and verify the model has access to:
 - `bitch_file_ref`
 - `bitch_media_ref`
 
-If a direct plugin test harness is available, call handlers directly with Python unit tests.
+If a direct plugin test harness is available, call handlers directly with Python unit tests:
 
-## Task 6: Decide packaging home
+```bash
+python3 /box/.hermes/plugins/bitch/tests/test_tools.py
+```
 
-Open decision for Liempo:
+## Task 6: Packaging home
 
-- Keep as active profile plugin only.
-- Mirror in `liempo/homestation` so deployment owns it.
-- Create a dedicated `liempo/bitch-files-plugin` repo.
+Resolved packaging home:
+
+- Dedicated repository: `liempo/bitch.plugin`
+- Active-profile install name: `bitch`
+- Previous local name `bitch-files` is deprecated and should not be reintroduced.
 
 Completion proof:
 

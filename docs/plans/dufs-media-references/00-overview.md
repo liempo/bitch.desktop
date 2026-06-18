@@ -34,7 +34,7 @@
 
 1. `01-frontend-file-references.md` — explicit `@file:` / `@local:` parser and right-preview behavior; remove raw `/box` auto-linking.
 2. `02-upstream-media-parity.md` — copy upstream-style `MEDIA:` behavior with image/audio/video/file media rendering.
-3. `03-hermes-bitch-files-plugin.md` — create Hermes plugin tools for canonical `@file:` and `MEDIA:` output.
+3. `03-hermes-bitch-plugin.md` — create/use the Hermes `bitch` plugin tools for canonical `@file:` and `MEDIA:` output.
 4. `04-integration-rollout.md` — integration, docs, validation, rollout, and PR slicing.
 
 ## Recommended PR Order
