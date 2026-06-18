@@ -147,6 +147,15 @@ Upstream references:
 - [right-rail/preview-pane.tsx](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/app/chat/right-rail/preview-pane.tsx)
 - [use-preview-routing.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/app/session/hooks/use-preview-routing.ts)
 
+### Hermes Remote File and Media Migration
+
+Replace BOX/Dufs-specific file serving with official Hermes Desktop
+remote-filesystem support. The contract is captured in
+[`hermes-remote-files.md`](hermes-remote-files.md): `@file:` is universal for
+Hermes-visible paths, `MEDIA:` handles explicit inline media, composer drops are
+staged through `image.attach_bytes` / `file.attach`, and raw paths stay plain
+text.
+
 ### Session Branch / Fork
 
 The `/branch` slash command and fork semantics are gateway-supported through

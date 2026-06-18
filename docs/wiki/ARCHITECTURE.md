@@ -14,6 +14,7 @@ source files.
 | Live thread resume  | [`live-thread-preservation.md`](live-thread-preservation.md) | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`         |
 | Interactive prompts | [`interactive-prompts.md`](interactive-prompts.md)           | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `prompts.svelte.ts` |
 | Remote profiles     | [`remote-profile-support.md`](remote-profile-support.md)     | `profile.svelte.ts`, `gateway.svelte.ts`, `ProfileRail.svelte`  |
+| Remote files spec   | [`hermes-remote-files.md`](hermes-remote-files.md)           | Official Hermes remote file/media migration contract            |
 | Roadmap             | [`roadmap.md`](roadmap.md)                                   | Delivered scope, future candidates, upstream references         |
 | **Devlog**          | [`devlog.md`](devlog.md)                                     | Chronological development record                                |
 
