@@ -132,6 +132,48 @@ describe('media path helpers', () => {
     expect(renderPreviewMediaReferences('MEDIA:/box/render.png')).not.toContain('#preview')
   })
 
+  it('covers the rollout smoke matrix for raw, preview, inline, and legacy refs', async () => {
+    const { mediaHtmlForMarkdownHref, mediaMarkdownHref, renderPreviewMediaReferences } = await loadMediaHelpers()
+    const smokeText = [
+      '/box/raw.png',
+      '@file:/box/report.pdf',
+      '@file:`/box/report 1.pdf`',
+      '@local:/opt/data/render.png',
+      'MEDIA:/box/render.png',
+      'MEDIA:/box/audio.mp3',
+      'MEDIA:/box/video.mp4',
+      '@image:/box/legacy.png'
+    ].join('\n')
+
+    expect(renderPreviewMediaReferences(smokeText)).toBe(
+      [
+        '/box/raw.png',
+        '[report.pdf](#preview:%2Fbox%2Freport.pdf)',
+        '[report 1.pdf](#preview:%2Fbox%2Freport%201.pdf)',
+        '[render.png](#preview:%2Fopt%2Fdata%2Frender.png)',
+        '[Image: render.png](#media:%2Fbox%2Frender.png)',
+        '[Audio: audio.mp3](#media:%2Fbox%2Faudio.mp3)',
+        '[Video: video.mp4](#media:%2Fbox%2Fvideo.mp4)',
+        '[Image: legacy.png](#media:%2Fbox%2Flegacy.png)'
+      ].join('\n')
+    )
+
+    const missingVideo = mediaHtmlForMarkdownHref(
+      mediaMarkdownHref('/box/missing-video.mp4'),
+      'Video: missing-video.mp4'
+    )
+    expect(missingVideo).toContain('data-media-kind="video"')
+    expect(missingVideo).toContain('src="https://box.example.test/missing-video.mp4"')
+
+    const missingPdf = mediaHtmlForMarkdownHref(mediaMarkdownHref('/box/missing.pdf'), 'File: missing.pdf')
+    expect(missingPdf).toContain('data-media-kind="file"')
+    expect(missingPdf).toContain('<a href="https://box.example.test/missing.pdf"')
+
+    const missingLocalImage = mediaHtmlForMarkdownHref(mediaMarkdownHref('/opt/data/missing.png'), 'Image: missing.png')
+    expect(missingLocalImage).toContain('data-media-kind="image"')
+    expect(missingLocalImage).toContain('data-gateway-media-src="/opt/data/missing.png"')
+  })
+
   it('renders internal media markdown hrefs as inline media html', async () => {
     const { mediaHtmlForMarkdownHref, mediaMarkdownHref } = await loadMediaHelpers()
 

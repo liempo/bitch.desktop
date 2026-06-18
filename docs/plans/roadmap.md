@@ -7,8 +7,8 @@ This document tracks delivered plans and future upstream candidates.
 
 The implementation now covers remote Hermes chat, session management,
 interactive runtime prompts, documentation, multi-profile remote routing,
-live-thread resume behavior, MCP reload routing, and macOS desktop
-notifications.
+live-thread resume behavior, MCP reload routing, macOS desktop notifications,
+and explicit file/media reference rendering.
 
 | #   | Feature                                                                          | Key files                                                                                                                                              |
 | --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -22,6 +22,7 @@ notifications.
 | 08  | Remote profile support: profile rail, scoped sessions, per-profile routing       | `profile.svelte.ts`, `gateway.svelte.ts`, `session.svelte.ts`, `messages.svelte.ts`, `prompts.svelte.ts`, `ProfileRail.svelte`, `src-tauri/src/lib.rs` |
 | 09  | Live thread preservation and busy sync across session re-select                  | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`, `live-thread-preservation.md`                                                                 |
 | 10  | MCP reload composer routing and macOS operator notifications                     | `composer.svelte.ts`, `composer.reload-mcp.test.ts`, `notifications/macos.ts`, `messages.svelte.ts`, `src-tauri/src/lib.rs`                            |
+| 11  | Explicit file previews, inline media directives, and raw `/box` safety           | `media.ts`, `media.test.ts`, `Markdown.svelte`, `PreviewSidebar.svelte`, `README.md`, `AGENTS.md`                                                      |
 
 ## Remote Profile Model
 

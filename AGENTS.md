@@ -17,10 +17,35 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 The app uses these environment values, usually from `.env` copied from `.env.example`:
 
 - `VITE_HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
-- `VITE_BOX_BASE_URL` — public BOX/Dufs origin used for `/box/...` attachment URLs and the BOX browser. Declare it in `.env`; the renderer must not hardcode a production BOX hostname.
+- `VITE_BOX_BASE_URL` — public BOX/Dufs origin used for explicit `/box/...` file/media reference URLs and the BOX browser. Declare it in `.env`; the renderer must not hardcode a production BOX hostname.
 - `BITCH_DASHBOARD_API_KEY` — Hermes dashboard session token used by the Tauri bridge.
 
 Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BITCH_GATEWAY_URL`, or `VITE_BITCH_GATEWAY_WS_URL` unless the runtime code is intentionally changed to use them.
+
+## File and media reference contract
+
+The thread renderer uses explicit directives for interactive file and media output. Raw `/box/...` paths stay plain markdown/text; do not reintroduce automatic raw-path preview linkification.
+
+Supported syntax:
+
+- `/box/raw.png` — informational text only.
+- `@file:/box/report.pdf` — right preview sidebar for BOX-backed files.
+- ``@file:`/box/report 1.pdf` `` — same preview behavior with a quoted path containing spaces.
+- `@local:/opt/data/render.png` — explicit local/gateway preview sidebar reference.
+- `MEDIA:/box/render.png`, `MEDIA:/box/audio.mp3`, `MEDIA:/box/video.mp4` — inline thread media rendering.
+- `@image:/box/legacy.png` — legacy inline-image alias; prefer `MEDIA:` for new agent output.
+
+Migration note: before the explicit-reference work, standalone `/box/...` strings could become preview links. After it, use `@file:/box/...` deliberately so markdown remains predictable.
+
+Hermes plugin/tool guidance for agents:
+
+- Use `bitch_file_ref(path="/box/report.pdf")` when the user should open or preview a file; expected reference: `@file:/box/report.pdf`.
+- Use `bitch_file_ref(path="/opt/data/report.pdf")` for an explicit local/gateway preview reference; expected reference: `@local:/opt/data/report.pdf`.
+- Use `bitch_media_ref(path="/box/render.png")` when media should render inline; expected reference: `MEDIA:/box/render.png`.
+- Use `bitch_media_ref(path="/box/render.png", presentation="preview")` only when the user asked for sidebar preview behavior instead of inline rendering.
+- Do not emit raw `/box/...` paths when the file is meant to be interactive.
+
+The rollout smoke matrix lives in `src/lib/media.test.ts`; keep raw path, `@file:`, `@local:`, `MEDIA:`, `@image:`, and missing-file degradation covered when changing this contract.
 
 ## Current upstream copy
 
