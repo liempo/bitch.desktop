@@ -1,6 +1,6 @@
-# Dufs File/Media References — Overview Plan
+# Dufs File/Media References
 
-> **For Hermes:** Use `kanban-workflows` and `test-driven-development` to implement the child plans in order. Treat this file as the feature index, not a code-change plan by itself.
+> **For Hermes:** This reference set documents the file/media directive implementation, validation surface, and rollout history.
 
 **Goal:** Simplify bitch.desktop thread media and file-link behavior around explicit directives, dufs-backed BOX URLs, and a Hermes plugin that lets the agent generate correct references without guessing syntax.
 
@@ -30,7 +30,7 @@
 
 ---
 
-## Plan Set
+## Reference Pages
 
 1. `01-frontend-file-references.md` — explicit `@file:` / `@local:` parser and right-preview behavior; remove raw `/box` auto-linking.
 2. `02-upstream-media-parity.md` — copy upstream-style `MEDIA:` behavior with image/audio/video/file media rendering.
