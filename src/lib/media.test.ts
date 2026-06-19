@@ -47,12 +47,15 @@ describe('media path helpers', () => {
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/render.png')).toBe(
       '![Image: render.png](#media:%2Fopt%2Fdata%2Frender.png)'
     )
+    expect(renderPreviewMediaReferences('@media:`/box/.hermes/cache/render 1.png`')).toBe(
+      '![Image: render 1.png](#media:%2Fbox%2F.hermes%2Fcache%2Frender%201.png)'
+    )
     expect(renderPreviewMediaReferences('MEDIA:/tmp/sound.mp3')).toBe('[Audio: sound.mp3](#media:%2Ftmp%2Fsound.mp3)')
     expect(renderPreviewMediaReferences('MEDIA:"/tmp/clip final.mp4"')).toBe(
       '[Video: clip final.mp4](#media:%2Ftmp%2Fclip%20final.mp4)'
     )
     expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe(
-      '[File: report.pdf](#preview:%2Fopt%2Fdata%2Freport.pdf)'
+      '[PDF: report.pdf](#media:%2Fopt%2Fdata%2Freport.pdf)'
     )
   })
 
