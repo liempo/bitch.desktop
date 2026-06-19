@@ -4,8 +4,290 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BITCH</title>
+    <link rel="preload" as="image" href="/src/lib/assets/bitch-logo.png" />
+    <style>
+      :root {
+        color-scheme: dark;
+        background: #000;
+      }
+
+      html,
+      body,
+      #app {
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background:
+          linear-gradient(90deg, rgba(139, 233, 253, 0.04) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(255, 121, 198, 0.035) 1px, transparent 1px), #000;
+        background-size:
+          5.5rem 5.5rem,
+          5.5rem 5.5rem,
+          auto;
+      }
+
+      #bitch-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background:
+          linear-gradient(135deg, rgba(139, 233, 253, 0.055), transparent 35%, rgba(255, 121, 198, 0.06)), #000;
+        color: #f8f8f2;
+        opacity: 1;
+        visibility: visible;
+        transition:
+          opacity 420ms ease,
+          visibility 420ms ease;
+      }
+
+      #bitch-splash::before {
+        content: '';
+        position: absolute;
+        inset: -35%;
+        background:
+          linear-gradient(90deg, transparent 0 48%, rgba(139, 233, 253, 0.18) 49%, transparent 51% 100%),
+          linear-gradient(0deg, transparent 0 47%, rgba(255, 121, 198, 0.12) 50%, transparent 53% 100%);
+        background-size:
+          8rem 100%,
+          100% 7rem;
+        opacity: 0.24;
+        transform: perspective(44rem) rotateX(62deg) translateY(8rem);
+        animation: bitch-splash-grid 7s linear infinite;
+      }
+
+      #bitch-splash::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.075) 0 1px, transparent 1px 5px),
+          linear-gradient(90deg, transparent 0 28%, rgba(139, 233, 253, 0.12) 49%, transparent 70% 100%);
+        mix-blend-mode: screen;
+        opacity: 0.15;
+        animation: bitch-splash-scan 4.8s linear infinite;
+      }
+
+      .bitch-splash-frame {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        justify-items: center;
+        gap: 1rem;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .bitch-splash-logo-stack {
+        position: relative;
+        width: min(34vw, 10rem);
+        aspect-ratio: 1;
+      }
+
+      .bitch-splash-logo {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 1rem;
+        animation: bitch-splash-jitter 2.7s steps(1, end) infinite;
+      }
+
+      .bitch-splash-logo--cyan,
+      .bitch-splash-logo--magenta {
+        opacity: 0;
+        mix-blend-mode: screen;
+      }
+
+      .bitch-splash-logo--cyan {
+        filter: brightness(0) saturate(100%) invert(85%) sepia(52%) saturate(970%) hue-rotate(162deg) brightness(105%)
+          contrast(99%);
+        animation: bitch-splash-glitch-cyan 2.7s steps(1, end) infinite;
+      }
+
+      .bitch-splash-logo--magenta {
+        filter: brightness(0) saturate(100%) invert(56%) sepia(95%) saturate(1292%) hue-rotate(287deg) brightness(104%)
+          contrast(101%);
+        animation: bitch-splash-glitch-magenta 2.7s steps(1, end) infinite;
+      }
+
+      .bitch-splash-title {
+        color: #fff;
+        font-family: 'JetBrains Mono', 'IBM Plex Mono', Consolas, ui-monospace, monospace;
+        font-size: clamp(0.95rem, 2vw, 1.2rem);
+        font-weight: 800;
+        letter-spacing: 0.42em;
+        text-indent: 0.42em;
+        text-shadow:
+          0.08rem 0 0 #8be9fd,
+          -0.08rem 0 0 #ff79c6;
+        animation: bitch-splash-title-glitch 2.7s steps(1, end) infinite;
+      }
+
+      .bitch-splash-status {
+        color: #8be9fd;
+        font-family: 'JetBrains Mono', 'IBM Plex Mono', Consolas, ui-monospace, monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        opacity: 0.78;
+      }
+
+      .bitch-splash-status::after {
+        content: ' ▌';
+        color: #ff79c6;
+        animation: bitch-splash-caret 1.2s steps(1, end) infinite;
+      }
+
+      .bitch-app-ready #bitch-splash {
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      @keyframes bitch-splash-grid {
+        from {
+          background-position:
+            0 0,
+            0 0;
+        }
+        to {
+          background-position:
+            8rem 0,
+            0 7rem;
+        }
+      }
+
+      @keyframes bitch-splash-scan {
+        from {
+          transform: translateY(-18%);
+        }
+        to {
+          transform: translateY(18%);
+        }
+      }
+
+      @keyframes bitch-splash-jitter {
+        0%,
+        88%,
+        100% {
+          transform: translate(0, 0);
+        }
+        90% {
+          transform: translate(-1px, 1px);
+        }
+        92% {
+          transform: translate(1px, -1px);
+        }
+        94% {
+          transform: translate(0, 0);
+        }
+      }
+
+      @keyframes bitch-splash-glitch-cyan {
+        0%,
+        86%,
+        100% {
+          clip-path: inset(0 0 0 0);
+          opacity: 0;
+          transform: translate(0, 0);
+        }
+        88% {
+          clip-path: inset(12% 0 62% 0);
+          opacity: 0.55;
+          transform: translate(-5px, -1px);
+        }
+        90% {
+          clip-path: inset(48% 0 29% 0);
+          opacity: 0.5;
+          transform: translate(4px, 1px);
+        }
+        92% {
+          clip-path: inset(72% 0 11% 0);
+          opacity: 0.4;
+          transform: translate(-3px, 0);
+        }
+      }
+
+      @keyframes bitch-splash-glitch-magenta {
+        0%,
+        84%,
+        100% {
+          clip-path: inset(0 0 0 0);
+          opacity: 0;
+          transform: translate(0, 0);
+        }
+        87% {
+          clip-path: inset(64% 0 18% 0);
+          opacity: 0.42;
+          transform: translate(5px, 1px);
+        }
+        91% {
+          clip-path: inset(24% 0 52% 0);
+          opacity: 0.5;
+          transform: translate(-4px, -1px);
+        }
+        93% {
+          clip-path: inset(42% 0 41% 0);
+          opacity: 0.35;
+          transform: translate(3px, 0);
+        }
+      }
+
+      @keyframes bitch-splash-title-glitch {
+        0%,
+        86%,
+        100% {
+          transform: translateX(0);
+        }
+        88% {
+          transform: translateX(-0.08rem);
+        }
+        90% {
+          transform: translateX(0.1rem);
+        }
+        92% {
+          transform: translateX(-0.04rem);
+        }
+      }
+
+      @keyframes bitch-splash-caret {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #bitch-splash,
+        #bitch-splash::before,
+        #bitch-splash::after,
+        .bitch-splash-logo,
+        .bitch-splash-status::after,
+        .bitch-splash-title {
+          animation: none;
+          transition: none;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="bitch-splash" role="status" aria-label="BITCH is starting">
+      <div class="bitch-splash-frame">
+        <div class="bitch-splash-logo-stack" aria-hidden="true">
+          <img class="bitch-splash-logo" src="/src/lib/assets/bitch-logo.png" alt="" />
+          <img class="bitch-splash-logo bitch-splash-logo--cyan" src="/src/lib/assets/bitch-logo.png" alt="" />
+          <img class="bitch-splash-logo bitch-splash-logo--magenta" src="/src/lib/assets/bitch-logo.png" alt="" />
+        </div>
+        <div class="bitch-splash-title">BITCH</div>
+        <div class="bitch-splash-status">Remote chrome boot sequence</div>
+      </div>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
