@@ -1,105 +1,67 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-const TEST_BOX_BASE_URL = 'https://box.example.test'
-const { mockDashboardRequest } = vi.hoisted(() => ({
-  mockDashboardRequest: vi.fn()
-}))
-
-vi.mock('$lib/api/dashboard', () => ({
-  dashboardRequest: mockDashboardRequest
-}))
-
-async function loadMediaHelpers(): Promise<typeof import('./media')> {
-  vi.resetModules()
-  vi.stubEnv('VITE_BOX_BASE_URL', TEST_BOX_BASE_URL)
-  return import('./media')
-}
+import { describe, expect, it } from 'vitest'
 
 describe('media path helpers', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.resetModules()
-  })
-
   it('passes through a plain gateway path', async () => {
-    const { filePathFromMediaPath } = await loadMediaHelpers()
+    const { filePathFromMediaPath } = await import('./media')
 
     expect(filePathFromMediaPath('/opt/data/.hermes/images/a.png')).toBe('/opt/data/.hermes/images/a.png')
   })
 
   it('decodes file URLs with encoded characters', async () => {
-    const { filePathFromMediaPath } = await loadMediaHelpers()
+    const { filePathFromMediaPath } = await import('./media')
 
     expect(filePathFromMediaPath('file:///tmp/a%20b.png')).toBe('/tmp/a b.png')
   })
 
-  it('detects relayable image paths without touching remote URLs or data URLs', async () => {
-    const { isRemoteGatewayMediaPath } = await loadMediaHelpers()
+  it('detects relayable remote media paths without touching remote URLs or data URLs', async () => {
+    const { isRemoteGatewayMediaPath } = await import('./media')
 
     expect(isRemoteGatewayMediaPath('/opt/data/.hermes/images/a.PNG')).toBe(true)
     expect(isRemoteGatewayMediaPath('file:///tmp/a%20b.webp')).toBe(true)
+    expect(isRemoteGatewayMediaPath('/tmp/sound.mp3')).toBe(true)
     expect(isRemoteGatewayMediaPath('https://example.com/a.png')).toBe(false)
     expect(isRemoteGatewayMediaPath('data:image/png;base64,AAAA')).toBe(false)
     expect(isRemoteGatewayMediaPath('/opt/data/report.pdf')).toBe(false)
   })
 
   it('extracts image extensions before query strings', async () => {
-    const { mediaExtension } = await loadMediaHelpers()
+    const { mediaExtension } = await import('./media')
 
     expect(mediaExtension('/tmp/image.png?cache=1')).toBe('.png')
   })
 
-  it('turns Hermes MEDIA and @image references into markdown image previews', async () => {
-    const { renderPreviewMediaReferences } = await loadMediaHelpers()
+  it('turns @file directives into internal remote preview links', async () => {
+    const { renderPreviewMediaReferences } = await import('./media')
 
-    expect(renderPreviewMediaReferences('MEDIA:/opt/data/.hermes/images/render.png')).toBe(
-      '![Image: render.png](/opt/data/.hermes/images/render.png)'
+    expect(renderPreviewMediaReferences('@file:/opt/data/reports/summary.pdf')).toBe(
+      '[File: summary.pdf](#preview:%2Fopt%2Fdata%2Freports%2Fsummary.pdf)'
     )
-    expect(renderPreviewMediaReferences('See @image:/tmp/screen.webp now')).toBe(
-      'See ![Image: screen.webp](/tmp/screen.webp) now'
-    )
-    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe('MEDIA:/opt/data/report.pdf')
-  })
-
-  it('renders /box MEDIA references as preview links instead of eager previews', async () => {
-    const { renderPreviewMediaReferences } = await loadMediaHelpers()
-
-    expect(renderPreviewMediaReferences('MEDIA:/box/.hermes/images/render 1.png')).toBe(
-      '[Attachment: render 1.png](/box/.hermes/images/render%201.png)'
-    )
-    expect(renderPreviewMediaReferences('artifact: MEDIA:/box/wiki/personal/notes.pdf')).toBe(
-      'artifact: [Attachment: notes.pdf](/box/wiki/personal/notes.pdf)'
+    expect(renderPreviewMediaReferences('open @file:`/tmp/hermes remote probe.txt` please')).toBe(
+      'open [File: hermes remote probe.txt](#preview:%2Ftmp%2Fhermes%20remote%20probe.txt) please'
     )
   })
 
-  it('auto-detects standalone /box paths as links without previewing by file type', async () => {
-    const { renderPreviewMediaReferences } = await loadMediaHelpers()
+  it('turns MEDIA directives into remote inline media links without public file-server URL derivation', async () => {
+    const { renderPreviewMediaReferences } = await import('./media')
+
+    expect(renderPreviewMediaReferences('MEDIA:/opt/data/render.png')).toBe(
+      '![Image: render.png](#media:%2Fopt%2Fdata%2Frender.png)'
+    )
+    expect(renderPreviewMediaReferences('MEDIA:/tmp/sound.mp3')).toBe('[Audio: sound.mp3](#media:%2Ftmp%2Fsound.mp3)')
+    expect(renderPreviewMediaReferences('MEDIA:"/tmp/clip final.mp4"')).toBe(
+      '[Video: clip final.mp4](#media:%2Ftmp%2Fclip%20final.mp4)'
+    )
+    expect(renderPreviewMediaReferences('MEDIA:/opt/data/report.pdf')).toBe(
+      '[File: report.pdf](#preview:%2Fopt%2Fdata%2Freport.pdf)'
+    )
+  })
+
+  it('keeps raw absolute paths as plain text', async () => {
+    const { renderPreviewMediaReferences } = await import('./media')
 
     expect(renderPreviewMediaReferences('Preview ready:\n/box/.hermes/cache/render 1.png')).toBe(
-      'Preview ready:\n[Attachment: render 1.png](/box/.hermes/cache/render%201.png)'
+      'Preview ready:\n/box/.hermes/cache/render 1.png'
     )
-    expect(renderPreviewMediaReferences('Report:\n/box/wiki/personal/notes.pdf')).toBe(
-      'Report:\n[Attachment: notes.pdf](/box/wiki/personal/notes.pdf)'
-    )
-    expect(renderPreviewMediaReferences('Notes:\n/box/wiki/personal/readme.txt')).toBe(
-      'Notes:\n[Attachment: readme.txt](/box/wiki/personal/readme.txt)'
-    )
-  })
-
-  it('fetches gateway media through the authenticated dashboard bridge', async () => {
-    const { gatewayMediaDataUrl } = await loadMediaHelpers()
-    mockDashboardRequest.mockResolvedValueOnce({ data_url: 'data:image/png;base64,ZHVtbXk=' })
-
-    await expect(gatewayMediaDataUrl('/opt/data/.hermes/images/a b.png', 'astra')).resolves.toBe(
-      'data:image/png;base64,ZHVtbXk='
-    )
-    expect(mockDashboardRequest).toHaveBeenCalledWith({
-      path: '/api/media?path=%2Fopt%2Fdata%2F.hermes%2Fimages%2Fa%20b.png',
-      profile: 'astra'
-    })
+    expect(renderPreviewMediaReferences('Report: /opt/data/report.pdf')).toBe('Report: /opt/data/report.pdf')
   })
 })

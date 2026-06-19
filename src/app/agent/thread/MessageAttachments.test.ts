@@ -13,4 +13,10 @@ describe('MessageAttachments full-screen viewer contract', () => {
     expect(messageAttachmentsSource).toContain('aria-label="Download attachment"')
     expect(messageAttachmentsSource).toContain('download={downloadName(activeAttachment)}')
   })
+
+  it('hydrates path attachments through the remote filesystem data-url bridge', () => {
+    expect(messageAttachmentsSource).toContain('readRemoteFileDataUrl')
+    expect(messageAttachmentsSource).not.toContain(['box', 'Url', 'For', 'Agent', 'Path'].join(''))
+    expect(messageAttachmentsSource).not.toContain(['gateway', 'Media', 'Data', 'Url'].join(''))
+  })
 })

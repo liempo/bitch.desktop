@@ -2,19 +2,75 @@
   import Panel from '@/components/ui/Panel.svelte'
   import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
   import type { ThreadPreview } from '$lib/preview'
+  import { readRemoteFileDataUrl, readRemoteFileText } from '$lib/remote-files'
 
   interface Props {
     onClose?: () => void
     preview: ThreadPreview
+    profile?: null | string
     width?: number
   }
 
-  let { onClose, preview, width = PREVIEW_PANEL_WIDTH.defaultWidth }: Props = $props()
+  let { onClose, preview, profile = null, width = PREVIEW_PANEL_WIDTH.defaultWidth }: Props = $props()
 
-  const detail = $derived(preview.url ?? preview.error ?? preview.source)
+  let loading = $state(false)
+  let remoteUrl = $state<null | string>(null)
+  let textPreview = $state('')
+  let loadError = $state('')
+  let loadSequence = 0
+
+  const detail = $derived(preview.path ?? preview.url ?? preview.error ?? preview.source)
   const previewStyle = $derived(panelWidthStyle('--agent-preview-width', width))
   const title = $derived(preview.kind === 'canvas' ? 'Canvas' : 'Preview')
+  const activeUrl = $derived(preview.url ?? remoteUrl)
   const openLabel = $derived(preview.kind === 'canvas' ? 'Open canvas' : 'Open file')
+  const visibleError = $derived(preview.error ?? loadError)
+
+  $effect(() => {
+    const activePreview = preview
+    const activeProfile = activePreview.profile ?? profile
+    void loadPreview(activePreview, activeProfile)
+  })
+
+  function resetLoadedState(): void {
+    loading = false
+    remoteUrl = null
+    textPreview = ''
+    loadError = ''
+  }
+
+  async function loadPreview(activePreview: ThreadPreview, activeProfile: null | string): Promise<void> {
+    const sequence = (loadSequence += 1)
+    resetLoadedState()
+
+    if (activePreview.error || !activePreview.path) return
+    if (activePreview.kind === 'canvas' && activePreview.url) return
+
+    const viewerKind = activePreview.viewerKind ?? (activePreview.kind === 'image' ? 'image' : 'download')
+    if (viewerKind === 'download') return
+
+    loading = true
+
+    try {
+      if (viewerKind === 'text') {
+        const result = await readRemoteFileText(activePreview.path, activeProfile)
+        if (sequence !== loadSequence) return
+        if (result.binary) {
+          loadError = 'Remote file is binary; text preview is unavailable.'
+        } else {
+          textPreview = result.text
+        }
+      } else {
+        const dataUrl = await readRemoteFileDataUrl(activePreview.path, activeProfile)
+        if (sequence !== loadSequence) return
+        remoteUrl = dataUrl
+      }
+    } catch (error) {
+      if (sequence === loadSequence) loadError = error instanceof Error ? error.message : String(error)
+    } finally {
+      if (sequence === loadSequence) loading = false
+    }
+  }
 </script>
 
 <aside
@@ -33,10 +89,10 @@
         </p>
       </div>
 
-      {#if preview.url}
+      {#if activeUrl}
         <a
           class="shrink-0 rounded-control border border-line px-2 py-1 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary hover:border-primary/60 hover:bg-primary/10 hover:text-ink-bright"
-          href={preview.url}
+          href={activeUrl}
           target="_blank"
           rel="noreferrer"
           aria-label={openLabel}
@@ -59,24 +115,54 @@
       {/if}
     </div>
 
-    {#if preview.kind === 'canvas' && preview.url}
+    {#if loading}
+      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-primary/30 bg-primary/10 font-hud text-[0.68rem] uppercase tracking-[0.18em] text-primary" role="status">
+        Loading remote file preview…
+      </div>
+    {:else if visibleError}
+      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-dashed border-warning/40 bg-warning/5 p-6 text-center text-sm leading-6 text-warning" role="status">
+        <div>
+          <p class="font-semibold uppercase tracking-[0.12em]">Preview unavailable</p>
+          <p class="mt-2 text-warning/80">{visibleError}</p>
+        </div>
+      </div>
+    {:else if preview.kind === 'canvas' && activeUrl}
       <iframe
         class="min-h-0 flex-1 rounded-control border border-line bg-white"
-        src={preview.url}
+        src={activeUrl}
         title={preview.label}
         sandbox="allow-scripts allow-forms allow-popups allow-downloads"
         referrerpolicy="no-referrer"
       ></iframe>
-    {:else if preview.kind === 'image' && preview.url}
+    {:else if preview.kind === 'image' && activeUrl}
       <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-control border border-line bg-black/20 p-3">
-        <img src={preview.url} alt={preview.label} class="max-h-full max-w-full object-contain" />
+        <img src={activeUrl} alt={preview.label} class="max-h-full max-w-full object-contain" />
       </div>
+    {:else if preview.viewerKind === 'pdf' && activeUrl}
+      <iframe title={preview.label} src={activeUrl} class="min-h-0 flex-1 rounded-control border border-line bg-white"></iframe>
+    {:else if preview.viewerKind === 'audio' && activeUrl}
+      <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-control border border-line bg-surface/70 p-6 text-center text-sm text-ink-muted">
+        <span class="font-hud text-4xl text-success">AUD</span>
+        <audio controls preload="metadata" src={activeUrl} class="w-full"></audio>
+      </div>
+    {:else if preview.viewerKind === 'video' && activeUrl}
+      <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-control border border-line bg-black/30 p-3">
+        <!-- svelte-ignore a11y_media_has_caption -->
+        <video controls preload="metadata" src={activeUrl} class="max-h-full max-w-full rounded-control"></video>
+      </div>
+    {:else if preview.viewerKind === 'html' && activeUrl}
+      <iframe
+        class="min-h-0 flex-1 rounded-control border border-line bg-white"
+        src={activeUrl}
+        title={preview.label}
+        sandbox="allow-scripts allow-forms allow-popups allow-downloads"
+        referrerpolicy="no-referrer"
+      ></iframe>
+    {:else if preview.viewerKind === 'text'}
+      <pre class="min-h-0 flex-1 overflow-auto rounded-control border border-line bg-canvas/60 p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
     {:else}
-      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-dashed border-warning/40 bg-warning/5 p-6 text-center text-sm leading-6 text-warning" role="status">
-        <div>
-          <p class="font-semibold uppercase tracking-[0.12em]">Preview unavailable</p>
-          <p class="mt-2 text-warning/80">{preview.error ?? 'This BOX file can be opened directly, but no inline preview is available.'}</p>
-        </div>
+      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-dashed border-line bg-surface/40 p-6 text-center text-sm leading-6 text-ink-muted" role="status">
+        No inline preview is available for this remote file type.
       </div>
     {/if}
   </Panel>

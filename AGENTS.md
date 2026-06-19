@@ -17,8 +17,9 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 The app uses these environment values, usually from `.env` copied from `.env.example`:
 
 - `VITE_HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
-- `VITE_BOX_BASE_URL` — public BOX/Dufs origin used for `/box/...` attachment URLs and the BOX browser. Declare it in `.env`; the renderer must not hardcode a production BOX hostname.
 - `BITCH_DASHBOARD_API_KEY` — Hermes dashboard session token used by the Tauri bridge.
+
+Remote file preview, inline media, and the Files page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax.
 
 Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BITCH_GATEWAY_URL`, or `VITE_BITCH_GATEWAY_WS_URL` unless the runtime code is intentionally changed to use them.
 

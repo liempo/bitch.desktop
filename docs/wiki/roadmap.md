@@ -10,20 +10,21 @@ upstream gateway support.
 The implementation now covers remote Hermes chat, session management,
 interactive runtime prompts, documentation, multi-profile remote routing,
 live-thread resume behavior, MCP reload routing, and macOS desktop
-notifications.
+notifications, and authenticated remote-file previews/media.
 
-| #   | Feature                                                                          | Key files                                                                                                                                              |
-| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 01  | Tauri HTTP bridge with `dashboard_request` auth injection                        | `src-tauri/src/lib.rs`, `src/lib/api/dashboard.ts`                                                                                                     |
-| 02  | App shell, hash router, connection gate, and live session re-select              | `AppShell.svelte`, `router.svelte.ts`, `gateway.svelte.ts`, `resume.ts`                                                                                |
-| 03  | Session sidebar: list, search, create, switch, rename, archive, delete, pin      | `Sidebar.svelte`, `SessionRow.svelte`, `session.svelte.ts`                                                                                             |
-| 04  | Message thread: streaming, reasoning blocks, tool rows, markdown                 | `Thread.svelte`, `Message.svelte`, `ToolRow.svelte`, `Reasoning.svelte`, `messages.svelte.ts`                                                          |
-| 05  | Rich composer: send, interrupt, queue, slash commands, model switch, attachments | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`                                                                                           |
-| 06  | Interactive prompts: clarify, approval, sudo, secret                             | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `SudoModal.svelte`, `SecretModal.svelte`, `prompts.svelte.ts`                                              |
-| 07  | Library reorganisation under `api/`, `gateway/`, `messages/`, `session` modules  | `src/lib/**`, `docs/wiki/ARCHITECTURE.md`                                                                                                              |
-| 08  | Remote profile support: profile rail, scoped sessions, per-profile routing       | `profile.svelte.ts`, `gateway.svelte.ts`, `session.svelte.ts`, `messages.svelte.ts`, `prompts.svelte.ts`, `ProfileRail.svelte`, `src-tauri/src/lib.rs` |
-| 09  | Live thread preservation and busy sync across session re-select                  | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`, `live-thread-preservation.md`                                                                 |
-| 10  | MCP reload composer routing and macOS operator notifications                     | `composer.svelte.ts`, `composer.reload-mcp.test.ts`, `notifications/macos.ts`, `messages.svelte.ts`, `src-tauri/src/lib.rs`                            |
+| #   | Feature                                                                                | Key files                                                                                                                                              |
+| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 01  | Tauri HTTP bridge with `dashboard_request` auth injection                              | `src-tauri/src/lib.rs`, `src/lib/api/dashboard.ts`                                                                                                     |
+| 02  | App shell, hash router, connection gate, and live session re-select                    | `AppShell.svelte`, `router.svelte.ts`, `gateway.svelte.ts`, `resume.ts`                                                                                |
+| 03  | Session sidebar: list, search, create, switch, rename, archive, delete, pin            | `Sidebar.svelte`, `SessionRow.svelte`, `session.svelte.ts`                                                                                             |
+| 04  | Message thread: streaming, reasoning blocks, tool rows, markdown                       | `Thread.svelte`, `Message.svelte`, `ToolRow.svelte`, `Reasoning.svelte`, `messages.svelte.ts`                                                          |
+| 05  | Rich composer: send, interrupt, queue, slash commands, model switch, attachments       | `Composer.svelte`, `composer.svelte.ts`, `composer-queue.ts`                                                                                           |
+| 06  | Interactive prompts: clarify, approval, sudo, secret                                   | `ClarifyCard.svelte`, `ApprovalBar.svelte`, `SudoModal.svelte`, `SecretModal.svelte`, `prompts.svelte.ts`                                              |
+| 07  | Library reorganisation under `api/`, `gateway/`, `messages/`, `session` modules        | `src/lib/**`, `docs/wiki/ARCHITECTURE.md`                                                                                                              |
+| 08  | Remote profile support: profile rail, scoped sessions, per-profile routing             | `profile.svelte.ts`, `gateway.svelte.ts`, `session.svelte.ts`, `messages.svelte.ts`, `prompts.svelte.ts`, `ProfileRail.svelte`, `src-tauri/src/lib.rs` |
+| 09  | Live thread preservation and busy sync across session re-select                        | `resume.ts`, `messages.svelte.ts`, `composer.svelte.ts`, `live-thread-preservation.md`                                                                 |
+| 10  | MCP reload composer routing and macOS operator notifications                           | `composer.svelte.ts`, `composer.reload-mcp.test.ts`, `notifications/macos.ts`, `messages.svelte.ts`, `src-tauri/src/lib.rs`                            |
+| 11  | Hermes remote files: Files page tree, `@file:` preview rail, `MEDIA:` inline rendering | `remote-files.ts`, `media.ts`, `preview.ts`, `FilesPage.svelte`, `PreviewSidebar.svelte`, `Markdown.svelte`                                            |
 
 ## Remote Profile Model
 
@@ -52,6 +53,18 @@ and queues the draft instead of losing the prompt or rendering a false assistant
 error.
 
 See [`live-thread-preservation.md`](live-thread-preservation.md) for the detailed flow and tests.
+
+## Remote File and Media Model
+
+Remote files now use official Hermes dashboard filesystem routes through the
+Tauri bridge. The Files route lists the active profile's remote filesystem,
+explicit `@file:` references open the right preview rail for any absolute
+Hermes-visible path, and `MEDIA:` hydrates image/audio/video elements from
+`/api/fs/read-data-url`. Raw absolute paths remain plain text, and the app no
+longer requires a public sidecar or custom local reference plugin.
+
+See [`hermes-remote-files.md`](hermes-remote-files.md) for the resolver contract, denied-path behavior, and
+probe checklist.
 
 ## Near-Term Candidates
 
@@ -146,15 +159,6 @@ Upstream references:
 
 - [right-rail/preview-pane.tsx](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/app/chat/right-rail/preview-pane.tsx)
 - [use-preview-routing.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/app/session/hooks/use-preview-routing.ts)
-
-### Hermes Remote File and Media Migration
-
-Replace BOX/Dufs-specific file serving with official Hermes Desktop
-remote-filesystem support. The contract is captured in
-[`hermes-remote-files.md`](hermes-remote-files.md): `@file:` is universal for
-Hermes-visible paths, `MEDIA:` handles explicit inline media, composer drops are
-staged through `image.attach_bytes` / `file.attach`, and raw paths stay plain
-text.
 
 ### Session Branch / Fork
 

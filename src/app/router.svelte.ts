@@ -1,4 +1,4 @@
-export type AppPage = 'main' | 'agent' | 'box'
+export type AppPage = 'main' | 'agent' | 'files'
 
 export interface AppRouterState {
   page: AppPage
@@ -25,8 +25,8 @@ function parseHash(hash: string): AppRouterState {
     return { page: 'main' }
   }
 
-  if (path === '/box') {
-    return { page: 'box' }
+  if (path === '/files') {
+    return { page: 'files' }
   }
 
   return { page: 'agent' }
@@ -41,6 +41,6 @@ export function agentRoute(sessionId?: null | string): string {
   return id ? `/cmd/${encodeURIComponent(id)}` : '/cmd'
 }
 
-export function boxRoute(): string {
-  return '/box'
+export function filesRoute(): string {
+  return '/files'
 }

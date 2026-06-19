@@ -19,7 +19,7 @@ describe('message media attachment helpers', () => {
     expect(attachmentKindFromMediaSource('data:image/png;base64,aW1hZ2U=')).toBe('image')
     expect(attachmentKindFromMediaSource('data:application/pdf;base64,JVBERi0=')).toBe('pdf')
     expect(attachmentKindFromMediaSource('https://cdn.example.test/diagram.WEBP?download=1')).toBe('image')
-    expect(attachmentKindFromMediaSource('/box/reports/summary.pdf')).toBe('pdf')
+    expect(attachmentKindFromMediaSource('/opt/data/reports/summary.pdf')).toBe('pdf')
     expect(attachmentKindFromMediaSource('/tmp/notes.txt')).toBeNull()
   })
 
@@ -74,7 +74,7 @@ describe('message media attachment helpers', () => {
     expect(cloned).not.toBe(original)
   })
 
-  it('extracts image and media directives while preserving /box media references for preview rendering', () => {
+  it('extracts @image directives but preserves MEDIA directives for inline remote rendering', () => {
     expect(extractImageDirectiveSources('before\n@image:`/tmp/a.png`\nafter')).toEqual({
       cleanedText: 'before\n\nafter',
       sources: ['/tmp/a.png']
@@ -82,11 +82,12 @@ describe('message media attachment helpers', () => {
 
     expect(
       extractMediaDirectiveSources(
-        'before\nMEDIA: "/tmp/report.pdf"\nMEDIA: /box/keep.png\nafter MEDIA:`https://cdn.example.test/b.png` done'
+        'before\nMEDIA: "/tmp/report.pdf"\nMEDIA: /opt/data/keep.png\nafter MEDIA:`https://cdn.example.test/b.png` done'
       )
     ).toEqual({
-      cleanedText: 'before\n\nMEDIA: /box/keep.png\nafter  done',
-      sources: ['/tmp/report.pdf', 'https://cdn.example.test/b.png']
+      cleanedText:
+        'before\nMEDIA: "/tmp/report.pdf"\nMEDIA: /opt/data/keep.png\nafter MEDIA:`https://cdn.example.test/b.png` done',
+      sources: []
     })
   })
 

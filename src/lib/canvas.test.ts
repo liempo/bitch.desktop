@@ -1,51 +1,38 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-const TEST_BOX_BASE_URL = 'https://box.example.test'
-
-async function loadCanvasHelpers(): Promise<typeof import('./canvas')> {
-  vi.resetModules()
-  vi.stubEnv('VITE_BOX_BASE_URL', TEST_BOX_BASE_URL)
-  return import('./canvas')
-}
+import { describe, expect, it } from 'vitest'
 
 describe('canvas helpers', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.resetModules()
-  })
+  it('extracts a remote canvas directive and strips it from visible text', async () => {
+    const { extractCanvasReferences } = await import('./canvas')
 
-  it('extracts a BOX canvas directive and strips it from visible text', async () => {
-    const { extractCanvasReferences } = await loadCanvasHelpers()
-
-    const result = extractCanvasReferences('Rendered artifact\nCANVAS:/box/render.html')
+    const result = extractCanvasReferences('Rendered artifact\nCANVAS:/tmp/render.html')
 
     expect(result.cleanedText).toBe('Rendered artifact')
     expect(result.canvases).toEqual([
       expect.objectContaining({
         label: 'render.html',
-        path: '/box/render.html',
-        source: '/box/render.html',
-        url: `${TEST_BOX_BASE_URL}/render.html`
+        path: '/tmp/render.html',
+        source: '/tmp/render.html',
+        url: null
       })
     ])
   })
 
-  it('supports file URLs rooted under /box with encoded spaces', async () => {
-    const { extractCanvasReferences } = await loadCanvasHelpers()
+  it('supports file URLs with encoded spaces', async () => {
+    const { extractCanvasReferences } = await import('./canvas')
 
-    const result = extractCanvasReferences('canvas:`file:///box/wiki/demo%20space/render.html`')
+    const result = extractCanvasReferences('canvas:`file:///opt/data/demo%20space/render.html`')
 
     expect(result.cleanedText).toBe('')
     expect(result.latestCanvas).toMatchObject({
       label: 'render.html',
-      path: '/box/wiki/demo space/render.html',
-      source: 'file:///box/wiki/demo%20space/render.html',
-      url: `${TEST_BOX_BASE_URL}/wiki/demo%20space/render.html`
+      path: '/opt/data/demo space/render.html',
+      source: 'file:///opt/data/demo%20space/render.html',
+      url: null
     })
   })
 
-  it('accepts remote HTTPS canvases without BOX rewriting', async () => {
-    const { canvasFromSource } = await loadCanvasHelpers()
+  it('accepts remote HTTPS canvases without filesystem rewriting', async () => {
+    const { canvasFromSource } = await import('./canvas')
 
     expect(canvasFromSource('https://example.test/render.html?rev=1')).toMatchObject({
       label: 'render.html',
@@ -54,30 +41,15 @@ describe('canvas helpers', () => {
     })
   })
 
-  it('keeps non-BOX local paths out of iframe URLs', async () => {
-    const { extractCanvasReferences } = await loadCanvasHelpers()
-
-    const result = extractCanvasReferences('CANVAS:/tmp/render.html')
-
-    expect(result.cleanedText).toBe('')
-    expect(result.latestCanvas).toMatchObject({
-      label: 'render.html',
-      path: '/tmp/render.html',
-      source: '/tmp/render.html',
-      url: null
-    })
-    expect(result.latestCanvas?.error).toContain('/box')
-  })
-
   it('uses the last canvas directive as the active canvas', async () => {
-    const { extractCanvasReferences } = await loadCanvasHelpers()
+    const { extractCanvasReferences } = await import('./canvas')
 
-    const result = extractCanvasReferences('CANVAS:/box/first.html\nCANVAS:/box/second.html')
+    const result = extractCanvasReferences('CANVAS:/tmp/first.html\nCANVAS:/opt/data/second.html')
 
     expect(result.canvases).toHaveLength(2)
     expect(result.latestCanvas).toMatchObject({
       label: 'second.html',
-      url: `${TEST_BOX_BASE_URL}/second.html`
+      path: '/opt/data/second.html'
     })
   })
 })

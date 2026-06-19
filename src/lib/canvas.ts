@@ -1,4 +1,4 @@
-import { boxUrlForAgentPath } from '$lib/box'
+import { filePathFromRemoteSource, isAbsoluteRemoteFilePath, remoteFileLabel } from '$lib/remote-files'
 
 export interface ThreadCanvas {
   error?: string
@@ -23,49 +23,7 @@ function unquoteCanvasRef(value: string): string {
   const tail = trimmed[trimmed.length - 1]
   const quoted = (head === '`' && tail === '`') || (head === '"' && tail === '"') || (head === "'" && tail === "'")
 
-  return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
-}
-
-function safeDecodeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-function sourcePath(source: string): string {
-  const trimmed = source.trim()
-
-  if (trimmed.startsWith('file://')) {
-    try {
-      return decodeURIComponent(new URL(trimmed).pathname)
-    } catch {
-      return trimmed.replace(/^file:\/\//, '')
-    }
-  }
-
-  if (/^https?:/i.test(trimmed)) {
-    try {
-      return new URL(trimmed).pathname
-    } catch {
-      return trimmed
-    }
-  }
-
-  return trimmed
-}
-
-function labelFromSource(source: string): string {
-  const path = sourcePath(source).split(/[?#]/, 1)[0] ?? ''
-  const label = path.split(/[\\/]/).filter(Boolean).pop()
-
-  return label ? safeDecodeURIComponent(label) : 'canvas.html'
-}
-
-function canvasPath(source: string): string | undefined {
-  if (/^https?:/i.test(source.trim())) return undefined
-  return sourcePath(source)
+  return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[),.;!?]+$/, '').trim()
 }
 
 function remoteCanvasUrl(source: string): string | null {
@@ -80,28 +38,28 @@ function remoteCanvasUrl(source: string): string | null {
   }
 }
 
+function canvasPath(source: string): string | undefined {
+  if (/^https?:/i.test(source.trim())) return undefined
+  const path = filePathFromRemoteSource(source)
+  return path || undefined
+}
+
 export function canvasFromSource(rawSource: string): ThreadCanvas | null {
   const source = unquoteCanvasRef(rawSource)
   if (!source) return null
 
   const path = canvasPath(source)
-  const boxUrl = boxUrlForAgentPath(source)
-  const remoteUrl = remoteCanvasUrl(source)
-  const url = boxUrl ?? remoteUrl
+  const url = remoteCanvasUrl(source)
   const canvas: ThreadCanvas = {
-    label: labelFromSource(source),
+    label: remoteFileLabel(source) || 'canvas.html',
     source,
     url
   }
 
-  if (path) {
-    canvas.path = path
-  }
+  if (path) canvas.path = path
 
-  if (!url) {
-    canvas.error = sourcePath(source).startsWith('/box')
-      ? 'VITE_BOX_BASE_URL is not configured. Declare it in .env to render this canvas.'
-      : 'Canvas sources must be HTTP(S) URLs or agent-visible /box paths served by BOX.'
+  if (!url && path && !isAbsoluteRemoteFilePath(path)) {
+    canvas.error = 'Canvas file previews require an absolute path visible to the remote Hermes environment.'
   }
 
   return canvas

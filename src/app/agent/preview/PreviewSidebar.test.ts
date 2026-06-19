@@ -4,14 +4,23 @@ import markdownSource from '../thread/Markdown.svelte?raw'
 import previewSidebarSource from './PreviewSidebar.svelte?raw'
 
 describe('PreviewSidebar source contract', () => {
-  it('renders canvas HTML and image previews in the same right sidebar', () => {
+  it('renders canvas, image, pdf, audio, video, html, and text previews in the same right sidebar', () => {
     expect(previewSidebarSource).toContain("preview.kind === 'canvas'")
     expect(previewSidebarSource).toContain('<iframe')
-    expect(previewSidebarSource).toContain('src={preview.url}')
+    expect(previewSidebarSource).toContain('src={activeUrl}')
     expect(previewSidebarSource).toContain('sandbox="allow-scripts allow-forms allow-popups allow-downloads"')
     expect(previewSidebarSource).toContain("preview.kind === 'image'")
-    expect(previewSidebarSource).toContain('<img')
-    expect(previewSidebarSource).toContain('alt={preview.label}')
+    expect(previewSidebarSource).toContain("preview.viewerKind === 'pdf'")
+    expect(previewSidebarSource).toContain("preview.viewerKind === 'audio'")
+    expect(previewSidebarSource).toContain("preview.viewerKind === 'video'")
+    expect(previewSidebarSource).toContain("preview.viewerKind === 'text'")
+  })
+
+  it('loads remote preview bytes through authenticated filesystem bridge helpers', () => {
+    expect(previewSidebarSource).toContain('readRemoteFileText')
+    expect(previewSidebarSource).toContain('readRemoteFileDataUrl')
+    expect(previewSidebarSource).not.toContain(['VITE', 'BOX', 'BASE_URL'].join('_'))
+    expect(previewSidebarSource).not.toContain(['BOX', 'file'].join(' '))
   })
 
   it('is wired as a conditional preview sidebar from the agent shell', () => {
@@ -19,19 +28,22 @@ describe('PreviewSidebar source contract', () => {
     expect(agentShellSource).not.toContain('CanvasSidebar')
     expect(agentShellSource).toContain('{#if activePreview}')
     expect(agentShellSource).toContain('preview={activePreview}')
+    expect(agentShellSource).toContain('profile={composerProfileName}')
     expect(agentShellSource).toContain('onOpenPreview={openPreview}')
   })
 
-  it('turns /box markdown hrefs into preview-opening links instead of immediate images', () => {
+  it('turns explicit remote-file markdown hrefs into preview-opening links', () => {
     expect(markdownSource).toContain('renderer.link')
     expect(markdownSource).toContain('data-preview-source')
     expect(markdownSource).toContain('handleMarkdownClick')
     expect(markdownSource).toContain('onOpenPreview?.(preview)')
-    expect(markdownSource).toContain('boxPreviewAnchor')
+    expect(markdownSource).toContain('previewAnchorForPath')
+    expect(markdownSource).toContain('readRemoteFileDataUrl')
+    expect(markdownSource).not.toContain('boxPreviewAnchor')
   })
 
-  it('does not hardcode the production BOX origin in the renderer', () => {
-    expect(previewSidebarSource).not.toContain('box.airplane-skilift.ts.net')
-    expect(markdownSource).not.toContain('box.airplane-skilift.ts.net')
+  it('does not hardcode a public file-server origin in the renderer', () => {
+    expect(previewSidebarSource).not.toContain('airplane-skilift')
+    expect(markdownSource).not.toContain('airplane-skilift')
   })
 })

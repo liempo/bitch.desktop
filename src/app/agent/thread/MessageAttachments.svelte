@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { boxUrlForAgentPath } from '$lib/box'
-  import { gatewayMediaDataUrl } from '$lib/media'
+  import { readRemoteFileDataUrl } from '$lib/remote-files'
   import type { ThreadAttachment } from '$lib/stores/messages.svelte'
 
   interface Props {
@@ -22,14 +21,15 @@
     if (attachment.previewUrl) return attachment.previewUrl
     if (attachment.dataUrl) return attachment.dataUrl
     if (attachment.url) return attachment.url
-    if (attachment.path) return boxUrlForAgentPath(attachment.path) ?? (resolvedSources[keyFor(attachment, profile)] ?? '')
+    if (attachment.path) return resolvedSources[keyFor(attachment, profile)] ?? ''
 
     return ''
   }
 
   function attachmentHref(attachment: ThreadAttachment): string {
+    if (attachment.dataUrl) return attachment.dataUrl
     if (attachment.url) return attachment.url
-    if (attachment.path) return boxUrlForAgentPath(attachment.path) ?? ''
+    if (attachment.path) return resolvedSources[keyFor(attachment, profile)] ?? ''
 
     return ''
   }
@@ -67,22 +67,21 @@
   }
 
   async function hydratePath(attachment: ThreadAttachment, activeProfile: null | string): Promise<void> {
-    if (!attachment.path || attachment.kind !== 'image') return
-    if (boxUrlForAgentPath(attachment.path)) return
+    if (!attachment.path || (attachment.kind !== 'image' && attachment.kind !== 'pdf')) return
 
     const key = keyFor(attachment, activeProfile)
     if (resolvedSources[key] || failedSources[key]) return
 
     try {
-      resolvedSources[key] = await gatewayMediaDataUrl(attachment.path, activeProfile)
+      resolvedSources[key] = await readRemoteFileDataUrl(attachment.path, activeProfile)
     } catch (error) {
-      failedSources[key] = error instanceof Error ? error.message : 'Could not load image preview'
+      failedSources[key] = error instanceof Error ? error.message : 'Could not load remote attachment preview'
     }
   }
 
   $effect(() => {
     for (const attachment of attachments) {
-      if (attachment.kind === 'image' && attachment.path && !attachment.previewUrl && !attachment.dataUrl && !attachment.url) {
+      if (attachment.path && !attachment.previewUrl && !attachment.dataUrl && !attachment.url) {
         void hydratePath(attachment, profile)
       }
     }
