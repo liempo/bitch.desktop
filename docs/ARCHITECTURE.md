@@ -1,4 +1,4 @@
-# Architecture Wiki — bitch.desktop
+# Architecture Docs — bitch.desktop
 
 Reference documentation for delivered features and future candidates. Each doc
 covers the design, store layout, UI components, integration points, and upstream

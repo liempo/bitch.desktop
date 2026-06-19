@@ -95,7 +95,7 @@ Updates go through `commitMessage`, which replaces the message object and
 reassigns `thread.messages` so Svelte 5 re-renders tool status changes. Tool
 parts in `Message.svelte` are keyed on `tool.id:tool.status`.
 
-## Store ([`src/lib/stores/messages.svelte.ts`](../../src/lib/stores/messages.svelte.ts))
+## Store ([`src/lib/stores/messages.svelte.ts`](../src/lib/stores/messages.svelte.ts))
 
 Per-session message map plus busy/needsInput flags. Exposes hydrate, the event
 handler, and helpers to append/complete/fail the current assistant message.
@@ -134,7 +134,7 @@ inline.
 
 ## Tests
 
-Coverage in [`messages.svelte.test.ts`](../../src/lib/stores/messages.svelte.test.ts):
+Coverage in [`messages.svelte.test.ts`](../src/lib/stores/messages.svelte.test.ts):
 
 - Live streaming builds ordered `parts` (`reasoning` → `tool` → `text`).
 - Rehydration merges stored tool messages into the preceding assistant.
