@@ -74,4 +74,49 @@ describe('remote preview targets', () => {
       viewerKind: 'html'
     })
   })
+
+  it('wraps http and https URLs as web preview targets without accepting other schemes', async () => {
+    const { previewFromUrl } = await import('./preview')
+
+    expect(previewFromUrl('https://example.com/docs/index.html?tab=api')).toMatchObject({
+      kind: 'url',
+      label: 'example.com/docs/index.html',
+      source: 'https://example.com/docs/index.html?tab=api',
+      url: 'https://example.com/docs/index.html?tab=api',
+      viewerKind: 'html'
+    })
+    expect(previewFromUrl('http://localhost:5173/')).toMatchObject({
+      kind: 'url',
+      label: 'localhost:5173',
+      source: 'http://localhost:5173/',
+      url: 'http://localhost:5173/',
+      viewerKind: 'html'
+    })
+    expect(previewFromUrl('file:///tmp/render.html')).toBeNull()
+    expect(previewFromUrl('javascript:alert(1)')).toBeNull()
+    expect(previewFromUrl('https://user:pass@example.com/secret')).toBeNull()
+  })
+
+  it('wraps selected tool outputs as text preview targets', async () => {
+    const { previewFromToolOutput } = await import('./preview')
+
+    expect(
+      previewFromToolOutput({
+        context: 'https://example.com/api',
+        id: 'tool-42',
+        input: '{"url":"https://example.com/api"}',
+        name: 'web_extract',
+        output: '# Example\nFetched content',
+        status: 'complete',
+        summary: 'Read web page'
+      })
+    ).toMatchObject({
+      content: expect.stringContaining('# Example\nFetched content'),
+      kind: 'tool-output',
+      label: 'web_extract output',
+      source: 'tool-output:tool-42',
+      url: null,
+      viewerKind: 'text'
+    })
+  })
 })

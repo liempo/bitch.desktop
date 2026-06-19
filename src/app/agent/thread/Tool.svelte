@@ -3,13 +3,15 @@
   import Loader from '@/components/ui/Loader.svelte'
   import TerminalBlock from '@/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/components/ui/styles'
+  import { previewFromToolOutput, type ThreadPreview } from '$lib/preview'
   import type { ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
 
   interface Props {
+    onOpenPreview?: (preview: ThreadPreview) => void
     tool: ThreadTool
   }
 
-  let { tool }: Props = $props()
+  let { onOpenPreview, tool }: Props = $props()
 
   let expanded = $state(false)
   let elapsed = $state(0)
@@ -18,6 +20,7 @@
   const running = $derived(tool.status === 'running')
   const hasError = $derived(Boolean(tool.error))
   const hasDetail = $derived(Boolean(tool.input || tool.output || tool.error))
+  const canPreviewDetail = $derived(Boolean(onOpenPreview && hasDetail))
   const contextPreview = $derived(previewText(tool.context))
   const statusLabel = $derived(toolStatusLabel(tool.name, tool.status, hasError, Boolean(contextPreview)))
   const fallbackSummary = $derived(!contextPreview && tool.summary && !hasDetail ? tool.summary : '')
@@ -49,6 +52,12 @@
 
   function toggle(): void {
     if (hasDetail) expanded = !expanded
+  }
+
+  function openToolPreview(event: MouseEvent): void {
+    event.stopPropagation()
+    const preview = previewFromToolOutput(tool)
+    if (preview) onOpenPreview?.(preview)
   }
 
   function previewText(value: string | undefined): string {
@@ -176,6 +185,17 @@
 
   {#if expanded && hasDetail}
     <div class="space-y-2 border-t border-line/50 px-3 py-2">
+      {#if canPreviewDetail}
+        <button
+          type="button"
+          class="rounded-control border border-line px-2 py-1 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary hover:border-primary/60 hover:bg-primary/10 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus"
+          data-tool-output-preview
+          onclick={openToolPreview}
+        >
+          Open output preview
+        </button>
+      {/if}
+
       {#if tool.summary}
         <p class="whitespace-pre-wrap wrap-break-word leading-5 text-ink-muted">{tool.summary}</p>
       {/if}

@@ -3,7 +3,7 @@
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
   import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/media'
-  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/preview'
+  import { previewFromRemoteFilePath, previewFromUrl, type ThreadPreview } from '$lib/preview'
   import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/remote-files'
   import './markdown.css'
 
@@ -99,6 +99,16 @@
     return `<a href="${escapeHtml(href)}" data-preview-source="${escapeHtml(path)}" data-preview-kind="${kind}"${titleAttr}>${escapeHtml(text)}</a>`
   }
 
+  function previewAnchorForUrl(href: string, label: string, title?: string | null): string | null {
+    const preview = previewFromUrl(href, profile)
+    if (!preview?.url) return null
+
+    const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
+    const text = label || preview.label
+
+    return `<a href="${escapeHtml(preview.url)}" data-preview-source="${escapeHtml(preview.source)}" data-preview-kind="url" target="_blank" rel="noreferrer"${titleAttr}>${escapeHtml(text)}</a>`
+  }
+
   function mediaOverlayAnchorForPath(
     path: string,
     href: string,
@@ -147,6 +157,9 @@
       const remoteElement = remoteMediaElement(href, token.text || href, token.title)
       if (remoteElement) return remoteElement
 
+      const urlPreviewElement = previewAnchorForUrl(href, token.text || href, token.title)
+      if (urlPreviewElement) return urlPreviewElement
+
       const title = token.title ? ` title="${escapeHtml(token.title)}"` : ''
       return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer"${title}>${escapeHtml(token.text || href)}</a>`
     }
@@ -192,6 +205,7 @@
         'loading',
         'playsinline',
         'preload',
+        'rel',
         'target',
         'data-media-kind',
         'data-media-overlay-kind',
@@ -208,13 +222,23 @@
     })
   }
 
+  function shouldOpenPreviewFromClick(event: MouseEvent): boolean {
+    return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+  }
+
   function handleMarkdownClick(event: MouseEvent): void {
     if (handleMediaOverlayClick(event)) return
+    if (!shouldOpenPreviewFromClick(event)) return
     if (!onOpenPreview) return
 
     const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[data-preview-source]') : null
     const source = link?.dataset.previewSource
-    const preview = source ? previewFromRemoteFilePath(source, link?.href ?? source, profile) : null
+    const previewKind = link?.dataset.previewKind
+    const preview = source
+      ? previewKind === 'url'
+        ? previewFromUrl(source, profile)
+        : previewFromRemoteFilePath(source, link?.href ?? source, profile)
+      : null
 
     if (!preview) return
 

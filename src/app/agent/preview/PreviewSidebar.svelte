@@ -19,12 +19,14 @@
   let loadError = $state('')
   let loadSequence = 0
 
+  const urlPreviewSandbox = 'allow-scripts'
+
   const detail = $derived(preview.path ?? preview.url ?? preview.error ?? preview.source)
   const previewStyle = $derived(panelWidthStyle('--agent-preview-width', width))
-  const title = $derived(preview.kind === 'canvas' ? 'Canvas' : 'Preview')
+  const title = $derived(preview.kind === 'canvas' ? 'Canvas' : preview.kind === 'url' ? 'Web Preview' : preview.kind === 'tool-output' ? 'Tool Output' : 'Preview')
   const activeUrl = $derived(preview.url ?? remoteUrl)
   const activeViewerKind = $derived(viewerKindForPreview(preview))
-  const openLabel = $derived(preview.kind === 'canvas' ? 'Open canvas' : 'Open file')
+  const openLabel = $derived(preview.kind === 'canvas' ? 'Open canvas' : preview.kind === 'url' ? 'Open URL' : 'Open file')
   const visibleError = $derived(preview.error ?? loadError)
 
   $effect(() => {
@@ -42,6 +44,8 @@
 
   function viewerKindForPreview(activePreview: ThreadPreview): RemoteFileViewerKind {
     if (activePreview.viewerKind && activePreview.viewerKind !== 'download') return activePreview.viewerKind
+    if (activePreview.kind === 'url') return 'html'
+    if (activePreview.kind === 'tool-output') return 'text'
     if (activePreview.path) return viewerKindForRemoteFile(activePreview.path)
     return activePreview.kind === 'image' ? 'image' : 'text'
   }
@@ -50,7 +54,13 @@
     const sequence = (loadSequence += 1)
     resetLoadedState()
 
-    if (activePreview.error || !activePreview.path) return
+    if (activePreview.error) return
+    if (activePreview.kind === 'tool-output') {
+      textPreview = activePreview.content ?? ''
+      return
+    }
+    if (activePreview.kind === 'url') return
+    if (!activePreview.path) return
     if (activePreview.kind === 'canvas' && activePreview.url) return
 
     const viewerKind = viewerKindForPreview(activePreview)
@@ -136,6 +146,14 @@
         sandbox="allow-scripts allow-forms allow-popups allow-downloads"
         referrerpolicy="no-referrer"
       ></iframe>
+    {:else if preview.kind === 'url' && activeUrl}
+      <iframe
+        class="min-h-0 flex-1 rounded-control border border-line bg-white"
+        src={activeUrl}
+        title={preview.label}
+        sandbox={urlPreviewSandbox}
+        referrerpolicy="no-referrer"
+      ></iframe>
     {:else if activeViewerKind === 'image' && activeUrl}
       <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-control border border-line bg-black/20 p-3">
         <img src={activeUrl} alt={preview.label} class="max-h-full max-w-full object-contain" />
@@ -160,6 +178,8 @@
         sandbox="allow-scripts allow-forms allow-popups allow-downloads"
         referrerpolicy="no-referrer"
       ></iframe>
+    {:else if preview.kind === 'tool-output'}
+      <pre class="min-h-0 flex-1 overflow-auto rounded-control border border-line bg-canvas/60 p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
     {:else if activeViewerKind === 'text'}
       <pre class="min-h-0 flex-1 overflow-auto rounded-control border border-line bg-canvas/60 p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
     {:else}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import agentShellSource from '../AgentShell.svelte?raw'
 import markdownSource from '../thread/Markdown.svelte?raw'
+import messageSource from '../thread/Message.svelte?raw'
+import toolSource from '../thread/Tool.svelte?raw'
 import previewSidebarSource from './PreviewSidebar.svelte?raw'
 
 describe('PreviewSidebar source contract', () => {
@@ -51,6 +53,25 @@ describe('PreviewSidebar source contract', () => {
     expect(markdownSource).toContain('previewAnchorForPath')
     expect(markdownSource).toContain('readRemoteFileDataUrl')
     expect(markdownSource).not.toContain('boxPreviewAnchor')
+  })
+
+  it('routes http links into the existing preview sidebar instead of a second rail', () => {
+    expect(markdownSource).toContain('previewFromUrl')
+    expect(markdownSource).toContain('data-preview-kind="url"')
+    expect(markdownSource).toContain('shouldOpenPreviewFromClick')
+    expect(markdownSource).toContain('target="_blank" rel="noreferrer"')
+    expect(previewSidebarSource).toContain("preview.kind === 'url'")
+    expect(previewSidebarSource).toContain("const urlPreviewSandbox = 'allow-scripts'")
+    expect(previewSidebarSource).toContain('sandbox={urlPreviewSandbox}')
+    expect(previewSidebarSource).not.toContain('<webview')
+  })
+
+  it('lets selected tool outputs open in the same preview sidebar', () => {
+    expect(toolSource).toContain('previewFromToolOutput')
+    expect(toolSource).toContain('data-tool-output-preview')
+    expect(toolSource).toContain('onOpenPreview?.(preview)')
+    expect(messageSource).toContain('<Tool tool={part.tool} {onOpenPreview} />')
+    expect(previewSidebarSource).toContain("preview.kind === 'tool-output'")
   })
 
   it('opens inline MEDIA image, video, and PDF previews through one overlay contract', () => {
