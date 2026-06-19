@@ -1231,10 +1231,11 @@ export async function submitPrompt(
   composer.submitting = true
   composer.error = null
 
+  const displayText = compactWhitespace(visibleText) || fallbackPromptForAttachments(attachments)
   let targetSessionId = liveSessionKey(sessionId)
 
   if (!targetSessionId) {
-    targetSessionId = await createSession()
+    targetSessionId = await createSession(displayText)
   }
 
   if (!targetSessionId) {
@@ -1243,7 +1244,6 @@ export async function submitPrompt(
     return false
   }
 
-  const displayText = compactWhitespace(visibleText) || fallbackPromptForAttachments(attachments)
   const targetProfile = targetProfileForSession(sessionId)
 
   appendUserMessage(targetSessionId, displayText, attachments)

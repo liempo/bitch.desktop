@@ -92,9 +92,17 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
     const response = await resumeSession(sessionId, requestId)
 
     if (!response || !isCurrentResumeRequest(sessionId, requestId)) {
+      if (!response && isCurrentResumeRequest(sessionId, requestId) && !hasStoredSnapshot) {
+        sessionState.resumeFailedSessionId = sessionId
+      }
       releaseStaleThreadLoading(sessionId, requestId)
       return false
     }
+
+    sessionState.resumeFailedSessionId =
+      sessionState.resumeFailedSessionId === sessionId ? null : sessionState.resumeFailedSessionId
+    sessionState.resumeExhaustedSessionId =
+      sessionState.resumeExhaustedSessionId === sessionId ? null : sessionState.resumeExhaustedSessionId
 
     syncRunningFromResume(sessionId, response.info)
 

@@ -7,6 +7,7 @@ import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
 import { extractCanvasReferences, type ThreadCanvas } from '$lib/canvas'
 import {
   loadSessions,
+  noteSessionActivity,
   sessionState,
   setSessionNeedsInput,
   setSessionWorking,
@@ -985,6 +986,8 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   if (!sessionId) {
     return
   }
+
+  noteSessionActivity(sessionId)
 
   if (event.type === 'message.start') {
     beginAssistantMessage(sessionId)
