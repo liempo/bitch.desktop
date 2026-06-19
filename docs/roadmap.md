@@ -113,16 +113,6 @@ future Kanban scans.
     - use gateway `session.create` seed-message behavior and the existing
       `/branch` slash-command semantics
 
-- [ ] **Upstream Transport and Type Sync Cadence**
-  - Description: Keep the copied Hermes JSON-RPC transport and any mirrored
-    TypeScript types current with upstream through an explicit sync workflow.
-  - Scope:
-    - schedule or document `npm run sync:transport` cadence
-    - add drift detection for `json-rpc-gateway.ts`
-    - add a companion type-sync path if more upstream desktop/shared types are
-      mirrored locally
-    - inspect diffs after every sync and adapt local Tauri bridge code manually
-
 ### Medium-term
 
 - [ ] **Admin Utilities: Settings, Skills, Messaging**

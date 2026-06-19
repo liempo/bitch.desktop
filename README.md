@@ -11,7 +11,7 @@ This repo is remote-only: it does not bootstrap or run a local Hermes server. Th
 - TypeScript + Vite
 - Tailwind CSS for renderer styling
 - Rust gateway bridge for status probing, WebSocket ticket minting, auth headers, and native WebSocket proxying
-- Hermes JSON-RPC gateway transport synced from upstream and normalized with this repo's formatter
+- Hermes JSON-RPC gateway transport copied from upstream and normalized with this repo's formatter
 
 ## Configuration
 
@@ -47,6 +47,3 @@ macOS still needs Xcode Command Line Tools.
 - `npm run frontend:build` — build the Vite renderer only.
 - `npm run type-check` — run `svelte-check`.
 - `npm run lint` — lint renderer source.
-- `npm run sync:transport` — refresh `src/lib/gateway/json-rpc-gateway.ts` from upstream Hermes, then normalize it with the repo formatter.
-
-After syncing the upstream transport, inspect the diff and manually adapt the local Tauri bridge/UI if the transport API changed.

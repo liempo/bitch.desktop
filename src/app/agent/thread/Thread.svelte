@@ -3,8 +3,8 @@
   import Approval from '../prompts/Approval.svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
   import Button from '@/components/ui/Button.svelte'
-  import Glyph from '@/components/ui/Glyph.svelte'
   import Loader from '@/components/ui/Loader.svelte'
+  import bitchLogoUrl from '$lib/assets/bitch-logo.png'
   import Panel from '@/components/ui/Panel.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
@@ -98,7 +98,7 @@
 >
   {#if !sessionId}
     <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <Glyph />
+      <img class="h-28 w-28 rounded-panel bg-black object-contain opacity-90" src={bitchLogoUrl} alt="BITCH logo" />
     </div>
   {:else if loadingSession}
     <div class="flex min-h-full items-center justify-center px-6 py-16">

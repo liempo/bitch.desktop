@@ -25,27 +25,16 @@ Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BI
 
 ## Current upstream copy
 
-The only file currently synced from the official Hermes repo is:
+The only file currently copied from the official Hermes repo is:
 
 - `src/lib/gateway/json-rpc-gateway.ts` ← copied from `NousResearch/hermes-agent`:
   `apps/shared/src/json-rpc-gateway.ts`
 
-The sync command normalizes that file with this repo's Prettier config, so raw bytes may differ from upstream while the formatted source should have zero semantic diff. Knip suppresses unused-export findings for this vendored file so upstream's public type surface is not stripped locally.
+The local copy is formatted with this repo's Prettier config, so raw bytes may differ from upstream while the formatted source should have zero semantic diff. Knip suppresses unused-export findings for this vendored file so upstream's public type surface is not stripped locally.
 
 Everything else in this repo is local glue or Tauri-specific wiring unless the file header says otherwise.
 
-If you later decide to sync more upstream code, add it here explicitly and keep the list current.
-
-## Sync command
-
-Use this command to refresh the copied transport layer from upstream:
-
-```bash
-npm run sync:transport
-```
-
-That command does a simple file copy only. It does **not** migrate local edits automatically.
-After syncing, inspect the diff and manually migrate any API or behavior changes into the local Tauri bridge and UI.
+If you later decide to copy more upstream code, add it here explicitly and keep the list current.
 
 ## Validation expectations
 
@@ -119,6 +108,5 @@ macOS still needs Xcode Command Line Tools.
 - UI-facing branding must say `BITCH` only; do not show legacy desktop-qualified names in the interface.
 - Use Bits UI for Svelte renderer UI primitives and components whenever you add or refactor interface elements.
 - Use Tailwind utility classes and layers for renderer styling; avoid bespoke CSS rules unless you need a global base reset or a shared theme token.
-- Preserve the upstream transport file first when syncing; adapt the local wrapper afterward.
 - Keep `npm audit` and `cargo audit` at zero vulnerabilities; dependency changes are incomplete until both pass.
 - Add tests that improve stability; skip only when automation cannot meaningfully exercise the change.

@@ -7,8 +7,11 @@
     <link rel="preload" as="image" href="/src/lib/assets/bitch-logo.png" />
     <style>
       :root {
+        --bits-canvas: #000000;
+        --bits-primary: #8be9fd;
+        --bits-warning: #ff79c6;
         color-scheme: dark;
-        background: #000;
+        background: var(--bits-canvas);
       }
 
       html,
@@ -21,7 +24,7 @@
       body {
         margin: 0;
         overflow: hidden;
-        background: #000;
+        background: var(--bits-canvas);
       }
 
       #bitch-splash {
@@ -31,7 +34,7 @@
         display: grid;
         place-items: center;
         overflow: hidden;
-        background: #000;
+        background: var(--bits-canvas);
         opacity: 1;
         visibility: visible;
         transition:
@@ -45,31 +48,32 @@
         aspect-ratio: 1;
       }
 
-      .bitch-splash-logo {
+      .bitch-splash-logo-glitch {
         position: absolute;
         inset: 0;
+        display: block;
         width: 100%;
         height: 100%;
-        border-radius: 1rem;
-        animation: bitch-splash-jitter 2.4s steps(1, end) infinite;
-      }
-
-      .bitch-splash-logo--cyan,
-      .bitch-splash-logo--magenta {
-        opacity: 0;
+        background-image: url('/src/lib/assets/bitch-logo.png');
+        background-position: center;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-blend-mode: multiply;
         mix-blend-mode: screen;
       }
 
-      .bitch-splash-logo--cyan {
-        filter: brightness(0) saturate(100%) invert(85%) sepia(52%) saturate(970%) hue-rotate(162deg) brightness(105%)
-          contrast(99%);
-        animation: bitch-splash-glitch-cyan 2.4s steps(1, end) infinite;
+      .bitch-splash-logo--primary {
+        background-color: var(--bits-primary);
+        opacity: 1;
+        transform: translate(-2px, 0);
+        animation: bitch-splash-glitch-primary 1.4s steps(1, end) infinite;
       }
 
-      .bitch-splash-logo--magenta {
-        filter: brightness(0) saturate(100%) invert(56%) sepia(95%) saturate(1292%) hue-rotate(287deg) brightness(104%)
-          contrast(101%);
-        animation: bitch-splash-glitch-magenta 2.4s steps(1, end) infinite;
+      .bitch-splash-logo--warning {
+        background-color: var(--bits-warning);
+        opacity: 0.42;
+        transform: translate(2px, 0);
+        animation: bitch-splash-glitch-warning 1.4s steps(1, end) infinite;
       }
 
       .bitch-app-ready #bitch-splash {
@@ -78,78 +82,67 @@
         visibility: hidden;
       }
 
-      @keyframes bitch-splash-jitter {
+      @keyframes bitch-splash-glitch-primary {
         0%,
-        82%,
+        12%,
         100% {
-          transform: translate(0, 0);
+          opacity: 1;
+          transform: translate(-2px, 0);
         }
-        84% {
+        4%,
+        32% {
+          opacity: 0.92;
+          transform: translate(3px, -1px);
+        }
+        8%,
+        58% {
+          opacity: 1;
           transform: translate(-1px, 1px);
         }
-        86% {
+        78% {
+          opacity: 0.96;
+          transform: translate(2px, 0);
+        }
+      }
+
+      @keyframes bitch-splash-glitch-warning {
+        0%,
+        12%,
+        100% {
+          opacity: 0.42;
+          transform: translate(2px, 0);
+        }
+        4%,
+        32% {
+          opacity: 0.55;
+          transform: translate(-3px, 1px);
+        }
+        8%,
+        58% {
+          opacity: 0.28;
           transform: translate(1px, -1px);
         }
-        88% {
-          transform: translate(0, 0);
-        }
-      }
-
-      @keyframes bitch-splash-glitch-cyan {
-        0%,
-        80%,
-        100% {
-          clip-path: inset(0 0 0 0);
-          opacity: 0;
-          transform: translate(0, 0);
-        }
-        82% {
-          clip-path: inset(12% 0 62% 0);
-          opacity: 0.55;
-          transform: translate(-5px, -1px);
-        }
-        84% {
-          clip-path: inset(48% 0 29% 0);
+        78% {
           opacity: 0.5;
-          transform: translate(4px, 1px);
-        }
-        86% {
-          clip-path: inset(72% 0 11% 0);
-          opacity: 0.4;
-          transform: translate(-3px, 0);
-        }
-      }
-
-      @keyframes bitch-splash-glitch-magenta {
-        0%,
-        78%,
-        100% {
-          clip-path: inset(0 0 0 0);
-          opacity: 0;
-          transform: translate(0, 0);
-        }
-        81% {
-          clip-path: inset(64% 0 18% 0);
-          opacity: 0.42;
-          transform: translate(5px, 1px);
-        }
-        85% {
-          clip-path: inset(24% 0 52% 0);
-          opacity: 0.5;
-          transform: translate(-4px, -1px);
-        }
-        87% {
-          clip-path: inset(42% 0 41% 0);
-          opacity: 0.35;
-          transform: translate(3px, 0);
+          transform: translate(-2px, 0);
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
         #bitch-splash,
-        .bitch-splash-logo {
+        .bitch-splash-logo-glitch {
           animation: none;
           transition: none;
+        }
+
+        .bitch-splash-logo--primary {
+          opacity: 1;
+          transform: translate(0, 0);
+        }
+
+        .bitch-splash-logo--warning {
+          opacity: 0;
+          transform: translate(0, 0);
         }
       }
     </style>
@@ -157,9 +150,8 @@
   <body>
     <div id="bitch-splash" role="status" aria-label="Loading BITCH">
       <div class="bitch-splash-logo-stack" aria-hidden="true">
-        <img class="bitch-splash-logo" src="/src/lib/assets/bitch-logo.png" alt="" />
-        <img class="bitch-splash-logo bitch-splash-logo--cyan" src="/src/lib/assets/bitch-logo.png" alt="" />
-        <img class="bitch-splash-logo bitch-splash-logo--magenta" src="/src/lib/assets/bitch-logo.png" alt="" />
+        <span class="bitch-splash-logo-glitch bitch-splash-logo--primary"></span>
+        <span class="bitch-splash-logo-glitch bitch-splash-logo--warning"></span>
       </div>
     </div>
     <div id="app"></div>
