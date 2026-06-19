@@ -19,14 +19,10 @@ describe('remote file presentation', () => {
     expect(filePresentation('clip.webm')).toMatchObject({ accent: 'video', glyph: 'VID', viewerKind: 'video' })
     expect(filePresentation('voice.mp3')).toMatchObject({ accent: 'audio', glyph: 'AUD', viewerKind: 'audio' })
     expect(filePresentation('render.html')).toMatchObject({ accent: 'html', glyph: 'HTML', viewerKind: 'html' })
-    expect(filePresentation('archive.zip')).toMatchObject({
-      accent: 'archive',
-      glyph: 'ZIP',
-      viewerKind: 'download'
-    })
+    expect(filePresentation('archive.zip')).toMatchObject({ accent: 'text', glyph: 'ZIP', viewerKind: 'text' })
   })
 
-  it('marks only safe text-like files for fetched inline text previews', () => {
+  it('marks text-like and opaque files for fetched inline text previews', () => {
     expect(isTextPreviewFile('README.md')).toBe(true)
     expect(isTextPreviewFile('config.json')).toBe(true)
     expect(isTextPreviewFile('Makefile')).toBe(true)
@@ -36,8 +32,14 @@ describe('remote file presentation', () => {
       title: 'Text',
       viewerKind: 'text'
     })
+    expect(filePresentation('archive.zip')).toMatchObject({
+      accent: 'text',
+      glyph: 'ZIP',
+      title: 'Text',
+      viewerKind: 'text'
+    })
     expect(isTextPreviewFile('photo.png')).toBe(false)
-    expect(viewerKindForFile('blob.bin')).toBe('download')
+    expect(viewerKindForFile('blob.bin')).toBe('text')
   })
 })
 
@@ -62,5 +64,10 @@ describe('remote files page source contract', () => {
   it('includes a first-class file viewer panel', () => {
     expect(filesPageSource).toContain('File Viewer')
     expect(filesPageSource).toContain('selectFile')
+  })
+
+  it('shows text returned for unknown files without blocking on the binary hint', () => {
+    expect(filesPageSource).toContain('textPreview = response.text')
+    expect(filesPageSource).not.toContain('Remote file is binary; text preview is unavailable.')
   })
 })

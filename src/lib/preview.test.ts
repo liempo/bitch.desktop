@@ -30,6 +30,12 @@ describe('remote preview targets', () => {
       path: '/opt/data/build/WORKSPACE.bazel',
       viewerKind: 'text'
     })
+    expect(previewFromFileRef('@file:/tmp/blob.bin')).toMatchObject({
+      kind: 'file',
+      label: 'blob.bin',
+      path: '/tmp/blob.bin',
+      viewerKind: 'text'
+    })
   })
 
   it('does not infer preview targets from raw absolute paths', async () => {
