@@ -156,7 +156,11 @@ interface ModelCapabilities {
 }
 
 export interface ModelOptionProvider {
+  authenticated?: boolean
+  auth_type?: string
+  key_env?: string
   is_current?: boolean
+  is_user_defined?: boolean
   models?: string[]
   name: string
   slug: string
@@ -192,4 +196,118 @@ export interface ProfileInfo {
 
 export interface ProfilesResponse {
   profiles: ProfileInfo[]
+}
+
+export interface ConfigRawResponse {
+  path: string
+  yaml: string
+}
+
+export interface ConfigFieldSchema {
+  category?: string
+  description?: string
+  options?: unknown[]
+  type?: 'boolean' | 'list' | 'number' | 'select' | 'string' | 'text'
+}
+
+export interface ConfigSchemaResponse {
+  category_order?: string[]
+  fields: Record<string, ConfigFieldSchema>
+}
+
+export interface SkillInfo {
+  category?: string
+  description?: string
+  enabled: boolean
+  name: string
+}
+
+export interface SkillContentResponse {
+  content: string
+  name: string
+  path: string
+}
+
+export interface ToolsetInfo {
+  available?: boolean
+  configured?: boolean
+  description?: string
+  enabled: boolean
+  label?: string
+  name: string
+  tools?: string[]
+}
+
+export interface MessagingEnvVarInfo {
+  advanced?: boolean
+  description?: string
+  is_password?: boolean
+  is_set?: boolean
+  key: string
+  prompt?: string
+  redacted_value?: null | string
+  required?: boolean
+  url?: null | string
+}
+
+interface MessagingHomeChannel {
+  chat_id: string
+  name: string
+  platform: string
+  thread_id?: string
+}
+
+export interface MessagingPlatformInfo {
+  configured: boolean
+  description?: string
+  docs_url?: string
+  enabled: boolean
+  env_vars?: MessagingEnvVarInfo[]
+  error_code?: null | string
+  error_message?: null | string
+  gateway_running?: boolean
+  home_channel?: MessagingHomeChannel | null
+  id: string
+  name: string
+  state?: null | string
+  updated_at?: null | string
+}
+
+export interface MessagingPlatformsResponse {
+  env_path?: string
+  gateway_start_command?: string
+  platforms: MessagingPlatformInfo[]
+}
+
+export interface MessagingPlatformUpdate {
+  clear_env?: string[]
+  enabled?: boolean
+  env?: Record<string, string>
+}
+
+export interface MessagingPlatformTestResponse {
+  message: string
+  ok: boolean
+  state?: null | string
+}
+
+export interface ModelAssignmentRequest {
+  api_key?: string
+  base_url?: string
+  model: string
+  provider: string
+  scope: 'auxiliary' | 'main'
+  task?: string
+}
+
+export interface ModelAssignmentResponse {
+  base_url?: string
+  gateway_tools?: string[]
+  model?: string
+  ok: boolean
+  provider?: string
+  reset?: boolean
+  scope?: string
+  stale_aux?: Array<{ model: string; provider: string; task: string }>
+  task?: string
 }

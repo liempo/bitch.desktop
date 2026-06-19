@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdminPage from './admin/AdminPage.svelte'
   import AgentShell from './agent/AgentShell.svelte'
   import AssetsPage from './assets/AssetsPage.svelte'
   import CalendarPage from './calendar/CalendarPage.svelte'
@@ -24,6 +25,8 @@
         <CronPage />
       {:else if appRouterState.page === 'kanban'}
         <KanbanPage />
+      {:else if appRouterState.page === 'admin'}
+        <AdminPage />
       {:else}
         <MainPage />
       {/if}
