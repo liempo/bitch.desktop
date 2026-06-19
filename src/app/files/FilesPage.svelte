@@ -36,6 +36,9 @@
   const selectedError = $derived(errorsByPath[selectedPath] ?? '')
   const selectedLoading = $derived(loadingPaths[selectedPath] === true)
   const selectedFilePresentation = $derived(selectedFile ? filePresentation(selectedFile.name) : null)
+  const selectedViewerKind = $derived(
+    selectedFilePresentation?.viewerKind === 'download' ? 'text' : selectedFilePresentation?.viewerKind
+  )
   const treeRows = $derived.by(() => buildTreeRows())
 
   onMount(() => {
@@ -151,9 +154,9 @@
     dataPreviewLoading = false
 
     const viewerKind = filePresentation(entry.name).viewerKind
-    if (viewerKind === 'text') {
+    if (viewerKind === 'text' || viewerKind === 'download') {
       void loadTextPreview(entry)
-    } else if (viewerKind !== 'download') {
+    } else {
       void loadDataPreview(entry)
     }
   }
@@ -308,7 +311,7 @@
     {:else}
       <div class="mb-3 flex min-h-0 items-start gap-3 border-b border-line pb-3">
         <span class={thumbnailClass(selectedFilePresentation.accent)} style="width: 5rem; min-width: 5rem; height: 4rem">
-          {#if selectedFilePresentation.viewerKind === 'image' && dataPreviewUrl}
+          {#if selectedViewerKind === 'image' && dataPreviewUrl}
             <img src={dataPreviewUrl} alt="" class="h-full w-full object-cover" />
           {:else}
             <span>{selectedFilePresentation.glyph}</span>
@@ -332,25 +335,25 @@
           <div class="m-3 rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">
             File preview unavailable: {dataPreviewError}
           </div>
-        {:else if selectedFilePresentation.viewerKind === 'image' && dataPreviewUrl}
+        {:else if selectedViewerKind === 'image' && dataPreviewUrl}
           <div class="flex h-full items-center justify-center overflow-auto bg-black/20 p-2">
             <img src={dataPreviewUrl} alt={selectedFile.name} class="max-h-full max-w-full rounded-control object-contain" />
           </div>
-        {:else if selectedFilePresentation.viewerKind === 'pdf' && dataPreviewUrl}
+        {:else if selectedViewerKind === 'pdf' && dataPreviewUrl}
           <iframe title={selectedFile.name} src={dataPreviewUrl} class="h-full w-full bg-white"></iframe>
-        {:else if selectedFilePresentation.viewerKind === 'video' && dataPreviewUrl}
+        {:else if selectedViewerKind === 'video' && dataPreviewUrl}
           <div class="flex h-full items-center justify-center bg-black/30 p-2">
             <!-- svelte-ignore a11y_media_has_caption -->
             <video controls src={dataPreviewUrl} class="max-h-full max-w-full rounded-control"></video>
           </div>
-        {:else if selectedFilePresentation.viewerKind === 'audio' && dataPreviewUrl}
+        {:else if selectedViewerKind === 'audio' && dataPreviewUrl}
           <div class="flex h-full flex-col items-center justify-center gap-4 p-6 text-center text-sm text-ink-muted">
             <span class="font-hud text-4xl text-success">AUD</span>
             <audio controls src={dataPreviewUrl} class="w-full"></audio>
           </div>
-        {:else if selectedFilePresentation.viewerKind === 'html' && dataPreviewUrl}
+        {:else if selectedViewerKind === 'html' && dataPreviewUrl}
           <iframe title={selectedFile.name} src={dataPreviewUrl} class="h-full w-full bg-white"></iframe>
-        {:else if selectedFilePresentation.viewerKind === 'text'}
+        {:else if selectedViewerKind === 'text'}
           {#if textPreviewLoading}
             <div class="flex h-full items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
               Loading text preview…
@@ -363,10 +366,7 @@
             <pre class="h-full overflow-auto p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
           {/if}
         {:else}
-          <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm leading-6 text-ink-muted">
-            <span class="font-hud text-4xl text-warning">{selectedFilePresentation.glyph}</span>
-            <p>No inline viewer for this file type through the remote filesystem bridge yet.</p>
-          </div>
+          <pre class="h-full overflow-auto p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
         {/if}
       </div>
     {/if}

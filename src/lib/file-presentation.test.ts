@@ -70,4 +70,9 @@ describe('remote files page source contract', () => {
     expect(filesPageSource).toContain('textPreview = response.text')
     expect(filesPageSource).not.toContain('Remote file is binary; text preview is unavailable.')
   })
+
+  it('does not retain the obsolete no-inline-viewer fallback for remote files', () => {
+    expect(filesPageSource).toContain("viewerKind === 'text' || viewerKind === 'download'")
+    expect(filesPageSource).not.toContain('No inline viewer for this file type')
+  })
 })
