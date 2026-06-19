@@ -53,6 +53,15 @@ describe('PreviewSidebar source contract', () => {
     expect(markdownSource).not.toContain('boxPreviewAnchor')
   })
 
+  it('opens inline MEDIA image, video, and PDF previews through one overlay contract', () => {
+    expect(markdownSource).toContain('activeMediaOverlay')
+    expect(markdownSource).toContain('data-media-overlay-source')
+    expect(markdownSource).toContain('handleMediaOverlayClick')
+    expect(markdownSource).toContain("activeMediaOverlay.kind === 'image'")
+    expect(markdownSource).toContain("activeMediaOverlay.kind === 'video'")
+    expect(markdownSource).toContain("activeMediaOverlay.kind === 'pdf'")
+  })
+
   it('does not hardcode a public file-server origin in the renderer', () => {
     expect(previewSidebarSource).not.toContain('airplane-skilift')
     expect(markdownSource).not.toContain('airplane-skilift')

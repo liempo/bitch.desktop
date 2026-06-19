@@ -10,7 +10,7 @@ const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.pn
 const AUDIO_EXTENSIONS = new Set(['.flac', '.m4a', '.mp3', '.ogg', '.opus', '.wav'])
 const VIDEO_EXTENSIONS = new Set(['.avi', '.mkv', '.mov', '.mp4', '.webm'])
 
-const MEDIA_REF_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/g
+const MEDIA_REF_RE = /[`"']?@?media:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/gi
 const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/g
 const FILE_REF_RE = /@file:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/gi
 
@@ -61,6 +61,7 @@ function markdownForMediaPath(path: string): string {
   if (viewerKind === 'image') return `![Image: ${label}](${remoteFileHref(path, 'media')})`
   if (viewerKind === 'audio') return `[Audio: ${label}](${remoteFileHref(path, 'media')})`
   if (viewerKind === 'video') return `[Video: ${label}](${remoteFileHref(path, 'media')})`
+  if (viewerKind === 'pdf') return `[PDF: ${label}](${remoteFileHref(path, 'media')})`
 
   return `[File: ${label}](${remoteFileHref(path, 'preview')})`
 }
