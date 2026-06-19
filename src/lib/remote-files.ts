@@ -102,6 +102,40 @@ const CODE_EXTENSIONS = new Set([
   '.tsx',
   '.vue'
 ])
+const BINARY_DOWNLOAD_EXTENSIONS = new Set([
+  '.7z',
+  '.bin',
+  '.br',
+  '.bz2',
+  '.class',
+  '.db',
+  '.dmg',
+  '.dll',
+  '.doc',
+  '.docx',
+  '.exe',
+  '.gz',
+  '.iso',
+  '.jar',
+  '.o',
+  '.odt',
+  '.parquet',
+  '.pyc',
+  '.rar',
+  '.so',
+  '.sqlite',
+  '.sqlite3',
+  '.tar',
+  '.tgz',
+  '.wasm',
+  '.woff',
+  '.woff2',
+  '.xls',
+  '.xlsx',
+  '.xz',
+  '.zip',
+  '.zst'
+])
 
 const DENIED_DIR_NAMES = new Set(['.aws', '.azure', '.docker', '.gnupg', '.kube', '.ssh'])
 const DENIED_FILE_NAMES = new Set(['.netrc', '.npmrc', '.pgpass', '.pypirc'])
@@ -245,8 +279,11 @@ export function viewerKindForRemoteFile(source: string): RemoteFileViewerKind {
   if (PDF_EXTENSIONS.has(extension)) return 'pdf'
   if (HTML_EXTENSIONS.has(extension)) return 'html'
   if (TEXT_EXTENSIONS.has(extension) || CODE_EXTENSIONS.has(extension)) return 'text'
+  if (BINARY_DOWNLOAD_EXTENSIONS.has(extension)) return 'download'
 
-  return 'download'
+  // Unknown remote files are cheap to try as text: the dashboard read-text
+  // endpoint reports binary content, and the viewers surface that as unavailable.
+  return 'text'
 }
 
 export function remoteFileHref(path: string, mode: RemoteFileHrefMode = 'preview'): string {

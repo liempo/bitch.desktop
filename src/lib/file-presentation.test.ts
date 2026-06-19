@@ -29,8 +29,15 @@ describe('remote file presentation', () => {
   it('marks only safe text-like files for fetched inline text previews', () => {
     expect(isTextPreviewFile('README.md')).toBe(true)
     expect(isTextPreviewFile('config.json')).toBe(true)
+    expect(isTextPreviewFile('Makefile')).toBe(true)
+    expect(filePresentation('WORKSPACE.bazel')).toMatchObject({
+      accent: 'text',
+      glyph: 'BAZ',
+      title: 'Text',
+      viewerKind: 'text'
+    })
     expect(isTextPreviewFile('photo.png')).toBe(false)
-    expect(viewerKindForFile('unknown.bin')).toBe('download')
+    expect(viewerKindForFile('blob.bin')).toBe('download')
   })
 })
 
