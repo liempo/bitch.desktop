@@ -1,59 +1,65 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-const TEST_BOX_BASE_URL = 'https://box.example.test'
+describe('remote preview targets', () => {
+  it('turns explicit @file refs for /box, /opt/data, and /tmp into remote preview targets', async () => {
+    const { previewFromFileRef } = await import('./preview')
 
-async function loadPreviewHelpers(): Promise<typeof import('./preview')> {
-  vi.resetModules()
-  vi.stubEnv('VITE_BOX_BASE_URL', TEST_BOX_BASE_URL)
-  return import('./preview')
-}
-
-afterEach(() => {
-  vi.unstubAllEnvs()
-  vi.resetModules()
-})
-
-describe('preview targets', () => {
-  it('turns /box image paths into image preview targets', async () => {
-    const { previewFromBoxPath } = await loadPreviewHelpers()
-
-    expect(previewFromBoxPath('/box/.hermes/cache/render 1.png')).toMatchObject({
+    expect(previewFromFileRef('@file:/box/.hermes/cache/render 1.png')).toMatchObject({
       kind: 'image',
       label: 'render 1.png',
       path: '/box/.hermes/cache/render 1.png',
-      source: '/box/.hermes/cache/render 1.png',
-      url: `${TEST_BOX_BASE_URL}/.hermes/cache/render%201.png`
+      source: '@file:/box/.hermes/cache/render 1.png',
+      url: null,
+      viewerKind: 'image'
+    })
+    expect(previewFromFileRef('@file:/opt/data/reports/summary.pdf')).toMatchObject({
+      kind: 'file',
+      label: 'summary.pdf',
+      path: '/opt/data/reports/summary.pdf',
+      viewerKind: 'pdf'
+    })
+    expect(previewFromFileRef('@file:`/tmp/hermes remote probe.txt`')).toMatchObject({
+      kind: 'file',
+      label: 'hermes remote probe.txt',
+      path: '/tmp/hermes remote probe.txt',
+      viewerKind: 'text'
     })
   })
 
-  it('keeps non-image /box paths as file preview targets', async () => {
-    const { previewFromBoxPath } = await loadPreviewHelpers()
+  it('does not infer preview targets from raw absolute paths', async () => {
+    const { previewFromFileRef } = await import('./preview')
 
-    expect(previewFromBoxPath('/box/wiki/personal/notes.pdf')).toMatchObject({
-      kind: 'file',
-      label: 'notes.pdf',
-      path: '/box/wiki/personal/notes.pdf',
-      source: '/box/wiki/personal/notes.pdf',
-      url: `${TEST_BOX_BASE_URL}/wiki/personal/notes.pdf`
+    expect(previewFromFileRef('/tmp/raw-path.png')).toBeNull()
+    expect(previewFromFileRef('/box/raw-path.pdf')).toBeNull()
+  })
+
+  it('surfaces denied paths without creating a fetchable preview URL', async () => {
+    const { previewFromFileRef } = await import('./preview')
+
+    expect(previewFromFileRef('@file:/opt/data/.ssh/id_rsa')).toMatchObject({
+      error: expect.stringContaining('blocked'),
+      path: '/opt/data/.ssh/id_rsa',
+      url: null
     })
   })
 
   it('wraps canvas records as canvas preview targets', async () => {
-    const { previewFromCanvas } = await loadPreviewHelpers()
+    const { previewFromCanvas } = await import('./preview')
 
     expect(
       previewFromCanvas({
         label: 'render.html',
-        path: '/box/render.html',
-        source: '/box/render.html',
-        url: `${TEST_BOX_BASE_URL}/render.html`
+        path: '/tmp/render.html',
+        source: '/tmp/render.html',
+        url: null
       })
     ).toMatchObject({
       kind: 'canvas',
       label: 'render.html',
-      path: '/box/render.html',
-      source: '/box/render.html',
-      url: `${TEST_BOX_BASE_URL}/render.html`
+      path: '/tmp/render.html',
+      source: '/tmp/render.html',
+      url: null,
+      viewerKind: 'html'
     })
   })
 })

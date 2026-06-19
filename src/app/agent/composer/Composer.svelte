@@ -375,6 +375,18 @@
               <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-danger">
                 PDF
               </div>
+            {:else if attachment.kind === 'audio'}
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-success">
+                AUD
+              </div>
+            {:else if attachment.kind === 'video'}
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
+                VID
+              </div>
+            {:else}
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+                FILE
+              </div>
             {/if}
             <div class="min-w-0 max-w-48">
               <p class="truncate font-medium text-ink-bright">{attachment.label}</p>
@@ -468,7 +480,6 @@
                 class="hidden"
                 bind:this={fileInputElement}
                 type="file"
-                accept="image/*,.pdf,application/pdf"
                 multiple
                 onchange={(event) => void handleFileInput(event)}
               />
@@ -478,8 +489,8 @@
                 size="icon"
                 onclick={handleAttachClick}
                 disabled={!canAttach}
-                aria-label="Attach image or PDF"
-                title="Attach image or PDF"
+                aria-label="Attach file"
+                title="Attach file"
               >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />

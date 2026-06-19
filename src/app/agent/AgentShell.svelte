@@ -329,7 +329,7 @@
         onpointerdown={event => startPanelResize('preview', event)}
         onkeydown={event => handlePanelResizeKeydown('preview', event)}
       ></div>
-      <PreviewSidebar preview={activePreview} width={previewPanelWidth} onClose={closePreview} />
+      <PreviewSidebar preview={activePreview} width={previewPanelWidth} profile={composerProfileName} onClose={closePreview} />
     {/if}
   </div>
 

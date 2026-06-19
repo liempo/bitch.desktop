@@ -1,22 +1,34 @@
-import { dashboardRequest } from '$lib/api/dashboard'
-import { boxUrlForAgentPath } from '$lib/box'
+import {
+  filePathFromRemoteSource,
+  parseHermesFileRef,
+  remoteFileHref,
+  remoteFileLabel,
+  viewerKindForRemoteFile
+} from '$lib/remote-files'
 
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
+const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+const AUDIO_EXTENSIONS = new Set(['.flac', '.m4a', '.mp3', '.ogg', '.opus', '.wav'])
+const VIDEO_EXTENSIONS = new Set(['.avi', '.mkv', '.mov', '.mp4', '.webm'])
 
-export interface GatewayMediaResponse {
-  data_url: string
+const MEDIA_REF_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/g
+const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/g
+const FILE_REF_RE = /@file:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\s`"'<>)]+)/gi
+
+function stripTrailingPunctuation(value: string): string {
+  return value.replace(/[),.;!?]+$/, '').trim()
+}
+
+function unquoteMediaRef(value: string): string {
+  const trimmed = value.trim()
+  const head = trimmed[0]
+  const tail = trimmed[trimmed.length - 1]
+  const quoted = (head === '`' && tail === '`') || (head === '"' && tail === '"') || (head === "'" && tail === "'")
+
+  return stripTrailingPunctuation(quoted ? trimmed.slice(1, -1) : trimmed)
 }
 
 export function filePathFromMediaPath(path: string): string {
-  if (path.startsWith('file://')) {
-    try {
-      return decodeURIComponent(new URL(path).pathname)
-    } catch {
-      return path.replace(/^file:\/\//, '')
-    }
-  }
-
-  return path
+  return filePathFromRemoteSource(path)
 }
 
 export function mediaExtension(path: string): string {
@@ -27,102 +39,47 @@ export function mediaExtension(path: string): string {
   return dot >= 0 ? name.slice(dot).toLowerCase() : ''
 }
 
-function unquoteMediaRef(value: string): string {
-  const trimmed = value.trim()
-  const head = trimmed[0]
-  const tail = trimmed[trimmed.length - 1]
-  const quoted = (head === '`' && tail === '`') || (head === '"' && tail === '"') || (head === "'" && tail === "'")
-
-  return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
-}
-
 export function mediaName(path: string): string {
-  const file = filePathFromMediaPath(path).split(/[?#]/, 1)[0] ?? ''
-  return file.split(/[\\/]/).filter(Boolean).pop() || path
+  return remoteFileLabel(path)
 }
 
 export function isRemoteGatewayMediaPath(path: string): boolean {
   const value = path.trim()
-
-  if (!value) return false
-  if (/^(?:https?|data|blob):/i.test(value)) return false
-
-  return IMAGE_EXTENSIONS.has(mediaExtension(value))
+  if (!value || /^(?:https?|data|blob):/i.test(value)) return false
+  const extension = mediaExtension(value)
+  return IMAGE_EXTENSIONS.has(extension) || AUDIO_EXTENSIONS.has(extension) || VIDEO_EXTENSIONS.has(extension)
 }
 
-function isPreviewableImageSource(path: string): boolean {
-  const value = path.trim()
-
-  if (!value) return false
-  if (/^data:image\//i.test(value)) return true
-  if (/^https?:/i.test(value)) return IMAGE_EXTENSIONS.has(mediaExtension(value))
-
-  return isRemoteGatewayMediaPath(value)
+function escapedMarkdownLabel(path: string): string {
+  return mediaName(path).replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
 }
 
-function encodedAgentBoxHref(path: string): string {
-  return encodeURI(filePathFromMediaPath(path.trim()))
+function markdownForMediaPath(path: string): string {
+  const label = escapedMarkdownLabel(path)
+  const viewerKind = viewerKindForRemoteFile(path)
+
+  if (viewerKind === 'image') return `![Image: ${label}](${remoteFileHref(path, 'media')})`
+  if (viewerKind === 'audio') return `[Audio: ${label}](${remoteFileHref(path, 'media')})`
+  if (viewerKind === 'video') return `[Video: ${label}](${remoteFileHref(path, 'media')})`
+
+  return `[File: ${label}](${remoteFileHref(path, 'preview')})`
 }
 
-function markdownUrlForMedia(path: string): string {
-  return isAgentBoxPath(path) ? encodedAgentBoxHref(path) : (boxUrlForAgentPath(path) ?? path)
-}
+function markdownForFileRef(refText: string): string {
+  const ref = parseHermesFileRef(refText)
+  if (!ref) return refText
 
-function markdownImageForMedia(path: string): string {
-  const label = mediaName(path).replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
-
-  return `![Image: ${label}](${markdownUrlForMedia(path)})`
-}
-
-function markdownAttachmentForMedia(path: string): string {
-  const label = mediaName(path).replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
-
-  return `[Attachment: ${label}](${markdownUrlForMedia(path)})`
-}
-
-const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
-const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
-const IMAGE_REF_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const BOX_PATH_LINE_RE = /(^|\n)[\t ]*[`"']?(file:\/\/\/box\/[^`"'\n]+|\/box\/[^`"'\n]+)[`"']?[\t ]*(\n|$)/g
-
-export function isAgentBoxPath(path: string): boolean {
-  const filePath = filePathFromMediaPath(path.trim())
-  return filePath === '/box' || filePath.startsWith('/box/')
+  return `[File: ${escapedMarkdownLabel(ref.path)}](${remoteFileHref(ref.path, 'preview')})`
 }
 
 export function renderPreviewMediaReferences(text: string): string {
   return text
-    .replace(MEDIA_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
-      const path = unquoteMediaRef(rawPath)
-      if (isAgentBoxPath(path)) return `${lead}${markdownAttachmentForMedia(path)}${trailer}`
-      if (isPreviewableImageSource(path)) return `${lead}${markdownImageForMedia(path)}${trailer}`
-      if (boxUrlForAgentPath(path)) return `${lead}${markdownAttachmentForMedia(path)}${trailer}`
-      return _match
-    })
-    .replace(MEDIA_TAG_RE, (_match, rawPath: string) => {
-      const path = unquoteMediaRef(rawPath)
-      if (isAgentBoxPath(path)) return markdownAttachmentForMedia(path)
-      if (isPreviewableImageSource(path)) return markdownImageForMedia(path)
-      if (boxUrlForAgentPath(path)) return markdownAttachmentForMedia(path)
-      return _match
-    })
+    .replace(MEDIA_REF_RE, (_match, rawPath: string) => markdownForMediaPath(unquoteMediaRef(rawPath)))
     .replace(IMAGE_REF_RE, (_match, rawPath: string) => {
       const path = unquoteMediaRef(rawPath)
-      if (isAgentBoxPath(path)) return markdownAttachmentForMedia(path)
-      return isPreviewableImageSource(path) ? markdownImageForMedia(path) : _match
+      const extension = mediaExtension(path)
+      if (!IMAGE_EXTENSIONS.has(extension)) return _match
+      return markdownForMediaPath(path)
     })
-    .replace(BOX_PATH_LINE_RE, (_match, lead: string, rawPath: string, trailer: string) => {
-      const path = unquoteMediaRef(rawPath)
-      return isAgentBoxPath(path) ? `${lead}${markdownAttachmentForMedia(path)}${trailer}` : _match
-    })
-}
-
-export async function gatewayMediaDataUrl(path: string, profile?: null | string): Promise<string> {
-  const file = filePathFromMediaPath(path)
-  const result = await dashboardRequest<GatewayMediaResponse>({
-    path: `/api/media?path=${encodeURIComponent(file)}`,
-    profile
-  })
-
-  return result.data_url
+    .replace(FILE_REF_RE, (match: string) => markdownForFileRef(match))
 }

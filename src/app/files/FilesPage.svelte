@@ -2,52 +2,63 @@
   import { onMount } from 'svelte'
   import Button from '@/components/ui/Button.svelte'
   import Panel from '@/components/ui/Panel.svelte'
-  import { BOX_BASE_URL, boxUrlForAgentPath, fetchBoxListing, type BoxEntry, type BoxListing } from '$lib/box'
-  import { boxFilePresentation, isTextPreviewFile, type BoxFileAccent } from '$lib/box-file'
+  import {
+    fetchRemoteFileListing,
+    getRemoteDefaultCwd,
+    readRemoteFileDataUrl,
+    readRemoteFileText,
+    type RemoteFileEntry,
+    type RemoteFileListing
+  } from '$lib/remote-files'
+  import { filePresentation, type FileAccent } from '$lib/file-presentation'
 
   interface TreeRow {
     depth: number
-    entry: BoxEntry
+    entry: RemoteFileEntry
     expanded: boolean
     loaded: boolean
     loading: boolean
   }
 
-  const MAX_TEXT_PREVIEW_CHARS = 200_000
-
+  let rootPath = $state('/')
   let selectedPath = $state('/')
-  let selectedFile = $state<BoxEntry | null>(null)
-  let listings = $state<Record<string, BoxListing>>({})
+  let selectedFile = $state<RemoteFileEntry | null>(null)
+  let listings = $state<Record<string, RemoteFileListing>>({})
   let expanded = $state<Record<string, boolean>>({ '/': true })
   let loadingPaths = $state<Record<string, boolean>>({})
   let errorsByPath = $state<Record<string, string>>({})
   let textPreview = $state('')
   let textPreviewError = $state('')
   let textPreviewLoading = $state(false)
+  let dataPreviewUrl = $state<null | string>(null)
+  let dataPreviewError = $state('')
+  let dataPreviewLoading = $state(false)
 
   const selectedError = $derived(errorsByPath[selectedPath] ?? '')
   const selectedLoading = $derived(loadingPaths[selectedPath] === true)
-  const selectedFilePresentation = $derived(selectedFile ? boxFilePresentation(selectedFile.name) : null)
+  const selectedFilePresentation = $derived(selectedFile ? filePresentation(selectedFile.name) : null)
   const treeRows = $derived.by(() => buildTreeRows())
 
   onMount(() => {
-    void openDirectory('/')
+    void openInitialDirectory()
   })
 
-  function directoryEntry(path: string, name: string): BoxEntry {
-    return {
-      kind: 'directory',
-      name,
-      path,
-      url: boxDirectoryUrl(path)
-    }
+  function directoryEntry(path: string, name: string): RemoteFileEntry {
+    return { kind: 'directory', name, path }
   }
 
-  function boxDirectoryUrl(path: string): string {
-    const agentPath = path === '/' ? '/box' : `/box${path}`
-    const url = boxUrlForAgentPath(agentPath) ?? BOX_BASE_URL
-
-    return url.endsWith('/') ? url : `${url}/`
+  async function openInitialDirectory(): Promise<void> {
+    try {
+      const { cwd } = await getRemoteDefaultCwd()
+      const initialPath = cwd || '/'
+      rootPath = initialPath
+      expanded = { [initialPath]: true }
+      await openDirectory(initialPath)
+    } catch {
+      rootPath = '/'
+      expanded = { '/': true }
+      await openDirectory('/')
+    }
   }
 
   function buildTreeRows(): TreeRow[] {
@@ -85,7 +96,7 @@
       }
     }
 
-    visit('/', 'box', 0)
+    visit(rootPath, rootPath, 0)
     return rows
   }
 
@@ -101,8 +112,9 @@
     errorsByPath = { ...errorsByPath, [path]: '' }
 
     try {
-      const listing = await fetchBoxListing(path)
+      const listing = await fetchRemoteFileListing(path)
       listings = { ...listings, [listing.path]: listing }
+      if (listing.error) errorsByPath = { ...errorsByPath, [path]: listing.error }
     } catch (error) {
       errorsByPath = { ...errorsByPath, [path]: messageForError(error) }
     } finally {
@@ -125,9 +137,7 @@
     selectedPath = row.entry.path
     selectedFile = null
 
-    if (nextExpanded) {
-      void loadPath(row.entry.path)
-    }
+    if (nextExpanded) void loadPath(row.entry.path)
   }
 
   function selectTreeRow(row: TreeRow): void {
@@ -138,35 +148,35 @@
     }
   }
 
-  function selectFile(entry: BoxEntry): void {
+  function selectFile(entry: RemoteFileEntry): void {
     if (entry.kind !== 'file') return
 
     selectedFile = entry
     textPreview = ''
     textPreviewError = ''
     textPreviewLoading = false
+    dataPreviewUrl = null
+    dataPreviewError = ''
+    dataPreviewLoading = false
 
-    if (isTextPreviewFile(entry.name)) {
+    const viewerKind = filePresentation(entry.name).viewerKind
+    if (viewerKind === 'text') {
       void loadTextPreview(entry)
+    } else if (viewerKind !== 'download') {
+      void loadDataPreview(entry)
     }
   }
 
-  async function loadTextPreview(entry: BoxEntry): Promise<void> {
+  async function loadTextPreview(entry: RemoteFileEntry): Promise<void> {
     const previewPath = entry.path
     textPreviewLoading = true
     textPreviewError = ''
 
     try {
-      const response = await fetch(entry.url, { headers: { Accept: 'text/plain, application/json, */*' } })
-      if (!response.ok) throw new Error(`file fetch failed (${response.status})`)
-
-      const text = await response.text()
+      const response = await readRemoteFileText(previewPath)
       if (selectedFile?.path !== previewPath) return
-
-      textPreview =
-        text.length > MAX_TEXT_PREVIEW_CHARS
-          ? `${text.slice(0, MAX_TEXT_PREVIEW_CHARS)}\n\n… truncated at ${formatBytes(MAX_TEXT_PREVIEW_CHARS)} …`
-          : text
+      textPreview = response.binary ? '' : response.text
+      if (response.binary) textPreviewError = 'Remote file is binary; text preview is unavailable.'
     } catch (error) {
       if (selectedFile?.path === previewPath) textPreviewError = messageForError(error)
     } finally {
@@ -174,12 +184,28 @@
     }
   }
 
-  function treeIconFor(entry: BoxEntry): string {
-    if (entry.kind === 'directory') return '▣'
-    return boxFilePresentation(entry.name).glyph
+  async function loadDataPreview(entry: RemoteFileEntry): Promise<void> {
+    const previewPath = entry.path
+    dataPreviewLoading = true
+    dataPreviewError = ''
+
+    try {
+      const url = await readRemoteFileDataUrl(previewPath)
+      if (selectedFile?.path !== previewPath) return
+      dataPreviewUrl = url
+    } catch (error) {
+      if (selectedFile?.path === previewPath) dataPreviewError = messageForError(error)
+    } finally {
+      if (selectedFile?.path === previewPath) dataPreviewLoading = false
+    }
   }
 
-  function thumbnailClass(accent: BoxFileAccent): string {
+  function treeIconFor(entry: RemoteFileEntry): string {
+    if (entry.kind === 'directory') return '▣'
+    return filePresentation(entry.name).glyph
+  }
+
+  function thumbnailClass(accent: FileAccent): string {
     const base =
       'relative flex h-20 w-full items-center justify-center overflow-hidden rounded-control border font-hud text-lg font-black uppercase tracking-[0.12em]'
 
@@ -195,6 +221,7 @@
       case 'archive':
         return `${base} border-warning/45 bg-warning/10 text-warning`
       case 'code':
+      case 'html':
         return `${base} border-purple-400/45 bg-purple-400/10 text-purple-200`
       case 'text':
         return `${base} border-line bg-surface text-ink-bright`
@@ -209,15 +236,6 @@
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
     if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`
     return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`
-  }
-
-  function formatMtime(mtime: number | undefined): string {
-    if (typeof mtime !== 'number') return 'not indexed'
-
-    const date = new Date(mtime)
-    if (Number.isNaN(date.getTime())) return 'not indexed'
-
-    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
   function rowStyle(depth: number): string {
@@ -238,20 +256,20 @@
 
 <section
   class="grid h-full min-h-0 grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)] gap-3 bg-chat-scroll/40 p-4"
-  aria-label="BOX browser"
+  aria-label="Remote file browser"
 >
-  <Panel title="BOX Tree" padded={false} contentClass="flex min-h-0 flex-col p-2" class="min-w-0" actions={treeActions}>
+  <Panel title="Remote Files" padded={false} contentClass="flex min-h-0 flex-col p-2" class="min-w-0" actions={treeActions}>
     <div class="mb-2 flex items-center border-b border-line pb-2">
-      <span class="min-w-0 truncate text-[0.65rem] text-ink-muted" title={BOX_BASE_URL}>{BOX_BASE_URL}</span>
+      <span class="min-w-0 truncate text-[0.65rem] text-ink-muted" title={selectedPath}>{selectedPath}</span>
     </div>
 
     {#if selectedError}
       <div class="mb-2 rounded-control border border-danger/40 bg-danger/10 p-2 text-xs leading-5 text-danger" role="alert">
-        BOX listing unavailable: {selectedError}
+        Remote file listing unavailable: {selectedError}
       </div>
     {:else if selectedLoading}
       <div class="mb-2 rounded-control border border-primary/30 bg-primary/10 p-2 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary">
-        Reading BOX index…
+        Reading remote file index…
       </div>
     {/if}
 
@@ -295,13 +313,13 @@
   <Panel title="File Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0">
     {#if !selectedFile || !selectedFilePresentation}
       <div class="flex flex-1 items-center justify-center rounded-panel border border-dashed border-line bg-surface-raised/40 p-6 text-center text-sm leading-6 text-ink-muted">
-        Select a file from the tree to inspect it. The viewer will comply. Eventually.
+        Select a remote file from the tree to inspect it. No public sidecar required.
       </div>
     {:else}
       <div class="mb-3 flex min-h-0 items-start gap-3 border-b border-line pb-3">
         <span class={thumbnailClass(selectedFilePresentation.accent)} style="width: 5rem; min-width: 5rem; height: 4rem">
-          {#if selectedFilePresentation.viewerKind === 'image'}
-            <img src={selectedFile.url} alt="" class="h-full w-full object-cover" />
+          {#if selectedFilePresentation.viewerKind === 'image' && dataPreviewUrl}
+            <img src={dataPreviewUrl} alt="" class="h-full w-full object-cover" />
           {:else}
             <span>{selectedFilePresentation.glyph}</span>
           {/if}
@@ -310,32 +328,42 @@
           <h2 class="truncate text-sm font-semibold text-ink-bright" title={selectedFile.name}>{selectedFile.name}</h2>
           <p class="truncate font-mono text-[0.66rem] text-ink-muted" title={selectedFile.path}>{selectedFile.path}</p>
           <p class="mt-1 text-[0.62rem] uppercase tracking-[0.14em] text-ink-muted">
-            {selectedFilePresentation.title} · {formatBytes(selectedFile.size)} · {formatMtime(selectedFile.mtime)}
+            {selectedFilePresentation.title} · {formatBytes(selectedFile.size)}
           </p>
         </div>
       </div>
 
       <div class="min-h-0 flex-1 overflow-hidden rounded-panel border border-line bg-canvas/55">
-        {#if selectedFilePresentation.viewerKind === 'image'}
-          <div class="flex h-full items-center justify-center overflow-auto bg-black/20 p-2">
-            <img src={selectedFile.url} alt={selectedFile.name} class="max-h-full max-w-full rounded-control object-contain" />
+        {#if dataPreviewLoading}
+          <div class="flex h-full items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
+            Loading remote file preview…
           </div>
-        {:else if selectedFilePresentation.viewerKind === 'pdf'}
-          <iframe title={selectedFile.name} src={selectedFile.url} class="h-full w-full bg-white"></iframe>
-        {:else if selectedFilePresentation.viewerKind === 'video'}
+        {:else if dataPreviewError}
+          <div class="m-3 rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">
+            File preview unavailable: {dataPreviewError}
+          </div>
+        {:else if selectedFilePresentation.viewerKind === 'image' && dataPreviewUrl}
+          <div class="flex h-full items-center justify-center overflow-auto bg-black/20 p-2">
+            <img src={dataPreviewUrl} alt={selectedFile.name} class="max-h-full max-w-full rounded-control object-contain" />
+          </div>
+        {:else if selectedFilePresentation.viewerKind === 'pdf' && dataPreviewUrl}
+          <iframe title={selectedFile.name} src={dataPreviewUrl} class="h-full w-full bg-white"></iframe>
+        {:else if selectedFilePresentation.viewerKind === 'video' && dataPreviewUrl}
           <div class="flex h-full items-center justify-center bg-black/30 p-2">
             <!-- svelte-ignore a11y_media_has_caption -->
-            <video controls src={selectedFile.url} class="max-h-full max-w-full rounded-control"></video>
+            <video controls src={dataPreviewUrl} class="max-h-full max-w-full rounded-control"></video>
           </div>
-        {:else if selectedFilePresentation.viewerKind === 'audio'}
+        {:else if selectedFilePresentation.viewerKind === 'audio' && dataPreviewUrl}
           <div class="flex h-full flex-col items-center justify-center gap-4 p-6 text-center text-sm text-ink-muted">
             <span class="font-hud text-4xl text-success">AUD</span>
-            <audio controls src={selectedFile.url} class="w-full"></audio>
+            <audio controls src={dataPreviewUrl} class="w-full"></audio>
           </div>
+        {:else if selectedFilePresentation.viewerKind === 'html' && dataPreviewUrl}
+          <iframe title={selectedFile.name} src={dataPreviewUrl} class="h-full w-full bg-white"></iframe>
         {:else if selectedFilePresentation.viewerKind === 'text'}
           {#if textPreviewLoading}
             <div class="flex h-full items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-              Loading file preview…
+              Loading text preview…
             </div>
           {:else if textPreviewError}
             <div class="m-3 rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">
@@ -347,7 +375,7 @@
         {:else}
           <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm leading-6 text-ink-muted">
             <span class="font-hud text-4xl text-warning">{selectedFilePresentation.glyph}</span>
-            <p>No inline viewer for this file type. Metadata is all we get without external launch chrome.</p>
+            <p>No inline viewer for this file type through the remote filesystem bridge yet.</p>
           </div>
         {/if}
       </div>

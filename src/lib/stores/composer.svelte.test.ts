@@ -248,7 +248,7 @@ describe('composer runtime targeting', () => {
     })
   })
 
-  it('uploads PDFs through pdf.attach and uses a PDF fallback prompt', async () => {
+  it('uploads PDFs through file.attach and submits the returned @file ref', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     const pdf: ComposerAttachment = {
       dataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
@@ -261,30 +261,69 @@ describe('composer runtime targeting', () => {
     }
 
     mockRequestGateway.mockImplementation((method: string) => {
-      if (method === 'pdf.attach') return Promise.resolve({ attached: true, pages_attached: 1 })
+      if (method === 'file.attach') {
+        return Promise.resolve({ attached: true, ref_text: '@file:.hermes/desktop-attachments/brief.pdf' })
+      }
       if (method === 'prompt.submit') return Promise.resolve({ ok: true })
       return Promise.resolve({})
     })
 
     await expect(submitPrompt('stored-A', { attachments: [pdf], text: '' })).resolves.toBe(true)
 
-    expect(mockRequestGateway).toHaveBeenCalledWith('pdf.attach', {
-      content_base64: 'JVBERi0xLjQ=',
-      filename: 'brief.pdf',
+    expect(mockRequestGateway).toHaveBeenCalledWith('file.attach', {
+      data_url: 'data:application/pdf;base64,JVBERi0xLjQ=',
+      name: 'brief.pdf',
+      path: 'brief.pdf',
       profile: 'default',
       session_id: 'live-A'
     })
     expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
       profile: 'default',
       session_id: 'live-A',
-      text: 'Please review the attached PDF.'
+      text: '@file:.hermes/desktop-attachments/brief.pdf'
     })
     expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe(
       'Please review the attached PDF.\n\nAttached files:\n- brief.pdf (PDF · 8 B)'
     )
   })
 
-  it('does not submit when PDF relay reports missing poppler and shows the remote gateway install hint', async () => {
+  it('uploads generic files through file.attach before submitting visible text', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    const textFile: ComposerAttachment = {
+      dataUrl: 'data:text/plain;base64,aGVsbG8=',
+      detail: 'text/plain · 5 B',
+      id: 'file-1',
+      kind: 'file',
+      label: 'notes.txt',
+      mediaType: 'text/plain',
+      size: 5
+    }
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'file.attach') {
+        return Promise.resolve({ attached: true, ref_text: '@file:.hermes/desktop-attachments/notes.txt' })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt('stored-A', { attachments: [textFile], text: 'summarize this' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('file.attach', {
+      data_url: 'data:text/plain;base64,aGVsbG8=',
+      name: 'notes.txt',
+      path: 'notes.txt',
+      profile: 'default',
+      session_id: 'live-A'
+    })
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-A',
+      text: '@file:.hermes/desktop-attachments/notes.txt\n\nsummarize this'
+    })
+  })
+
+  it('does not submit when file.attach fails for a non-image attachment', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     const pdf: ComposerAttachment = {
       dataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
@@ -297,16 +336,14 @@ describe('composer runtime targeting', () => {
 
     mockRequestGateway.mockResolvedValueOnce({
       attached: false,
-      message: 'pdftoppm not installed (poppler-utils package required)'
+      message: 'file not found on gateway and no data_url provided'
     })
 
     await expect(submitPrompt('stored-A', { attachments: [pdf], text: 'review this' })).resolves.toBe(false)
 
-    expect(mockRequestGateway).toHaveBeenCalledWith('pdf.attach', expect.anything())
+    expect(mockRequestGateway).toHaveBeenCalledWith('file.attach', expect.anything())
     expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
-    expect(composerState.sessions['stored-A']?.error).toBe(
-      'pdftoppm not installed (poppler-utils package required) Install poppler-utils on the remote Hermes gateway host/container, then restart the gateway.'
-    )
+    expect(composerState.sessions['stored-A']?.error).toBe('file not found on gateway and no data_url provided')
   })
 
   it('does not submit the prompt when attachment byte upload fails', async () => {

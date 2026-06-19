@@ -2,9 +2,9 @@
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
-  import { boxUrlForAgentPath } from '$lib/box'
-  import { gatewayMediaDataUrl, isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/media'
-  import { previewFromBoxPath, previewKindForBoxPath, type ThreadPreview } from '$lib/preview'
+  import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/media'
+  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/preview'
+  import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/remote-files'
   import './markdown.css'
 
   interface Props {
@@ -25,7 +25,7 @@
 
     void tick().then(() => {
       if (signature === renderSignature) {
-        void hydrateGatewayImages()
+        void hydrateRemoteMedia()
       }
     })
   })
@@ -59,15 +59,37 @@
     return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
   }
 
-  function boxPreviewAnchor(href: string, label: string, title?: string | null): string | null {
-    const boxUrl = boxUrlForAgentPath(href)
-    if (!boxUrl) return null
+  function dataAttrsForRemoteSource(source: string): string {
+    return ` data-remote-file-src="${escapeHtml(source)}"`
+  }
 
+  function previewAnchorForPath(path: string, href: string, label: string, title?: string | null): string {
+    const preview = previewFromRemoteFilePath(path, href, profile)
     const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
-    const previewKind = previewKindForBoxPath(href) ?? 'file'
-    const text = label || mediaName(href)
+    const text = label || preview?.label || mediaName(path)
+    const kind = preview?.kind ?? 'file'
 
-    return `<a href="${escapeHtml(boxUrl)}" data-preview-source="${escapeHtml(href)}" data-preview-kind="${previewKind}"${titleAttr}>${escapeHtml(text)}</a>`
+    return `<a href="${escapeHtml(href)}" data-preview-source="${escapeHtml(path)}" data-preview-kind="${kind}"${titleAttr}>${escapeHtml(text)}</a>`
+  }
+
+  function remoteMediaElement(href: string, label: string, title?: string | null): string | null {
+    const source = remoteFileSourceFromHref(href)
+    if (!source) return null
+
+    const viewerKind = viewerKindForRemoteFile(source.path)
+    const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
+    const fallback = escapeHtml(label || mediaName(source.path))
+    const attrs = dataAttrsForRemoteSource(source.path)
+
+    if (source.mode === 'media' && viewerKind === 'audio') {
+      return `<audio controls preload="metadata"${attrs}${titleAttr}>${fallback}</audio>`
+    }
+
+    if (source.mode === 'media' && viewerKind === 'video') {
+      return `<video controls preload="metadata"${attrs}${titleAttr}>${fallback}</video>`
+    }
+
+    return previewAnchorForPath(source.path, href, label, title)
   }
 
   function markdownRenderer(): Renderer {
@@ -75,9 +97,8 @@
 
     renderer.link = (token: Tokens.Link): string => {
       const href = token.href || ''
-      const boxAnchor = boxPreviewAnchor(href, token.text || href, token.title)
-
-      if (boxAnchor) return boxAnchor
+      const remoteElement = remoteMediaElement(href, token.text || href, token.title)
+      if (remoteElement) return remoteElement
 
       const title = token.title ? ` title="${escapeHtml(token.title)}"` : ''
       return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer"${title}>${escapeHtml(token.text || href)}</a>`
@@ -87,12 +108,14 @@
       const href = token.href || ''
       const title = token.title ? ` title="${escapeHtml(token.title)}"` : ''
       const alt = escapeHtml(token.text || '')
-      const boxAnchor = boxPreviewAnchor(href, token.text || mediaName(href) || 'BOX file', token.title)
+      const remoteSource = remoteFileSourceFromHref(href)
 
-      if (boxAnchor) return boxAnchor
+      if (remoteSource?.mode === 'media') {
+        return `<img src="${remoteImagePlaceholder()}"${dataAttrsForRemoteSource(remoteSource.path)} alt="${alt}"${title}>`
+      }
 
       if (isRemoteGatewayMediaPath(href)) {
-        return `<img src="${remoteImagePlaceholder()}" data-gateway-media-src="${escapeHtml(href)}" alt="${alt}"${title}>`
+        return `<img src="${remoteImagePlaceholder()}"${dataAttrsForRemoteSource(href)} alt="${alt}"${title}>`
       }
 
       return `<img src="${escapeHtml(href)}" alt="${alt}"${title}>`
@@ -111,12 +134,14 @@
 
     return DOMPurify.sanitize(raw, {
       ADD_ATTR: [
+        'controls',
+        'preload',
         'target',
-        'data-gateway-media-profile',
-        'data-gateway-media-src',
-        'data-gateway-media-state',
         'data-preview-kind',
-        'data-preview-source'
+        'data-preview-source',
+        'data-remote-file-profile',
+        'data-remote-file-src',
+        'data-remote-file-state'
       ],
       USE_PROFILES: { html: true }
     })
@@ -127,7 +152,7 @@
 
     const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[data-preview-source]') : null
     const source = link?.dataset.previewSource
-    const preview = source ? previewFromBoxPath(source) : null
+    const preview = source ? previewFromRemoteFilePath(source, link?.href ?? source, profile) : null
 
     if (!preview) return
 
@@ -135,28 +160,29 @@
     onOpenPreview?.(preview)
   }
 
-  async function hydrateGatewayImages(): Promise<void> {
+  async function hydrateRemoteMedia(): Promise<void> {
     if (!containerElement) return
 
-    const images = Array.from(containerElement.querySelectorAll<HTMLImageElement>('img[data-gateway-media-src]'))
-
+    const elements = Array.from(containerElement.querySelectorAll<HTMLImageElement | HTMLMediaElement>('[data-remote-file-src]'))
     const profileKey = profile ?? ''
 
-    for (const image of images) {
-      if (image.dataset.gatewayMediaState && image.dataset.gatewayMediaProfile === profileKey) continue
+    for (const element of elements) {
+      if (element.dataset.remoteFileState && element.dataset.remoteFileProfile === profileKey) continue
 
-      const source = image.dataset.gatewayMediaSrc
+      const source = element.dataset.remoteFileSrc
       if (!source) continue
 
-      image.dataset.gatewayMediaProfile = profileKey
-      image.dataset.gatewayMediaState = 'loading'
+      element.dataset.remoteFileProfile = profileKey
+      element.dataset.remoteFileState = 'loading'
 
       try {
-        image.src = await gatewayMediaDataUrl(source, profile)
-        image.dataset.gatewayMediaState = 'loaded'
+        element.src = await readRemoteFileDataUrl(source, profile)
+        element.dataset.remoteFileState = 'loaded'
       } catch {
-        image.dataset.gatewayMediaState = 'failed'
-        image.alt = image.alt ? `${image.alt} (unavailable)` : 'gateway image unavailable'
+        element.dataset.remoteFileState = 'failed'
+        if (element instanceof HTMLImageElement) {
+          element.alt = element.alt ? `${element.alt} (unavailable)` : 'remote image unavailable'
+        }
       }
     }
   }

@@ -1,7 +1,7 @@
-import { mediaExtension, isAgentBoxPath } from '$lib/media'
+import { remoteFileLabel, viewerKindForRemoteFile } from '$lib/remote-files'
 import { extractEmbeddedImages } from '$lib/messages/chat-runtime'
 
-export type ThreadAttachmentKind = 'image' | 'pdf'
+export type ThreadAttachmentKind = 'audio' | 'file' | 'image' | 'pdf' | 'video'
 
 export interface ThreadAttachment {
   dataUrl?: string
@@ -31,10 +31,17 @@ export interface ThreadAttachmentInput {
 
 export type AttachmentIdFactory = (prefix: string) => string
 
-const IMAGE_ATTACHMENT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
+interface AttachmentKindOptions {
+  allowFileFallback?: boolean
+}
+
 const IMAGE_DIRECTIVE_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const MEDIA_LINE_RE = /(^|\n)[\t ]*[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/g
-const MEDIA_TAG_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
+const DATA_URL_KIND_PREFIXES: Array<[RegExp, ThreadAttachmentKind]> = [
+  [/^image\//i, 'image'],
+  [/^application\/pdf$/i, 'pdf'],
+  [/^audio\//i, 'audio'],
+  [/^video\//i, 'video']
+]
 
 function unquoteRefValue(raw: string): string {
   const trimmed = raw.trim()
@@ -45,42 +52,67 @@ function unquoteRefValue(raw: string): string {
   return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
 }
 
-export function mediaLabelFromSource(source: string, kind: ThreadAttachmentKind = 'image'): string {
-  if (source.startsWith('data:')) return kind === 'pdf' ? 'document.pdf' : 'image'
-
-  try {
-    const url = new URL(source)
-    return url.pathname.split('/').filter(Boolean).pop() || source
-  } catch {
-    return source.split(/[\\/]/).filter(Boolean).pop() || source
+function defaultLabelForKind(kind: ThreadAttachmentKind): string {
+  switch (kind) {
+    case 'audio':
+      return 'audio'
+    case 'file':
+      return 'attachment'
+    case 'pdf':
+      return 'document.pdf'
+    case 'video':
+      return 'video'
+    default:
+      return 'image'
   }
+}
+
+export function mediaLabelFromSource(source: string, kind: ThreadAttachmentKind = 'image'): string {
+  if (source.startsWith('data:')) return defaultLabelForKind(kind)
+  return remoteFileLabel(source)
 }
 
 export function mimeTypeFromDataUrl(source: string): string | undefined {
   return source.match(/^data:([^;,]+)[;,]/i)?.[1]
 }
 
-export function attachmentKindFromMediaSource(source: string): ThreadAttachmentKind | null {
-  if (/^data:image\//i.test(source)) return 'image'
-  if (/^data:application\/pdf[;,]/i.test(source)) return 'pdf'
+function attachmentKindFromDataUrl(source: string, allowFileFallback: boolean): ThreadAttachmentKind | null {
+  const mime = mimeTypeFromDataUrl(source)?.trim()
+  if (!mime) return allowFileFallback ? 'file' : null
 
-  const extension = mediaExtension(source)
+  for (const [pattern, kind] of DATA_URL_KIND_PREFIXES) {
+    if (pattern.test(mime)) return kind
+  }
 
-  if (IMAGE_ATTACHMENT_EXTENSIONS.has(extension)) return 'image'
-  if (extension === '.pdf') return 'pdf'
+  return allowFileFallback ? 'file' : null
+}
 
-  return null
+export function attachmentKindFromMediaSource(
+  source: string,
+  options: AttachmentKindOptions = {}
+): ThreadAttachmentKind | null {
+  const allowFileFallback = options.allowFileFallback ?? true
+
+  if (/^data:/i.test(source)) return attachmentKindFromDataUrl(source, allowFileFallback)
+
+  const viewerKind = viewerKindForRemoteFile(source)
+
+  if (viewerKind === 'audio' || viewerKind === 'image' || viewerKind === 'video') return viewerKind
+  if (viewerKind === 'pdf') return 'pdf'
+
+  return allowFileFallback ? 'file' : null
 }
 
 export function attachmentFromMediaSource(
   source: string,
   prefix: string,
-  createAttachmentId: AttachmentIdFactory
+  createAttachmentId: AttachmentIdFactory,
+  options: AttachmentKindOptions = {}
 ): ThreadAttachment | null {
   const value = source.trim()
   if (!value) return null
 
-  const kind = attachmentKindFromMediaSource(value)
+  const kind = attachmentKindFromMediaSource(value, options)
   if (!kind) return null
 
   const attachment: ThreadAttachment = {
@@ -173,7 +205,9 @@ export function extractImageDirectiveSources(text: string): { cleanedText: strin
   const cleanedText = text
     .replace(IMAGE_DIRECTIVE_RE, (_match, rawSource: string) => {
       const source = unquoteRefValue(rawSource)
-      if (source) sources.push(source)
+      if (source && attachmentKindFromMediaSource(source, { allowFileFallback: false }) === 'image') {
+        sources.push(source)
+      }
       return ''
     })
     .replace(/[ \t]+\n/g, '\n')
@@ -184,27 +218,5 @@ export function extractImageDirectiveSources(text: string): { cleanedText: strin
 }
 
 export function extractMediaDirectiveSources(text: string): { cleanedText: string; sources: string[] } {
-  const sources: string[] = []
-  const cleanedText = text
-    .replace(MEDIA_LINE_RE, (_match, lead: string, rawSource: string, trailer: string) => {
-      const source = unquoteRefValue(rawSource)
-      if (source && !isAgentBoxPath(source)) {
-        sources.push(source)
-        return `${lead}${trailer}`
-      }
-      return _match
-    })
-    .replace(MEDIA_TAG_RE, (_match, rawSource: string) => {
-      const source = unquoteRefValue(rawSource)
-      if (source && !isAgentBoxPath(source)) {
-        sources.push(source)
-        return ''
-      }
-      return _match
-    })
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
-  return { cleanedText, sources }
+  return { cleanedText: text, sources: [] }
 }

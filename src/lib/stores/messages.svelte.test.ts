@@ -241,62 +241,62 @@ describe('message session id mapping', () => {
     })
   })
 
-  it('keeps assistant /box MEDIA references in text for link-to-preview rendering', () => {
+  it('keeps assistant MEDIA references in text for inline remote rendering', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
     hydrateSessionMessagesFromGateway(liveSid, [
       {
-        content: 'rendered output\nMEDIA:/box/bitch-neon-box.png',
+        content: 'rendered output\nMEDIA:/opt/data/neon-render.png',
         role: 'assistant',
         timestamp: 102
       } as SessionMessage,
       {
-        content: 'artifact: MEDIA:/box/wiki/personal/notes.pdf',
+        content: 'artifact: MEDIA:/opt/data/wiki/personal/notes.pdf',
         role: 'assistant',
         timestamp: 103
       } as SessionMessage
     ])
 
     const messages = threadForSession(storedKey)?.messages ?? []
-    expect(messages[0]?.text).toBe('rendered output\nMEDIA:/box/bitch-neon-box.png')
+    expect(messages[0]?.text).toBe('rendered output\nMEDIA:/opt/data/neon-render.png')
     expect(messages[0]?.attachments).toBeUndefined()
-    expect(messages[1]?.text).toBe('artifact: MEDIA:/box/wiki/personal/notes.pdf')
+    expect(messages[1]?.text).toBe('artifact: MEDIA:/opt/data/wiki/personal/notes.pdf')
     expect(messages[1]?.attachments).toBeUndefined()
   })
 
-  it('keeps standalone /box paths as text links instead of visible attachments', () => {
+  it('keeps standalone absolute paths as text instead of visible attachments', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
     hydrateSessionMessagesFromGateway(liveSid, [
       {
-        content: 'rendered output\n/box/.hermes/cache/render 1.png',
+        content: 'rendered output\n/opt/data/.hermes/cache/render 1.png',
         role: 'assistant',
         timestamp: 104
       } as SessionMessage,
       {
-        content: 'artifact ready\n`/box/wiki/personal/notes.pdf`',
+        content: 'artifact ready\n`/opt/data/wiki/personal/notes.pdf`',
         role: 'assistant',
         timestamp: 105
       } as SessionMessage,
       {
-        content: 'also linkable\n/box/wiki/personal/readme.txt',
+        content: 'also linkable\n/opt/data/wiki/personal/readme.txt',
         role: 'assistant',
         timestamp: 106
       } as SessionMessage
     ])
 
     const messages = threadForSession(storedKey)?.messages ?? []
-    expect(messages[0]?.text).toBe('rendered output\n/box/.hermes/cache/render 1.png')
+    expect(messages[0]?.text).toBe('rendered output\n/opt/data/.hermes/cache/render 1.png')
     expect(messages[0]?.attachments).toBeUndefined()
-    expect(messages[1]?.text).toBe('artifact ready\n`/box/wiki/personal/notes.pdf`')
+    expect(messages[1]?.text).toBe('artifact ready\n`/opt/data/wiki/personal/notes.pdf`')
     expect(messages[1]?.attachments).toBeUndefined()
-    expect(messages[2]?.text).toBe('also linkable\n/box/wiki/personal/readme.txt')
+    expect(messages[2]?.text).toBe('also linkable\n/opt/data/wiki/personal/readme.txt')
     expect(messages[2]?.attachments).toBeUndefined()
   })
 
-  it('keeps live assistant /box MEDIA references on completion as preview links', () => {
+  it('keeps live assistant MEDIA references on completion as inline remote references', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -304,11 +304,11 @@ describe('message session id mapping', () => {
     handleGatewayEvent({
       session_id: liveSid,
       type: 'message.complete',
-      payload: { text: 'Done\nMEDIA:/box/live.png' }
+      payload: { text: 'Done\nMEDIA:/opt/data/live.png' }
     })
 
     const message = threadForSession(storedKey)?.messages[0]
-    expect(message?.text).toBe('Done\nMEDIA:/box/live.png')
+    expect(message?.text).toBe('Done\nMEDIA:/opt/data/live.png')
     expect(message?.attachments).toBeUndefined()
   })
 
@@ -318,7 +318,7 @@ describe('message session id mapping', () => {
 
     hydrateSessionMessagesFromGateway(liveSid, [
       {
-        content: 'rendered output\nCANVAS:/box/render.html',
+        content: 'rendered output\nCANVAS:/tmp/render.html',
         role: 'assistant',
         timestamp: 104
       } as SessionMessage
@@ -328,8 +328,8 @@ describe('message session id mapping', () => {
     expect(thread?.messages[0]?.text).toBe('rendered output')
     expect(thread?.canvas).toMatchObject({
       label: 'render.html',
-      path: '/box/render.html',
-      source: '/box/render.html'
+      path: '/tmp/render.html',
+      source: '/tmp/render.html'
     })
   })
 
@@ -341,15 +341,15 @@ describe('message session id mapping', () => {
     handleGatewayEvent({
       session_id: liveSid,
       type: 'message.complete',
-      payload: { text: 'Canvas ready\nCANVAS:/box/live-render.html' }
+      payload: { text: 'Canvas ready\nCANVAS:/opt/data/live-render.html' }
     })
 
     const thread = threadForSession(storedKey)
     expect(thread?.messages[0]?.text).toBe('Canvas ready')
     expect(thread?.canvas).toMatchObject({
       label: 'live-render.html',
-      path: '/box/live-render.html',
-      source: '/box/live-render.html'
+      path: '/opt/data/live-render.html',
+      source: '/opt/data/live-render.html'
     })
   })
 
