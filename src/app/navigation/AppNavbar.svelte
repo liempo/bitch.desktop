@@ -1,4 +1,5 @@
 <script lang="ts">
+  import bitchLogoUrl from '$lib/assets/bitch-logo.png'
   import { agentRoute, appRouterState, filesRoute, mainRoute, type AppPage } from '../router.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
 
@@ -32,11 +33,12 @@
   <div class="flex min-w-0 items-center gap-3 pl-[74px]">
     <div class="ml-2 hidden h-4 w-px bg-line-strong/70 md:block" data-tauri-drag-region></div>
     <a
-      class={linkClass('main')}
+      class={`${linkClass('main')} inline-flex items-center gap-2`}
       href={`#${mainRoute()}`}
       aria-current={appRouterState.page === 'main' ? 'page' : undefined}
     >
-      BITCH
+      <img class="h-5 w-5 rounded-sm bg-black" src={bitchLogoUrl} alt="" aria-hidden="true" />
+      <span>BITCH</span>
     </a>
   </div>
 
