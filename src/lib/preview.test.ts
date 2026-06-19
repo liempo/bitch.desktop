@@ -24,6 +24,12 @@ describe('remote preview targets', () => {
       path: '/tmp/hermes remote probe.txt',
       viewerKind: 'text'
     })
+    expect(previewFromFileRef('@file:/opt/data/build/WORKSPACE.bazel')).toMatchObject({
+      kind: 'file',
+      label: 'WORKSPACE.bazel',
+      path: '/opt/data/build/WORKSPACE.bazel',
+      viewerKind: 'text'
+    })
   })
 
   it('does not infer preview targets from raw absolute paths', async () => {
