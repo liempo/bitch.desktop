@@ -63,6 +63,42 @@ New Tauri commands:
 profile }` for the global config or a profile override. The dashboard token
   stays in Tauri and is not returned to the renderer on this live routing path.
 
+Calendar uses the same connection settings document. Add a global `calendar`
+block or a profile-specific `profiles.<name>.calendar` override:
+
+```json
+{
+  "mode": "remote",
+  "url": "http://127.0.0.1:9119",
+  "token": "[REDACTED]",
+  "calendar": {
+    "url": "http://127.0.0.1:5232/dav/",
+    "username": "[REDACTED]",
+    "password": "[REDACTED]",
+    "timezone": "America/New_York"
+  },
+  "profiles": {
+    "work": {
+      "mode": "remote",
+      "url": "http://127.0.0.1:9121",
+      "token": "[REDACTED]",
+      "calendar": {
+        "url": "http://127.0.0.1:5232/work/",
+        "username": "[REDACTED]",
+        "password": "[REDACTED]",
+        "timezone": "America/New_York"
+      }
+    }
+  }
+}
+```
+
+When no saved calendar block exists, Tauri also recognizes `BITCH_CALDAV_URL`,
+`BITCH_CALDAV_USERNAME`, `BITCH_CALDAV_PASSWORD`, and `BITCH_CALDAV_TIMEZONE`
+with `CALDAV_*` fallbacks for homestation/Chronos-style environments. The
+renderer can only resolve redacted metadata (`usernamePresent`/`passwordPresent`);
+actual CalDAV credentials stay in Tauri.
+
 ## Tauri bridge
 
 `src-tauri/src/lib.rs` now resolves connections per profile:

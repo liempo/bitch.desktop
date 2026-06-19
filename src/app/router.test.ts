@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import navbarSource from './navigation/AppNavbar.svelte?raw'
-import { agentRoute } from './router.svelte'
+import { agentRoute, calendarRoute } from './router.svelte'
 import { sessionRoute } from './agent/router.svelte'
 
 describe('top-level AGENT routing', () => {
@@ -14,5 +14,11 @@ describe('top-level AGENT routing', () => {
 
   it('wires the AGENT nav item to the last selected stored session', () => {
     expect(navbarSource).toContain('agentRoute(sessionState.storedSessionId)')
+  })
+})
+
+describe('top-level Calendar routing', () => {
+  it('builds the Calendar tab href', () => {
+    expect(calendarRoute()).toBe('/calendar')
   })
 })

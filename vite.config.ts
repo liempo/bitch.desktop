@@ -9,6 +9,26 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [svelte(), tailwindcss()],
+    build: {
+      // Schedule-X and the Temporal/CalDAV stack make minification exceed the
+      // memory budget in the Hermes Linux worker; Tauri does not need a tiny web
+      // bundle badly enough to turn validation into a chrome-fired centrifuge.
+      minify: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (
+              id.includes('@schedule-x/') ||
+              id.includes('ical.js') ||
+              id.includes('temporal-polyfill') ||
+              id.includes('tsdav')
+            ) {
+              return 'calendar-vendor'
+            }
+          }
+        }
+      }
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

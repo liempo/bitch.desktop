@@ -58,8 +58,19 @@ struct GatewayConfig {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct CalendarConnectionConfig {
+    auth_mode: Option<String>,
+    password: Option<String>,
+    timezone: Option<String>,
+    url: Option<String>,
+    username: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ConnectionProfileConfig {
     auth_mode: Option<String>,
+    calendar: Option<CalendarConnectionConfig>,
     mode: Option<String>,
     token: Option<String>,
     url: Option<String>,
@@ -69,6 +80,7 @@ struct ConnectionProfileConfig {
 #[serde(rename_all = "camelCase")]
 struct ConnectionConfig {
     auth_mode: Option<String>,
+    calendar: Option<CalendarConnectionConfig>,
     mode: Option<String>,
     profiles: Option<HashMap<String, ConnectionProfileConfig>>,
     token: Option<String>,
@@ -81,6 +93,47 @@ struct ResolvedConnection {
     auth_mode: String,
     base_url: String,
     profile: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct CalendarCredentials {
+    auth_mode: String,
+    base_url: String,
+    password: Option<String>,
+    profile: Option<String>,
+    timezone: String,
+    username: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResolvedCalendarConnection {
+    auth_mode: String,
+    base_url: String,
+    configured: bool,
+    password_present: bool,
+    profile: Option<String>,
+    timezone: String,
+    username_present: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CalendarBridgeRequest {
+    body: Option<String>,
+    headers: Option<HashMap<String, String>>,
+    method: Option<String>,
+    url: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CalendarBridgeResponse {
+    body: String,
+    headers: HashMap<String, String>,
+    status: u16,
+    status_text: String,
+    url: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -347,6 +400,7 @@ fn read_saved_connection_config() -> Result<Option<ConnectionConfig>, String> {
 fn env_connection_config() -> ConnectionConfig {
     ConnectionConfig {
         auth_mode: Some("token".to_string()),
+        calendar: env_calendar_config(),
         mode: Some("remote".to_string()),
         profiles: None,
         token: config_value("BITCH_DASHBOARD_API_KEY"),
@@ -405,6 +459,326 @@ fn resolve_gateway_config(profile: Option<&str>) -> Result<GatewayConfig, String
         auth_mode: normalize_auth_mode(auth_mode),
         base_url,
         token,
+    })
+}
+
+fn normalize_calendar_auth_mode(_auth_mode: Option<&str>) -> String {
+    "basic".to_string()
+}
+
+fn env_calendar_config() -> Option<CalendarConnectionConfig> {
+    let url = config_value("BITCH_CALDAV_URL")
+        .or_else(|| config_value("CALDAV_URL"))
+        .or_else(|| config_value("CALDAV_SERVER_URL"));
+
+    url.map(|url| CalendarConnectionConfig {
+        auth_mode: Some("basic".to_string()),
+        password: config_value("BITCH_CALDAV_PASSWORD").or_else(|| config_value("CALDAV_PASSWORD")),
+        timezone: config_value("BITCH_CALDAV_TIMEZONE").or_else(|| config_value("CALDAV_TIMEZONE")),
+        url: Some(url),
+        username: config_value("BITCH_CALDAV_USERNAME").or_else(|| config_value("CALDAV_USERNAME")),
+    })
+}
+
+fn trim_optional_secret(value: Option<&String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn calendar_config_with_url(
+    config: Option<&CalendarConnectionConfig>,
+) -> Option<&CalendarConnectionConfig> {
+    config.filter(|entry| {
+        entry
+            .url
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_some()
+    })
+}
+
+fn calendar_config_for_profile<'a>(
+    config: &'a ConnectionConfig,
+    profile: Option<&str>,
+) -> Option<&'a CalendarConnectionConfig> {
+    let profile_calendar = connection_scope_key(profile)
+        .and_then(|key| config.profiles.as_ref()?.get(&key))
+        .and_then(|entry| calendar_config_with_url(entry.calendar.as_ref()));
+
+    profile_calendar.or_else(|| calendar_config_with_url(config.calendar.as_ref()))
+}
+
+fn normalize_calendar_base_url(raw_url: &str) -> Result<String, String> {
+    let value = raw_url.trim();
+
+    if value.is_empty() {
+        return Err("CalDAV URL is required".to_string());
+    }
+
+    let mut parsed = url::Url::parse(value).map_err(|e| format!("Invalid CalDAV URL: {e}"))?;
+
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err(format!(
+            "CalDAV URL must be http:// or https://, got {}",
+            parsed.scheme()
+        ));
+    }
+
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("CalDAV URL must not contain embedded credentials".to_string());
+    }
+
+    parsed.set_fragment(None);
+    parsed.set_query(None);
+    let path = parsed.path().trim_end_matches('/').to_string();
+    parsed.set_path(if path.is_empty() { "/" } else { &path });
+
+    Ok(parsed.as_str().trim_end_matches('/').to_string())
+}
+
+fn resolve_calendar_credentials_from_config(
+    config: &ConnectionConfig,
+    profile: Option<&str>,
+) -> Result<Option<CalendarCredentials>, String> {
+    let Some(calendar) = calendar_config_for_profile(config, profile).or_else(|| {
+        // Environment fallback remains available even when connection.json exists
+        // without a calendar block.
+        None
+    }) else {
+        if let Some(env_calendar) = env_calendar_config() {
+            let base_url =
+                normalize_calendar_base_url(env_calendar.url.as_deref().unwrap_or_default())?;
+            let profile_key = connection_scope_key(profile);
+            return Ok(Some(CalendarCredentials {
+                auth_mode: normalize_calendar_auth_mode(env_calendar.auth_mode.as_deref()),
+                base_url,
+                password: trim_optional_secret(env_calendar.password.as_ref()),
+                profile: profile_key,
+                timezone: trim_optional_secret(env_calendar.timezone.as_ref())
+                    .unwrap_or_else(|| "UTC".to_string()),
+                username: trim_optional_secret(env_calendar.username.as_ref()),
+            }));
+        }
+
+        return Ok(None);
+    };
+
+    let base_url = normalize_calendar_base_url(calendar.url.as_deref().unwrap_or_default())?;
+    let profile_key = connection_scope_key(profile);
+
+    Ok(Some(CalendarCredentials {
+        auth_mode: normalize_calendar_auth_mode(calendar.auth_mode.as_deref()),
+        base_url,
+        password: trim_optional_secret(calendar.password.as_ref()),
+        profile: profile_key,
+        timezone: trim_optional_secret(calendar.timezone.as_ref())
+            .unwrap_or_else(|| "UTC".to_string()),
+        username: trim_optional_secret(calendar.username.as_ref()),
+    }))
+}
+
+fn resolved_calendar_connection(
+    credentials: Option<CalendarCredentials>,
+) -> ResolvedCalendarConnection {
+    if let Some(credentials) = credentials {
+        return ResolvedCalendarConnection {
+            auth_mode: credentials.auth_mode,
+            base_url: credentials.base_url,
+            configured: true,
+            password_present: credentials.password.is_some(),
+            profile: credentials.profile,
+            timezone: credentials.timezone,
+            username_present: credentials.username.is_some(),
+        };
+    }
+
+    ResolvedCalendarConnection {
+        auth_mode: "basic".to_string(),
+        base_url: String::new(),
+        configured: false,
+        password_present: false,
+        profile: None,
+        timezone: "UTC".to_string(),
+        username_present: false,
+    }
+}
+
+fn resolve_calendar_connection_from_config(
+    config: &ConnectionConfig,
+    profile: Option<&str>,
+) -> Result<ResolvedCalendarConnection, String> {
+    let credentials = resolve_calendar_credentials_from_config(config, profile)?;
+    Ok(resolved_calendar_connection(credentials))
+}
+
+fn normalize_calendar_method(method: Option<String>) -> Result<reqwest::Method, String> {
+    let method = method
+        .unwrap_or_else(|| "GET".to_string())
+        .trim()
+        .to_ascii_uppercase();
+
+    match method.as_str() {
+        "GET" => Ok(reqwest::Method::GET),
+        "HEAD" => Ok(reqwest::Method::HEAD),
+        "OPTIONS" => Ok(reqwest::Method::OPTIONS),
+        "PROPFIND" | "REPORT" => reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| e.to_string()),
+        other => Err(format!(
+            "calendar_request is read-only and only supports GET, HEAD, OPTIONS, PROPFIND, and REPORT, got {other}"
+        )),
+    }
+}
+
+fn validate_calendar_request_url(request_url: &str, base_url: &str) -> Result<url::Url, String> {
+    let target = url::Url::parse(request_url.trim())
+        .map_err(|e| format!("Invalid CalDAV request URL: {e}"))?;
+    let base = url::Url::parse(base_url.trim())
+        .map_err(|e| format!("Invalid configured CalDAV URL: {e}"))?;
+
+    if target.scheme() != base.scheme()
+        || target.host_str() != base.host_str()
+        || target.port_or_known_default() != base.port_or_known_default()
+    {
+        return Err(
+            "calendar_request URL must stay within the configured CalDAV origin".to_string(),
+        );
+    }
+
+    if !target.username().is_empty() || target.password().is_some() || target.fragment().is_some() {
+        return Err("calendar_request URL must not contain credentials or fragments".to_string());
+    }
+
+    let base_path = base.path().trim_end_matches('/');
+    let target_path = target.path();
+    let boundary = if base_path.is_empty() {
+        "/".to_string()
+    } else {
+        format!("{base_path}/")
+    };
+
+    if target_path == base_path || target_path.starts_with(&boundary) || base_path == "/" {
+        Ok(target)
+    } else {
+        Err("calendar_request URL must stay under the configured CalDAV path".to_string())
+    }
+}
+
+fn should_forward_calendar_header(name: &str) -> bool {
+    !matches!(
+        name.to_ascii_lowercase().as_str(),
+        "authorization"
+            | "proxy-authorization"
+            | "cookie"
+            | "cookie2"
+            | "host"
+            | "connection"
+            | "content-length"
+            | "transfer-encoding"
+            | "upgrade"
+            | "te"
+            | "trailer"
+            | "keep-alive"
+    )
+}
+
+fn should_forward_calendar_response_header(name: &reqwest::header::HeaderName) -> bool {
+    !matches!(
+        name.as_str().to_ascii_lowercase().as_str(),
+        "authorization"
+            | "proxy-authenticate"
+            | "www-authenticate"
+            | "authentication-info"
+            | "proxy-authentication-info"
+            | "set-cookie"
+            | "set-cookie2"
+            | "connection"
+            | "content-length"
+            | "transfer-encoding"
+            | "upgrade"
+            | "te"
+            | "trailer"
+            | "keep-alive"
+    )
+}
+
+fn calendar_response_headers(headers: &reqwest::header::HeaderMap) -> HashMap<String, String> {
+    headers
+        .iter()
+        .filter(|(name, _)| should_forward_calendar_response_header(name))
+        .filter_map(|(name, value)| {
+            value
+                .to_str()
+                .ok()
+                .map(|value| (name.to_string(), value.to_string()))
+        })
+        .collect()
+}
+
+fn calendar_redirect_policy(base_url: &str) -> reqwest::redirect::Policy {
+    let base_url = base_url.to_string();
+
+    reqwest::redirect::Policy::custom(move |attempt| {
+        if attempt.previous().len() > 10 {
+            return attempt.error("too many CalDAV redirects");
+        }
+
+        match validate_calendar_request_url(attempt.url().as_str(), &base_url) {
+            Ok(_) => attempt.follow(),
+            Err(error) => attempt.error(format!("calendar_request redirect blocked: {error}")),
+        }
+    })
+}
+
+fn calendar_http_client(base_url: &str) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
+        .redirect(calendar_redirect_policy(base_url))
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+async fn calendar_request_impl(
+    client: &reqwest::Client,
+    credentials: &CalendarCredentials,
+    request: CalendarBridgeRequest,
+) -> Result<CalendarBridgeResponse, String> {
+    let method = normalize_calendar_method(request.method)?;
+    let target_url = validate_calendar_request_url(&request.url, &credentials.base_url)?;
+    let mut builder = client.request(method, target_url);
+
+    if let Some(username) = credentials.username.as_deref() {
+        builder = builder.basic_auth(username, credentials.password.as_deref());
+    }
+
+    for (name, value) in request.headers.unwrap_or_default() {
+        if !should_forward_calendar_header(&name) {
+            continue;
+        }
+
+        let header_name = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+            .map_err(|e| format!("Invalid CalDAV request header {name}: {e}"))?;
+        let header_value = reqwest::header::HeaderValue::from_str(&value)
+            .map_err(|e| format!("Invalid CalDAV request header value for {name}: {e}"))?;
+        builder = builder.header(header_name, header_value);
+    }
+
+    if let Some(body) = request.body {
+        builder = builder.body(body);
+    }
+
+    let response = builder.send().await.map_err(|e| e.to_string())?;
+    let status = response.status();
+    let url = response.url().to_string();
+    let headers = calendar_response_headers(response.headers());
+    let body = response.text().await.map_err(|e| e.to_string())?;
+
+    Ok(CalendarBridgeResponse {
+        body,
+        headers,
+        status: status.as_u16(),
+        status_text: status.canonical_reason().unwrap_or_default().to_string(),
+        url,
     })
 }
 
@@ -806,6 +1180,30 @@ async fn resolve_connection(profile: Option<String>) -> Result<ResolvedConnectio
 }
 
 #[tauri::command]
+async fn resolve_calendar_connection(
+    profile: Option<String>,
+) -> Result<ResolvedCalendarConnection, String> {
+    let config = load_connection_config()?;
+    resolve_calendar_connection_from_config(&config, profile.as_deref())
+}
+
+#[tauri::command]
+async fn calendar_request(
+    _client: tauri::State<'_, reqwest::Client>,
+    profile: Option<String>,
+    request: CalendarBridgeRequest,
+) -> Result<CalendarBridgeResponse, String> {
+    let config = load_connection_config()?;
+    let credentials = resolve_calendar_credentials_from_config(&config, profile.as_deref())?
+        .ok_or_else(|| {
+            "Calendar CalDAV connection is not configured in BITCH connection settings.".to_string()
+        })?;
+    let calendar_client = calendar_http_client(&credentials.base_url)?;
+
+    calendar_request_impl(&calendar_client, &credentials, request).await
+}
+
+#[tauri::command]
 async fn dashboard_request(
     client: tauri::State<'_, reqwest::Client>,
     request: DashboardRequest,
@@ -1178,6 +1576,7 @@ mod tests {
             "crypto".to_string(),
             ConnectionProfileConfig {
                 auth_mode: Some("token".to_string()),
+                calendar: None,
                 mode: Some("remote".to_string()),
                 token: Some("profile-token".to_string()),
                 url: Some("http://127.0.0.1:9121".to_string()),
@@ -1187,6 +1586,7 @@ mod tests {
             "ignored".to_string(),
             ConnectionProfileConfig {
                 auth_mode: None,
+                calendar: None,
                 mode: Some("local".to_string()),
                 token: None,
                 url: Some("http://127.0.0.1:9122".to_string()),
@@ -1194,6 +1594,7 @@ mod tests {
         );
         let config = ConnectionConfig {
             auth_mode: Some("token".to_string()),
+            calendar: None,
             mode: Some("remote".to_string()),
             profiles: Some(profiles),
             token: Some("global-token".to_string()),
@@ -1206,6 +1607,120 @@ mod tests {
         );
         assert!(profile_remote_override(&config, Some("ignored")).is_none());
         assert!(profile_remote_override(&config, None).is_none());
+    }
+
+    #[test]
+    fn calendar_connection_uses_profile_override_and_redacts_credentials() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "crypto".to_string(),
+            ConnectionProfileConfig {
+                auth_mode: Some("token".to_string()),
+                calendar: Some(CalendarConnectionConfig {
+                    auth_mode: Some("basic".to_string()),
+                    password: Some("profile-secret".to_string()),
+                    timezone: Some("America/New_York".to_string()),
+                    url: Some("http://127.0.0.1:5233/work/".to_string()),
+                    username: Some("profile-user".to_string()),
+                }),
+                mode: Some("remote".to_string()),
+                token: Some("profile-token".to_string()),
+                url: Some("http://127.0.0.1:9121".to_string()),
+            },
+        );
+        let config = ConnectionConfig {
+            auth_mode: Some("token".to_string()),
+            calendar: Some(CalendarConnectionConfig {
+                auth_mode: Some("basic".to_string()),
+                password: Some("global-secret".to_string()),
+                timezone: Some("UTC".to_string()),
+                url: Some("http://127.0.0.1:5232/dav/".to_string()),
+                username: Some("global-user".to_string()),
+            }),
+            mode: Some("remote".to_string()),
+            profiles: Some(profiles),
+            token: Some("global-token".to_string()),
+            url: Some("http://127.0.0.1:9119".to_string()),
+        };
+
+        let resolved = resolve_calendar_connection_from_config(&config, Some("crypto")).unwrap();
+        assert_eq!(resolved.base_url, "http://127.0.0.1:5233/work");
+        assert_eq!(resolved.profile.as_deref(), Some("crypto"));
+        assert!(resolved.configured);
+        assert!(resolved.username_present);
+        assert!(resolved.password_present);
+        assert_eq!(resolved.timezone, "America/New_York");
+
+        let value = serde_json::to_value(&resolved).unwrap();
+        assert!(value.get("username").is_none());
+        assert!(value.get("password").is_none());
+        assert_eq!(
+            value.get("usernamePresent").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            value.get("passwordPresent").and_then(Value::as_bool),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn calendar_bridge_restricts_requests_to_read_only_configured_base_url() {
+        assert_eq!(
+            normalize_calendar_method(Some("REPORT".to_string())).unwrap(),
+            reqwest::Method::from_bytes(b"REPORT").unwrap()
+        );
+        assert_eq!(
+            normalize_calendar_method(None).unwrap(),
+            reqwest::Method::GET
+        );
+        assert!(normalize_calendar_method(Some("PUT".to_string())).is_err());
+
+        assert!(validate_calendar_request_url(
+            "http://127.0.0.1:5232/dav/user/work/event.ics",
+            "http://127.0.0.1:5232/dav"
+        )
+        .is_ok());
+        assert!(validate_calendar_request_url(
+            "http://127.0.0.1:5232/davish/event.ics",
+            "http://127.0.0.1:5232/dav"
+        )
+        .is_err());
+        assert!(validate_calendar_request_url(
+            "http://127.0.0.1:9119/api/status",
+            "http://127.0.0.1:5232/dav"
+        )
+        .is_err());
+        assert!(validate_calendar_request_url(
+            "http://user:secret@127.0.0.1:5232/dav/event.ics",
+            "http://127.0.0.1:5232/dav"
+        )
+        .is_err());
+        assert!(validate_calendar_request_url(
+            "http://127.0.0.1:5232/dav/event.ics#frag",
+            "http://127.0.0.1:5232/dav"
+        )
+        .is_err());
+        assert!(calendar_http_client("http://127.0.0.1:5232/dav").is_ok());
+    }
+
+    #[test]
+    fn calendar_bridge_filters_sensitive_response_headers() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("content-type", "application/xml".parse().unwrap());
+        headers.insert("etag", "abc".parse().unwrap());
+        headers.insert("set-cookie", "sid=secret".parse().unwrap());
+        headers.insert("www-authenticate", "Basic realm=caldav".parse().unwrap());
+
+        let forwarded = calendar_response_headers(&headers);
+
+        assert_eq!(
+            forwarded.get("content-type").map(String::as_str),
+            Some("application/xml")
+        );
+        assert_eq!(forwarded.get("etag").map(String::as_str), Some("abc"));
+        assert!(!forwarded.contains_key("set-cookie"));
+        assert!(!forwarded.contains_key("www-authenticate"));
     }
 
     #[test]
@@ -1253,6 +1768,8 @@ pub fn run() {
             get_connection_config,
             save_connection_config,
             resolve_connection,
+            resolve_calendar_connection,
+            calendar_request,
             dashboard_request,
             connect_ws,
             send_ws_message,

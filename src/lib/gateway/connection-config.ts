@@ -1,8 +1,18 @@
 type ConnectionAuthMode = 'oauth' | 'token'
 type ConnectionMode = 'remote'
+type CalendarAuthMode = 'basic'
+
+interface CalendarConnectionConfig {
+  authMode?: CalendarAuthMode | string | null
+  password?: string | null
+  timezone?: string | null
+  url?: string | null
+  username?: string | null
+}
 
 interface ConnectionProfileConfig {
   authMode?: ConnectionAuthMode | null
+  calendar?: CalendarConnectionConfig | null
   mode?: ConnectionMode | string | null
   token?: string | null
   url?: string | null
@@ -16,6 +26,14 @@ export interface ProfileRemoteOverride {
   authMode: ConnectionAuthMode
   token?: string | null
   url: string
+}
+
+export interface CalendarRemoteOverride {
+  authMode: CalendarAuthMode
+  password?: string | null
+  timezone?: string | null
+  url: string
+  username?: string | null
 }
 
 export function normalizeRemoteBaseUrl(rawUrl: string | null | undefined): string {
@@ -72,5 +90,35 @@ export function profileRemoteOverride(
     authMode: normAuthMode(entry.authMode),
     token: entry.token,
     url
+  }
+}
+
+function normCalendarAuthMode(): CalendarAuthMode {
+  return 'basic'
+}
+
+function usableCalendarConfig(entry: CalendarConnectionConfig | null | undefined): CalendarConnectionConfig | null {
+  const url = String(entry?.url ?? '').trim()
+  return url ? { ...entry, url } : null
+}
+
+export function calendarRemoteOverride(
+  config: ConnectionConfig | null | undefined,
+  profile: string | null | undefined
+): CalendarRemoteOverride | null {
+  const key = connectionScopeKey(profile)
+  const profileCalendar = key ? usableCalendarConfig(config?.profiles?.[key]?.calendar) : null
+  const calendar = profileCalendar ?? usableCalendarConfig(config?.calendar)
+
+  if (!calendar) {
+    return null
+  }
+
+  return {
+    authMode: normCalendarAuthMode(),
+    password: calendar.password,
+    timezone: calendar.timezone,
+    url: calendar.url ?? '',
+    username: calendar.username
   }
 }
