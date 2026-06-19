@@ -50,7 +50,7 @@ Official Desktop uses the dashboard filesystem API through the desktop bridge wh
   - rejects files over 16 MiB with 413
   - returns `{ dataUrl: "data:<mime>;base64,..." }`
 - `GET /api/fs/git-root?path=<path>` resolves the nearest git root from a file or directory path
-- `GET /api/fs/default-cwd` returns `{ cwd, branch }` for the backend's default working directory
+- `GET /api/fs/default-cwd` returns `{ cwd, branch }` for the backend's default working directory. The Files tab intentionally mounts `/` instead of this cwd so operators can browse the full authenticated remote filesystem tree.
 
 Path parsing accepts absolute paths, `~`, paths relative to the dashboard process cwd, and `file://` URLs with an empty or `localhost` authority. NUL bytes, foreign-host `file://` URLs, and invalid paths return 400.
 

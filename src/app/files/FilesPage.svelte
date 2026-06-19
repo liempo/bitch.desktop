@@ -4,7 +4,6 @@
   import Panel from '@/components/ui/Panel.svelte'
   import {
     fetchRemoteFileListing,
-    getRemoteDefaultCwd,
     readRemoteFileDataUrl,
     readRemoteFileText,
     type RemoteFileEntry,
@@ -48,17 +47,9 @@
   }
 
   async function openInitialDirectory(): Promise<void> {
-    try {
-      const { cwd } = await getRemoteDefaultCwd()
-      const initialPath = cwd || '/'
-      rootPath = initialPath
-      expanded = { [initialPath]: true }
-      await openDirectory(initialPath)
-    } catch {
-      rootPath = '/'
-      expanded = { '/': true }
-      await openDirectory('/')
-    }
+    rootPath = '/'
+    expanded = { '/': true }
+    await openDirectory('/')
   }
 
   function buildTreeRows(): TreeRow[] {
