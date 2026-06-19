@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdminPage from './admin/AdminPage.svelte'
   import AgentShell from './agent/AgentShell.svelte'
   import FilesPage from './files/FilesPage.svelte'
   import MainPage from './main/MainPage.svelte'
@@ -15,6 +16,8 @@
         <AgentShell />
       {:else if appRouterState.page === 'files'}
         <FilesPage />
+      {:else if appRouterState.page === 'admin'}
+        <AdminPage />
       {:else}
         <MainPage />
       {/if}

@@ -1,12 +1,22 @@
 import { invoke } from '@tauri-apps/api/core'
 
 import type {
+  ConfigRawResponse,
+  ConfigSchemaResponse,
+  MessagingPlatformTestResponse,
+  MessagingPlatformUpdate,
+  MessagingPlatformsResponse,
+  ModelAssignmentRequest,
+  ModelAssignmentResponse,
   ModelInfoResponse,
   ModelOptionsResponse,
   PaginatedSessions,
   ProfilesResponse,
   SessionMessagesResponse,
-  SessionSearchResponse
+  SessionSearchResponse,
+  SkillContentResponse,
+  SkillInfo,
+  ToolsetInfo
 } from '$lib/types/hermes'
 
 type DashboardRequestMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
@@ -37,10 +47,6 @@ let apiProfile: null | string = null
 
 export function setApiRequestProfile(profile: null | string): void {
   apiProfile = profile?.trim() || null
-}
-
-function profileScoped(): { profile?: string } {
-  return apiProfile ? { profile: apiProfile } : {}
 }
 
 export async function dashboardRequest<T>({
@@ -167,17 +173,21 @@ export function deleteSession(id: string, profile?: null | string): Promise<{ ok
   })
 }
 
-export function getGlobalModelInfo(): Promise<ModelInfoResponse> {
+export function getGlobalModelInfo(profile?: null | string): Promise<ModelInfoResponse> {
+  const scoped = profile ?? apiProfile
+
   return dashboardRequest<ModelInfoResponse>({
-    ...profileScoped(),
-    path: '/api/model/info'
+    path: `/api/model/info${profileSuffix(scoped)}`,
+    profile: scoped
   })
 }
 
-export function getModelOptions(): Promise<ModelOptionsResponse> {
+export function getModelOptions(profile?: null | string): Promise<ModelOptionsResponse> {
+  const scoped = profile ?? apiProfile
+
   return dashboardRequest<ModelOptionsResponse>({
-    ...profileScoped(),
-    path: '/api/model/options'
+    path: `/api/model/options${profileSuffix(scoped)}`,
+    profile: scoped
   })
 }
 
@@ -187,4 +197,167 @@ export function getProfiles(): Promise<ProfilesResponse> {
 
 export function getActiveProfile(): Promise<ActiveProfileResponse> {
   return dashboardRequest<ActiveProfileResponse>({ path: '/api/profiles/active' })
+}
+
+export function getConfigRaw(profile?: null | string): Promise<ConfigRawResponse> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<ConfigRawResponse>({
+    path: `/api/config/raw${suffix}`,
+    profile
+  })
+}
+
+export function saveConfigRaw(yamlText: string, profile?: null | string): Promise<{ ok: boolean }> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<{ ok: boolean }>({
+    body: { yaml_text: yamlText, ...(profile ? { profile } : {}) },
+    method: 'PUT',
+    path: `/api/config/raw${suffix}`,
+    profile
+  })
+}
+
+export function getConfigSchema(): Promise<ConfigSchemaResponse> {
+  return dashboardRequest<ConfigSchemaResponse>({ path: '/api/config/schema' })
+}
+
+export function getSkills(profile?: null | string): Promise<SkillInfo[]> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<SkillInfo[]>({
+    path: `/api/skills${suffix}`,
+    profile
+  })
+}
+
+export function getSkillContent(name: string, profile?: null | string): Promise<SkillContentResponse> {
+  const params = new URLSearchParams({ name })
+  if (profile) params.set('profile', profile)
+
+  return dashboardRequest<SkillContentResponse>({
+    path: `/api/skills/content?${params.toString()}`,
+    profile
+  })
+}
+
+export function toggleSkill(
+  name: string,
+  enabled: boolean,
+  profile?: null | string
+): Promise<{ ok: boolean; name: string; enabled: boolean }> {
+  return dashboardRequest<{ ok: boolean; name: string; enabled: boolean }>({
+    body: { name, enabled, ...(profile ? { profile } : {}) },
+    method: 'PUT',
+    path: '/api/skills/toggle',
+    profile
+  })
+}
+
+export function createSkill(
+  body: { category?: null | string; content: string; name: string },
+  profile?: null | string
+): Promise<Record<string, unknown>> {
+  return dashboardRequest<Record<string, unknown>>({
+    body: { ...body, ...(profile ? { profile } : {}) },
+    method: 'POST',
+    path: '/api/skills',
+    profile
+  })
+}
+
+export function updateSkillContent(
+  name: string,
+  content: string,
+  profile?: null | string
+): Promise<Record<string, unknown>> {
+  return dashboardRequest<Record<string, unknown>>({
+    body: { name, content, ...(profile ? { profile } : {}) },
+    method: 'PUT',
+    path: '/api/skills/content',
+    profile
+  })
+}
+
+export function uninstallSkillFromHub(name: string, profile?: null | string): Promise<Record<string, unknown>> {
+  return dashboardRequest<Record<string, unknown>>({
+    body: { name, ...(profile ? { profile } : {}) },
+    method: 'POST',
+    path: '/api/skills/hub/uninstall',
+    profile
+  })
+}
+
+export function getToolsets(profile?: null | string): Promise<ToolsetInfo[]> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<ToolsetInfo[]>({
+    path: `/api/tools/toolsets${suffix}`,
+    profile
+  })
+}
+
+export function toggleToolset(
+  name: string,
+  enabled: boolean,
+  profile?: null | string
+): Promise<{ ok: boolean; name: string; enabled: boolean }> {
+  return dashboardRequest<{ ok: boolean; name: string; enabled: boolean }>({
+    body: { enabled, ...(profile ? { profile } : {}) },
+    method: 'PUT',
+    path: `/api/tools/toolsets/${encodeURIComponent(name)}`,
+    profile
+  })
+}
+
+export function setModelAssignment(
+  body: ModelAssignmentRequest,
+  profile?: null | string
+): Promise<ModelAssignmentResponse> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<ModelAssignmentResponse>({
+    body: { ...body, ...(profile ? { profile } : {}) },
+    method: 'POST',
+    path: `/api/model/set${suffix}`,
+    profile
+  })
+}
+
+export function getMessagingPlatforms(profile?: null | string): Promise<MessagingPlatformsResponse> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<MessagingPlatformsResponse>({
+    path: `/api/messaging/platforms${suffix}`,
+    profile
+  })
+}
+
+export function updateMessagingPlatform(
+  platformId: string,
+  body: MessagingPlatformUpdate,
+  profile?: null | string
+): Promise<{ ok: boolean; platform: string }> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<{ ok: boolean; platform: string }>({
+    body: { ...body, ...(profile ? { profile } : {}) },
+    method: 'PUT',
+    path: `/api/messaging/platforms/${encodeURIComponent(platformId)}${suffix}`,
+    profile
+  })
+}
+
+export function testMessagingPlatform(
+  platformId: string,
+  profile?: null | string
+): Promise<MessagingPlatformTestResponse> {
+  const suffix = profileSuffix(profile)
+
+  return dashboardRequest<MessagingPlatformTestResponse>({
+    method: 'POST',
+    path: `/api/messaging/platforms/${encodeURIComponent(platformId)}/test${suffix}`,
+    profile
+  })
 }
