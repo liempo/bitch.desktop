@@ -9,11 +9,11 @@ describe('PreviewSidebar source contract', () => {
     expect(previewSidebarSource).toContain('<iframe')
     expect(previewSidebarSource).toContain('src={activeUrl}')
     expect(previewSidebarSource).toContain('sandbox="allow-scripts allow-forms allow-popups allow-downloads"')
-    expect(previewSidebarSource).toContain("preview.kind === 'image'")
-    expect(previewSidebarSource).toContain("preview.viewerKind === 'pdf'")
-    expect(previewSidebarSource).toContain("preview.viewerKind === 'audio'")
-    expect(previewSidebarSource).toContain("preview.viewerKind === 'video'")
-    expect(previewSidebarSource).toContain("preview.viewerKind === 'text'")
+    expect(previewSidebarSource).toContain("activeViewerKind === 'image'")
+    expect(previewSidebarSource).toContain("activeViewerKind === 'pdf'")
+    expect(previewSidebarSource).toContain("activeViewerKind === 'audio'")
+    expect(previewSidebarSource).toContain("activeViewerKind === 'video'")
+    expect(previewSidebarSource).toContain("activeViewerKind === 'text'")
   })
 
   it('loads remote preview bytes through authenticated filesystem bridge helpers', () => {
@@ -21,6 +21,17 @@ describe('PreviewSidebar source contract', () => {
     expect(previewSidebarSource).toContain('readRemoteFileDataUrl')
     expect(previewSidebarSource).not.toContain(['VITE', 'BOX', 'BASE_URL'].join('_'))
     expect(previewSidebarSource).not.toContain(['BOX', 'file'].join(' '))
+  })
+
+  it('renders text returned for unknown files without blocking on the binary hint', () => {
+    expect(previewSidebarSource).toContain('textPreview = result.text')
+    expect(previewSidebarSource).not.toContain('Remote file is binary; text preview is unavailable.')
+  })
+
+  it('does not default file previews without viewerKind back to a no-inline-viewer state', () => {
+    expect(previewSidebarSource).toContain('viewerKindForRemoteFile')
+    expect(previewSidebarSource).not.toContain("activePreview.kind === 'image' ? 'image' : 'download'")
+    expect(previewSidebarSource).not.toContain('No inline preview is available for this remote file type.')
   })
 
   it('is wired as a conditional preview sidebar from the agent shell', () => {

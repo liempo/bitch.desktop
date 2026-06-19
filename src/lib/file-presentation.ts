@@ -73,7 +73,7 @@ export function filePresentation(name: string): FilePresentation {
     return { accent: 'code', extension, glyph: glyphFor(extension, 'CODE'), title: 'Code', viewerKind }
   }
 
-  if (TEXT_EXTENSIONS.has(extension)) {
+  if (TEXT_EXTENSIONS.has(extension) || viewerKind === 'text') {
     return { accent: 'text', extension, glyph: glyphFor(extension, 'TXT'), title: 'Text', viewerKind }
   }
 

@@ -102,7 +102,6 @@ const CODE_EXTENSIONS = new Set([
   '.tsx',
   '.vue'
 ])
-
 const DENIED_DIR_NAMES = new Set(['.aws', '.azure', '.docker', '.gnupg', '.kube', '.ssh'])
 const DENIED_FILE_NAMES = new Set(['.netrc', '.npmrc', '.pgpass', '.pypirc'])
 
@@ -246,7 +245,9 @@ export function viewerKindForRemoteFile(source: string): RemoteFileViewerKind {
   if (HTML_EXTENSIONS.has(extension)) return 'html'
   if (TEXT_EXTENSIONS.has(extension) || CODE_EXTENSIONS.has(extension)) return 'text'
 
-  return 'download'
+  // Unknown remote file types are treated as text because the client cannot
+  // reliably determine binary status from the path alone.
+  return 'text'
 }
 
 export function remoteFileHref(path: string, mode: RemoteFileHrefMode = 'preview'): string {

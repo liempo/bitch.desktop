@@ -2,7 +2,7 @@
   import Panel from '@/components/ui/Panel.svelte'
   import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
   import type { ThreadPreview } from '$lib/preview'
-  import { readRemoteFileDataUrl, readRemoteFileText } from '$lib/remote-files'
+  import { readRemoteFileDataUrl, readRemoteFileText, viewerKindForRemoteFile, type RemoteFileViewerKind } from '$lib/remote-files'
 
   interface Props {
     onClose?: () => void
@@ -23,6 +23,7 @@
   const previewStyle = $derived(panelWidthStyle('--agent-preview-width', width))
   const title = $derived(preview.kind === 'canvas' ? 'Canvas' : 'Preview')
   const activeUrl = $derived(preview.url ?? remoteUrl)
+  const activeViewerKind = $derived(viewerKindForPreview(preview))
   const openLabel = $derived(preview.kind === 'canvas' ? 'Open canvas' : 'Open file')
   const visibleError = $derived(preview.error ?? loadError)
 
@@ -39,6 +40,12 @@
     loadError = ''
   }
 
+  function viewerKindForPreview(activePreview: ThreadPreview): RemoteFileViewerKind {
+    if (activePreview.viewerKind && activePreview.viewerKind !== 'download') return activePreview.viewerKind
+    if (activePreview.path) return viewerKindForRemoteFile(activePreview.path)
+    return activePreview.kind === 'image' ? 'image' : 'text'
+  }
+
   async function loadPreview(activePreview: ThreadPreview, activeProfile: null | string): Promise<void> {
     const sequence = (loadSequence += 1)
     resetLoadedState()
@@ -46,8 +53,7 @@
     if (activePreview.error || !activePreview.path) return
     if (activePreview.kind === 'canvas' && activePreview.url) return
 
-    const viewerKind = activePreview.viewerKind ?? (activePreview.kind === 'image' ? 'image' : 'download')
-    if (viewerKind === 'download') return
+    const viewerKind = viewerKindForPreview(activePreview)
 
     loading = true
 
@@ -55,11 +61,7 @@
       if (viewerKind === 'text') {
         const result = await readRemoteFileText(activePreview.path, activeProfile)
         if (sequence !== loadSequence) return
-        if (result.binary) {
-          loadError = 'Remote file is binary; text preview is unavailable.'
-        } else {
-          textPreview = result.text
-        }
+        textPreview = result.text
       } else {
         const dataUrl = await readRemoteFileDataUrl(activePreview.path, activeProfile)
         if (sequence !== loadSequence) return
@@ -134,23 +136,23 @@
         sandbox="allow-scripts allow-forms allow-popups allow-downloads"
         referrerpolicy="no-referrer"
       ></iframe>
-    {:else if preview.kind === 'image' && activeUrl}
+    {:else if activeViewerKind === 'image' && activeUrl}
       <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-control border border-line bg-black/20 p-3">
         <img src={activeUrl} alt={preview.label} class="max-h-full max-w-full object-contain" />
       </div>
-    {:else if preview.viewerKind === 'pdf' && activeUrl}
+    {:else if activeViewerKind === 'pdf' && activeUrl}
       <iframe title={preview.label} src={activeUrl} class="min-h-0 flex-1 rounded-control border border-line bg-white"></iframe>
-    {:else if preview.viewerKind === 'audio' && activeUrl}
+    {:else if activeViewerKind === 'audio' && activeUrl}
       <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-control border border-line bg-surface/70 p-6 text-center text-sm text-ink-muted">
         <span class="font-hud text-4xl text-success">AUD</span>
         <audio controls preload="metadata" src={activeUrl} class="w-full"></audio>
       </div>
-    {:else if preview.viewerKind === 'video' && activeUrl}
+    {:else if activeViewerKind === 'video' && activeUrl}
       <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-control border border-line bg-black/30 p-3">
         <!-- svelte-ignore a11y_media_has_caption -->
         <video controls preload="metadata" src={activeUrl} class="max-h-full max-w-full rounded-control"></video>
       </div>
-    {:else if preview.viewerKind === 'html' && activeUrl}
+    {:else if activeViewerKind === 'html' && activeUrl}
       <iframe
         class="min-h-0 flex-1 rounded-control border border-line bg-white"
         src={activeUrl}
@@ -158,12 +160,10 @@
         sandbox="allow-scripts allow-forms allow-popups allow-downloads"
         referrerpolicy="no-referrer"
       ></iframe>
-    {:else if preview.viewerKind === 'text'}
+    {:else if activeViewerKind === 'text'}
       <pre class="min-h-0 flex-1 overflow-auto rounded-control border border-line bg-canvas/60 p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
     {:else}
-      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-dashed border-line bg-surface/40 p-6 text-center text-sm leading-6 text-ink-muted" role="status">
-        No inline preview is available for this remote file type.
-      </div>
+      <pre class="min-h-0 flex-1 overflow-auto rounded-control border border-line bg-canvas/60 p-3 text-xs leading-5 whitespace-pre-wrap text-ink-bright" data-selectable="true">{textPreview}</pre>
     {/if}
   </Panel>
 </aside>
