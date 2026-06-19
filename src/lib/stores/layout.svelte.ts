@@ -2,13 +2,15 @@
 /*  Layout state — sidebar visibility + session pins (localStorage)    */
 /* ------------------------------------------------------------------ */
 
-const PINNED_STORAGE_KEY = 'bitch.desktop.pinnedSessions'
+import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage/namespace'
+
+const PINNED_STORAGE_SUFFIX = 'pinnedSessions'
 
 /* ---------- helpers ---------- */
 
 function loadPins(): string[] {
   try {
-    const raw = localStorage.getItem(PINNED_STORAGE_KEY)
+    const raw = readNamespacedStorageItem(PINNED_STORAGE_SUFFIX)
     return raw ? (JSON.parse(raw) as string[]) : []
   } catch {
     return []
@@ -17,7 +19,7 @@ function loadPins(): string[] {
 
 function savePins(ids: string[]): void {
   try {
-    localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(ids))
+    writeNamespacedStorageItem(PINNED_STORAGE_SUFFIX, JSON.stringify(ids))
   } catch {
     /* storage full or unavailable — best-effort */
   }

@@ -1,12 +1,13 @@
 import { getActiveProfile, getProfiles, setApiRequestProfile } from '$lib/api/dashboard'
 import { messageForError } from '$lib/errors'
+import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage/namespace'
 import { ensureGatewayForProfile } from '$lib/stores/gateway.svelte'
 import type { ProfileInfo } from '$lib/types/hermes'
 
 export const ALL_PROFILES = '__all__'
 
-const PROFILE_ORDER_STORAGE_KEY = 'bitch.desktop.profileOrder'
-const SHOW_ALL_PROFILES_STORAGE_KEY = 'bitch.desktop.showAllProfiles'
+const PROFILE_ORDER_STORAGE_SUFFIX = 'profileOrder'
+const SHOW_ALL_PROFILES_STORAGE_SUFFIX = 'showAllProfiles'
 
 interface ProfileState {
   activeGatewayProfile: string
@@ -25,29 +26,29 @@ function hasLocalStorage(): boolean {
   return typeof globalThis.localStorage !== 'undefined'
 }
 
-function readJson<T>(key: string, fallback: T): T {
+function readJson<T>(suffix: string, fallback: T): T {
   if (!hasLocalStorage()) return fallback
 
   try {
-    const raw = globalThis.localStorage.getItem(key)
+    const raw = readNamespacedStorageItem(suffix)
     return raw ? (JSON.parse(raw) as T) : fallback
   } catch {
     return fallback
   }
 }
 
-function readBoolean(key: string, fallback: boolean): boolean {
+function readBoolean(suffix: string, fallback: boolean): boolean {
   if (!hasLocalStorage()) return fallback
-  const value = globalThis.localStorage.getItem(key)
+  const value = readNamespacedStorageItem(suffix)
 
   if (value === 'true') return true
   if (value === 'false') return false
   return fallback
 }
 
-function writeBoolean(key: string, value: boolean): void {
+function writeBoolean(suffix: string, value: boolean): void {
   if (!hasLocalStorage()) return
-  globalThis.localStorage.setItem(key, value ? 'true' : 'false')
+  writeNamespacedStorageItem(suffix, value ? 'true' : 'false')
 }
 
 export function normalizeProfileKey(name: null | string | undefined): string {
@@ -63,9 +64,9 @@ export const profileState = $state<ProfileState>({
   gatewaySwapTarget: null,
   loading: false,
   newChatProfile: null,
-  profileOrder: readJson<string[]>(PROFILE_ORDER_STORAGE_KEY, []),
+  profileOrder: readJson<string[]>(PROFILE_ORDER_STORAGE_SUFFIX, []),
   profiles: [],
-  showAllProfiles: readBoolean(SHOW_ALL_PROFILES_STORAGE_KEY, false)
+  showAllProfiles: readBoolean(SHOW_ALL_PROFILES_STORAGE_SUFFIX, false)
 })
 
 export function getProfileScope(): string {
@@ -170,7 +171,7 @@ export function selectProfile(name: string): void {
   const switching = profileState.showAllProfiles || target !== normalizeProfileKey(profileState.activeGatewayProfile)
 
   profileState.showAllProfiles = false
-  writeBoolean(SHOW_ALL_PROFILES_STORAGE_KEY, false)
+  writeBoolean(SHOW_ALL_PROFILES_STORAGE_SUFFIX, false)
   profileState.newChatProfile = target
 
   if (switching) {
@@ -196,5 +197,5 @@ export function selectMainNewSessionProfile(): void {
 
 export function setShowAllProfiles(value: boolean): void {
   profileState.showAllProfiles = value
-  writeBoolean(SHOW_ALL_PROFILES_STORAGE_KEY, value)
+  writeBoolean(SHOW_ALL_PROFILES_STORAGE_SUFFIX, value)
 }

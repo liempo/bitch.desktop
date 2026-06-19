@@ -1,4 +1,9 @@
 import type { ComposerAttachment } from './composer.svelte'
+import {
+  readNamespacedStorageItem,
+  removeNamespacedStorageItem,
+  writeNamespacedStorageItem
+} from '$lib/storage/namespace'
 
 export interface QueuedPromptEntry {
   attachments: ComposerAttachment[]
@@ -17,7 +22,7 @@ export interface AutoDrainSettleInput {
 type QueueState = Record<string, QueuedPromptEntry[]>
 type QueueSubscriber = (state: QueueState) => void
 
-const STORAGE_KEY = 'bitch.desktop.composerQueue.v1'
+const STORAGE_SUFFIX = 'composerQueue.v1'
 
 let queuedPromptsBySession = loadQueue()
 const subscribers = new Set<QueueSubscriber>()
@@ -26,7 +31,7 @@ function loadQueue(): QueueState {
   if (typeof window === 'undefined') return {}
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
+    const raw = readNamespacedStorageItem(STORAGE_SUFFIX, window.localStorage)
     const parsed = raw ? JSON.parse(raw) : null
 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -44,9 +49,9 @@ function saveQueue(state: QueueState): void {
 
   try {
     if (Object.keys(state).length === 0) {
-      window.localStorage.removeItem(STORAGE_KEY)
+      removeNamespacedStorageItem(STORAGE_SUFFIX, window.localStorage)
     } else {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      writeNamespacedStorageItem(STORAGE_SUFFIX, JSON.stringify(state), window.localStorage)
     }
   } catch {
     // Storage can be full or unavailable. Keep the in-memory queue alive.
