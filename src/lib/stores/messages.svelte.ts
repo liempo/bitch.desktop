@@ -39,7 +39,7 @@ import {
 } from '$lib/messages/media-attachments'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
-export type { ThreadAttachment, ThreadAttachmentInput } from '$lib/messages/media-attachments'
+export type { ThreadAttachment, ThreadAttachmentInput, ThreadAttachmentKind } from '$lib/messages/media-attachments'
 
 type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'
@@ -283,16 +283,22 @@ function displayForMessage(
   const mediaDirectives = extractMediaDirectiveSources(canvasDirectives.cleanedText)
   const imageDirectives = extractImageDirectiveSources(mediaDirectives.cleanedText)
   const contentSources = role === 'user' ? imageSourcesFromContent(message.content) : []
-  const sources = [...embedded.images, ...mediaDirectives.sources, ...imageDirectives.sources, ...contentSources]
+  const sources = [
+    ...[...embedded.images, ...imageDirectives.sources, ...contentSources].map(source => ({
+      allowFileFallback: false,
+      source
+    })),
+    ...mediaDirectives.sources.map(source => ({ allowFileFallback: true, source }))
+  ]
   const seen = new Set<string>()
   const attachments: ThreadAttachment[] = []
 
-  for (const source of sources) {
+  for (const { allowFileFallback, source } of sources) {
     const key = source.trim()
     if (!key || seen.has(key)) continue
     seen.add(key)
 
-    const attachment = attachmentFromMediaSource(key, 'stored-media', newAttachmentId)
+    const attachment = attachmentFromMediaSource(key, 'stored-media', newAttachmentId, { allowFileFallback })
     if (attachment) attachments.push(attachment)
   }
 

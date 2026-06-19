@@ -30,15 +30,15 @@ attachments.
   runs `slash.exec { command: "/model <model> --provider <provider>" }` for an
   active session. Show the current model in the composer chrome.
 - **Attachments:** hidden webview file input → base64 → remote gateway relay on
-  submit. Images call `image.attach_bytes`; PDFs call `pdf.attach`; the final
-  `prompt.submit` sends plain text so the gateway's native attachment pipeline
-  owns multimodal context. PDF relay renders pages on the gateway with
-  `pdftoppm`, so the remote gateway host/container must have the `poppler-utils`
-  package installed. Surface size/encoding/dependency errors clearly. Drag-drop
-  is a later sub-phase.
-- **Remote media display:** assistant markdown image paths from the gateway are
-  fetched through authenticated `GET /api/media` via the Tauri dashboard bridge
-  so agent-written images render on the client machine.
+  submit. Images call `image.attach_bytes`; every non-image file calls
+  `file.attach` with `data_url`, `name`, and a filename/path hint. The returned
+  `ref_text` (`@file:...`) is prepended to `prompt.submit` so the gateway's
+  official remote-file resolver owns file context. Surface size/encoding/upload
+  errors clearly. Drag-drop is a later sub-phase.
+- **Remote media display:** assistant `MEDIA:` and preview attachments are fetched
+  through authenticated `/api/fs/read-data-url` via the dashboard bridge so
+  gateway-local image/audio/video/PDF/file outputs render or degrade honestly on
+  the client machine.
 
 ## Upstream files
 
@@ -58,5 +58,6 @@ attachments.
 
 Typing and pressing Enter sends a prompt; Stop interrupts; queued prompts drain
 after a turn; slash commands list and execute; the model switcher changes the
-active model; image/PDF attachments are relayed to the remote gateway before
-`prompt.submit`; gateway-local assistant images render through `/api/media`.
+active model; image/file attachments are relayed to the remote gateway before
+`prompt.submit`; gateway-local assistant media and attachments render through the
+authenticated remote filesystem bridge.

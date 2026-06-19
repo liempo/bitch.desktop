@@ -42,7 +42,7 @@ import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from
 export { shouldDispatchSlashImmediately }
 export type { SlashCommandItem }
 
-type ComposerAttachmentKind = 'image' | 'pdf'
+type ComposerAttachmentKind = 'audio' | 'file' | 'image' | 'pdf' | 'video'
 
 export interface ComposerAttachment {
   attachedSessionId?: string
@@ -52,7 +52,9 @@ export interface ComposerAttachment {
   kind: ComposerAttachmentKind
   label: string
   mediaType: string
+  path?: string
   previewUrl?: string
+  refText?: string
   size: number
 }
 
@@ -62,8 +64,8 @@ interface AttachmentRelayResponse {
   count?: number
   filename?: string
   message?: string
-  pages_attached?: number
   path?: string
+  ref_text?: string
   text?: string
 }
 
@@ -132,9 +134,19 @@ export interface SubmitPromptOptions {
 
 const NEW_SESSION_KEY = '__new__'
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024
-const MAX_PDF_BYTES = 50 * 1024 * 1024
+const MAX_FILE_BYTES = 50 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'])
 const PDF_TYPES = new Set(['application/pdf'])
+const AUDIO_TYPES = new Set([
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/ogg',
+  'audio/opus',
+  'audio/wav',
+  'audio/flac',
+  'audio/x-wav'
+])
+const VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska'])
 
 export const composerState = $state<ComposerState>({
   model: {
@@ -370,22 +382,16 @@ function fallbackPromptForAttachments(attachments: ComposerAttachment[]): string
 }
 
 function buildPayload(text: string, attachments: ComposerAttachment[]): PromptSubmitPayload {
-  return text.trim() || fallbackPromptForAttachments(attachments)
-}
+  const contextRefs = attachments
+    .map(attachment => attachment.refText?.trim())
+    .filter((ref): ref is string => Boolean(ref))
+    .join('\n')
 
-function attachMethodFor(attachment: ComposerAttachment): 'image.attach_bytes' | 'pdf.attach' {
-  return attachment.kind === 'pdf' ? 'pdf.attach' : 'image.attach_bytes'
+  return [contextRefs, text.trim()].filter(Boolean).join('\n\n') || fallbackPromptForAttachments(attachments)
 }
 
 function attachmentRelayFailureMessage(error: unknown, attachment: ComposerAttachment): string {
-  const message = inlineErrorMessage(error, `Could not attach ${attachment.label || attachment.kind}`)
-
-  if (attachment.kind === 'pdf' && /pdftoppm|poppler/i.test(message)) {
-    const gatewayHint = 'Install poppler-utils on the remote Hermes gateway host/container, then restart the gateway.'
-    return message.includes(gatewayHint) ? message : `${message} ${gatewayHint}`
-  }
-
-  return message
+  return inlineErrorMessage(error, `Could not attach ${attachment.label || attachment.kind}`)
 }
 
 async function syncAttachmentsForSubmit(
@@ -394,21 +400,31 @@ async function syncAttachmentsForSubmit(
   attachments: ComposerAttachment[]
 ): Promise<void> {
   for (const attachment of attachments) {
-    if (attachment.attachedSessionId === sessionId) continue
-
-    const contentBase64 = base64FromDataUrl(attachment.dataUrl)
-    if (!contentBase64) {
-      throw new Error(`Could not read ${attachment.label || 'attachment'}`)
-    }
+    if (attachment.attachedSessionId === sessionId && (attachment.kind === 'image' || attachment.refText)) continue
 
     let result: AttachmentRelayResponse
     try {
-      result = await requestGateway<AttachmentRelayResponse>(attachMethodFor(attachment), {
-        content_base64: contentBase64,
-        filename: attachment.label || (attachment.kind === 'pdf' ? 'document.pdf' : 'image.png'),
-        profile,
-        session_id: sessionId
-      })
+      if (attachment.kind === 'image') {
+        const contentBase64 = base64FromDataUrl(attachment.dataUrl)
+        if (!contentBase64) {
+          throw new Error(`Could not read ${attachment.label || 'attachment'}`)
+        }
+
+        result = await requestGateway<AttachmentRelayResponse>('image.attach_bytes', {
+          content_base64: contentBase64,
+          filename: attachment.label || 'image.png',
+          profile,
+          session_id: sessionId
+        })
+      } else {
+        result = await requestGateway<AttachmentRelayResponse>('file.attach', {
+          data_url: attachment.dataUrl,
+          name: attachment.label || 'attachment',
+          path: attachment.path || attachment.label || 'attachment',
+          profile,
+          session_id: sessionId
+        })
+      }
     } catch (error) {
       throw new Error(attachmentRelayFailureMessage(error, attachment))
     }
@@ -418,6 +434,15 @@ async function syncAttachmentsForSubmit(
     }
 
     attachment.attachedSessionId = sessionId
+    if (attachment.kind !== 'image') {
+      if (!result.ref_text) {
+        throw new Error(attachmentRelayFailureMessage('file.attach did not return a @file reference', attachment))
+      }
+      attachment.refText = result.ref_text
+      attachment.path = result.path ?? attachment.path
+    } else if (result.path) {
+      attachment.path = result.path
+    }
   }
 }
 
@@ -496,14 +521,41 @@ export function removeComposerAttachment(sessionId: null | string | undefined, i
   session.attachments = session.attachments.filter(attachment => attachment.id !== id)
 }
 
-function attachmentKindFor(file: File): ComposerAttachmentKind | null {
-  if (file.type.startsWith('image/') && (IMAGE_TYPES.size === 0 || IMAGE_TYPES.has(file.type))) return 'image'
-  if (PDF_TYPES.has(file.type) || file.name.toLowerCase().endsWith('.pdf')) return 'pdf'
-  return null
+function attachmentKindFor(file: File): ComposerAttachmentKind {
+  const type = file.type.toLowerCase()
+  const name = file.name.toLowerCase()
+
+  if (type.startsWith('image/') && (IMAGE_TYPES.size === 0 || IMAGE_TYPES.has(type))) return 'image'
+  if (PDF_TYPES.has(type) || name.endsWith('.pdf')) return 'pdf'
+  if (type.startsWith('audio/') || AUDIO_TYPES.has(type) || /\.(flac|m4a|mp3|ogg|opus|wav)$/i.test(name)) return 'audio'
+  if (type.startsWith('video/') || VIDEO_TYPES.has(type) || /\.(avi|mkv|mov|mp4|webm)$/i.test(name)) return 'video'
+  return 'file'
 }
 
 function maxBytesFor(kind: ComposerAttachmentKind): number {
-  return kind === 'pdf' ? MAX_PDF_BYTES : MAX_IMAGE_BYTES
+  return kind === 'image' ? MAX_IMAGE_BYTES : MAX_FILE_BYTES
+}
+
+function fallbackLabelForKind(kind: ComposerAttachmentKind): string {
+  switch (kind) {
+    case 'audio':
+      return 'audio'
+    case 'image':
+      return 'image'
+    case 'pdf':
+      return 'document.pdf'
+    case 'video':
+      return 'video'
+    default:
+      return 'attachment'
+  }
+}
+
+function attachmentDetailFor(file: File, kind: ComposerAttachmentKind): string {
+  const size = formatBytes(file.size)
+  if (kind === 'pdf') return `PDF · ${size}`
+  if (file.type) return `${file.type} · ${size}`
+  return size
 }
 
 export async function addAttachmentFiles(
@@ -518,14 +570,9 @@ export async function addAttachmentFiles(
   for (const file of candidates) {
     const kind = attachmentKindFor(file)
 
-    if (!kind) {
-      session.error = `${file.name || 'Selected file'} is not a supported image or PDF.`
-      continue
-    }
-
     const maxBytes = maxBytesFor(kind)
     if (file.size > maxBytes) {
-      session.error = `${file.name || (kind === 'pdf' ? 'PDF' : 'Image')} is ${formatBytes(file.size)}. The composer currently accepts ${kind === 'pdf' ? 'PDFs' : 'images'} up to ${formatBytes(maxBytes)}.`
+      session.error = `${file.name || fallbackLabelForKind(kind)} is ${formatBytes(file.size)}. The composer accepts ${kind === 'image' ? 'images' : 'files'} up to ${formatBytes(maxBytes)}.`
       continue
     }
 
@@ -533,11 +580,12 @@ export async function addAttachmentFiles(
       const dataUrl = await readFileAsDataUrl(file)
       const attachment: ComposerAttachment = {
         dataUrl,
-        detail: kind === 'pdf' ? `PDF · ${formatBytes(file.size)}` : formatBytes(file.size),
+        detail: attachmentDetailFor(file, kind),
         id: nextId(kind),
         kind,
-        label: file.name || (kind === 'pdf' ? 'document.pdf' : 'image'),
+        label: file.name || fallbackLabelForKind(kind),
         mediaType: file.type || (kind === 'pdf' ? 'application/pdf' : 'application/octet-stream'),
+        path: file.name || fallbackLabelForKind(kind),
         previewUrl: kind === 'image' ? dataUrl : undefined,
         size: file.size
       }
