@@ -1,4 +1,4 @@
-export type AppPage = 'main' | 'agent' | 'files'
+export type AppPage = 'main' | 'agent' | 'files' | 'kanban'
 
 export interface AppRouterState {
   page: AppPage
@@ -29,6 +29,10 @@ function parseHash(hash: string): AppRouterState {
     return { page: 'files' }
   }
 
+  if (path === '/kanban') {
+    return { page: 'kanban' }
+  }
+
   return { page: 'agent' }
 }
 
@@ -43,4 +47,8 @@ export function agentRoute(sessionId?: null | string): string {
 
 export function filesRoute(): string {
   return '/files'
+}
+
+export function kanbanRoute(): string {
+  return '/kanban'
 }

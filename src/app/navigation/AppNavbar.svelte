@@ -1,6 +1,6 @@
 <script lang="ts">
   import bitchLogoUrl from '$lib/assets/bitch-logo.png'
-  import { agentRoute, appRouterState, filesRoute, mainRoute, type AppPage } from '../router.svelte'
+  import { agentRoute, appRouterState, filesRoute, kanbanRoute, mainRoute, type AppPage } from '../router.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
 
   interface NavItem {
@@ -11,6 +11,7 @@
 
   const navItems = $derived<NavItem[]>([
     { href: `#${agentRoute(sessionState.storedSessionId)}`, label: 'CMD', page: 'agent' },
+    { href: `#${kanbanRoute()}`, label: 'KANBAN', page: 'kanban' },
     { href: `#${filesRoute()}`, label: 'FILES', page: 'files' }
   ])
 

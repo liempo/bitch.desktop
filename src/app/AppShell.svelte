@@ -1,6 +1,7 @@
 <script lang="ts">
   import AgentShell from './agent/AgentShell.svelte'
   import FilesPage from './files/FilesPage.svelte'
+  import KanbanPage from './kanban/KanbanPage.svelte'
   import MainPage from './main/MainPage.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState } from './router.svelte'
@@ -15,6 +16,8 @@
         <AgentShell />
       {:else if appRouterState.page === 'files'}
         <FilesPage />
+      {:else if appRouterState.page === 'kanban'}
+        <KanbanPage />
       {:else}
         <MainPage />
       {/if}
