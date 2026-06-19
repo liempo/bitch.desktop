@@ -1,6 +1,13 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { Popover } from 'bits-ui'
+  import { getElevenLabsVoices, speakText, transcribeAudio, type ElevenLabsVoice } from '$lib/api/audio'
+  import {
+    assistantTextForSpeech,
+    mergeTranscriptIntoDraft,
+    preferredRecordingMimeType,
+    voiceOptionLabel
+  } from '$lib/audio/voice'
   import {
     addAttachmentFiles,
     applySlashSuggestion,
@@ -45,7 +52,7 @@
   import { sessionState } from '$lib/stores/session.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
-  import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
+  import { cardClass, inputClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
   import type { ProfileInfo } from '$lib/types/hermes'
 
@@ -97,6 +104,22 @@
   let requestedModels = $state(false)
   let autoDrainInFlight = $state(false)
   let lastBusyBySession = $state<Record<string, boolean>>({})
+  let mediaRecorder: MediaRecorder | null = null
+  let mediaStream: MediaStream | null = null
+  let recordedAudioChunks: Blob[] = []
+  let discardVoiceRecording = false
+  let voiceRecording = $state(false)
+  let voiceTranscribing = $state(false)
+  let voiceConversationEnabled = $state(false)
+  let voiceError: null | string = $state(null)
+  let voicePlaybackStatus: null | string = $state(null)
+  let selectedVoiceId = $state('')
+  let voiceChoices: ElevenLabsVoice[] = $state([])
+  let voiceChoicesAvailable = $state(false)
+  let voiceChoicesLoadedProfile: null | string = $state(null)
+  let voiceChoicesLoading = $state(false)
+  let lastSpokenAssistantId: null | string = $state(null)
+  let currentSpeechAudio: HTMLAudioElement | null = null
 
   const composerKey = $derived(sessionId?.trim() || '__new__')
   const composer = $derived(composerState.sessions[composerKey] ?? EMPTY_COMPOSER_SESSION)
@@ -179,12 +202,28 @@
   ].join(' ')
   const profileMenuContentClass = `${popoverClass} z-50 w-60 p-1.5 font-mono`
   const profileMenuItemBaseClass = `${menuItemClass} flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
+  const voiceSelectClass = `${inputClass} min-h-8 w-42 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em]`
+  const VOICE_CHOICES_SOURCE = '/api/audio/elevenlabs/voices'
+  const canRecordVoice = $derived(connected && !composer.submitting && !voiceTranscribing && (voiceRecording || !busy))
+  const voiceStatusMessage = $derived(
+    voiceError ??
+      (voiceRecording
+        ? 'recording voice'
+        : voiceTranscribing
+          ? 'transcribing voice'
+          : voicePlaybackStatus)
+  )
+  const voiceStatusClass = $derived(voiceError ? 'max-w-60 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-danger' : 'max-w-60 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-success')
 
   onMount(() =>
     subscribeQueuedPrompts(state => {
       queuedState = state
     })
   )
+
+  onMount(() => () => {
+    stopVoiceResources()
+  })
 
   $effect(() => {
     composerForSession(sessionId)
@@ -197,6 +236,49 @@
       requestedModels = true
       void refreshComposerModels()
     }
+  })
+
+  $effect(() => {
+    if (!connected) return
+
+    const profile = activeProfileName
+    if (voiceChoicesLoading || voiceChoicesLoadedProfile === profile) return
+
+    voiceChoicesLoading = true
+    void getElevenLabsVoices(profile)
+      .then(result => {
+        voiceChoices = result.voices ?? []
+        voiceChoicesAvailable = result.available && voiceChoices.length > 0
+        if (!voiceChoices.some(voice => voice.voice_id === selectedVoiceId)) {
+          selectedVoiceId = ''
+        }
+        voiceChoicesLoadedProfile = profile
+      })
+      .catch(error => {
+        voiceChoices = []
+        voiceChoicesAvailable = false
+        voiceError = inlineVoiceError(error, 'Could not load voice choices')
+        voiceChoicesLoadedProfile = profile
+      })
+      .finally(() => {
+        voiceChoicesLoading = false
+      })
+  })
+
+  $effect(() => {
+    if (!voiceConversationEnabled) {
+      stopCurrentSpeechAudio()
+      return
+    }
+
+    const latestAssistant = [...(thread?.messages ?? [])].reverse().find(message => message.role === 'assistant')
+    if (!latestAssistant || latestAssistant.id === lastSpokenAssistantId) return
+
+    const text = assistantTextForSpeech(latestAssistant)
+    if (!text) return
+
+    lastSpokenAssistantId = latestAssistant.id
+    void playSpokenResponse(text)
   })
 
   $effect(() => {
@@ -243,6 +325,215 @@
 
     lastBusyBySession[key] = isBusy
   })
+
+  function inlineVoiceError(error: unknown, fallback: string): string {
+    return error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
+  }
+
+  function stopVoiceStream(): void {
+    mediaStream?.getTracks().forEach(track => track.stop())
+    mediaStream = null
+  }
+
+  function stopCurrentSpeechAudio(): void {
+    if (!currentSpeechAudio) return
+
+    currentSpeechAudio.pause()
+    currentSpeechAudio.removeAttribute('src')
+    currentSpeechAudio.load()
+    currentSpeechAudio = null
+  }
+
+  function stopVoiceResources(): void {
+    discardVoiceRecording = true
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop()
+    }
+    mediaRecorder = null
+    recordedAudioChunks = []
+    voiceRecording = false
+    stopVoiceStream()
+    stopCurrentSpeechAudio()
+  }
+
+  function recordingOptions(): { mimeType?: string } | undefined {
+    const mimeType = preferredRecordingMimeType({
+      MediaRecorder: typeof MediaRecorder === 'undefined' ? undefined : MediaRecorder
+    })
+
+    return mimeType ? { mimeType } : undefined
+  }
+
+  function blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.addEventListener('load', () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result)
+        } else {
+          reject(new Error('Could not read voice recording'))
+        }
+      })
+      reader.addEventListener('error', () => reject(reader.error ?? new Error('Could not read voice recording')))
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  async function transcribeVoiceChunks(chunks: Blob[], mimeType: string): Promise<void> {
+    if (chunks.length === 0) {
+      voiceError = 'No audio captured'
+      return
+    }
+
+    voiceTranscribing = true
+    voiceError = null
+
+    try {
+      const audioMimeType = mimeType || 'audio/webm'
+      const dataUrl = await blobToDataUrl(new Blob(chunks, { type: audioMimeType }))
+      const result = await transcribeAudio({ dataUrl, mimeType: audioMimeType }, activeProfileName)
+      const transcript = result.transcript.trim()
+
+      if (!transcript) {
+        voiceError = 'Transcription returned no text'
+        return
+      }
+
+      const nextDraft = mergeTranscriptIntoDraft(composer.draft, transcript)
+      setComposerDraft(sessionId, nextDraft)
+
+      if (voiceConversationEnabled) {
+        if (sessionId && !liveSid) {
+          voiceError = 'Session is still resuming; transcript was added to the composer.'
+          return
+        }
+
+        markComposerInterrupted(sessionId, false)
+        await submitPrompt(sessionId, { text: nextDraft })
+      } else {
+        focusTextarea()
+      }
+    } catch (error) {
+      voiceError = inlineVoiceError(error, 'Voice transcription failed')
+    } finally {
+      voiceTranscribing = false
+    }
+  }
+
+  async function startVoiceRecording(): Promise<void> {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      voiceError = 'Microphone capture is not available in this browser context'
+      return
+    }
+
+    stopCurrentSpeechAudio()
+    voiceError = null
+    voicePlaybackStatus = null
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const options = recordingOptions()
+      const recorder = new MediaRecorder(stream, options)
+
+      mediaStream = stream
+      mediaRecorder = recorder
+      recordedAudioChunks = []
+      discardVoiceRecording = false
+
+      recorder.addEventListener('dataavailable', event => {
+        if (event.data.size > 0) {
+          recordedAudioChunks = [...recordedAudioChunks, event.data]
+        }
+      })
+
+      recorder.addEventListener('stop', () => {
+        const chunks = recordedAudioChunks
+        const mimeType = recorder.mimeType || options?.mimeType || 'audio/webm'
+        const shouldDiscard = discardVoiceRecording
+        mediaRecorder = null
+        recordedAudioChunks = []
+        discardVoiceRecording = false
+        voiceRecording = false
+        stopVoiceStream()
+        if (!shouldDiscard) {
+          void transcribeVoiceChunks(chunks, mimeType)
+        }
+      })
+
+      recorder.start()
+      voiceRecording = true
+    } catch (error) {
+      stopVoiceStream()
+      mediaRecorder = null
+      recordedAudioChunks = []
+      discardVoiceRecording = false
+      voiceRecording = false
+      voiceError = inlineVoiceError(error, 'Could not start microphone capture')
+    }
+  }
+
+  function stopVoiceRecording(): void {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop()
+    }
+  }
+
+  async function handleVoiceButton(): Promise<void> {
+    if (voiceRecording) {
+      stopVoiceRecording()
+      return
+    }
+
+    if (!canRecordVoice) return
+
+    await startVoiceRecording()
+  }
+
+  function toggleVoiceConversation(): void {
+    voiceConversationEnabled = !voiceConversationEnabled
+    voiceError = null
+
+    if (!voiceConversationEnabled) {
+      stopCurrentSpeechAudio()
+      voicePlaybackStatus = null
+    }
+  }
+
+  async function playSpokenResponse(text: string): Promise<void> {
+    if (!voiceConversationEnabled) return
+
+    stopCurrentSpeechAudio()
+    voicePlaybackStatus = 'requesting speech'
+
+    try {
+      const response = await speakText({ text, voiceId: selectedVoiceId }, activeProfileName)
+      if (!response.data_url) {
+        throw new Error('Speech synthesis returned no audio')
+      }
+
+      const audio = new Audio(response.data_url)
+      currentSpeechAudio = audio
+      voicePlaybackStatus = `speaking${response.provider ? ` via ${response.provider}` : ''}`
+      audio.addEventListener('ended', () => {
+        if (currentSpeechAudio === audio) {
+          currentSpeechAudio = null
+          voicePlaybackStatus = null
+        }
+      })
+      audio.addEventListener('error', () => {
+        if (currentSpeechAudio === audio) {
+          currentSpeechAudio = null
+          voicePlaybackStatus = null
+          voiceError = 'Could not play synthesized speech'
+        }
+      })
+      await audio.play()
+    } catch (error) {
+      currentSpeechAudio = null
+      voicePlaybackStatus = null
+      voiceError = inlineVoiceError(error, 'Speech playback failed')
+    }
+  }
 
   function resizeTextarea(): void {
     if (!textareaElement) return
@@ -530,6 +821,54 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
                 </svg>
               </Button>
+
+              <Button
+                chrome="ghost"
+                size="icon"
+                variant={voiceRecording ? 'danger' : 'success'}
+                onclick={() => void handleVoiceButton()}
+                disabled={!canRecordVoice}
+                aria-label="Record voice prompt"
+                title={voiceRecording ? 'Stop voice recording' : 'Record voice prompt'}
+              >
+                {#if voiceRecording}
+                  <span class="h-2.5 w-2.5 rounded-xs bg-current"></span>
+                {:else}
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v10m0 0a4 4 0 0 0 4-4V7a4 4 0 1 0-8 0v2a4 4 0 0 0 4 4Zm0 0v4m-5 0h10" />
+                  </svg>
+                {/if}
+              </Button>
+
+              <Button
+                chrome="ghost"
+                variant={voiceConversationEnabled ? 'success' : 'default'}
+                onclick={toggleVoiceConversation}
+                disabled={!connected}
+                title="Voice conversation: transcribe, submit, and speak replies"
+              >
+                Voice conversation
+              </Button>
+
+              {#if voiceChoicesAvailable}
+                <label class="sr-only" for={`voice-select-${composerKey}`}>ElevenLabs voice</label>
+                <select
+                  id={`voice-select-${composerKey}`}
+                  class={voiceSelectClass}
+                  bind:value={selectedVoiceId}
+                  disabled={!connected || voiceChoicesLoading}
+                  title={`Server voices from ${VOICE_CHOICES_SOURCE}`}
+                >
+                  <option value="">default voice</option>
+                  {#each voiceChoices as voice (voice.voice_id)}
+                    <option value={voice.voice_id}>{voiceOptionLabel(voice)}</option>
+                  {/each}
+                </select>
+              {/if}
+
+              {#if voiceStatusMessage}
+                <span class={voiceStatusClass} title={voiceStatusMessage}>{voiceStatusMessage}</span>
+              {/if}
 
               {#if composer.attachments.length > 0}
                 <Button
