@@ -89,11 +89,11 @@ For assistant or stored text, convert explicit `@file:<path>` references into pr
 1. Parse quoted and unquoted values with the upstream grammar.
 2. Normalize `file://` forms and preserve absolute remote paths.
 3. Resolve relative refs against the active session cwd/default cwd only when the backend context makes that unambiguous.
-4. Fetch metadata with `/api/fs/read-text` for text-like previews.
-5. If `binary` is true, do not display replacement-character garbage; switch to media/data-url/download handling by MIME/extension.
-6. For images and small binary previews, use `/api/fs/read-data-url` and render the returned data URL.
+4. Fetch text previews with `/api/fs/read-text` for known text/code and unknown/opaque file types.
+5. Render the returned `text` even when the API's `binary` hint is true; the desktop client cannot reliably determine binary status from the path alone.
+6. For first-class image/audio/video/pdf/html previews, use `/api/fs/read-data-url` and render the returned data URL.
 7. For HTML, feed a sandboxed iframe from an authenticated data/blob URL, not a raw remote URL.
-8. For unsupported or oversized files, show an explicit error/download card.
+8. For missing, denied, unreadable, or oversized files, show an explicit error card.
 
 Raw absolute paths must stay plain markdown/text. Upstream preview target tests explicitly refuse to infer preview targets from raw paths or URLs; only internal preview markers count.
 

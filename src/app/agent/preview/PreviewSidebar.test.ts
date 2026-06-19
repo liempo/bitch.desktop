@@ -23,6 +23,11 @@ describe('PreviewSidebar source contract', () => {
     expect(previewSidebarSource).not.toContain(['BOX', 'file'].join(' '))
   })
 
+  it('renders text returned for unknown files without blocking on the binary hint', () => {
+    expect(previewSidebarSource).toContain('textPreview = result.text')
+    expect(previewSidebarSource).not.toContain('Remote file is binary; text preview is unavailable.')
+  })
+
   it('is wired as a conditional preview sidebar from the agent shell', () => {
     expect(agentShellSource).toContain('PreviewSidebar')
     expect(agentShellSource).not.toContain('CanvasSidebar')

@@ -28,8 +28,8 @@ describe('remote file helpers', () => {
     expect(remoteFileMediaKind('/tmp/voice.mp3')).toBe('audio')
     expect(viewerKindForRemoteFile('/opt/data/build/Makefile')).toBe('text')
     expect(viewerKindForRemoteFile('/opt/data/build/WORKSPACE.bazel')).toBe('text')
-    expect(viewerKindForRemoteFile('/tmp/archive.zip')).toBe('download')
-    expect(viewerKindForRemoteFile('/tmp/blob.bin')).toBe('download')
+    expect(viewerKindForRemoteFile('/tmp/archive.zip')).toBe('text')
+    expect(viewerKindForRemoteFile('/tmp/blob.bin')).toBe('text')
 
     const href = remoteFilePreviewHref('/opt/data/render 1.png')
     expect(href).toBe('#remote-file/%2Fopt%2Fdata%2Frender%201.png')

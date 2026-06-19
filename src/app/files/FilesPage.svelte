@@ -166,8 +166,7 @@
     try {
       const response = await readRemoteFileText(previewPath)
       if (selectedFile?.path !== previewPath) return
-      textPreview = response.binary ? '' : response.text
-      if (response.binary) textPreviewError = 'Remote file is binary; text preview is unavailable.'
+      textPreview = response.text
     } catch (error) {
       if (selectedFile?.path === previewPath) textPreviewError = messageForError(error)
     } finally {

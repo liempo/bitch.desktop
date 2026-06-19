@@ -55,11 +55,7 @@
       if (viewerKind === 'text') {
         const result = await readRemoteFileText(activePreview.path, activeProfile)
         if (sequence !== loadSequence) return
-        if (result.binary) {
-          loadError = 'Remote file is binary; text preview is unavailable.'
-        } else {
-          textPreview = result.text
-        }
+        textPreview = result.text
       } else {
         const dataUrl = await readRemoteFileDataUrl(activePreview.path, activeProfile)
         if (sequence !== loadSequence) return
