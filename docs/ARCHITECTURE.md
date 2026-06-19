@@ -1,4 +1,4 @@
-# Architecture Docs — bitch.desktop
+# Architecture Docs — BITCH
 
 Reference documentation for delivered features and future candidates. Each doc
 covers the design, store layout, UI components, integration points, and upstream
@@ -18,7 +18,7 @@ source files.
 | Roadmap             | [`roadmap.md`](roadmap.md)                                   | Delivered scope, future candidates, upstream references         |
 | **Devlog**          | [`devlog.md`](devlog.md)                                     | Chronological development record                                |
 
-bitch.desktop is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC**
+BITCH is a remote-only Tauri + Svelte client: **WebSocket JSON-RPC**
 drives live turns (`prompt.submit`, `session.*`, interactive `*.respond`);
 **HTTP dashboard API** (via the Tauri `dashboard_request` command) handles
 session list, search, stored messages, and rename/archive/delete. Dashboard auth

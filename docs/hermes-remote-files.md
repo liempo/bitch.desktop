@@ -5,13 +5,13 @@
 
 ## Goal
 
-`bitch.desktop` is remote-only. Every file preview, inline media render, and composer attachment resolves through the authenticated Hermes dashboard/gateway for the active profile. The renderer must not fetch public file-server origins, derive URLs from a special root, or own dashboard auth headers.
+`BITCH` is remote-only. Every file preview, inline media render, and composer attachment resolves through the authenticated Hermes dashboard/gateway for the active profile. The renderer must not fetch public file-server origins, derive URLs from a special root, or own dashboard auth headers.
 
 Raw absolute paths remain plain text in the desktop thread. Renderer behavior requires an explicit Hermes directive or an internal preview marker.
 
 ## Official syntax and semantics
 
-| Syntax                                                             | Official Hermes meaning                                                                                                                                                                                                    | `bitch.desktop` behavior                                                                                                                                                                                            |
+| Syntax                                                             | Official Hermes meaning                                                                                                                                                                                                    | `BITCH` behavior                                                                                                                                                                                                    |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@file:<path>`                                                     | User/context reference. The backend expands readable text into attached context, strips the directive from submitted prompts, and emits actionable blocks for binary files. Optional ranges use `@file:src/main.py:10-30`. | Treat as the universal explicit file directive for any path visible to the remote Hermes environment. In assistant/stored output, render a file chip that opens the preview rail through the remote filesystem API. |
 | ``@file:`path with spaces.txt` `` / `@file:"path with spaces.txt"` | Quoted values preserve spaces and bracket characters.                                                                                                                                                                      | Preserve upstream parsing/formatting so staged attachment refs round-trip through `agent.context_references`.                                                                                                       |
@@ -63,7 +63,7 @@ Path parsing accepts absolute paths, `~`, paths relative to the dashboard proces
 The managed-files API is useful for downloads and uploads but has a different root policy than `/api/fs/*`:
 
 - `GET /api/files/download?path=<path>` streams an attachment download and caps files at 100 MiB.
-- Only this download route accepts `?token=` because OS-opened links cannot set headers. `bitch.desktop` should avoid leaking that token into the renderer; prefer a Rust/Tauri-authenticated proxy or a short-lived object URL.
+- Only this download route accepts `?token=` because OS-opened links cannot set headers. `BITCH` should avoid leaking that token into the renderer; prefer a Rust/Tauri-authenticated proxy or a short-lived object URL.
 - `POST /api/files/upload` accepts data URLs; `POST /api/files/upload-stream` streams multipart bodies in 1 MiB chunks and avoids base64 inflation.
 - `HERMES_DASHBOARD_FILES_ROOT`, or hosted `/opt/data`, locks the managed root. Without that, local dashboards default to the backend user's home directory and can change path.
 

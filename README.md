@@ -1,6 +1,6 @@
-# bitch.desktop
+# BITCH
 
-Minimal Tauri + Svelte desktop client for the Hermes remote dashboard gateway.
+Remote-only Tauri + Svelte client for the Hermes dashboard gateway.
 
 This repo is remote-only: it does not bootstrap or run a local Hermes server. The renderer uses the upstream Hermes JSON-RPC transport through a Tauri WebSocket shim, while the Rust backend owns gateway auth and native WebSocket connection setup.
 
