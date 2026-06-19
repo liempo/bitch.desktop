@@ -44,6 +44,41 @@ export type { ThreadAttachment, ThreadAttachmentInput, ThreadAttachmentKind } fr
 
 type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'
+type ThreadSubtaskStatus = 'complete' | 'failed' | 'queued' | 'running'
+
+export interface ThreadSubtaskOutput {
+  isError?: boolean
+  preview: string
+  tool: string
+}
+
+export interface ThreadSubtask {
+  apiCalls?: number
+  childSessionId?: string
+  costUsd?: number
+  depth?: number
+  durationSeconds?: number
+  error?: string
+  filesRead?: string[]
+  filesWritten?: string[]
+  goal: string
+  id: string
+  inputTokens?: number
+  model?: string
+  outputTail?: ThreadSubtaskOutput[]
+  outputTokens?: number
+  parentId?: string
+  reasoningTokens?: number
+  status: ThreadSubtaskStatus
+  summary?: string
+  taskCount?: number
+  taskIndex?: number
+  text?: string
+  toolCount?: number
+  toolName?: string
+  toolPreview?: string
+  toolsets?: string[]
+}
 
 export interface ThreadTool {
   context?: string
@@ -53,6 +88,7 @@ export interface ThreadTool {
   name: string
   output?: string
   status: ThreadToolStatus
+  subtasks?: ThreadSubtask[]
   summary: string
 }
 
@@ -567,6 +603,156 @@ function hasToolMatchOverlap(left: string[], right: string[]): boolean {
   return left.some(value => rightSet.has(value))
 }
 
+function payloadNumber(payload: GatewayPayload, key: string): number | undefined {
+  const value = payload[key]
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  return undefined
+}
+
+function payloadStringList(payload: GatewayPayload, key: string): string[] | undefined {
+  const value = payload[key]
+
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const items = value.map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
+  return items.length > 0 ? items : undefined
+}
+
+function subagentId(payload: GatewayPayload): string {
+  const direct = firstText(payload.subagent_id, payload.child_session_id, payload.id)
+  if (direct) return direct
+
+  const index = payloadNumber(payload, 'task_index')
+  return index === undefined ? '' : `subagent-${index}`
+}
+
+function normalizeSubagentStatus(value: string, fallback: ThreadSubtaskStatus): ThreadSubtaskStatus {
+  const status = value.trim().toLowerCase()
+
+  if (!status) return fallback
+  if (status === 'queued' || status === 'pending' || status === 'spawn_requested') return 'queued'
+  if (status === 'running' || status === 'started' || status === 'progress' || status === 'in_progress')
+    return 'running'
+  if (status === 'completed' || status === 'complete' || status === 'done' || status === 'success') return 'complete'
+
+  return 'failed'
+}
+
+function subagentStatusFromPayload(eventType: GatewayEvent['type'], payload: GatewayPayload): ThreadSubtaskStatus {
+  const status = payloadString(payload, 'status')
+
+  if (eventType === 'subagent.spawn_requested') return normalizeSubagentStatus(status, 'queued')
+  if (eventType === 'subagent.complete') return normalizeSubagentStatus(status, 'complete')
+
+  return normalizeSubagentStatus(status, 'running')
+}
+
+function subagentOutputTail(payload: GatewayPayload): ThreadSubtaskOutput[] | undefined {
+  const value = payload.output_tail
+
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const entries: ThreadSubtaskOutput[] = []
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      continue
+    }
+
+    const record = item as GatewayPayload
+    const preview = firstText(record.preview, record.output, record.text)
+    const tool = firstText(record.tool, record.name) || 'tool'
+
+    if (!preview) {
+      continue
+    }
+
+    const isErrorValue = record.is_error ?? record.isError
+    entries.push({
+      ...(typeof isErrorValue === 'boolean' ? { isError: isErrorValue } : {}),
+      preview,
+      tool
+    })
+  }
+
+  return entries.length > 0 ? entries : undefined
+}
+
+function sortSubtasks(subtasks: ThreadSubtask[]): ThreadSubtask[] {
+  return [...subtasks].sort((left, right) => {
+    const leftIndex = left.taskIndex ?? Number.MAX_SAFE_INTEGER
+    const rightIndex = right.taskIndex ?? Number.MAX_SAFE_INTEGER
+
+    if (leftIndex !== rightIndex) {
+      return leftIndex - rightIndex
+    }
+
+    return left.id.localeCompare(right.id)
+  })
+}
+
+function nextSubtaskFromPayload(
+  eventType: GatewayEvent['type'],
+  payload: GatewayPayload,
+  existing?: ThreadSubtask
+): ThreadSubtask | null {
+  const id = subagentId(payload)
+
+  if (!id) {
+    return null
+  }
+
+  const status = subagentStatusFromPayload(eventType, payload)
+  const goal = firstText(payload.goal) || existing?.goal || `Subagent ${id}`
+  const text = firstText(payload.text, payload.preview) || existing?.text
+  const summary = firstText(payload.summary) || (eventType === 'subagent.complete' ? text : '') || existing?.summary
+  const error =
+    status === 'failed' ? summary || text || payloadString(payload, 'status') || existing?.error : existing?.error
+
+  return {
+    ...(existing ?? { goal, id, status }),
+    apiCalls: payloadNumber(payload, 'api_calls') ?? existing?.apiCalls,
+    childSessionId: firstText(payload.child_session_id) || existing?.childSessionId,
+    costUsd: payloadNumber(payload, 'cost_usd') ?? existing?.costUsd,
+    depth: payloadNumber(payload, 'depth') ?? existing?.depth,
+    durationSeconds: payloadNumber(payload, 'duration_seconds') ?? existing?.durationSeconds,
+    error: error || undefined,
+    filesRead: payloadStringList(payload, 'files_read') ?? existing?.filesRead,
+    filesWritten: payloadStringList(payload, 'files_written') ?? existing?.filesWritten,
+    goal,
+    id,
+    inputTokens: payloadNumber(payload, 'input_tokens') ?? existing?.inputTokens,
+    model: firstText(payload.model) || existing?.model,
+    outputTail: subagentOutputTail(payload) ?? existing?.outputTail,
+    outputTokens: payloadNumber(payload, 'output_tokens') ?? existing?.outputTokens,
+    parentId: firstText(payload.parent_id) || existing?.parentId,
+    reasoningTokens: payloadNumber(payload, 'reasoning_tokens') ?? existing?.reasoningTokens,
+    status,
+    summary: summary || undefined,
+    taskCount: payloadNumber(payload, 'task_count') ?? existing?.taskCount,
+    taskIndex: payloadNumber(payload, 'task_index') ?? existing?.taskIndex,
+    text: text || undefined,
+    toolCount: payloadNumber(payload, 'tool_count') ?? existing?.toolCount,
+    toolName: firstText(payload.tool_name) || existing?.toolName,
+    toolPreview:
+      firstText(payload.tool_preview) || (eventType === 'subagent.tool' ? text : '') || existing?.toolPreview,
+    toolsets: payloadStringList(payload, 'toolsets') ?? existing?.toolsets
+  }
+}
+
 function pickPendingTool(
   pending: ThreadTool[],
   status: ThreadToolStatus,
@@ -607,15 +793,7 @@ function commitMessage(
   thread.messages = [...thread.messages]
 }
 
-function findToolInThread(
-  sessionId: string,
-  payload: GatewayPayload,
-  status: ThreadToolStatus
-): { message: ThreadMessage; tool: ThreadTool } | undefined {
-  const stableId = toolStableId(payload)
-  const payloadName = firstText(payload.name, payload.tool_name, payload.tool)
-  const name = payloadName || 'tool'
-  const matchValues = toolMatchValues(payload)
+function orderedAssistantMessages(sessionId: string): ThreadMessage[] {
   const thread = ensureThreadSession(sessionId)
   const orderedMessages: ThreadMessage[] = []
 
@@ -637,6 +815,20 @@ function findToolInThread(
 
     orderedMessages.push(message)
   }
+
+  return orderedMessages
+}
+
+function findToolInThread(
+  sessionId: string,
+  payload: GatewayPayload,
+  status: ThreadToolStatus
+): { message: ThreadMessage; tool: ThreadTool } | undefined {
+  const stableId = toolStableId(payload)
+  const payloadName = firstText(payload.name, payload.tool_name, payload.tool)
+  const name = payloadName || 'tool'
+  const matchValues = toolMatchValues(payload)
+  const orderedMessages = orderedAssistantMessages(sessionId)
 
   for (const message of orderedMessages) {
     if (stableId) {
@@ -688,6 +880,28 @@ function toolSummary(payload: GatewayPayload): string {
 
 function toolContext(payload: GatewayPayload): string {
   return firstText(payload.context, payload.args_text, payload.command, payload.query, payload.url, payload.path)
+}
+
+function findDelegateToolInThread(sessionId: string): { message: ThreadMessage; tool: ThreadTool } | undefined {
+  for (const message of orderedAssistantMessages(sessionId)) {
+    const runningDelegate = [...message.tools]
+      .reverse()
+      .find(tool => tool.name === 'delegate_task' && tool.status === 'running')
+
+    if (runningDelegate) {
+      return { message, tool: runningDelegate }
+    }
+
+    const delegateWithSubtasks = [...message.tools]
+      .reverse()
+      .find(tool => tool.name === 'delegate_task' && (tool.subtasks?.length ?? 0) > 0)
+
+    if (delegateWithSubtasks) {
+      return { message, tool: delegateWithSubtasks }
+    }
+  }
+
+  return undefined
 }
 
 function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadToolStatus): void {
@@ -745,6 +959,47 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
   }
 
   if (status === 'running') {
+    setBusy(sessionId, true)
+  }
+}
+
+function upsertSubagentTask(sessionId: string, eventType: GatewayEvent['type'], payload: GatewayPayload): void {
+  const match = findDelegateToolInThread(sessionId)
+
+  if (!match) {
+    return
+  }
+
+  const { message, tool: existingTool } = match
+  const existingSubtasks = existingTool.subtasks ?? []
+  const id = subagentId(payload)
+  const existingSubtask = id ? existingSubtasks.find(subtask => subtask.id === id) : undefined
+  const updatedSubtask = nextSubtaskFromPayload(eventType, payload, existingSubtask)
+
+  if (!updatedSubtask) {
+    return
+  }
+
+  const nextSubtasks = sortSubtasks(
+    existingSubtasks.some(subtask => subtask.id === updatedSubtask.id)
+      ? existingSubtasks.map(subtask => (subtask.id === updatedSubtask.id ? updatedSubtask : subtask))
+      : [...existingSubtasks, updatedSubtask]
+  )
+  const updatedTool: ThreadTool = {
+    ...existingTool,
+    subtasks: nextSubtasks
+  }
+
+  commitMessage(sessionId, message.id, current => ({
+    ...current,
+    pending: updatedSubtask.status === 'running' || current.pending,
+    tools: current.tools.map(tool => (tool.id === updatedTool.id ? updatedTool : tool)),
+    parts: current.parts?.map(part =>
+      part.type === 'tool' && part.tool.id === updatedTool.id ? { type: 'tool', tool: updatedTool } : part
+    )
+  }))
+
+  if (updatedSubtask.status === 'running') {
     setBusy(sessionId, true)
   }
 }
@@ -1020,6 +1275,8 @@ export function handleGatewayEvent(event: GatewayEvent): void {
     // Also finalize reasoning on tool completion so the next reasoning delta
     // after the tool creates a new block.
     lastReasoningAt.delete(sessionId)
+  } else if (event.type.startsWith('subagent.')) {
+    upsertSubagentTask(sessionId, event.type, payload)
   } else if (event.type === 'message.complete') {
     completeAssistantMessage(sessionId, firstText(payload.text, payload.rendered), usageFrom(payload))
     clearAllPrompts()

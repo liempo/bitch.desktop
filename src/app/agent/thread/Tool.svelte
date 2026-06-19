@@ -3,7 +3,7 @@
   import Loader from '@/components/ui/Loader.svelte'
   import TerminalBlock from '@/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/components/ui/styles'
-  import type { ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
+  import type { ThreadSubtask, ThreadSubtaskOutput, ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
 
   interface Props {
     tool: ThreadTool
@@ -17,6 +17,7 @@
 
   const running = $derived(tool.status === 'running')
   const hasError = $derived(Boolean(tool.error))
+  const delegateSubtasks = $derived(tool.name === 'delegate_task' ? (tool.subtasks ?? []) : [])
   const hasDetail = $derived(Boolean(tool.input || tool.output || tool.error))
   const contextPreview = $derived(previewText(tool.context))
   const statusLabel = $derived(toolStatusLabel(tool.name, tool.status, hasError, Boolean(contextPreview)))
@@ -65,6 +66,15 @@
     return `${mins}m ${secs}s`
   }
 
+  function formatDuration(seconds: number | undefined): string {
+    if (seconds === undefined) return ''
+    if (seconds < 60) return `${Math.max(0, Math.round(seconds))}s`
+
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.round(seconds % 60)
+    return `${mins}m ${secs}s`
+  }
+
   function humanizeToolName(name: string): string {
     const normalized = name.replace(/[_-]+/g, ' ').trim()
     if (!normalized) return 'tool'
@@ -108,6 +118,61 @@
     if (key === 'image_generate') return 'Generated image'
     return `${humanizeToolName(name)} complete`
   }
+
+  function subagentStatusLabel(status: ThreadSubtask['status']): string {
+    if (status === 'complete') return 'Done'
+    if (status === 'failed') return 'Failed'
+    if (status === 'queued') return 'Queued'
+    return 'Running'
+  }
+
+  function subagentStatusClass(status: ThreadSubtask['status']): string {
+    if (status === 'complete') return 'text-success'
+    if (status === 'failed') return 'text-danger'
+    if (status === 'queued') return 'text-ink-muted'
+    return 'text-primary'
+  }
+
+  function subagentDotClass(status: ThreadSubtask['status']): string {
+    if (status === 'complete') return 'bg-success'
+    if (status === 'failed') return 'bg-danger'
+    if (status === 'queued') return 'bg-ink-muted/70'
+    return 'bg-primary'
+  }
+
+  function subagentOrdinal(subtask: ThreadSubtask): string {
+    if (subtask.taskIndex === undefined) return ''
+
+    const current = subtask.taskIndex + 1
+    return subtask.taskCount && subtask.taskCount > 1 ? `${current}/${subtask.taskCount}` : `${current}`
+  }
+
+  function modelLabel(model: string | undefined): string {
+    return model?.split('/').pop() || ''
+  }
+
+  function subagentMeta(subtask: ThreadSubtask): string[] {
+    const meta: string[] = []
+
+    if (subtask.toolCount !== undefined) meta.push(`${subtask.toolCount} tools`)
+    if (subtask.apiCalls !== undefined) meta.push(`${subtask.apiCalls} calls`)
+
+    const duration = formatDuration(subtask.durationSeconds)
+    if (duration) meta.push(duration)
+
+    const model = modelLabel(subtask.model)
+    if (model) meta.push(model)
+
+    return meta
+  }
+
+  function subagentProgressText(subtask: ThreadSubtask): string {
+    return previewText(subtask.error || subtask.summary || subtask.toolPreview || subtask.text)
+  }
+
+  function subagentOutputTail(subtask: ThreadSubtask): ThreadSubtaskOutput[] {
+    return (subtask.outputTail ?? []).slice(-2)
+  }
 </script>
 
 <div class={toolCardClass}>
@@ -141,9 +206,9 @@
       </span>
     {/if}
 
-      {#if hasDetail}
-        <svg
-          class="h-3 w-3 shrink-0 text-ink-muted/70 {expanded ? 'rotate-90' : ''}"
+    {#if hasDetail}
+      <svg
+        class="h-3 w-3 shrink-0 text-ink-muted/70 {expanded ? 'rotate-90' : ''}"
         fill="none"
         stroke="currentColor"
         stroke-width="2"
@@ -171,8 +236,59 @@
     {#if running}
       <span class="shrink-0 tabular-nums text-ink-muted/70">{elapsedText}</span>
     {/if}
-
   </button>
+
+  {#if delegateSubtasks.length > 0}
+    <div class="space-y-1.5 border-t border-line/50 px-3 pb-2 pt-2">
+      <div class="text-[0.62rem] font-medium uppercase tracking-[0.1em] text-ink-muted/70">
+        Subtasks
+      </div>
+
+      <div class="space-y-1">
+        {#each delegateSubtasks as subtask (subtask.id)}
+          <div class="rounded-md border border-line/60 bg-canvas/35 px-2 py-1.5">
+            <div class="flex min-w-0 items-center gap-1.5">
+              <span class="h-1.5 w-1.5 shrink-0 rounded-full {subagentDotClass(subtask.status)}"></span>
+              <span class="shrink-0 text-[0.62rem] font-semibold uppercase tracking-[0.1em] {subagentStatusClass(subtask.status)}">
+                {subagentStatusLabel(subtask.status)}
+              </span>
+              {#if subagentOrdinal(subtask)}
+                <span class="shrink-0 text-[0.65rem] tabular-nums text-ink-muted/70">
+                  {subagentOrdinal(subtask)}
+                </span>
+              {/if}
+              <span class="truncate font-medium text-ink">{previewText(subtask.goal)}</span>
+            </div>
+
+            {#if subagentProgressText(subtask)}
+              <p class="mt-1 truncate {subtask.status === 'failed' ? 'text-danger/80' : 'text-ink-muted'}">
+                {subagentProgressText(subtask)}
+              </p>
+            {/if}
+
+            <div class="mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-[0.65rem] text-ink-muted/70">
+              {#if subtask.toolName}
+                <span class="truncate">{humanizeToolName(subtask.toolName)}</span>
+              {/if}
+              {#each subagentMeta(subtask) as item}
+                <span>{item}</span>
+              {/each}
+            </div>
+
+            {#if subagentOutputTail(subtask).length > 0}
+              <div class="mt-1 space-y-0.5">
+                {#each subagentOutputTail(subtask) as output}
+                  <p class="truncate text-[0.65rem] {output.isError ? 'text-danger/80' : 'text-ink-muted/75'}">
+                    {output.tool}: {previewText(output.preview)}
+                  </p>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   {#if expanded && hasDetail}
     <div class="space-y-2 border-t border-line/50 px-3 py-2">
