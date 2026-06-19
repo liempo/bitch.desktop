@@ -47,3 +47,6 @@ macOS still needs Xcode Command Line Tools.
 - `npm run frontend:build` — build the Vite renderer only.
 - `npm run type-check` — run `svelte-check`.
 - `npm run lint` — lint renderer source.
+- `npm run check:transport-drift` — fail when the vendored Hermes JSON-RPC transport drifts from upstream.
+- `npm run sync:transport` — refresh `src/lib/gateway/json-rpc-gateway.ts` from upstream Hermes and normalize formatting.
+- `npm run sync:types` — run the companion upstream TypeScript type sync path; currently a no-op until type mirrors are registered.

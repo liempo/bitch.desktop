@@ -36,6 +36,23 @@ Everything else in this repo is local glue or Tauri-specific wiring unless the f
 
 If you later decide to copy more upstream code, add it here explicitly and keep the list current.
 
+## Upstream sync cadence
+
+Use the manifest-driven sync workflow in [`docs/upstream-sync.md`](docs/upstream-sync.md). Run the drift check monthly and after upstream Hermes gateway/shared transport changes:
+
+```bash
+npm run check:transport-drift
+```
+
+When drift is intentional, refresh the vendored transport and keep the type-sync companion path in the same review pass:
+
+```bash
+npm run sync:transport
+npm run sync:types
+```
+
+`npm run sync:types` is a successful no-op until `scripts/hermes-upstream-sync.json` registers mirrored upstream TypeScript type files. After every sync, inspect `git diff -- src/lib/gateway/json-rpc-gateway.ts` first, then adapt `src/lib/gateway/hermes.ts`, `src/lib/gateway/tauri-gateway-socket.ts`, and `src-tauri/src/lib.rs` manually if upstream behavior changed.
+
 ## Validation expectations
 
 When a change touches the renderer, run:

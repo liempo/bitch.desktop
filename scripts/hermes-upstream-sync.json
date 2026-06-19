@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "reviewChecklist": [
+    "Inspect the vendored transport diff after every sync.",
+    "Adapt src/lib/gateway/hermes.ts when the upstream client API changes.",
+    "Adapt src/lib/gateway/tauri-gateway-socket.ts and src-tauri/src/lib.rs when upstream transport behavior changes.",
+    "Run the focused upstream-sync contract test and the standard validation stack before opening a PR."
+  ],
+  "groups": {
+    "transport": {
+      "description": "Hermes JSON-RPC transport files mirrored into the BITCH renderer.",
+      "cadence": "Run monthly and immediately after upstream Hermes gateway/shared transport changes.",
+      "mirrors": [
+        {
+          "id": "json-rpc-gateway",
+          "upstream": "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/apps/shared/src/json-rpc-gateway.ts",
+          "local": "src/lib/gateway/json-rpc-gateway.ts",
+          "format": "prettier"
+        }
+      ]
+    },
+    "types": {
+      "description": "Future mirrored Hermes desktop/shared TypeScript types. Keep this group empty until a local file intentionally mirrors upstream type definitions.",
+      "cadence": "Run alongside the transport sync whenever TypeScript type mirrors are registered.",
+      "mirrors": []
+    }
+  }
+}
