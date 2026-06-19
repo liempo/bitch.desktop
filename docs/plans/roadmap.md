@@ -55,8 +55,8 @@ See [`docs/wiki/live-thread-preservation.md`](../wiki/live-thread-preservation.m
 ## Remote File and Media Model
 
 Remote files now use official Hermes dashboard filesystem routes through the
-Tauri bridge. The Files route lists the active profile's remote filesystem,
-explicit `@file:` references open the right preview rail for any absolute
+Tauri bridge. The Files route mounts the active profile's remote filesystem at
+`/`, explicit `@file:` references open the right preview rail for any absolute
 Hermes-visible path, and `MEDIA:` hydrates image/audio/video elements from
 `/api/fs/read-data-url`. Raw absolute paths remain plain text, and the app no
 longer requires a public sidecar or custom local reference plugin.

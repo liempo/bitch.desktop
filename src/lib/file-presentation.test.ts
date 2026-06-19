@@ -41,6 +41,11 @@ describe('remote files page source contract', () => {
     expect(filesPageSource).toContain('readRemoteFileDataUrl')
   })
 
+  it('mounts the remote filesystem root instead of the backend cwd', () => {
+    expect(filesPageSource).toContain("await openDirectory('/')")
+    expect(filesPageSource).not.toContain('getRemoteDefaultCwd')
+  })
+
   it('uses a two-pane tree plus viewer layout without the icon view', () => {
     expect(filesPageSource).toContain('grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)]')
     expect(filesPageSource).not.toContain('Icon View')

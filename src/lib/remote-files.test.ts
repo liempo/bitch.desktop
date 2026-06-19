@@ -68,14 +68,15 @@ describe('remote file helpers', () => {
   })
 
   it('reads through authenticated dashboard filesystem endpoints', async () => {
-    const { fetchRemoteFileListing, readRemoteFileDataUrl, readRemoteFileText } = await import('./remote-files')
+    const { fetchRemoteFileListing, getRemoteDefaultCwd, readRemoteFileDataUrl, readRemoteFileText } =
+      await import('./remote-files')
     mockDashboardRequest.mockResolvedValueOnce({ entries: [] })
-    await expect(fetchRemoteFileListing('/opt/data', { profile: 'astra' })).resolves.toEqual({
+    await expect(fetchRemoteFileListing('/', { profile: 'astra' })).resolves.toEqual({
       entries: [],
-      path: '/opt/data'
+      path: '/'
     })
     expect(mockDashboardRequest).toHaveBeenCalledWith({
-      path: '/api/fs/list?path=%2Fopt%2Fdata',
+      path: '/api/fs/list?path=%2F',
       profile: 'astra'
     })
 
@@ -90,6 +91,13 @@ describe('remote file helpers', () => {
     await expect(readRemoteFileDataUrl('/tmp/a.png', 'astra')).resolves.toBe('data:image/png;base64,AAAA')
     expect(mockDashboardRequest).toHaveBeenCalledWith({
       path: '/api/fs/read-data-url?path=%2Ftmp%2Fa.png',
+      profile: 'astra'
+    })
+
+    mockDashboardRequest.mockResolvedValueOnce({ cwd: '/opt/data', branch: 'main' })
+    await expect(getRemoteDefaultCwd('astra')).resolves.toEqual({ cwd: '/opt/data', branch: 'main' })
+    expect(mockDashboardRequest).toHaveBeenCalledWith({
+      path: '/api/fs/default-cwd',
       profile: 'astra'
     })
   })
