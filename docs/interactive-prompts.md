@@ -11,7 +11,7 @@ silently stalls until its timeout.
 | `sudo.request` `{request_id}`                       | `sudo.respond {request_id, password}`   | modal (masked input)                                   |
 | `secret.request` `{request_id, env_var, prompt}`    | `secret.respond {request_id, value}`    | modal (masked input)                                   |
 
-## Store ([`src/lib/stores/prompts.svelte.ts`](../../src/lib/stores/prompts.svelte.ts))
+## Store ([`src/lib/stores/prompts.svelte.ts`](../src/lib/stores/prompts.svelte.ts))
 
 Ported from upstream `store/clarify.ts` + `store/prompts.ts`:
 

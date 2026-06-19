@@ -4,7 +4,7 @@
 `window.hermesDesktop.api({ path, method, body })` proxy so it can reach the
 remote dashboard's HTTP API without ever holding `BITCH_DASHBOARD_API_KEY`.
 
-## Rust ([`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs))
+## Rust ([`src-tauri/src/lib.rs`](../src-tauri/src/lib.rs))
 
 - Add a `dashboard_request` command: `{ path, method?, body? }` → JSON `Value`.
 - Reuse `resolve_gateway_config()` for the base URL + token and the existing
@@ -19,12 +19,12 @@ remote dashboard's HTTP API without ever holding `BITCH_DASHBOARD_API_KEY`.
 
 ## TypeScript
 
-- [`src/lib/types/hermes.ts`](../../src/lib/types/hermes.ts) — minimal types
+- [`src/lib/types/hermes.ts`](../src/lib/types/hermes.ts) — minimal types
   adapted from upstream: `SessionInfo`, `SessionMessage`, `SessionMessagesResponse`,
   `PaginatedSessions`, `SessionSearchResult`, `SessionSearchResponse`,
   `SessionCreateResponse`, `SessionResumeResponse`, `UsageStats`,
   `ModelInfoResponse`, `ModelOptionsResponse`, `ModelOptionProvider`.
-- [`src/lib/api/dashboard.ts`](../../src/lib/api/dashboard.ts) — a
+- [`src/lib/api/dashboard.ts`](../src/lib/api/dashboard.ts) — a
   `dashboardRequest<T>({ path, method?, body? })` wrapper over
   `invoke('dashboard_request', ...)` plus session helpers mirroring upstream
   [hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/hermes.ts):

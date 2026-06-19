@@ -60,7 +60,7 @@ Also fixed tool rows to display the gateway context (which gateway/session a too
 
 **PR #11** — Module layout reorganisation. Renamed Plan 07 → `ROADMAP.md`.
 
-**PR #12** — Architecture documentation. Moved implemented plans to `docs/wiki/` with `ARCHITECTURE.md` as the canonical design reference.
+**PR #12** — Architecture documentation. Moved implemented plans into `docs/` with `ARCHITECTURE.md` as the canonical design reference.
 
 ---
 

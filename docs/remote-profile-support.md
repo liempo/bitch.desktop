@@ -12,7 +12,7 @@ by mapping each profile to its own dashboard URL/port.
 
 ## Data model
 
-[`src/lib/types/hermes.ts`](../../src/lib/types/hermes.ts) adds the upstream
+[`src/lib/types/hermes.ts`](../src/lib/types/hermes.ts) adds the upstream
 profile response shapes and profile ownership metadata:
 
 - `ProfileInfo`, `ProfilesResponse`
@@ -25,7 +25,7 @@ compares against that profile's count rather than the global total.
 
 ## Connection config
 
-[`src/lib/gateway/connection-config.ts`](../../src/lib/gateway/connection-config.ts)
+[`src/lib/gateway/connection-config.ts`](../src/lib/gateway/connection-config.ts)
 and `src-tauri/src/lib.rs` share the same remote-only config shape:
 
 ```json
@@ -79,7 +79,7 @@ for per-profile remote URLs is intentionally deferred.
 
 ### Profile store
 
-[`src/lib/stores/profile.svelte.ts`](../../src/lib/stores/profile.svelte.ts)
+[`src/lib/stores/profile.svelte.ts`](../src/lib/stores/profile.svelte.ts)
 contains the profile execution state:
 
 - `profileState.activeGatewayProfile` — profile whose live WebSocket is active.
@@ -95,7 +95,7 @@ removed so the store only persists active UI state.
 
 ### Gateway registry
 
-[`src/lib/stores/gateway.svelte.ts`](../../src/lib/stores/gateway.svelte.ts)
+[`src/lib/stores/gateway.svelte.ts`](../src/lib/stores/gateway.svelte.ts)
 keeps a `profile → HermesGateway` registry. `ensureGatewayForProfile(profile)`
 opens or reuses the socket for that profile, marks the selected gateway active,
 and exposes `$gatewaySwapTarget` state for the app-shell swap overlay.
@@ -110,7 +110,7 @@ Tauri when opening `/api/ws`.
 
 ### Session store
 
-[`src/lib/stores/session.svelte.ts`](../../src/lib/stores/session.svelte.ts) is
+[`src/lib/stores/session.svelte.ts`](../src/lib/stores/session.svelte.ts) is
 profile-aware for list, hydration, and mutations:
 
 - List calls prefer `/api/profiles/sessions` and pass `profile` when scoped.
@@ -122,7 +122,7 @@ profile-aware for list, hydration, and mutations:
 
 ### Composer and prompt responses
 
-[`src/lib/stores/composer.svelte.ts`](../../src/lib/stores/composer.svelte.ts)
+[`src/lib/stores/composer.svelte.ts`](../src/lib/stores/composer.svelte.ts)
 routes live RPCs through the owning profile before calling `commands.catalog`,
 `session.interrupt`, and `prompt.submit`. The `/profile` slash command is
 handled locally in Desktop so status reflects the session/new-chat profile
@@ -131,14 +131,14 @@ the next new-chat profile and ensures that profile's gateway before a new chat
 sends. New sessions still pass the selected profile into `session.create` so
 the gateway persists the row in the correct profile state database.
 
-[`src/lib/stores/prompts.svelte.ts`](../../src/lib/stores/prompts.svelte.ts)
+[`src/lib/stores/prompts.svelte.ts`](../src/lib/stores/prompts.svelte.ts)
 keeps clarify, approval, sudo, and secret responses profile-scoped. Sudo and
 secret prompt events now remember the stored session key, allowing modal responses
 to switch to the owning profile before sending `sudo.respond` or `secret.respond`.
 
 ## UI
 
-[`src/app/agent/sidebar/ProfileFilterDialog.svelte`](../../src/app/agent/sidebar/ProfileFilterDialog.svelte)
+[`src/app/agent/sidebar/ProfileFilterDialog.svelte`](../src/app/agent/sidebar/ProfileFilterDialog.svelte)
 adds the profile filter at the sidebar header. It is hidden for single-profile
 users and shows:
 
@@ -147,7 +147,7 @@ users and shows:
   profile order.
 - A `group by profile` toggle for all-profile history browsing.
 
-[`Sidebar.svelte`](../../src/app/agent/sidebar/Sidebar.svelte) groups recent sessions
+[`Sidebar.svelte`](../src/app/agent/sidebar/Sidebar.svelte) groups recent sessions
 by profile when the all-profiles scope is active and keeps normal scoped recents
 unchanged otherwise.
 
