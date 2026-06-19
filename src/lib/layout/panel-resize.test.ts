@@ -28,6 +28,10 @@ function storageStub(initial: Record<string, string> = {}): Storage {
   }
 }
 
+function legacyStorageKey(suffix: string): string {
+  return `${['bitch', 'desktop'].join('.')}.${suffix}`
+}
+
 describe('panel resize width helpers', () => {
   it('defaults both side panels to their minimum supported widths', () => {
     expect(SESSION_SIDEBAR_WIDTH.defaultWidth).toBe(SESSION_SIDEBAR_WIDTH.minWidth)
@@ -51,6 +55,14 @@ describe('panel resize width helpers', () => {
       readPanelWidth(SESSION_SIDEBAR_WIDTH, storageStub({ [SESSION_SIDEBAR_WIDTH.storageKey]: 'not-a-number' }))
     ).toBe(SESSION_SIDEBAR_WIDTH.defaultWidth)
     expect(readPanelWidth(SESSION_SIDEBAR_WIDTH, storageStub({ [SESSION_SIDEBAR_WIDTH.storageKey]: '99' }))).toBe(256)
+  })
+
+  it('migrates legacy desktop-qualified width keys when reading persisted widths', () => {
+    const storage = storageStub({ [legacyStorageKey(SESSION_SIDEBAR_WIDTH.storageSuffix)]: '444' })
+
+    expect(readPanelWidth(SESSION_SIDEBAR_WIDTH, storage)).toBe(444)
+    expect(storage.getItem(SESSION_SIDEBAR_WIDTH.storageKey)).toBe('444')
+    expect(storage.getItem(legacyStorageKey(SESSION_SIDEBAR_WIDTH.storageSuffix))).toBeNull()
   })
 
   it('persists clamped widths and exposes CSS variable styles for Svelte panels', () => {

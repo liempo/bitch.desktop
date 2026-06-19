@@ -1,8 +1,8 @@
-# AGENTS.md — bitch.desktop
+# AGENTS.md — BITCH
 
 ## Purpose
 
-bitch.desktop is a minimal Tauri + Svelte client for Hermes remote dashboard gateway access.
+BITCH is a minimal Tauri + Svelte client for Hermes remote dashboard gateway access.
 Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic unless the user explicitly asks.
 
 ## Current app shape
@@ -116,7 +116,7 @@ macOS still needs Xcode Command Line Tools.
 - Keep `commitlint.config.cjs` in CommonJS format.
 - Keep Husky hooks simple.
 - Keep the repo remote-only; avoid local Hermes bootstrap code unless the user asks for it.
-- UI-facing branding must say `BITCH` only; do not show `BITCH.DESKTOP`, `bitch.desktop`, or similar desktop-qualified names in the interface.
+- UI-facing branding must say `BITCH` only; do not show legacy desktop-qualified names in the interface.
 - Use Bits UI for Svelte renderer UI primitives and components whenever you add or refactor interface elements.
 - Use Tailwind utility classes and layers for renderer styling; avoid bespoke CSS rules unless you need a global base reset or a shared theme token.
 - Preserve the upstream transport file first when syncing; adapt the local wrapper afterward.

@@ -45,10 +45,11 @@ and `src-tauri/src/lib.rs` share the same remote-only config shape:
 }
 ```
 
-Tauri persists this at `$XDG_CONFIG_HOME/bitch.desktop/connection.json`, falling
-back to `~/.config/bitch.desktop/connection.json` when `XDG_CONFIG_HOME` is not
-set. If the file is absent, Rust seeds the connection from the existing `.env`
-variables:
+Tauri persists this at `$XDG_CONFIG_HOME/bitch/connection.json`, falling back to
+`~/.config/bitch/connection.json` when `XDG_CONFIG_HOME` is not set. On first
+read, Rust migrates the old desktop-qualified config path into the new app
+namespace. If the file is absent, Rust seeds the connection from the existing
+`.env` variables:
 
 - `VITE_HERMES_DASHBOARD_URL`
 - `BITCH_DASHBOARD_API_KEY`
@@ -89,9 +90,10 @@ contains the profile execution state:
 - `selectProfile(profile)` — hides all-profiles mode, ensures the profile gateway,
   scopes REST helpers, and requests a fresh draft.
 
-Rail/session-list cosmetics are stored locally under `bitch.desktop.profileOrder`
-and `bitch.desktop.showAllProfiles`; unused per-profile color overrides were
-removed so the store only persists active UI state.
+Rail/session-list cosmetics are stored locally under `bitch.profileOrder` and
+`bitch.showAllProfiles`; old desktop-qualified localStorage keys are migrated on
+read and removed when rewritten. Unused per-profile color overrides were removed
+so the store only persists active UI state.
 
 ### Gateway registry
 

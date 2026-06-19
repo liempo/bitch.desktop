@@ -1,6 +1,6 @@
 # Roadmap
 
-bitch.desktop is a remote-only Tauri + Svelte 5 client for Hermes dashboard
+BITCH is a remote-only Tauri + Svelte 5 client for Hermes dashboard
 gateway access. This file is the canonical roadmap and the source text for
 future Kanban scans.
 

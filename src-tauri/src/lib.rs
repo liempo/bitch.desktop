@@ -4,6 +4,7 @@ const DEFAULT_WS_PATH: &str = "/api/ws";
 const WS_TICKET_PATH: &str = "/api/auth/ws-ticket";
 const AUTH_HEADER: &str = "X-Hermes-Session-Token";
 const HTTP_TIMEOUT_SECS: u64 = 15;
+const APP_CONFIG_DIR: &str = "bitch";
 const WINDOW_BAR_HEIGHT: f64 = 40.0;
 const MACOS_TRAFFIC_LIGHT_SIZE: f64 = 12.0;
 const MACOS_TRAFFIC_LIGHT_NATIVE_BOTTOM_INSET: f64 = 6.0;
@@ -15,7 +16,7 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::{LazyLock, Mutex},
     time::Duration,
@@ -252,34 +253,93 @@ fn ws_profile_key(profile: Option<&str>) -> String {
     connection_scope_key(profile).unwrap_or_else(|| "default".to_string())
 }
 
-fn connection_config_path() -> Result<PathBuf, String> {
+fn legacy_app_config_dir() -> String {
+    [APP_CONFIG_DIR, "desktop"].join(".")
+}
+
+fn config_base_dir() -> Result<PathBuf, String> {
     if let Some(config_home) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Ok(PathBuf::from(config_home)
-            .join("bitch.desktop")
-            .join("connection.json"));
+        return Ok(PathBuf::from(config_home));
     }
 
     if let Some(home) = std::env::var_os("HOME") {
-        return Ok(PathBuf::from(home)
-            .join(".config")
-            .join("bitch.desktop")
-            .join("connection.json"));
+        return Ok(PathBuf::from(home).join(".config"));
     }
 
     Err("Could not resolve a config directory for connection.json".to_string())
 }
 
+fn connection_config_path_for(app_dir: impl AsRef<Path>) -> Result<PathBuf, String> {
+    Ok(config_base_dir()?.join(app_dir).join("connection.json"))
+}
+
+fn connection_config_path() -> Result<PathBuf, String> {
+    connection_config_path_for(APP_CONFIG_DIR)
+}
+
+fn legacy_connection_config_path() -> Result<PathBuf, String> {
+    connection_config_path_for(legacy_app_config_dir())
+}
+
+fn read_connection_config_at(path: &Path) -> Result<ConnectionConfig, String> {
+    let contents =
+        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+
+    serde_json::from_str::<ConnectionConfig>(&contents)
+        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))
+}
+
+fn remove_legacy_connection_config_file() {
+    let Ok(legacy_path) = legacy_connection_config_path() else {
+        return;
+    };
+
+    if legacy_path.exists() {
+        let _ = fs::remove_file(&legacy_path);
+    }
+
+    if let Some(parent) = legacy_path.parent() {
+        let _ = fs::remove_dir(parent);
+    }
+}
+
+fn migrate_legacy_connection_config(legacy_path: &Path, path: &Path) -> Result<(), String> {
+    if path.exists() || !legacy_path.exists() {
+        return Ok(());
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create {}: {e}", parent.display()))?;
+    }
+
+    fs::copy(legacy_path, path).map_err(|e| {
+        format!(
+            "Failed to migrate connection config from {} to {}: {e}",
+            legacy_path.display(),
+            path.display()
+        )
+    })?;
+    remove_legacy_connection_config_file();
+
+    Ok(())
+}
+
 fn read_saved_connection_config() -> Result<Option<ConnectionConfig>, String> {
     let path = connection_config_path()?;
 
-    if !path.exists() {
+    if path.exists() {
+        return read_connection_config_at(&path).map(Some);
+    }
+
+    let legacy_path = legacy_connection_config_path()?;
+
+    if !legacy_path.exists() {
         return Ok(None);
     }
 
-    let contents =
-        fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-    let config = serde_json::from_str::<ConnectionConfig>(&contents)
-        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
+    let config = read_connection_config_at(&legacy_path)?;
+    migrate_legacy_connection_config(&legacy_path, &path)?;
 
     Ok(Some(config))
 }
@@ -564,7 +624,7 @@ fn status_field<'a>(status: &'a Value, field: &str) -> &'a str {
 
 fn log_gateway(connection_id: &str, level: &str, message: impl Into<String>) {
     let message = message.into();
-    eprintln!("[bitch.desktop][gateway][{connection_id}][{level}] {message}");
+    eprintln!("[bitch][gateway][{connection_id}][{level}] {message}");
 }
 
 async fn resolve_ws_target(connection_id: &str, profile: Option<&str>) -> Result<WsTarget, String> {
@@ -728,6 +788,7 @@ async fn save_connection_config(config: ConnectionConfig) -> Result<ConnectionCo
     let body = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     fs::write(&path, format!("{body}\n"))
         .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+    remove_legacy_connection_config_file();
 
     Ok(config)
 }

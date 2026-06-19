@@ -1,5 +1,4 @@
 import { getGlobalModelInfo, getModelOptions, getProfiles } from '$lib/api/dashboard'
-import { messageForError } from '$lib/errors'
 import {
   commandNotFoundMessage,
   commandPairs,
@@ -14,6 +13,12 @@ import {
   type SlashCommandItem,
   type SlashExecResponse
 } from '$lib/composer/slash-commands'
+import { messageForError } from '$lib/errors'
+import {
+  readNamespacedStorageItem,
+  removeNamespacedStorageItem,
+  writeNamespacedStorageItem
+} from '$lib/storage/namespace'
 import { compactWhitespace } from '$lib/messages/chat-runtime'
 import { requestGateway } from '$lib/stores/gateway.svelte'
 import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
@@ -295,14 +300,14 @@ function ensureComposerSession(sessionId: null | string | undefined): ComposerSe
 }
 
 function draftStorageKey(key: string): string {
-  return `bitch.desktop.composerDraft.v1.${key}`
+  return `composerDraft.v1.${key}`
 }
 
 function loadDraft(key: string): string {
   if (typeof window === 'undefined') return ''
 
   try {
-    return window.localStorage.getItem(draftStorageKey(key)) ?? ''
+    return readNamespacedStorageItem(draftStorageKey(key), window.localStorage) ?? ''
   } catch {
     return ''
   }
@@ -313,9 +318,9 @@ function saveDraft(key: string, value: string): void {
 
   try {
     if (value) {
-      window.localStorage.setItem(draftStorageKey(key), value)
+      writeNamespacedStorageItem(draftStorageKey(key), value, window.localStorage)
     } else {
-      window.localStorage.removeItem(draftStorageKey(key))
+      removeNamespacedStorageItem(draftStorageKey(key), window.localStorage)
     }
   } catch {
     // Draft persistence is best-effort only.

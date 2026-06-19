@@ -34,6 +34,7 @@
     selectMainNewSessionProfile
   } from '$lib/stores/profile.svelte'
   import { shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
+  import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage/namespace'
   import { panelWidthStyle, SESSION_SIDEBAR_WIDTH } from '$lib/layout/panel-resize'
   import type { SessionInfo } from '$lib/types/hermes'
 
@@ -43,7 +44,7 @@
 
   let { width = SESSION_SIDEBAR_WIDTH.defaultWidth }: Props = $props()
 
-  const GROUP_BY_PROFILE_STORAGE_KEY = 'bitch.desktop.groupSessionsByProfile'
+  const GROUP_BY_PROFILE_STORAGE_SUFFIX = 'groupSessionsByProfile'
   const sectionHeadingClass = 'font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted'
   const mutedNoticeClass = `${cardClass} rounded-control !bg-surface-raised/40 p-3 text-xs text-ink-muted`
   const dangerNoticeClass = `${cardClass} rounded-control border-danger/35 !bg-danger/10 p-3 text-xs text-danger`
@@ -101,13 +102,13 @@
   function readGroupSessionsByProfile(): boolean {
     if (typeof globalThis.localStorage === 'undefined') return false
 
-    return globalThis.localStorage.getItem(GROUP_BY_PROFILE_STORAGE_KEY) === 'true'
+    return readNamespacedStorageItem(GROUP_BY_PROFILE_STORAGE_SUFFIX) === 'true'
   }
 
   function writeGroupSessionsByProfile(value: boolean): void {
     if (typeof globalThis.localStorage === 'undefined') return
 
-    globalThis.localStorage.setItem(GROUP_BY_PROFILE_STORAGE_KEY, value ? 'true' : 'false')
+    writeNamespacedStorageItem(GROUP_BY_PROFILE_STORAGE_SUFFIX, value ? 'true' : 'false')
   }
 
   function sortSessionsByLastActive(sessions: SessionInfo[]): SessionInfo[] {

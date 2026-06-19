@@ -1,9 +1,9 @@
 {
-  "name": "bitch.desktop",
+  "name": "bitch",
   "productName": "BITCH",
   "version": "0.1.0",
   "private": true,
-  "description": "Minimal Tauri desktop client for the Hermes remote dashboard gateway",
+  "description": "Remote-only Tauri + Svelte client for the Hermes dashboard gateway",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
