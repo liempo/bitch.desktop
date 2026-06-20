@@ -27,7 +27,7 @@ function session(partial: Partial<SessionInfo> & Pick<SessionInfo, 'id'>): Sessi
 }
 
 describe('main dashboard helpers', () => {
-  it('exposes implemented navigation plus the remaining planned Cron surface', () => {
+  it('exposes implemented navigation including the Cron manager surface', () => {
     const links = dashboardQuickLinks('stored session')
 
     expect(links.map(link => link.id)).toEqual(['agent', 'assets', 'calendar', 'kanban', 'cron'])
@@ -51,7 +51,11 @@ describe('main dashboard helpers', () => {
       label: 'Kanban',
       state: 'ready'
     })
-    expect(links.find(link => link.id === 'cron')).toMatchObject({ href: null, label: 'Cron', state: 'planned' })
+    expect(links.find(link => link.id === 'cron')).toMatchObject({
+      href: '#/cron',
+      label: 'Cron',
+      state: 'ready'
+    })
   })
 
   it('summarizes dashboard gateway health and target with operator-facing labels', () => {

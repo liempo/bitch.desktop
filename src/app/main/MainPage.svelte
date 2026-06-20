@@ -20,7 +20,7 @@
   } from '$lib/host-monitor'
   import MainRenderPanel from './MainRenderPanel.svelte'
   import MainAgentPanel from './MainAgentPanel.svelte'
-  import { agentRoute, kanbanRoute } from '../router.svelte'
+  import { agentRoute, cronRoute, kanbanRoute } from '../router.svelte'
   import { recentDashboardSessions } from './dashboard'
 
   type ThermalZone = HostMetrics['thermal'][number]
@@ -34,12 +34,6 @@
       headline: 'Chronos panel queued',
       title: 'CALENDAR',
       toneClass: 'text-primary'
-    },
-    {
-      description: 'No fake job controls; this card is a reserved operations panel.',
-      headline: 'Scheduler surface pending',
-      title: 'CRON',
-      toneClass: 'text-secondary'
     }
   ] as const
   const kanbanStats = [
@@ -62,6 +56,7 @@
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
   const miniSessionFallbackId = $derived(recentSessions[0]?.id ?? null)
   const agentHref = $derived(`#${agentRoute(miniSessionFallbackId)}`)
+  const cronHref = $derived(`#${cronRoute()}`)
   const kanbanHref = $derived(`#${kanbanRoute()}`)
   const cpuThermal = $derived(findThermalZone(/cpu|package|pkg|core|tctl|tdie/i) ?? hostMetrics.thermal[0] ?? null)
   const processRows = $derived(
@@ -346,6 +341,27 @@
           <div class="text-[0.68rem] leading-4 text-ink-muted">{placeholder.description}</div>
         </Panel>
       {/each}
+
+      <Panel
+        fullHeight={false}
+        title="CRON"
+        badge="ready"
+        class={dashboardPanelClass}
+        contentClass="grid h-full content-center gap-2"
+        titleClass={dashboardPanelTitleClass}
+      >
+        <div class="text-[0.78rem] font-bold uppercase tracking-[0.14em] text-secondary">Scheduler surface online</div>
+        <div class="text-[0.68rem] leading-4 text-ink-muted">
+          Cron route manages Hermes jobs through the authenticated dashboard cron API. No local scheduler shim, no fake controls.
+        </div>
+        <a
+          class="w-fit rounded-control border border-secondary/40 px-2 py-1 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-secondary hover:border-secondary/70 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus"
+          href={cronHref}
+          aria-label="Open Cron Job Manager"
+        >
+          Open Cron
+        </a>
+      </Panel>
 
       <Panel
         fullHeight={false}
