@@ -37,7 +37,8 @@ describe('Main dashboard source contract', () => {
   it('loads host monitor endpoint config from HOST_MONITOR_URL and HOST_MONITOR_PORT', () => {
     expect(hostMonitorSource).toContain('__HOST_MONITOR_URL__')
     expect(hostMonitorSource).toContain('__HOST_MONITOR_PORT__')
-    expect(hostMonitorSource).toContain('/metrics')
+    expect(hostMonitorSource).toContain('/api/4')
+    expect(hostMonitorSource).toContain('GLANCES_ENDPOINTS')
   })
 
   it('loads remote dashboard state instead of offering local Hermes bootstrap controls', () => {

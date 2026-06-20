@@ -30,7 +30,7 @@ export interface HostMetrics {
   thermal: HostThermalZone[]
   timestamp: string
   uptimeSeconds: number
-  version: number
+  version: string
 }
 
 export interface HostMonitorConfig {
@@ -48,7 +48,21 @@ declare const __HOST_MONITOR_URL__: string | undefined
 declare const __HOST_MONITOR_PORT__: string | undefined
 
 const DEFAULT_HOST_MONITOR_URL = 'http://127.0.0.1'
-const DEFAULT_HOST_MONITOR_PORT = '9129'
+const DEFAULT_HOST_MONITOR_PORT = '61208'
+
+const GLANCES_ENDPOINTS = {
+  cpu: '/cpu',
+  load: '/load',
+  mem: '/mem',
+  memswap: '/memswap',
+  percpu: '/percpu',
+  processcount: '/processcount',
+  quicklook: '/quicklook',
+  sensors: '/sensors',
+  status: '/status',
+  system: '/system',
+  uptime: '/uptime'
+} as const
 
 export const EMPTY_HOST_METRICS: HostMetrics = {
   cpu: {
@@ -73,7 +87,7 @@ export const EMPTY_HOST_METRICS: HostMetrics = {
   thermal: [],
   timestamp: '',
   uptimeSeconds: 0,
-  version: 1
+  version: 'glances'
 }
 
 function clean(value: string | undefined): string {
@@ -97,7 +111,7 @@ export function hostMonitorConfig(env: HostMonitorEnv = {}): HostMonitorConfig {
   const baseUrl = hasPort ? base : `${base}:${port}`
   return {
     baseUrl,
-    metricsUrl: `${baseUrl}/metrics`,
+    metricsUrl: `${baseUrl}/api/4`,
     port
   }
 }
@@ -111,53 +125,127 @@ function stringValue(value: unknown, fallback: string): string {
 }
 
 function numberValue(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return fallback
 }
 
 function numberArray(value: unknown): number[] {
   return Array.isArray(value) ? value.map(item => numberValue(item)).filter(Number.isFinite) : []
 }
 
+function positiveNumber(value: unknown, fallback = 0): number {
+  const parsed = numberValue(value, Number.NaN)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function average(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+}
+
+function percentFromPerCpu(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value.map(item => numberValue(asRecord(item).total)).filter(Number.isFinite)
+}
+
 function thermalArray(value: unknown): HostThermalZone[] {
   if (!Array.isArray(value)) return []
-  return value.map(item => {
-    const zone = asRecord(item)
-    return {
-      celsius: numberValue(zone.celsius),
-      label: stringValue(zone.label, 'thermal')
-    }
-  })
+  return value
+    .map(item => {
+      const zone = asRecord(item)
+      return {
+        celsius: numberValue(zone.value ?? zone.celsius),
+        label: stringValue(zone.label, 'thermal')
+      }
+    })
+    .filter(zone => zone.celsius > 0)
+}
+
+function parseUptimeSeconds(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string') return 0
+
+  const weeks = Number(/(\d+)\s+weeks?/i.exec(value)?.[1] ?? 0)
+  const days = Number(/(\d+)\s+days?/i.exec(value)?.[1] ?? 0)
+  const time = /(\d{1,3}):(\d{2}):(\d{2})/.exec(value)
+  const hours = Number(time?.[1] ?? 0)
+  const minutes = Number(time?.[2] ?? 0)
+  const seconds = Number(time?.[3] ?? 0)
+  return weeks * 604_800 + days * 86_400 + hours * 3600 + minutes * 60 + seconds
 }
 
 export function normalizeHostMetrics(value: unknown): HostMetrics {
   const input = asRecord(value)
+  const quicklook = asRecord(input.quicklook)
   const cpu = asRecord(input.cpu)
-  const memory = asRecord(input.memory)
+  const memory = asRecord(input.mem ?? input.memory)
+  const swap = asRecord(input.memswap)
+  const load = asRecord(input.load)
+  const system = asRecord(input.system)
+  const processcount = asRecord(input.processcount)
+  const status = asRecord(input.status)
+
+  const perCore = percentFromPerCpu(input.percpu)
+  const quicklookPerCore = percentFromPerCpu(quicklook.percpu)
+  const perCorePercent = perCore.length
+    ? perCore
+    : quicklookPerCore.length
+      ? quicklookPerCore
+      : numberArray(cpu.perCorePercent)
+  const cores = numberValue(cpu.cpucore, numberValue(load.cpucore, perCorePercent.length))
+  const cpuUsagePercent = positiveNumber(cpu.total, positiveNumber(quicklook.cpu, average(perCorePercent)))
+  const memoryTotal = numberValue(memory.total)
+  const memoryUsed = numberValue(memory.used)
+  const memoryAvailable = numberValue(memory.available, Math.max(0, memoryTotal - memoryUsed))
 
   return {
     cpu: {
-      cores: numberValue(cpu.cores),
-      loadAverage: numberArray(cpu.loadAverage),
-      model: stringValue(cpu.model, 'unknown'),
-      perCorePercent: numberArray(cpu.perCorePercent),
-      usagePercent: numberValue(cpu.usagePercent)
+      cores,
+      loadAverage: [numberValue(load.min1), numberValue(load.min5), numberValue(load.min15)],
+      model: stringValue(quicklook.cpu_name, stringValue(cpu.model, 'unknown')),
+      perCorePercent,
+      usagePercent: cpuUsagePercent || numberValue(cpu.usagePercent)
     },
-    hostname: stringValue(input.hostname, 'unknown'),
+    hostname: stringValue(system.hostname, stringValue(input.hostname, 'unknown')),
     memory: {
-      availableBytes: numberValue(memory.availableBytes),
-      swapTotalBytes: numberValue(memory.swapTotalBytes),
-      swapUsedBytes: numberValue(memory.swapUsedBytes),
-      swapUsedPercent: numberValue(memory.swapUsedPercent),
-      totalBytes: numberValue(memory.totalBytes),
-      usedBytes: numberValue(memory.usedBytes),
-      usedPercent: numberValue(memory.usedPercent)
+      availableBytes: memoryAvailable,
+      swapTotalBytes: numberValue(swap.total, numberValue(memory.swapTotalBytes)),
+      swapUsedBytes: numberValue(swap.used, numberValue(memory.swapUsedBytes)),
+      swapUsedPercent: numberValue(swap.percent, numberValue(memory.swapUsedPercent)),
+      totalBytes: memoryTotal || numberValue(memory.totalBytes),
+      usedBytes: memoryUsed || numberValue(memory.usedBytes),
+      usedPercent: numberValue(memory.percent, numberValue(memory.usedPercent))
     },
-    platform: stringValue(input.platform, 'unknown'),
-    processCount: numberValue(input.processCount),
-    thermal: thermalArray(input.thermal),
-    timestamp: stringValue(input.timestamp, ''),
-    uptimeSeconds: numberValue(input.uptimeSeconds),
-    version: numberValue(input.version, 1)
+    platform: stringValue(system.hr_name, stringValue(system.os_name, stringValue(input.platform, 'unknown'))),
+    processCount: numberValue(processcount.total, numberValue(input.processCount)),
+    thermal: thermalArray(input.sensors ?? input.thermal),
+    timestamp: stringValue(input.now, new Date().toISOString()),
+    uptimeSeconds: parseUptimeSeconds(input.uptime ?? input.uptimeSeconds),
+    version: stringValue(status.version, stringValue(input.version, 'glances'))
+  }
+}
+
+async function fetchJson(config: HostMonitorConfig, path: string, fetcher: typeof fetch): Promise<unknown> {
+  const response = await fetcher(`${config.metricsUrl}${path}`, { cache: 'no-store' })
+  if (!response.ok) {
+    throw new Error(`Glances host monitor returned HTTP ${response.status} for ${path}`)
+  }
+  return response.json()
+}
+
+async function fetchOptionalJson(
+  config: HostMonitorConfig,
+  path: string,
+  fetcher: typeof fetch,
+  fallback: unknown
+): Promise<unknown> {
+  try {
+    return await fetchJson(config, path, fetcher)
+  } catch {
+    return fallback
   }
 }
 
@@ -165,11 +253,36 @@ export async function fetchHostMetrics(
   config: HostMonitorConfig = hostMonitorConfig(),
   fetcher: typeof fetch = fetch
 ): Promise<HostMetrics> {
-  const response = await fetcher(config.metricsUrl, { cache: 'no-store' })
-  if (!response.ok) {
-    throw new Error(`Host monitor returned HTTP ${response.status}`)
-  }
-  return normalizeHostMetrics(await response.json())
+  const [cpu, mem, memswap, percpu, load, system, uptime, processcount, sensors, quicklook, status] = await Promise.all(
+    [
+      fetchJson(config, GLANCES_ENDPOINTS.cpu, fetcher),
+      fetchJson(config, GLANCES_ENDPOINTS.mem, fetcher),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.memswap, fetcher, {}),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.percpu, fetcher, []),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.load, fetcher, {}),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.system, fetcher, {}),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.uptime, fetcher, ''),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.processcount, fetcher, {}),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.sensors, fetcher, []),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.quicklook, fetcher, {}),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.status, fetcher, {})
+    ]
+  )
+
+  return normalizeHostMetrics({
+    cpu,
+    load,
+    mem,
+    memswap,
+    now: new Date().toISOString(),
+    percpu,
+    processcount,
+    quicklook,
+    sensors,
+    status,
+    system,
+    uptime
+  })
 }
 
 export function formatBytes(bytes: number): string {
