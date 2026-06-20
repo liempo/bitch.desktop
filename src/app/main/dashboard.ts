@@ -4,7 +4,7 @@ import type { SessionInfo } from '$lib/types/hermes'
 
 type DashboardUtilityId = 'agent' | 'assets' | 'calendar' | 'cron' | 'kanban'
 type DashboardUtilityState = 'planned' | 'ready'
-export type DashboardConnectionTone = 'bad' | 'busy' | 'good' | 'muted'
+type DashboardConnectionTone = 'bad' | 'busy' | 'good' | 'muted'
 
 export interface DashboardUtilityLink {
   description: string
