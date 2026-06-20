@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import PreviewSidebar from './preview/PreviewSidebar.svelte'
-  import Composer from './composer/Composer.svelte'
-  import SecretModal from './prompts/SecretModal.svelte'
-  import SudoModal from './prompts/SudoModal.svelte'
-  import Sidebar from './sidebar/Sidebar.svelte'
-  import Thread from './thread/Thread.svelte'
+  import AgentPreviewSidebar from './preview/AgentPreviewSidebar.svelte'
+  import AgentSessionSidebar from './session-sidebar/AgentSessionSidebar.svelte'
+  import Composer from '../components/composer/Composer.svelte'
+  import SecretModal from '../components/prompts/SecretModal.svelte'
+  import SudoModal from '../components/prompts/SudoModal.svelte'
+  import Thread from '../components/thread/Thread.svelte'
   import { routerState } from './router.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
@@ -275,7 +275,7 @@
   <div class="flex min-h-0 w-full flex-1 flex-col gap-0 p-0 md:flex-row">
     <!-- ===== Sidebar ===== -->
     {#if sidebarOpen}
-      <Sidebar width={sidebarPanelWidth} />
+      <AgentSessionSidebar width={sidebarPanelWidth} />
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div
@@ -329,7 +329,7 @@
         onpointerdown={event => startPanelResize('preview', event)}
         onkeydown={event => handlePanelResizeKeydown('preview', event)}
       ></div>
-      <PreviewSidebar preview={activePreview} width={previewPanelWidth} profile={composerProfileName} onClose={closePreview} />
+      <AgentPreviewSidebar preview={activePreview} width={previewPanelWidth} profile={composerProfileName} onClose={closePreview} />
     {/if}
   </div>
 

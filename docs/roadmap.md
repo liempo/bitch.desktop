@@ -26,7 +26,7 @@ future Kanban scans.
     and links into the app's utility surfaces.
   - Scope:
     - show active dashboard/profile health and current connection target
-    - expose quick navigation to CMD, Files, Cron, Kanban, Calendar, and other
+    - expose quick navigation to AGENT, Assets, Cron, Kanban, Calendar, and other
       implemented utility routes
     - keep the route remote-only and avoid local Hermes bootstrap controls
 

@@ -1,4 +1,4 @@
-export type AppPage = 'main' | 'agent' | 'files'
+export type AppPage = 'main' | 'agent' | 'assets' | 'calendar'
 
 export interface AppRouterState {
   page: AppPage
@@ -25,8 +25,12 @@ function parseHash(hash: string): AppRouterState {
     return { page: 'main' }
   }
 
-  if (path === '/files') {
-    return { page: 'files' }
+  if (path === '/assets' || path === '/files') {
+    return { page: 'assets' }
+  }
+
+  if (path === '/calendar') {
+    return { page: 'calendar' }
   }
 
   return { page: 'agent' }
@@ -38,9 +42,13 @@ export function mainRoute(): string {
 
 export function agentRoute(sessionId?: null | string): string {
   const id = sessionId?.trim()
-  return id ? `/cmd/${encodeURIComponent(id)}` : '/cmd'
+  return id ? `/agent/${encodeURIComponent(id)}` : '/agent'
 }
 
-export function filesRoute(): string {
-  return '/files'
+export function assetsRoute(): string {
+  return '/assets'
+}
+
+export function calendarRoute(): string {
+  return '/calendar'
 }

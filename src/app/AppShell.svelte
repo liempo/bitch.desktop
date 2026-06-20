@@ -1,6 +1,7 @@
 <script lang="ts">
   import AgentShell from './agent/AgentShell.svelte'
-  import FilesPage from './files/FilesPage.svelte'
+  import AssetsPage from './assets/AssetsPage.svelte'
+  import CalendarPage from './calendar/CalendarPage.svelte'
   import MainPage from './main/MainPage.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState } from './router.svelte'
@@ -13,8 +14,10 @@
     <main class="relative z-10 min-h-0 flex-1 overflow-hidden">
       {#if appRouterState.page === 'agent'}
         <AgentShell />
-      {:else if appRouterState.page === 'files'}
-        <FilesPage />
+      {:else if appRouterState.page === 'assets'}
+        <AssetsPage />
+      {:else if appRouterState.page === 'calendar'}
+        <CalendarPage />
       {:else}
         <MainPage />
       {/if}

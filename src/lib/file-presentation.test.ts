@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import filesPageSource from '../app/files/FilesPage.svelte?raw'
+import assetsPageSource from '../app/assets/AssetsPage.svelte?raw'
 import { filePresentation, isTextPreviewFile, viewerKindForFile } from './file-presentation'
 
 describe('remote file presentation', () => {
@@ -43,36 +43,36 @@ describe('remote file presentation', () => {
   })
 })
 
-describe('remote files page source contract', () => {
+describe('remote assets page source contract', () => {
   it('uses the authenticated remote filesystem API instead of a public sidecar', () => {
-    expect(filesPageSource).toContain('fetchRemoteFileListing')
-    expect(filesPageSource).toContain('readRemoteFileText')
-    expect(filesPageSource).toContain('readRemoteFileDataUrl')
+    expect(assetsPageSource).toContain('fetchRemoteFileListing')
+    expect(assetsPageSource).toContain('readRemoteFileText')
+    expect(assetsPageSource).toContain('readRemoteFileDataUrl')
   })
 
   it('mounts the remote filesystem root instead of the backend cwd', () => {
-    expect(filesPageSource).toContain("await openDirectory('/')")
-    expect(filesPageSource).not.toContain('getRemoteDefaultCwd')
+    expect(assetsPageSource).toContain("await openDirectory('/')")
+    expect(assetsPageSource).not.toContain('getRemoteDefaultCwd')
   })
 
   it('uses a two-pane tree plus viewer layout without the icon view', () => {
-    expect(filesPageSource).toContain('grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)]')
-    expect(filesPageSource).not.toContain('Icon View')
-    expect(filesPageSource).not.toContain('iconActions')
+    expect(assetsPageSource).toContain('grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)]')
+    expect(assetsPageSource).not.toContain('Icon View')
+    expect(assetsPageSource).not.toContain('iconActions')
   })
 
-  it('includes a first-class file viewer panel', () => {
-    expect(filesPageSource).toContain('File Viewer')
-    expect(filesPageSource).toContain('selectFile')
+  it('includes a first-class asset viewer panel', () => {
+    expect(assetsPageSource).toContain('Asset Viewer')
+    expect(assetsPageSource).toContain('selectFile')
   })
 
   it('shows text returned for unknown files without blocking on the binary hint', () => {
-    expect(filesPageSource).toContain('textPreview = response.text')
-    expect(filesPageSource).not.toContain('Remote file is binary; text preview is unavailable.')
+    expect(assetsPageSource).toContain('textPreview = response.text')
+    expect(assetsPageSource).not.toContain('Remote file is binary; text preview is unavailable.')
   })
 
   it('does not retain the obsolete no-inline-viewer fallback for remote files', () => {
-    expect(filesPageSource).toContain("viewerKind === 'text' || viewerKind === 'download'")
-    expect(filesPageSource).not.toContain('No inline viewer for this file type')
+    expect(assetsPageSource).toContain("viewerKind === 'text' || viewerKind === 'download'")
+    expect(assetsPageSource).not.toContain('No inline viewer for this file type')
   })
 })
