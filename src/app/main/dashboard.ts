@@ -1,4 +1,4 @@
-import { agentRoute, assetsRoute, calendarRoute, kanbanRoute } from '../router.svelte'
+import { agentRoute, assetsRoute, calendarRoute, cronRoute, kanbanRoute } from '../router.svelte'
 import type { ConnectionState } from '$lib/stores/gateway.svelte'
 import type { SessionInfo } from '$lib/types/hermes'
 
@@ -54,16 +54,6 @@ const CONNECTION_TONES: Record<ConnectionState, DashboardConnectionTone> = {
   open: 'good'
 }
 
-const PLANNED_SURFACES: DashboardUtilityLink[] = [
-  {
-    description: 'Scheduled job manager is still a roadmap surface; use the dashboard or CLI until it lands here.',
-    href: null,
-    id: 'cron',
-    label: 'Cron',
-    state: 'planned'
-  }
-]
-
 function clean(value: null | string | undefined): string {
   return value?.trim() ?? ''
 }
@@ -98,7 +88,13 @@ export function dashboardQuickLinks(currentSessionId?: null | string): Dashboard
       label: 'Kanban',
       state: 'ready'
     },
-    ...PLANNED_SURFACES
+    {
+      description: 'Inspect and steer Hermes cron jobs through authenticated dashboard scheduler routes.',
+      href: `#${cronRoute()}`,
+      id: 'cron',
+      label: 'Cron',
+      state: 'ready'
+    }
   ]
 }
 
