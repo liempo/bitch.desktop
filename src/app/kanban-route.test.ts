@@ -21,11 +21,17 @@ describe('Kanban top-level route', () => {
     expect(appNavbarSource).toContain('agentRoute(sessionState.storedSessionId)')
   })
 
-  it('renders board controls, draggable cards, and a detail pane contract', () => {
+  it('renders board controls, draggable cards, vertical status groups, and a detail pane contract', () => {
     expect(kanbanPageSource).toContain('loadKanbanBoards')
     expect(kanbanPageSource).toContain('loadKanbanBoard')
     expect(kanbanPageSource).toContain('overflow-y-auto bg-chat-scroll/40 p-3 md:overflow-hidden md:p-4')
     expect(kanbanPageSource).toContain('grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]')
+    expect(kanbanPageSource).toContain('title="Grouped cards"')
+    expect(kanbanPageSource).toContain('h-full min-h-0 space-y-3 overflow-auto pr-1')
+    expect(kanbanPageSource).toContain('aria-label={`${statusLabel(column.name)} grouped cards`}')
+    expect(kanbanPageSource).toContain('md:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)]')
+    expect(kanbanPageSource).not.toContain('overflow-x-auto')
+    expect(kanbanPageSource).not.toContain('w-72 shrink-0')
     expect(kanbanPageSource).toContain('draggable="true"')
     expect(kanbanPageSource).toContain('ondrop=')
     expect(kanbanPageSource).toContain('data-kanban-column')
