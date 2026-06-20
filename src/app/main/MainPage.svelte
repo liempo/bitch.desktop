@@ -6,20 +6,25 @@
   import { getProfileScope, profileState, refreshActiveProfile } from '$lib/stores/profile.svelte'
   import { initializeSessions, loadSessions, sessionState } from '$lib/stores/session.svelte'
   import {
-    dashboardConnectionSummary,
-    dashboardQuickLinks,
-    recentDashboardSessions,
-    type DashboardConnectionTone,
-    type DashboardUtilityState
-  } from './dashboard'
+    EMPTY_HOST_METRICS,
+    fetchHostMetrics,
+    formatBytes,
+    formatPercent,
+    formatUptime,
+    hostMonitorConfig,
+    type HostMetrics
+  } from '$lib/host-monitor'
+  import RenderGeoPanel from './RenderGeoPanel.svelte'
+  import { dashboardConnectionSummary, recentDashboardSessions, type DashboardConnectionTone } from './dashboard'
 
   let lastLoadedScope: null | string = null
   let profileRefreshStarted = false
+  let hostMetrics = $state<HostMetrics>(EMPTY_HOST_METRICS)
+  let hostMonitorError = $state('')
+  let hostMonitorUpdatedAt = $state<null | number>(null)
 
   const pipSlots = Array.from({ length: 20 }, (_, index) => index)
-  const fpsBars = Array.from({ length: 30 }, (_, index) => index)
-  const radarAxes = ['CPU', 'MEM', 'THREAD', 'IO', 'AUTH', 'FS']
-  const meshLines = ['╱╲  ╱╲', '╲ ╳╳ ╱', '╱ ╳╳ ╲', '╲╱  ╲╱']
+  const hostMonitor = hostMonitorConfig()
 
   const connectionState = $derived(gatewayState.connectionState)
   const connection = $derived(
@@ -30,44 +35,30 @@
       target: gatewayState.connectionTarget
     })
   )
-  const quickLinks = $derived(dashboardQuickLinks(sessionState.storedSessionId))
-  const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 8))
+  const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
   const activeProfile = $derived(
     profileState.profiles.find(profile => profile.name === profileState.activeGatewayProfile) ?? null
   )
-  const visibleProfiles = $derived(profileState.profiles.slice(0, 4))
-  const profileCount = $derived(profileState.profiles.length || 0)
-  const sessionCount = $derived(sessionState.sessionsTotal || sessionState.sessions.length || 0)
-  const activeSessionCount = $derived(sessionState.sessions.filter(session => session.is_active && !session.archived).length)
-  const uptimeLabel = $derived(`${String(Math.floor(sessionCount / 60)).padStart(2, '0')}:${String(sessionCount % 60).padStart(2, '0')}:00`)
-  const powerLevel = $derived(connection.tone === 'good' ? 100 : connection.tone === 'busy' ? 72 : connection.tone === 'bad' ? 18 : 44)
-  const frameMs = $derived(connection.tone === 'good' ? '16.67' : connection.tone === 'busy' ? '24.21' : connection.tone === 'bad' ? '99.90' : '--')
-  const cpuTemp = $derived(connection.tone === 'bad' ? 77 : connection.tone === 'busy' ? 58 : 45)
-  const processingRows = $derived(
-    Array.from({ length: 8 }, (_, index) => {
-      const load = Math.max(3, Math.min(20, ((sessionCount + profileCount * 3 + index * 4) % 18) + 3))
-      return { active: load, label: `C${index}` }
-    })
+  const coreRows = $derived(
+    (hostMetrics.cpu.perCorePercent.length
+      ? hostMetrics.cpu.perCorePercent
+      : Array.from({ length: Math.max(1, hostMetrics.cpu.cores || 4) }, () => 0)
+    ).slice(0, 12)
   )
-  const taskRows = $derived(
-    recentSessions.map((session, index) => ({
-      cmd: session.title,
-      cpu: `${Math.max(1, Math.min(99, Math.round(((session.id.length + index * 7) % 21) + (session.status === 'active' ? 12 : 2))))}.0%`,
-      pid: session.id.slice(0, 8),
-      profile: session.profile,
-      status: session.status
-    }))
+  const thermalLabel = $derived(
+    hostMetrics.thermal.length ? `${hostMetrics.thermal[0].label} ${hostMetrics.thermal[0].celsius.toFixed(1)}°C` : 'No thermal zone'
   )
-  const logRows = $derived([
-    `[${connection.label}] ${connection.detail}`,
-    `PROFILE ${connection.profile} :: ${activeProfile?.provider ?? 'provider unknown'} / ${activeProfile?.model ?? 'model pending'}`,
-    `SESSION_INDEX ${sessionCount} records :: ${activeSessionCount} active`,
-    profileState.error ? `PROFILE_PROBE ${profileState.error}` : 'PROFILE_PROBE nominal',
-    sessionState.error ? `SESSION_INDEX ${sessionState.error}` : 'REMOTE_FS auth bridge sealed'
-  ])
+  const monitorStatus = $derived(hostMonitorError ? 'degraded' : hostMonitorUpdatedAt ? 'live' : 'syncing')
+  const monitorStatusClass = $derived(
+    hostMonitorError ? 'border-danger/45 bg-danger/10 text-danger' : 'border-success/45 bg-success/10 text-success'
+  )
 
   onMount(() => {
     void refreshActiveProfile()
+    void refreshHostMonitor()
+    const timer = window.setInterval(() => void refreshHostMonitor(), 2500)
+
+    return () => window.clearInterval(timer)
   })
 
   $effect(() => {
@@ -87,6 +78,16 @@
     }
   })
 
+  async function refreshHostMonitor(): Promise<void> {
+    try {
+      hostMetrics = await fetchHostMetrics(hostMonitor)
+      hostMonitorUpdatedAt = Date.now()
+      hostMonitorError = ''
+    } catch (error) {
+      hostMonitorError = error instanceof Error ? error.message : 'Host monitor unavailable'
+    }
+  }
+
   function connectionToneClass(tone: DashboardConnectionTone): string {
     if (tone === 'good') return 'border-success/45 bg-success/10 text-success'
     if (tone === 'busy') return 'border-secondary/45 bg-secondary/10 text-secondary'
@@ -94,243 +95,235 @@
     return 'border-line-strong bg-surface-raised/70 text-ink-muted'
   }
 
-  function pipClass(index: number, active: number): string {
-    if (index >= active) return 'bg-surface-raised'
+  function pipClass(index: number, percent: number): string {
+    const activePips = Math.round(Math.max(0, Math.min(100, percent)) / 5)
+    if (index >= activePips) return 'bg-input'
     if (index > 16) return 'bg-danger'
     if (index > 12) return 'bg-warning'
-    return 'bg-secondary'
+    return 'bg-primary'
   }
 
-  function utilityStateClass(state: DashboardUtilityState): string {
-    if (state === 'ready') return 'border-primary/45 text-primary hover:border-primary hover:bg-primary/10'
-    return 'border-line text-ink-muted'
+  function barStyle(percent: number): string {
+    return `width: ${Math.max(0, Math.min(100, percent))}%`
   }
 
-  function sessionStatusClass(status: 'active' | 'idle'): string {
-    return status === 'active' ? 'text-success' : 'text-ink-muted'
+  function updatedLabel(): string {
+    if (!hostMonitorUpdatedAt) return 'awaiting first sample'
+    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
+      new Date(hostMonitorUpdatedAt)
+    )
   }
 </script>
 
-<section
-  class="h-full min-h-0 overflow-y-auto bg-canvas p-4 font-mono text-[12px] text-ink"
-  aria-label="Main dashboard"
->
-  <div class="grid h-full min-h-0 grid-rows-[50px_minmax(0,1fr)_40px] gap-5">
+<section class="h-full min-h-0 overflow-hidden bg-canvas p-3 font-mono text-[11px] text-ink" aria-label="Main dashboard">
+  <div class="grid h-full min-h-0 grid-rows-[40px_minmax(0,1fr)_28px] gap-3">
     <header class="flex items-center justify-between border-b border-line pb-2">
-      <div class="flex items-center gap-4">
-        <div class="text-[1.2em] font-bold tracking-[0.22em] text-warning">BITCH_OS</div>
-        <div class="border border-line px-2 py-0.5 text-[0.7em] uppercase tracking-[0.18em] text-ink-muted">
-          main.sysmon
+      <div class="flex min-w-0 items-center gap-3">
+        <div class="text-[1.05rem] font-bold tracking-[0.22em] text-warning">BITCH_OS</div>
+        <div class="border border-line px-2 py-0.5 text-[0.68rem] uppercase tracking-[0.18em] text-ink-muted">
+          main.ops.live
+        </div>
+        <div class={`hidden border px-2 py-0.5 text-[0.68rem] uppercase tracking-[0.14em] sm:inline-flex ${monitorStatusClass}`}>
+          host {monitorStatus}
         </div>
       </div>
-      <div class="text-right">
-        <div class={`inline-flex border px-2 py-0.5 text-[1.2em] font-bold ${connectionToneClass(connection.tone)}`}>
+      <div class="flex shrink-0 items-center gap-2 text-right">
+        <div class={`border px-2 py-0.5 text-[0.78rem] font-bold uppercase tracking-[0.16em] ${connectionToneClass(connection.tone)}`}>
           {connection.label}
         </div>
-        <div class="mt-1 text-[0.7em] uppercase tracking-[0.16em] text-ink-muted">
-          UPTIME <span class="text-ink">{uptimeLabel}</span>
+        <div class="hidden text-[0.68rem] uppercase tracking-[0.14em] text-ink-muted md:block">
+          HOST UPTIME <span class="text-ink">{formatUptime(hostMetrics.uptimeSeconds)}</span>
         </div>
       </div>
     </header>
 
-    <div class="grid min-h-0 gap-5 xl:grid-cols-[22%_1fr_28%]">
-      <section class="flex min-h-0 flex-col gap-5">
-        <Panel
-          fullHeight={false}
-          title="HARDWARE_GEO"
-          class="flex-[3] border-line bg-surface transition-colors hover:border-line-strong"
-          contentClass="flex flex-col gap-3"
-          titleClass="text-ink-muted"
-        >
-          <div class="relative flex min-h-[11rem] flex-1 items-center justify-center overflow-hidden border border-line/70 bg-surface-raised">
-            <div class="absolute left-3 top-3 text-[0.7em] uppercase tracking-[0.16em] text-ink-muted">// RENDER_MESH</div>
-            <div class="absolute inset-0 bg-[linear-gradient(var(--color-line)_1px,transparent_1px),linear-gradient(90deg,var(--color-line)_1px,transparent_1px)] bg-[size:22px_22px] opacity-30"></div>
-            <div class="relative text-center font-mono text-[1.2rem] font-bold leading-[1.05] tracking-[0.22em] text-primary drop-shadow-[0_0_18px_var(--color-primary)]">
-              {#each meshLines as line}
-                <div>{line}</div>
-              {/each}
-            </div>
+    <div class="grid min-h-0 grid-cols-[1.12fr_0.92fr_0.86fr] gap-3">
+      <Panel
+        fullHeight={false}
+        title="HARDWARE_GEO"
+        class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+        contentClass="grid h-full grid-rows-[minmax(0,1fr)_auto] gap-2"
+        titleClass="text-ink-muted"
+      >
+        <RenderGeoPanel metrics={hostMetrics} />
+        <div class="border-t border-dashed border-line pt-2 text-[0.72rem] uppercase tracking-[0.08em]">
+          <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
+            <span class="text-ink-muted">CPU_MODEL</span>
+            <span class="truncate text-right text-warning">{hostMetrics.cpu.model || 'LINK_V4'}</span>
+            <span class="text-ink-muted">ACTIVE_CORES</span>
+            <span class="text-right text-primary">{hostMetrics.cpu.cores || coreRows.length}</span>
+            <span class="text-ink-muted">CPU_LOAD</span>
+            <span class="text-right text-primary">{formatPercent(hostMetrics.cpu.usagePercent)}</span>
+            <span class="text-ink-muted">RAM_USED</span>
+            <span class="text-right text-success">
+              {formatBytes(hostMetrics.memory.usedBytes)} / {formatBytes(hostMetrics.memory.totalBytes)}
+            </span>
           </div>
-          <div class="border-t border-dashed border-line pt-3 text-[0.8em]">
-            <div class="mb-1 flex justify-between gap-3">
-              <span class="text-ink-muted">CPU_MODEL</span>
-              <span class="truncate text-warning">{activeProfile?.provider ?? 'LINK_V4'}</span>
-            </div>
-            <div class="flex justify-between gap-3">
-              <span class="text-ink-muted">ACTIVE_PROFILES</span>
-              <span class="text-primary">{profileCount}</span>
-            </div>
-            <div class="mt-2 flex justify-between gap-3">
-              <span class="text-ink-muted">CONNECTION_TARGET</span>
-              <span class="truncate text-right text-ink">{connection.target}</span>
-            </div>
-            <div class="mt-1 flex justify-between gap-3">
-              <span class="text-ink-muted">ACTIVE_PROFILE</span>
-              <span class="truncate text-right text-primary">{connection.profile}</span>
-            </div>
-            <div class="mt-1 flex justify-between gap-3">
-              <span class="text-ink-muted">DASHBOARD_PROFILE</span>
-              <span class="truncate text-right text-success">{profileState.activeProfile}</span>
-            </div>
-            {#if visibleProfiles.length}
-              <div class="mt-3 grid gap-1 border-t border-dashed border-line pt-2" aria-label="Known profiles">
-                {#each visibleProfiles as profile (profile.name)}
-                  <div class="flex justify-between gap-2 text-[0.72em]">
-                    <span class="truncate text-ink">{profile.name}</span>
-                    <span class="shrink-0 text-ink-muted">{profile.has_env ? 'env' : 'no env'}</span>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        </Panel>
-
-        <Panel fullHeight={false} title="RADAR_SCAN" class="flex-[2] border-line bg-surface transition-colors hover:border-line-strong" titleClass="text-ink-muted">
-          <div class="relative h-full min-h-[10rem] overflow-hidden rounded-control border border-line/70 bg-surface-raised">
-            <div class="absolute inset-6 rounded-full border border-primary/20"></div>
-            <div class="absolute inset-12 rounded-full border border-primary/15"></div>
-            <div class="absolute left-1/2 top-4 h-[calc(100%-2rem)] w-px -translate-x-1/2 bg-line"></div>
-            <div class="absolute left-4 top-1/2 h-px w-[calc(100%-2rem)] -translate-y-1/2 bg-line"></div>
-            <div class="absolute left-1/2 top-1/2 h-[42%] w-px origin-bottom -translate-x-1/2 -translate-y-full rotate-45 bg-success/55"></div>
-            <div class="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"></div>
-            <div class="absolute inset-4 grid grid-cols-2 content-between text-[0.65em] uppercase tracking-[0.14em] text-ink-muted">
-              {#each radarAxes as axis}
-                <span>{axis}</span>
-              {/each}
-            </div>
-          </div>
-        </Panel>
-      </section>
-
-      <section class="flex min-h-0 flex-col gap-5">
-        <Panel
-          fullHeight={false}
-          title="PROCESSING"
-          badge={`${cpuTemp}°C`}
-          class="border-line bg-surface transition-colors hover:border-line-strong"
-          contentClass="space-y-1.5"
-          titleClass="text-ink-muted"
-        >
-          {#each processingRows as core}
-            <div class="flex items-center gap-2">
-              <div class="w-9 text-[0.8em] text-ink-muted">{core.label}</div>
-              <div class="flex h-2.5 flex-1 gap-0.5 rounded-sm bg-input">
-                {#each pipSlots as pip}
-                  <span class={`h-full flex-1 ${pipClass(pip, core.active)}`}></span>
-                {/each}
-              </div>
-            </div>
-          {/each}
-        </Panel>
-
-        <Panel fullHeight={false} title="SIGNAL_WAVEFORM" class="flex-1 border-line bg-surface transition-colors hover:border-line-strong" titleClass="text-ink-muted">
-          <div class="flex h-full items-center justify-center">
-            <div class="flex w-full items-center justify-between border border-line/70 bg-primary/5 p-3">
-              <div>
-                <span class="text-[1.4em] font-bold text-primary">{frameMs}</span>
-                <span class="ml-2 text-[0.7em] uppercase tracking-[0.18em] text-secondary">FRAME_MS</span>
-              </div>
-              <div class="text-right text-[0.65em] uppercase tracking-[0.14em] text-ink-muted">TARGET: 16.67MS</div>
-            </div>
-          </div>
-        </Panel>
-
-        <div class="grid h-[112px] gap-5 sm:grid-cols-2">
-          <Panel fullHeight={false} title="PERFORMANCE" class="border-line bg-surface transition-colors hover:border-line-strong" contentClass="flex flex-col gap-2" titleClass="text-ink-muted">
-            <div class="flex items-center justify-between text-[0.75em] uppercase tracking-[0.12em]">
-              <span class="text-ink-muted/70">FPS TARGET: 60</span>
-              <span class="text-[1.3em] font-bold text-primary">{connection.tone === 'good' ? 60 : 30}</span>
-            </div>
-            <div class="flex min-h-0 flex-1 items-end gap-px border border-line/70 bg-surface-raised p-1">
-              {#each fpsBars as bar}
-                <span
-                  class="w-full bg-primary opacity-80"
-                  style={`height: ${20 + ((bar * 13 + powerLevel) % 76)}%; background-color: ${bar % 9 === 0 && connection.tone === 'bad' ? 'var(--color-danger)' : 'var(--color-primary)'}`}
-                ></span>
-              {/each}
-            </div>
-          </Panel>
-
-          <Panel fullHeight={false} title="PWR_CELL" class="border-line bg-surface transition-colors hover:border-line-strong" titleClass="text-ink-muted">
-            <div class="flex h-full flex-col justify-center text-center">
-              <div class="text-[1.8em] font-bold leading-none text-success">{powerLevel}%</div>
-              <div class="mt-3 h-1 overflow-hidden rounded-full bg-line/70">
-                <div class="h-full bg-success" style={`width: ${powerLevel}%`}></div>
-              </div>
-            </div>
-          </Panel>
         </div>
+      </Panel>
 
-        <Panel fullHeight={false} title="UTILITY_SURFACES" class="flex-[1.1] border-line bg-surface transition-colors hover:border-line-strong" contentClass="grid grid-cols-5 gap-2" titleClass="text-ink-muted">
-          {#each quickLinks as link (link.id)}
-            {#if link.href}
-              <a
-                class={`border bg-surface-raised p-2 text-[0.75em] uppercase tracking-[0.12em] transition ${utilityStateClass(link.state)}`}
-                href={link.href}
-              >
-                <span class="block text-[0.72em] text-ink-muted">{link.state}</span>
-                <span class="mt-1 block font-bold text-ink">{link.label}</span>
-                <span class="sr-only">{link.description}</span>
-              </a>
-            {:else}
-              <div
-                class={`border bg-surface-raised p-2 text-[0.75em] uppercase tracking-[0.12em] ${utilityStateClass(link.state)}`}
-                role="link"
-                aria-disabled="true"
-                tabindex="-1"
-              >
-                <span class="block text-[0.72em] text-ink-muted">{link.state}</span>
-                <span class="mt-1 block font-bold text-ink">{link.label}</span>
-                <span class="sr-only">{link.description}</span>
+      <section class="grid min-h-0 grid-rows-[0.9fr_0.82fr_0.78fr] gap-3">
+        <Panel
+          fullHeight={false}
+          title="CPU_STATS"
+          badge={formatPercent(hostMetrics.cpu.usagePercent)}
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-1.5"
+          titleClass="text-ink-muted"
+        >
+          {#each coreRows as percent, index}
+            <div class="flex items-center gap-2">
+              <div class="w-8 text-[0.68rem] text-ink-muted">C{index}</div>
+              <div class="flex h-2 flex-1 gap-0.5 rounded-sm bg-input">
+                {#each pipSlots as pip}
+                  <span class={`h-full flex-1 ${pipClass(pip, percent)}`}></span>
+                {/each}
               </div>
-            {/if}
+              <div class="w-10 text-right text-[0.68rem] text-primary">{formatPercent(percent)}</div>
+            </div>
           {/each}
         </Panel>
-      </section>
 
-      <section class="flex min-h-0 flex-col gap-5">
-        <Panel fullHeight={false} title="TASKS" class="flex-[2] border-line bg-surface transition-colors hover:border-line-strong" contentClass="overflow-hidden" titleClass="text-ink-muted">
-          {#if taskRows.length}
-            <table class="w-full table-fixed border-collapse text-[0.85em]">
-              <thead>
-                <tr class="border-b border-line text-left text-ink-muted">
-                  <th class="py-1 pr-2 font-bold">USER</th>
-                  <th class="w-16 py-1 pr-2 font-bold">CPU</th>
-                  <th class="py-1 font-bold">CMD</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each taskRows as row}
-                  <tr>
-                    <td class="truncate py-1.5 pr-2 text-warning">{row.profile}</td>
-                    <td class={`py-1.5 pr-2 ${sessionStatusClass(row.status)}`}>{row.cpu}</td>
-                    <td class="truncate py-1.5 text-primary">
-                      {row.cmd} <span class="text-ink-muted/70">[{row.pid}]</span>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          {:else}
-            <div class="flex h-full items-center justify-center border border-dashed border-line p-5 text-center text-ink-muted">
-              {sessionState.sessionsLoading ? 'Syncing session process table…' : 'No recent sessions in the selected remote profile scope.'}
+        <Panel
+          fullHeight={false}
+          title="MEMORY_STATS"
+          badge={formatPercent(hostMetrics.memory.usedPercent)}
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-3"
+          titleClass="text-ink-muted"
+        >
+          <div>
+            <div class="mb-1 flex justify-between text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+              <span>RAM</span>
+              <span>{formatBytes(hostMetrics.memory.usedBytes)} / {formatBytes(hostMetrics.memory.totalBytes)}</span>
             </div>
+            <div class="h-2 overflow-hidden rounded-full bg-input">
+              <div class="h-full bg-success" style={barStyle(hostMetrics.memory.usedPercent)}></div>
+            </div>
+          </div>
+          <div>
+            <div class="mb-1 flex justify-between text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+              <span>SWAP</span>
+              <span>{formatBytes(hostMetrics.memory.swapUsedBytes)} / {formatBytes(hostMetrics.memory.swapTotalBytes)}</span>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-input">
+              <div class="h-full bg-secondary" style={barStyle(hostMetrics.memory.swapUsedPercent)}></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-[0.7rem] uppercase tracking-[0.1em]">
+            <div class="border border-line bg-surface-raised p-2">
+              <div class="text-ink-muted">LOAD_AVG</div>
+              <div class="mt-1 text-primary">{hostMetrics.cpu.loadAverage.slice(0, 3).join(' / ') || '0 / 0 / 0'}</div>
+            </div>
+            <div class="border border-line bg-surface-raised p-2">
+              <div class="text-ink-muted">THERMAL</div>
+              <div class="mt-1 truncate text-warning">{thermalLabel}</div>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel
+          fullHeight={false}
+          title="HOST_LINK"
+          badge={hostMonitor.port}
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-2"
+          titleClass="text-ink-muted"
+        >
+          <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[0.68rem] uppercase tracking-[0.1em]">
+            <span class="text-ink-muted">ENDPOINT</span>
+            <span class="truncate text-right text-primary">{hostMonitor.metricsUrl}</span>
+            <span class="text-ink-muted">UPDATED</span>
+            <span class="text-right text-success">{updatedLabel()}</span>
+            <span class="text-ink-muted">PROCESSES</span>
+            <span class="text-right text-ink">{hostMetrics.processCount}</span>
+            <span class="text-ink-muted">HOSTNAME</span>
+            <span class="truncate text-right text-ink">{hostMetrics.hostname}</span>
+          </div>
+          {#if hostMonitorError}
+            <div class="border border-danger/40 bg-danger/10 p-2 text-[0.68rem] text-danger">{hostMonitorError}</div>
           {/if}
         </Panel>
+      </section>
 
-        <Panel fullHeight={false} title="KERNEL_LOG" class="flex-1 border-line bg-surface transition-colors hover:border-line-strong" contentClass="flex flex-col-reverse gap-1 overflow-hidden" titleClass="text-danger">
-          {#each logRows as row, index}
-            <div class={`text-[0.8em] leading-5 ${index === 0 ? 'text-primary' : index > 2 ? 'text-danger' : 'text-ink-muted/80'}`}>
-              <span class="mr-2 text-ink-muted">[{String(index).padStart(2, '0')}]</span>{row}
+      <section class="grid min-h-0 grid-rows-[0.8fr_0.8fr_0.95fr_0.85fr] gap-3">
+        <Panel
+          fullHeight={false}
+          title="CALENDAR"
+          badge="placeholder"
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-2"
+          titleClass="text-ink-muted"
+        >
+          <div class="text-[0.78rem] font-bold uppercase tracking-[0.14em] text-primary">Chronos panel queued</div>
+          <div class="text-[0.68rem] leading-4 text-ink-muted">Calendar feed will land here once the dashboard endpoint exists.</div>
+        </Panel>
+
+        <Panel
+          fullHeight={false}
+          title="CRON"
+          badge="placeholder"
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-2"
+          titleClass="text-ink-muted"
+        >
+          <div class="text-[0.78rem] font-bold uppercase tracking-[0.14em] text-secondary">Scheduler surface pending</div>
+          <div class="text-[0.68rem] leading-4 text-ink-muted">No fake job controls; this card is a reserved operations panel.</div>
+        </Panel>
+
+        <Panel
+          fullHeight={false}
+          title="KANBAN_SUMMARY"
+          badge="placeholder"
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-2"
+          titleClass="text-ink-muted"
+        >
+          <div class="grid grid-cols-3 gap-2 text-center uppercase tracking-[0.12em]">
+            <div class="border border-line bg-surface-raised p-2">
+              <div class="text-[0.65rem] text-ink-muted">Board</div>
+              <div class="mt-1 text-primary">homelab</div>
             </div>
-          {/each}
+            <div class="border border-line bg-surface-raised p-2">
+              <div class="text-[0.65rem] text-ink-muted">Cards</div>
+              <div class="mt-1 text-secondary">--</div>
+            </div>
+            <div class="border border-line bg-surface-raised p-2">
+              <div class="text-[0.65rem] text-ink-muted">Blocked</div>
+              <div class="mt-1 text-warning">--</div>
+            </div>
+          </div>
+          <div class="text-[0.68rem] leading-4 text-ink-muted">Summary endpoint not wired yet. The panel exists; the lie does not.</div>
+        </Panel>
+
+        <Panel
+          fullHeight={false}
+          title="THREADS"
+          badge={`${sessionState.sessionsTotal} indexed`}
+          class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+          contentClass="grid h-full content-center gap-1.5"
+          titleClass="text-ink-muted"
+        >
+          {#if recentSessions.length}
+            {#each recentSessions as session (session.id)}
+              <a class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border border-line bg-surface-raised px-2 py-1.5" href={session.href}>
+                <span class="truncate text-[0.68rem] text-ink">{session.title}</span>
+                <span class="text-[0.64rem] uppercase tracking-[0.12em] text-primary">{session.status}</span>
+              </a>
+            {/each}
+          {:else}
+            <div class="border border-dashed border-line p-3 text-[0.68rem] text-ink-muted">
+              {sessionState.sessionsLoading ? 'Syncing session index…' : 'No recent sessions in scope.'}
+            </div>
+          {/if}
         </Panel>
       </section>
     </div>
 
-    <footer class="flex items-center justify-between border-t border-line pt-2 text-[0.8em] uppercase tracking-[0.16em] text-ink-muted">
-      <div class="text-secondary">MODE: <span class="font-bold text-ink">REMOTE_ACCESS</span></div>
-      <div class="text-danger">LOCAL BOOTSTRAP: <span class="text-ink">DISABLED</span></div>
+    <footer class="flex items-center justify-between border-t border-line pt-1.5 text-[0.66rem] uppercase tracking-[0.15em] text-ink-muted">
+      <div>MODE: <span class="font-bold text-secondary">REMOTE_ACCESS</span></div>
+      <div>GATEWAY: <span class="text-primary">{connection.target}</span></div>
+      <div>PROFILE: <span class="text-success">{activeProfile?.name ?? connection.profile}</span></div>
     </footer>
   </div>
 </section>

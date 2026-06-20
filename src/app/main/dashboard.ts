@@ -3,7 +3,7 @@ import type { ConnectionState } from '$lib/stores/gateway.svelte'
 import type { SessionInfo } from '$lib/types/hermes'
 
 type DashboardUtilityId = 'calendar' | 'cmd' | 'cron' | 'files' | 'kanban'
-export type DashboardUtilityState = 'planned' | 'ready'
+type DashboardUtilityState = 'planned' | 'ready'
 export type DashboardConnectionTone = 'bad' | 'busy' | 'good' | 'muted'
 
 export interface DashboardUtilityLink {
