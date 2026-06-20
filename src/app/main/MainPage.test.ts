@@ -11,11 +11,24 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).toContain('gatewayState.connectionTarget')
     expect(mainPageSource).toContain('profileState.activeGatewayProfile')
     expect(mainPageSource).toContain('sessionState.sessions')
-    expect(mainPageSource).toContain('Connection target')
-    expect(mainPageSource).toContain('Active profile')
-    expect(mainPageSource).toContain('Recent sessions')
-    expect(mainPageSource).toContain('Utility surfaces')
+    expect(mainPageSource).toContain('CONNECTION_TARGET')
+    expect(mainPageSource).toContain('ACTIVE_PROFILE')
+    expect(mainPageSource).toContain('TASKS')
+    expect(mainPageSource).toContain('UTILITY_SURFACES')
     expect(mainPageSource).not.toContain('Dashboard page placeholder')
+  })
+
+  it('uses the shared Panel primitive for the Cyberpunk SysMon layout', () => {
+    expect(mainPageSource).toContain("import Panel from '@/components/ui/Panel.svelte'")
+    expect(mainPageSource).toContain('HARDWARE_GEO')
+    expect(mainPageSource).toContain('RADAR_SCAN')
+    expect(mainPageSource).toContain('PROCESSING')
+    expect(mainPageSource).toContain('SIGNAL_WAVEFORM')
+    expect(mainPageSource).toContain('PERFORMANCE')
+    expect(mainPageSource).toContain('PWR_CELL')
+    expect(mainPageSource).toContain('KERNEL_LOG')
+    expect(mainPageSource).toContain('BITCH_OS')
+    expect(mainPageSource).not.toContain('Glyph')
   })
 
   it('loads remote dashboard state instead of offering local Hermes bootstrap controls', () => {
