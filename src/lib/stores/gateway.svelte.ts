@@ -15,6 +15,7 @@ interface ResolvedConnection {
 interface GatewayEntry {
   connectPromise: Promise<HermesGateway> | null
   connectionDetail: string
+  connectionTarget: string
   eventUnsubscribe: (() => void) | null
   gateway: HermesGateway
   profile: string
@@ -34,11 +35,13 @@ export const gatewayState = $state<{
   activeProfile: string
   connectionState: ConnectionState
   connectionDetail: string
+  connectionTarget: string
   profiles: Record<string, ConnectionState>
 }>({
   activeProfile: 'default',
   connectionState: 'idle',
   connectionDetail: '',
+  connectionTarget: '',
   profiles: {}
 })
 
@@ -72,6 +75,7 @@ function createEntry(profile: string): GatewayEntry {
   const entry: GatewayEntry = {
     connectPromise: null,
     connectionDetail: '',
+    connectionTarget: '',
     eventUnsubscribe: null,
     gateway,
     profile,
@@ -125,9 +129,11 @@ export async function ensureGatewayForProfile(profile: null | string | undefined
   gatewayState.activeProfile = key
   gatewayState.connectionState = entry.state
   gatewayState.connectionDetail = entry.connectionDetail
+  gatewayState.connectionTarget = entry.connectionTarget
 
   if (entry.state === 'open') {
     gatewayState.connectionDetail = entry.connectionDetail || `Dashboard gateway ready for ${key}`
+    gatewayState.connectionTarget = entry.connectionTarget
     return entry.gateway
   }
 
@@ -141,8 +147,10 @@ export async function ensureGatewayForProfile(profile: null | string | undefined
 
     entry.state = 'connecting'
     entry.connectionDetail = `Connecting ${key} to Hermes dashboard at ${baseUrl}`
+    entry.connectionTarget = baseUrl
     gatewayState.connectionState = 'connecting'
     gatewayState.connectionDetail = entry.connectionDetail
+    gatewayState.connectionTarget = entry.connectionTarget
     gatewayState.profiles = { ...gatewayState.profiles, [key]: 'connecting' }
 
     try {
@@ -152,6 +160,7 @@ export async function ensureGatewayForProfile(profile: null | string | undefined
       gatewayState.profiles = { ...gatewayState.profiles, [key]: 'open' }
       gatewayState.connectionState = 'open'
       gatewayState.connectionDetail = entry.connectionDetail
+      gatewayState.connectionTarget = entry.connectionTarget
       return entry.gateway
     } catch (error) {
       entry.state = 'error'
@@ -159,6 +168,7 @@ export async function ensureGatewayForProfile(profile: null | string | undefined
       gatewayState.profiles = { ...gatewayState.profiles, [key]: 'error' }
       gatewayState.connectionState = 'error'
       gatewayState.connectionDetail = entry.connectionDetail
+      gatewayState.connectionTarget = entry.connectionTarget
       throw error
     } finally {
       entry.connectPromise = null
@@ -191,6 +201,7 @@ export function disconnectGateway(profile?: null | string): void {
     entry.connectPromise = null
     entry.state = 'closed'
     entry.connectionDetail = ''
+    entry.connectionTarget = ''
     gatewayEntries.delete(key)
   }
 
@@ -199,6 +210,7 @@ export function disconnectGateway(profile?: null | string): void {
     gatewayState.activeProfile = 'default'
     gatewayState.connectionState = 'closed'
     gatewayState.connectionDetail = ''
+    gatewayState.connectionTarget = ''
   }
 
   const states: Record<string, ConnectionState> = {}
