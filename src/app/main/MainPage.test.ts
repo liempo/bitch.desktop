@@ -103,7 +103,7 @@ describe('Main dashboard source contract', () => {
   })
 
   it('keeps the embedded AGENT thread/composer on desktop while mobile uses an AGENT link', () => {
-    expect(mainPageSource).toContain("import { agentRoute } from '../router.svelte'")
+    expect(mainPageSource).toContain("import { agentRoute, kanbanRoute } from '../router.svelte'")
     expect(mainPageSource).toContain("import MainAgentPanel from './MainAgentPanel.svelte'")
     expect(mainPageSource).toContain('const agentHref')
     expect(mainPageSource).toContain('<MainAgentPanel fallbackSessionId={miniSessionFallbackId} />')
@@ -133,16 +133,20 @@ describe('Main dashboard source contract', () => {
     expect(composerSource).toContain("? 'shrink-0 bg-surface-raised/35 p-2'")
   })
 
-  it('renders Calendar, Cron, and Kanban dashboard panels while only Cron/Kanban remain planned', () => {
+  it('renders Calendar, Cron, and wired Kanban dashboard panels while only Cron remains planned', () => {
     expect(mainPageSource).toContain('CALENDAR')
     expect(mainPageSource).toContain('CRON')
     expect(mainPageSource).toContain('KANBAN')
     expect(mainPageSource).not.toContain('KANBAN_SUMMARY')
     expect(mainPageSource).toContain('placeholder')
+    expect(mainPageSource).toContain('badge="ready"')
+    expect(mainPageSource).toContain('href={kanbanHref}')
+    expect(mainPageSource).toContain('Open Kanban')
     expect(dashboardSource).toContain("id: 'calendar'")
     expect(dashboardSource).toContain('href: `#${calendarRoute()}`')
     expect(dashboardSource).toContain("id: 'cron'")
     expect(dashboardSource).toContain("id: 'kanban'")
+    expect(dashboardSource).toContain('href: `#${kanbanRoute()}`')
     expect(dashboardSource).toContain("state: 'planned'")
   })
 })

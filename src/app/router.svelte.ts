@@ -1,4 +1,4 @@
-export type AppPage = 'main' | 'agent' | 'assets' | 'calendar'
+export type AppPage = 'main' | 'agent' | 'assets' | 'calendar' | 'kanban'
 
 export interface AppRouterState {
   page: AppPage
@@ -33,6 +33,10 @@ function parseHash(hash: string): AppRouterState {
     return { page: 'calendar' }
   }
 
+  if (path === '/kanban') {
+    return { page: 'kanban' }
+  }
+
   return { page: 'agent' }
 }
 
@@ -51,4 +55,8 @@ export function assetsRoute(): string {
 
 export function calendarRoute(): string {
   return '/calendar'
+}
+
+export function kanbanRoute(): string {
+  return '/kanban'
 }
