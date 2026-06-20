@@ -217,7 +217,7 @@
         {/each}
       </div>
 
-      <div class="grid shrink-0 gap-2 text-[0.68rem] uppercase tracking-widest xl:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)]">
+      <div class="grid shrink-0 gap-2 text-[0.68rem] uppercase tracking-widest">
         <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
           <div class="mb-2 flex items-center justify-between text-ink-muted">
             <span>USAGE</span>
@@ -236,25 +236,6 @@
               </div>
             {/each}
           </div>
-        </Panel>
-
-        <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-          <div class="mb-2 flex items-center justify-between text-ink-muted">
-            <span>TEMPS</span>
-            <span>{hostMetrics.thermal.length}</span>
-          </div>
-          {#if hostMetrics.thermal.length}
-            <div class="grid gap-1">
-              {#each hostMetrics.thermal.slice(0, 4) as zone (zone.label)}
-                <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                  <span class="truncate text-ink-muted">{zone.label}</span>
-                  <span class="text-warning">{zone.celsius.toFixed(1)}°C</span>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="border border-dashed border-line p-2 text-ink-muted">No thermal sensors reported.</div>
-          {/if}
         </Panel>
       </div>
 

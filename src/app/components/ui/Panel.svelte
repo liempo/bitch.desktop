@@ -53,7 +53,7 @@
             before:mr-1 before:text-line-strong before:content-['[']
             after:ml-1 after:text-line-strong after:content-[']']"
         >
-          <span class="uppercase tracking-[0.05em]">{title}</span>
+          <span class="uppercase tracking-wider">{title}</span>
           {#if badge}
             <span
               class="ml-1.5 text-ink-bright

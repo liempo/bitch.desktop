@@ -59,6 +59,28 @@ describe('host monitor helpers', () => {
     expect(metrics.version).toBe('4.5.5')
   })
 
+  it('normalizes nested remote Glances sensor payloads into thermal zones', () => {
+    const metrics = normalizeHostMetrics({
+      sensors: {
+        battery: [{ label: 'BAT0', unit: '%', value: 98 }],
+        nvme: {
+          composite: { label: 'nvme0 composite', unit: 'F', value: 104 }
+        },
+        thermal_zone: { current: 43, name: 'ACPI Thermal Zone', unit: 'C' },
+        temperatures: [
+          { label: 'Package id 0', type: 'temperature_core', unit: 'C', value: '52.5' },
+          { label: 'Case fan', type: 'fan_speed', unit: 'RPM', value: 1200 }
+        ]
+      }
+    })
+
+    expect(metrics.thermal).toEqual([
+      { celsius: 40, label: 'nvme0 composite' },
+      { celsius: 43, label: 'ACPI Thermal Zone' },
+      { celsius: 52.5, label: 'Package id 0' }
+    ])
+  })
+
   it('uses bind-mounted filesystem samples as disk fallback when Glances does not expose root', () => {
     const metrics = normalizeHostMetrics({
       fs: [

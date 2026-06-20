@@ -193,17 +193,67 @@ function percentFromPerCpu(value: unknown): number[] {
   return value.map(item => numberValue(asRecord(item).total)).filter(Number.isFinite)
 }
 
+function sensorUnit(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase().replace(/^°/, '') : ''
+}
+
+function sensorValueInCelsius(sensor: Record<string, unknown>): number {
+  const raw = numberValue(
+    sensor.value ?? sensor.celsius ?? sensor.temperature ?? sensor.temp ?? sensor.current,
+    Number.NaN
+  )
+  if (!Number.isFinite(raw)) return 0
+
+  const unit = sensorUnit(sensor.unit)
+  return unit === 'f' || unit === 'fahrenheit' ? ((raw - 32) * 5) / 9 : raw
+}
+
+function thermalSensorLabel(sensor: Record<string, unknown>, fallback: string): string {
+  return stringValue(sensor.label, stringValue(sensor.name, stringValue(sensor.key, fallback)))
+}
+
+function isThermalSensor(sensor: Record<string, unknown>, fallback: string): boolean {
+  const unit = sensorUnit(sensor.unit)
+  const label = thermalSensorLabel(sensor, fallback)
+  const descriptor = `${label} ${stringValue(sensor.type, '')} ${unit}`.toLowerCase()
+
+  if (/battery|fan|rpm|volt|watt|amp|percent|%/.test(descriptor)) return false
+  if (sensor.celsius !== undefined || sensor.temperature !== undefined || sensor.temp !== undefined) return true
+  if (/temp|thermal|celsius|fahrenheit|°c|°f/.test(descriptor)) return true
+  if (unit === 'c' || unit === 'f') return true
+
+  return (sensor.value !== undefined || sensor.current !== undefined) && !unit
+}
+
+function collectThermalSensors(value: unknown, fallback = 'thermal'): HostThermalZone[] {
+  if (Array.isArray(value))
+    return value.flatMap((item, index) => collectThermalSensors(item, `${fallback} ${index + 1}`))
+
+  const sensor = asRecord(value)
+  if (!Object.keys(sensor).length) return []
+
+  if (
+    sensor.value !== undefined ||
+    sensor.celsius !== undefined ||
+    sensor.temperature !== undefined ||
+    sensor.temp !== undefined ||
+    sensor.current !== undefined
+  ) {
+    return isThermalSensor(sensor, fallback)
+      ? [
+          {
+            celsius: sensorValueInCelsius(sensor),
+            label: thermalSensorLabel(sensor, fallback)
+          }
+        ]
+      : []
+  }
+
+  return Object.entries(sensor).flatMap(([key, nestedValue]) => collectThermalSensors(nestedValue, key))
+}
+
 function thermalArray(value: unknown): HostThermalZone[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .map(item => {
-      const zone = asRecord(item)
-      return {
-        celsius: numberValue(zone.value ?? zone.celsius),
-        label: stringValue(zone.label, 'thermal')
-      }
-    })
-    .filter(zone => zone.celsius > 0)
+  return collectThermalSensors(value).filter(zone => Number.isFinite(zone.celsius) && zone.celsius > 0)
 }
 
 function parseUptimeSeconds(value: unknown): number {
