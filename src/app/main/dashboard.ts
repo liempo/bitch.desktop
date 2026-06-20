@@ -1,8 +1,8 @@
-import { agentRoute, filesRoute } from '../router.svelte'
+import { agentRoute, assetsRoute, calendarRoute } from '../router.svelte'
 import type { ConnectionState } from '$lib/stores/gateway.svelte'
 import type { SessionInfo } from '$lib/types/hermes'
 
-type DashboardUtilityId = 'calendar' | 'cmd' | 'cron' | 'files' | 'kanban'
+type DashboardUtilityId = 'agent' | 'assets' | 'calendar' | 'cron' | 'kanban'
 type DashboardUtilityState = 'planned' | 'ready'
 export type DashboardConnectionTone = 'bad' | 'busy' | 'good' | 'muted'
 
@@ -68,13 +68,6 @@ const PLANNED_SURFACES: DashboardUtilityLink[] = [
     id: 'kanban',
     label: 'Kanban',
     state: 'planned'
-  },
-  {
-    description: 'Calendar/Chronos controls are planned; this card advertises the future route without faking one.',
-    href: null,
-    id: 'calendar',
-    label: 'Calendar',
-    state: 'planned'
   }
 ]
 
@@ -85,17 +78,24 @@ function clean(value: null | string | undefined): string {
 export function dashboardQuickLinks(currentSessionId?: null | string): DashboardUtilityLink[] {
   return [
     {
-      description: 'Open the command thread workspace for the selected or next Hermes session.',
+      description: 'Open the agent thread workspace for the selected or next Hermes session.',
       href: `#${agentRoute(currentSessionId)}`,
-      id: 'cmd',
-      label: 'CMD',
+      id: 'agent',
+      label: 'Agent',
       state: 'ready'
     },
     {
       description: 'Browse the authenticated remote Hermes filesystem from the app shell.',
-      href: `#${filesRoute()}`,
-      id: 'files',
-      label: 'Files',
+      href: `#${assetsRoute()}`,
+      id: 'assets',
+      label: 'Assets',
+      state: 'ready'
+    },
+    {
+      description: 'Open the reserved calendar surface without mounting a fake local feed.',
+      href: `#${calendarRoute()}`,
+      id: 'calendar',
+      label: 'Calendar',
       state: 'ready'
     },
     ...PLANNED_SURFACES

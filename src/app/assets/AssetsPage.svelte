@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Button from '@/components/ui/Button.svelte'
-  import Panel from '@/components/ui/Panel.svelte'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
   import {
     fetchRemoteFileListing,
     readRemoteFileDataUrl,
@@ -249,9 +249,9 @@
 
 <section
   class="grid h-full min-h-0 grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)] gap-3 bg-chat-scroll/40 p-4"
-  aria-label="Remote file browser"
+  aria-label="Remote assets browser"
 >
-  <Panel title="Remote Files" padded={false} contentClass="flex min-h-0 flex-col p-2" class="min-w-0" actions={treeActions}>
+  <Panel title="Remote Assets" padded={false} contentClass="flex min-h-0 flex-col p-2" class="min-w-0" actions={treeActions}>
     <div class="mb-2 flex items-center border-b border-line pb-2">
       <span class="min-w-0 truncate text-[0.65rem] text-ink-muted" title={selectedPath}>{selectedPath}</span>
     </div>
@@ -303,10 +303,10 @@
     </div>
   </Panel>
 
-  <Panel title="File Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0">
+  <Panel title="Asset Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0">
     {#if !selectedFile || !selectedFilePresentation}
       <div class="flex flex-1 items-center justify-center rounded-panel border border-dashed border-line bg-surface-raised/40 p-6 text-center text-sm leading-6 text-ink-muted">
-        Select a remote file from the tree to inspect it. No public sidecar required.
+        Select a remote asset from the tree to inspect it. No public sidecar required.
       </div>
     {:else}
       <div class="mb-3 flex min-h-0 items-start gap-3 border-b border-line pb-3">

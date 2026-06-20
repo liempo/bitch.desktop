@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Button from '@/components/ui/Button.svelte'
-  import Panel from '@/components/ui/Panel.svelte'
-  import TextInput from '@/components/ui/TextInput.svelte'
-  import { cardClass } from '@/components/ui/styles'
-  import ArchivedSessionsDialog from './ArchivedSessionsDialog.svelte'
-  import ProfileFilterDialog from './ProfileFilterDialog.svelte'
-  import SessionList from './SessionList.svelte'
-  import SessionRow from './SessionRow.svelte'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
+  import TextInput from '@/app/components/ui/TextInput.svelte'
+  import { cardClass } from '@/app/components/ui/styles'
+  import AgentArchivedSessionsDialog from './components/AgentArchivedSessionsDialog.svelte'
+  import AgentProfileFilterDialog from './components/AgentProfileFilterDialog.svelte'
+  import AgentSessionList from './components/AgentSessionList.svelte'
+  import AgentSessionRow from './components/AgentSessionRow.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import {
     archiveSession,
@@ -134,7 +134,7 @@
 </script>
 
 <aside
-  class="box-border flex h-64 w-full shrink-0 flex-col pb-3 pl-3 pt-3 md:h-full md:w-[var(--agent-sidebar-width)]"
+  class="box-border flex h-64 w-full shrink-0 flex-col pb-3 pl-3 pt-3 md:h-full md:w-(--agent-sidebar-width)"
   style={sidebarStyle}
   aria-label="Session index"
 >
@@ -252,7 +252,7 @@
                 {:else}
                   <div class="space-y-px">
                     {#each sessionState.searchResults as result (result.session_id + result.snippet)}
-                      <SessionRow
+                      <AgentSessionRow
                         searchResult={result}
                         active={sessionState.storedSessionId === result.session_id}
                         pinned={isPinnedId(searchResultPinId(result))}
@@ -276,7 +276,7 @@
                   <h3 class={`${sectionHeadingClass} mb-1.5 px-1`}>
                     Pinned
                   </h3>
-                  <SessionList
+                  <AgentSessionList
                     sessions={pinnedSessions}
                     pinned={true}
                     onSelect={selectSession}
@@ -307,7 +307,7 @@
                         <h4 class="mb-1 px-1 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
                           {group.name}
                         </h4>
-                        <SessionList
+                        <AgentSessionList
                           sessions={group.sessions}
                           onSelect={selectSession}
                           onRename={(target, title) => renameSession(target.id, title)}
@@ -319,7 +319,7 @@
                     {/each}
                   </div>
                 {:else}
-                  <SessionList
+                  <AgentSessionList
                     sessions={recentSessions}
                     onSelect={selectSession}
                     onRename={(target, title) => renameSession(target.id, title)}
@@ -346,6 +346,6 @@
     </Panel>
   </div>
 
-  <ArchivedSessionsDialog bind:open={archivesOpen} />
-  <ProfileFilterDialog bind:open={profileFilterOpen} bind:groupByProfile={groupSessionsByProfileEnabled} />
+  <AgentArchivedSessionsDialog bind:open={archivesOpen} />
+  <AgentProfileFilterDialog bind:open={profileFilterOpen} bind:groupByProfile={groupSessionsByProfileEnabled} />
 </aside>

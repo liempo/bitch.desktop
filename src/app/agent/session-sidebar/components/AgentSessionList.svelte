@@ -1,5 +1,5 @@
 <script lang="ts">
-  import SessionRow from './SessionRow.svelte'
+  import AgentSessionRow from './AgentSessionRow.svelte'
   import { shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
   import { isSessionMutating, sessionNeedsInput, sessionState } from '$lib/stores/session.svelte'
   import type { SessionInfo } from '$lib/types/hermes'
@@ -27,7 +27,7 @@
 
 <div>
   {#each sessions as session (session.id)}
-    <SessionRow
+    <AgentSessionRow
       {session}
       active={sessionState.storedSessionId === session.id}
       {pinned}

@@ -12,6 +12,24 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 - The Tauri Rust bridge in `src-tauri/src/lib.rs` resolves gateway config, probes `/api/status`, mints a `/api/auth/ws-ticket` when required, attaches `X-Hermes-Session-Token` when appropriate, and proxies WebSocket frames to the renderer.
 - Do not assume the browser can set the auth headers the Hermes gateway expects; keep token-sensitive auth in the Tauri bridge.
 
+## Renderer organization
+
+Keep the Svelte app organized around page folders plus shared app components:
+
+- Page folders live directly under `src/app/`:
+  - `src/app/main`
+  - `src/app/agent`
+  - `src/app/assets`
+  - `src/app/calendar`
+- Shared renderer components live under `src/app/components/`; do not recreate `src/components/`.
+  - Shared UI primitives are in `src/app/components/ui/` and should be imported with `@/app/components/ui/...`.
+  - Shared chat surfaces are in `src/app/components/composer/` and `src/app/components/thread/`; keep `Composer` (including the model picker) and `Thread` reusable across pages.
+  - Shared prompt components live in `src/app/components/prompts/`.
+- Page-only components stay inside their page folder. Name them with the page prefix/title when they are not intended to be shared, for example `MainAgentPanel`, `MainRenderPanel`, `AgentSessionSidebar`, and `AgentPreviewSidebar`.
+- The session sidebar belongs under the AGENT page at `src/app/agent/session-sidebar/`; do not move it back into shared components unless it becomes genuinely page-agnostic.
+- Canonical user-facing tabs/routes are `AGENT` (`/agent`), `ASSETS` (`/assets`), and `CALENDAR` (`/calendar`). Legacy `/cmd` and `/files` parsing may remain only for backward compatibility; do not surface `CMD` or `Files` as tab/page branding.
+- Avoid reintroducing `Geo` in local app component names or app-owned identifiers. Use render/shape wording such as `MainRenderPanel`, `MainRenderScene`, `cpuShape`, and `memoryShape`; external library API names such as Three.js geometry classes are fine when required.
+
 ## Configuration
 
 The app uses these environment values, usually from `.env` copied from `.env.example`:
@@ -20,7 +38,7 @@ The app uses these environment values, usually from `.env` copied from `.env.exa
 - `BITCH_DASHBOARD_API_KEY` — Hermes dashboard session token used by the Tauri bridge.
 - `HOST_MONITOR_URL` — Glances host monitor HTTP origin for the main dashboard. Defaults to `http://homestation:61208` when unset. Include scheme and port in this one URL; do not add a separate host-monitor port variable.
 
-Remote file preview, inline media, and the Files page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax.
+Remote file preview, inline media, and the Assets page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax. File/filesystem wording is still appropriate when describing remote filesystem APIs or actual remote file entries.
 
 Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BITCH_GATEWAY_URL`, or `VITE_BITCH_GATEWAY_WS_URL` unless the runtime code is intentionally changed to use them.
 
@@ -107,6 +125,7 @@ macOS still needs Xcode Command Line Tools.
 - Keep Husky hooks simple.
 - Keep the repo remote-only; avoid local Hermes bootstrap code unless the user asks for it.
 - UI-facing branding must say `BITCH` only; do not show legacy desktop-qualified names in the interface.
+- UI-facing navigation must say `AGENT`, `ASSETS`, and `CALENDAR`; do not reintroduce `CMD` or `Files` tab/page labels.
 - Use Bits UI for Svelte renderer UI primitives and components whenever you add or refactor interface elements.
 - Use Tailwind utility classes and layers for renderer styling; avoid bespoke CSS rules unless you need a global base reset or a shared theme token.
 - Keep `npm audit` and `cargo audit` at zero vulnerabilities; dependency changes are incomplete until both pass.

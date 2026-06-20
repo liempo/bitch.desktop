@@ -130,12 +130,18 @@ export interface ComposerState {
   threadReasoningSelections: Record<string, ReasoningEffort>
 }
 
-export interface SubmitPromptOptions {
+export interface ComposerRouteOptions {
+  commitRoute?: boolean
+}
+
+export interface SubmitPromptOptions extends ComposerRouteOptions {
   attachments?: ComposerAttachment[]
   fromQueue?: boolean
   queue?: boolean
   text?: string
 }
+
+export type SlashCommandOptions = ComposerRouteOptions
 
 const NEW_SESSION_KEY = '__new__'
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024
@@ -251,7 +257,9 @@ function rememberThreadFastSelection(
   }
 }
 
-function commitActiveSessionRoute(): void {
+function commitActiveSessionRoute(commitRoute = true): void {
+  if (!commitRoute) return
+
   const storedKey = sessionState.storedSessionId
   if (!storedKey) return
 
@@ -740,7 +748,8 @@ async function executeProfileCommand(
   sessionId: null | string | undefined,
   command: string,
   arg: string,
-  composer: ComposerSessionState
+  composer: ComposerSessionState,
+  options: ComposerRouteOptions = {}
 ): Promise<boolean> {
   let targetSessionId = liveSessionKey(sessionId)
 
@@ -757,7 +766,7 @@ async function executeProfileCommand(
     appendSystemMessage(targetSessionId, renderProfileStatus(sessionId))
     clearComposerDraft(sessionId)
     clearComposerAttachments(sessionId)
-    commitActiveSessionRoute()
+    commitActiveSessionRoute(options.commitRoute)
     return true
   }
 
@@ -795,7 +804,8 @@ async function executeProfileCommand(
 async function executeReloadMcpCommand(
   sessionId: null | string | undefined,
   command: string,
-  composer: ComposerSessionState
+  composer: ComposerSessionState,
+  options: ComposerRouteOptions = {}
 ): Promise<boolean> {
   let targetSessionId = liveSessionKey(sessionId)
 
@@ -819,7 +829,7 @@ async function executeReloadMcpCommand(
     appendSystemMessage(targetSessionId, renderSlashOutput(command, { output: 'MCP servers reloaded.' }))
     clearComposerDraft(sessionId)
     clearComposerAttachments(sessionId)
-    commitActiveSessionRoute()
+    commitActiveSessionRoute(options.commitRoute)
     void loadSessions().catch(() => undefined)
 
     return true
@@ -832,7 +842,11 @@ async function executeReloadMcpCommand(
   }
 }
 
-export async function executeSlashCommand(sessionId: null | string | undefined, rawCommand: string): Promise<boolean> {
+export async function executeSlashCommand(
+  sessionId: null | string | undefined,
+  rawCommand: string,
+  options: SlashCommandOptions = {}
+): Promise<boolean> {
   const command = rawCommand.trim()
   const parsed = parseSlashCommand(command)
   const displayKey = displaySessionKey(sessionId) ?? sessionId
@@ -849,17 +863,17 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
     const normalizedName = parsed.name.toLowerCase()
 
     if (normalizedName === 'new' || normalizedName === 'reset') {
-      startNewSession()
+      startNewSession({ commitRoute: options.commitRoute })
       return true
     }
 
     const profileArg = profileSlashArg(command)
     if (profileArg !== undefined) {
-      return executeProfileCommand(sessionId, command, profileArg, composer)
+      return executeProfileCommand(sessionId, command, profileArg, composer, options)
     }
 
     if (isReloadMcpCommand(command)) {
-      return executeReloadMcpCommand(sessionId, command, composer)
+      return executeReloadMcpCommand(sessionId, command, composer, options)
     }
 
     let targetSessionId = liveSessionKey(sessionId)
@@ -882,7 +896,7 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
         profile
       })
       appendSystemMessage(targetSessionId, renderSlashOutput(command, result))
-      commitActiveSessionRoute()
+      commitActiveSessionRoute(options.commitRoute)
       void loadSessions().catch(() => undefined)
 
       return true
@@ -902,7 +916,8 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
           name: parsed.name,
           profile: targetProfileForSession(sessionId),
           sessionId,
-          targetSessionId
+          targetSessionId,
+          commitRoute: options.commitRoute
         })
 
         if (handled || composer.error) return handled
@@ -930,6 +945,7 @@ export async function executeSlashCommand(sessionId: null | string | undefined, 
 async function executeCommandDispatch(options: {
   arg: string
   command: string
+  commitRoute?: boolean
   composer: ComposerSessionState
   name: string
   profile: string
@@ -958,14 +974,15 @@ async function executeCommandDispatch(options: {
       appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: dispatch.output }))
       clearComposerDraft(options.sessionId)
       clearComposerAttachments(options.sessionId)
-      commitActiveSessionRoute()
+      commitActiveSessionRoute(options.commitRoute)
       void loadSessions().catch(() => undefined)
       return true
 
     case 'alias':
       return executeSlashCommand(
         options.sessionId,
-        `/${dispatch.target.replace(/^\/+/, '')}${options.arg ? ` ${options.arg}` : ''}`
+        `/${dispatch.target.replace(/^\/+/, '')}${options.arg ? ` ${options.arg}` : ''}`,
+        { commitRoute: options.commitRoute }
       )
 
     case 'skill': {
@@ -982,7 +999,7 @@ async function executeCommandDispatch(options: {
         options.targetSessionId,
         renderSlashOutput(options.command, { output: `loading skill: ${dispatch.name}` })
       )
-      return submitPrompt(options.sessionId, { queue: false, text: message })
+      return submitPrompt(options.sessionId, { commitRoute: options.commitRoute, queue: false, text: message })
     }
 
     case 'send': {
@@ -999,7 +1016,7 @@ async function executeCommandDispatch(options: {
         appendSystemMessage(options.targetSessionId, renderSlashOutput(options.command, { output: dispatch.notice }))
       }
 
-      return submitPrompt(options.sessionId, { queue: false, text: message })
+      return submitPrompt(options.sessionId, { commitRoute: options.commitRoute, queue: false, text: message })
     }
   }
 }
@@ -1077,7 +1094,8 @@ async function applyRememberedRuntimeSelections(
 
 export async function selectComposerReasoningEffort(
   sessionId: null | string | undefined,
-  effort: ReasoningEffort
+  effort: ReasoningEffort,
+  options: ComposerRouteOptions = {}
 ): Promise<boolean> {
   let targetSessionId = liveSessionKey(sessionId)
 
@@ -1113,7 +1131,7 @@ export async function selectComposerReasoningEffort(
     if (thread) {
       thread.reasoningEffort = normalized
     }
-    commitActiveSessionRoute()
+    commitActiveSessionRoute(options.commitRoute)
     void loadSessions().catch(() => undefined)
 
     return true
@@ -1125,7 +1143,11 @@ export async function selectComposerReasoningEffort(
   }
 }
 
-export async function selectComposerFastMode(sessionId: null | string | undefined, enabled: boolean): Promise<boolean> {
+export async function selectComposerFastMode(
+  sessionId: null | string | undefined,
+  enabled: boolean,
+  options: ComposerRouteOptions = {}
+): Promise<boolean> {
   let targetSessionId = liveSessionKey(sessionId)
 
   if (!targetSessionId) {
@@ -1158,7 +1180,7 @@ export async function selectComposerFastMode(sessionId: null | string | undefine
     if (thread) {
       thread.fast = enabled
     }
-    commitActiveSessionRoute()
+    commitActiveSessionRoute(options.commitRoute)
     void loadSessions().catch(() => undefined)
 
     return true
@@ -1170,7 +1192,11 @@ export async function selectComposerFastMode(sessionId: null | string | undefine
   }
 }
 
-export async function selectComposerModel(sessionId: null | string | undefined, key: string): Promise<boolean> {
+export async function selectComposerModel(
+  sessionId: null | string | undefined,
+  key: string,
+  options: ComposerRouteOptions = {}
+): Promise<boolean> {
   const [provider, model] = key.split('\u0000')
 
   if (!provider || !model) {
@@ -1221,7 +1247,7 @@ export async function selectComposerModel(sessionId: null | string | undefined, 
       thread.model = model
       thread.provider = provider
     }
-    commitActiveSessionRoute()
+    commitActiveSessionRoute(options.commitRoute)
     void loadSessions().catch(() => undefined)
 
     return true
@@ -1301,7 +1327,7 @@ export async function submitPrompt(
 
   appendUserMessage(targetSessionId, displayText, attachments)
   setThreadBusy(targetSessionId, true)
-  commitActiveSessionRoute()
+  commitActiveSessionRoute(options.commitRoute)
 
   if (!options.fromQueue) {
     clearComposerDraft(sessionId)
@@ -1363,7 +1389,10 @@ export async function submitPrompt(
   }
 }
 
-export async function drainNextQueuedPrompt(sessionId: null | string | undefined): Promise<boolean> {
+export async function drainNextQueuedPrompt(
+  sessionId: null | string | undefined,
+  options: ComposerRouteOptions = {}
+): Promise<boolean> {
   const key = queuedSessionKey(sessionId)
   if (!key) return false
 
@@ -1375,6 +1404,7 @@ export async function drainNextQueuedPrompt(sessionId: null | string | undefined
 
   return submitPrompt(key, {
     attachments: entry.attachments,
+    commitRoute: options.commitRoute,
     fromQueue: true,
     text: entry.text
   })

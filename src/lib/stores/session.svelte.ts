@@ -966,14 +966,21 @@ export function clearSearch(): void {
 /* ------------------------------------------------------------------ */
 
 /** Show the empty new-chat UI without creating a gateway session yet. */
-export function startNewSession(): void {
+export interface StartNewSessionOptions {
+  commitRoute?: boolean
+}
+
+export function startNewSession(options: StartNewSessionOptions = {}): void {
   resumeRequestId += 1
   sessionState.resumingSessionId = null
   sessionState.activeSessionId = null
   sessionState.storedSessionId = null
   sessionState.error = null
   clearSearch()
-  navigate('/')
+
+  if (options.commitRoute !== false) {
+    navigate('/')
+  }
 }
 
 export async function createSession(preview: null | string = null): Promise<string | null> {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { cardClass } from '@/components/ui/styles'
+  import { cardClass } from '@/app/components/ui/styles'
 
   interface Props {
     lastInThread?: boolean

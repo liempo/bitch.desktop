@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Button from '@/components/ui/Button.svelte'
-  import Dialog from '@/components/ui/Dialog.svelte'
-  import Loader from '@/components/ui/Loader.svelte'
-  import TextInput from '@/components/ui/TextInput.svelte'
-  import { menuItemClass, sectionTitleClass, tagClass } from '@/components/ui/styles'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
+  import TextInput from '@/app/components/ui/TextInput.svelte'
+  import { menuItemClass, sectionTitleClass, tagClass } from '@/app/components/ui/styles'
   import type { ComposerModelGroup, ComposerModelOption, ReasoningEffort } from '$lib/stores/composer.svelte'
 
   interface Props {

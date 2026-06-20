@@ -16,17 +16,43 @@ interface HostMemoryMetrics {
   usedPercent: number
 }
 
+interface HostDiskMetrics {
+  usedPercent: number
+}
+
 interface HostThermalZone {
   celsius: number
   label: string
 }
 
+interface HostFilesystemMetrics {
+  mountPoint: string
+  sizeBytes: number
+  usedPercent: number
+}
+
+export interface HostProcessMetrics {
+  command: string
+  cpuPercent: number
+  memoryBytes: number
+  memoryPercent: number
+  name: string
+  pid: number
+  status: string
+  user: string
+}
+
+export type HostProcessSortKey = 'cpu' | 'memory'
+export type HostProcessSortDirection = 'asc' | 'desc'
+
 export interface HostMetrics {
   cpu: HostCpuMetrics
+  disk: HostDiskMetrics
   hostname: string
   memory: HostMemoryMetrics
   platform: string
   processCount: number
+  processes: HostProcessMetrics[]
   thermal: HostThermalZone[]
   timestamp: string
   uptimeSeconds: number
@@ -49,11 +75,13 @@ const DEFAULT_HOST_MONITOR_URL = 'http://homestation:61208'
 
 const GLANCES_ENDPOINTS = {
   cpu: '/cpu',
+  fs: '/fs',
   load: '/load',
   mem: '/mem',
   memswap: '/memswap',
   percpu: '/percpu',
   processcount: '/processcount',
+  processlist: '/processlist',
   quicklook: '/quicklook',
   sensors: '/sensors',
   status: '/status',
@@ -69,6 +97,9 @@ export const EMPTY_HOST_METRICS: HostMetrics = {
     perCorePercent: [],
     usagePercent: 0
   },
+  disk: {
+    usedPercent: 0
+  },
   hostname: 'unknown',
   memory: {
     availableBytes: 0,
@@ -81,6 +112,7 @@ export const EMPTY_HOST_METRICS: HostMetrics = {
   },
   platform: 'unknown',
   processCount: 0,
+  processes: [],
   thermal: [],
   timestamp: '',
   uptimeSeconds: 0,
@@ -119,6 +151,19 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function commandValue(value: unknown, fallback: string): string {
+  if (Array.isArray(value)) {
+    const command = value
+      .map(item => (typeof item === 'string' || typeof item === 'number' ? String(item) : ''))
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    return command || fallback
+  }
+
+  return stringValue(value, fallback)
 }
 
 function numberValue(value: unknown, fallback = 0): number {
@@ -174,6 +219,96 @@ function parseUptimeSeconds(value: unknown): number {
   return weeks * 604_800 + days * 86_400 + hours * 3600 + minutes * 60 + seconds
 }
 
+function arrayFromPayload(value: unknown, keys: string[]): unknown[] {
+  if (Array.isArray(value)) return value
+
+  const record = asRecord(value)
+  for (const key of keys) {
+    if (Array.isArray(record[key])) return record[key]
+  }
+
+  const values = Object.values(record)
+  return values.every(item => item && typeof item === 'object') ? values : []
+}
+
+function filesystemMountPoint(filesystem: Record<string, unknown>): string {
+  return stringValue(
+    filesystem.mnt_point,
+    stringValue(filesystem.mountpoint, stringValue(filesystem.mountPoint, stringValue(filesystem.path, '')))
+  )
+}
+
+function isIgnoredFilesystemMount(mountPoint: string): boolean {
+  return mountPoint === '/etc/resolv.conf' || mountPoint === '/etc/hosts' || mountPoint === '/etc/hostname'
+}
+
+function normalizeFilesystems(value: unknown): HostFilesystemMetrics[] {
+  return arrayFromPayload(value, ['fs', 'filesystems']).map(item => {
+    const filesystem = asRecord(item)
+    return {
+      mountPoint: filesystemMountPoint(filesystem),
+      sizeBytes: numberValue(filesystem.size, numberValue(filesystem.total, numberValue(filesystem.totalBytes))),
+      usedPercent: numberValue(
+        filesystem.percent,
+        numberValue(filesystem.usedPercent, numberValue(filesystem.used_percent))
+      )
+    }
+  })
+}
+
+function normalizeDisk(value: unknown): HostDiskMetrics {
+  const disk = asRecord(value)
+  const directPercent = numberValue(disk.percent ?? disk.usedPercent ?? disk.used_percent, Number.NaN)
+  if (Number.isFinite(directPercent)) return { usedPercent: directPercent }
+
+  const filesystems = normalizeFilesystems(value).filter(filesystem => filesystem.mountPoint)
+  const displayableFilesystems = filesystems.filter(filesystem => !isIgnoredFilesystemMount(filesystem.mountPoint))
+  const primaryFilesystem =
+    displayableFilesystems.find(filesystem => filesystem.mountPoint === '/') ??
+    [...displayableFilesystems].sort((left, right) => right.sizeBytes - left.sizeBytes)[0] ??
+    [...filesystems].sort((left, right) => right.sizeBytes - left.sizeBytes)[0]
+
+  return { usedPercent: primaryFilesystem?.usedPercent ?? 0 }
+}
+
+function memoryInfoBytes(value: unknown): number {
+  if (Array.isArray(value)) return numberValue(value[0])
+
+  const record = asRecord(value)
+  return numberValue(record.rss, numberValue(record.resident, numberValue(record.used)))
+}
+
+function normalizeProcessList(value: unknown, memoryTotalBytes: number): HostProcessMetrics[] {
+  return arrayFromPayload(value, ['processlist', 'processes'])
+    .map(item => {
+      const process = asRecord(item)
+      const pid = numberValue(process.pid)
+      const memoryBytes = numberValue(
+        process.memoryBytes ?? process.memory_bytes ?? process.memory_rss ?? process.rss,
+        memoryInfoBytes(process.memory_info ?? process.memoryInfo ?? process.mem_info)
+      )
+      const memoryPercent = numberValue(
+        process.memory_percent ?? process.memoryPercent ?? process.mem_percent ?? process.percent_mem,
+        memoryBytes > 0 && memoryTotalBytes > 0 ? (memoryBytes / memoryTotalBytes) * 100 : 0
+      )
+      const cpuPercent = numberValue(process.cpu_percent ?? process.cpuPercent ?? process.percent_cpu ?? process.cpu)
+      const name = commandValue(process.name, pid > 0 ? `pid ${pid}` : 'process')
+      const command = commandValue(process.cmdline, commandValue(process.command, name))
+
+      return {
+        command,
+        cpuPercent,
+        memoryBytes,
+        memoryPercent,
+        name,
+        pid,
+        status: stringValue(process.status, ''),
+        user: stringValue(process.username, stringValue(process.user, ''))
+      }
+    })
+    .filter(process => process.pid > 0 || process.name !== 'process' || process.command !== 'process')
+}
+
 export function normalizeHostMetrics(value: unknown): HostMetrics {
   const input = asRecord(value)
   const quicklook = asRecord(input.quicklook)
@@ -197,6 +332,11 @@ export function normalizeHostMetrics(value: unknown): HostMetrics {
   const memoryTotal = numberValue(memory.total)
   const memoryUsed = numberValue(memory.used)
   const memoryAvailable = numberValue(memory.available, Math.max(0, memoryTotal - memoryUsed))
+  const disk = normalizeDisk(input.fs ?? input.disk ?? input.filesystems)
+  const processes = normalizeProcessList(
+    input.processlist ?? input.processes,
+    memoryTotal || numberValue(memory.totalBytes)
+  )
 
   return {
     cpu: {
@@ -206,6 +346,7 @@ export function normalizeHostMetrics(value: unknown): HostMetrics {
       perCorePercent,
       usagePercent: cpuUsagePercent || numberValue(cpu.usagePercent)
     },
+    disk,
     hostname: stringValue(system.hostname, stringValue(input.hostname, 'unknown')),
     memory: {
       availableBytes: memoryAvailable,
@@ -217,7 +358,8 @@ export function normalizeHostMetrics(value: unknown): HostMetrics {
       usedPercent: numberValue(memory.percent, numberValue(memory.usedPercent))
     },
     platform: stringValue(system.hr_name, stringValue(system.os_name, stringValue(input.platform, 'unknown'))),
-    processCount: numberValue(processcount.total, numberValue(input.processCount)),
+    processCount: numberValue(processcount.total, numberValue(input.processCount, processes.length)),
+    processes,
     thermal: thermalArray(input.sensors ?? input.thermal),
     timestamp: stringValue(input.now, new Date().toISOString()),
     uptimeSeconds: parseUptimeSeconds(input.uptime ?? input.uptimeSeconds),
@@ -250,9 +392,10 @@ export async function fetchHostMetrics(
   config: HostMonitorConfig = hostMonitorConfig(),
   fetcher: typeof fetch = fetch
 ): Promise<HostMetrics> {
-  const [cpu, mem, memswap, percpu, load, system, uptime, processcount, sensors, quicklook, status] = await Promise.all(
-    [
+  const [cpu, fs, mem, memswap, percpu, load, system, uptime, processcount, processlist, sensors, quicklook, status] =
+    await Promise.all([
       fetchJson(config, GLANCES_ENDPOINTS.cpu, fetcher),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.fs, fetcher, []),
       fetchJson(config, GLANCES_ENDPOINTS.mem, fetcher),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.memswap, fetcher, {}),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.percpu, fetcher, []),
@@ -260,25 +403,50 @@ export async function fetchHostMetrics(
       fetchOptionalJson(config, GLANCES_ENDPOINTS.system, fetcher, {}),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.uptime, fetcher, ''),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.processcount, fetcher, {}),
+      fetchOptionalJson(config, GLANCES_ENDPOINTS.processlist, fetcher, []),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.sensors, fetcher, []),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.quicklook, fetcher, {}),
       fetchOptionalJson(config, GLANCES_ENDPOINTS.status, fetcher, {})
-    ]
-  )
+    ])
 
   return normalizeHostMetrics({
     cpu,
+    fs,
     load,
     mem,
     memswap,
     now: new Date().toISOString(),
     percpu,
     processcount,
+    processlist,
     quicklook,
     sensors,
     status,
     system,
     uptime
+  })
+}
+
+export function sortHostProcesses(
+  processes: HostProcessMetrics[],
+  key: HostProcessSortKey,
+  direction: HostProcessSortDirection = 'desc'
+): HostProcessMetrics[] {
+  const multiplier = direction === 'asc' ? 1 : -1
+
+  return [...processes].sort((left, right) => {
+    if (key === 'memory') {
+      const memoryDelta = left.memoryPercent - right.memoryPercent
+      if (Math.abs(memoryDelta) > 0.001) return memoryDelta * multiplier
+
+      const memoryBytesDelta = left.memoryBytes - right.memoryBytes
+      if (memoryBytesDelta !== 0) return memoryBytesDelta * multiplier
+    } else {
+      const cpuDelta = left.cpuPercent - right.cpuPercent
+      if (Math.abs(cpuDelta) > 0.001) return cpuDelta * multiplier
+    }
+
+    return left.name.localeCompare(right.name) || left.pid - right.pid
   })
 }
 

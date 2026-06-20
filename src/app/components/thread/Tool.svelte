@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import Loader from '@/components/ui/Loader.svelte'
-  import TerminalBlock from '@/components/ui/TerminalBlock.svelte'
-  import { cardClass } from '@/components/ui/styles'
+  import Loader from '@/app/components/ui/Loader.svelte'
+  import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
+  import { cardClass } from '@/app/components/ui/styles'
   import type { ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
 
   interface Props {

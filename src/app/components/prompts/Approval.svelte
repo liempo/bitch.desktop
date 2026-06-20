@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Button from '@/components/ui/Button.svelte'
-  import TerminalBlock from '@/components/ui/TerminalBlock.svelte'
-  import { cardClass } from '@/components/ui/styles'
+  import Button from '@/app/components/ui/Button.svelte'
+  import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
+  import { cardClass } from '@/app/components/ui/styles'
   import { type ApprovalChoice, promptsState, respondToApproval } from '$lib/stores/prompts.svelte'
 
   interface Props {

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Button from '@/components/ui/Button.svelte'
-  import Panel from '@/components/ui/Panel.svelte'
-  import SectionTitle from '@/components/ui/SectionTitle.svelte'
-  import TextArea from '@/components/ui/TextArea.svelte'
-  import { cardClass } from '@/components/ui/styles'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
+  import SectionTitle from '@/app/components/ui/SectionTitle.svelte'
+  import TextArea from '@/app/components/ui/TextArea.svelte'
+  import { cardClass } from '@/app/components/ui/styles'
   import { clarifyRequestForSession, promptsState, respondToClarify } from '$lib/stores/prompts.svelte'
 
   interface Props {

@@ -43,13 +43,15 @@
     sortByProfileOrder
   } from '$lib/stores/profile.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
-  import Button from '@/components/ui/Button.svelte'
-  import Panel from '@/components/ui/Panel.svelte'
-  import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/components/ui/styles'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
+  import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
   import type { ProfileInfo } from '$lib/types/hermes'
 
   interface Props {
+    commitRoute?: boolean
+    compact?: boolean
     connected?: boolean
     onToggleSidebar?: () => void
     profileName?: null | string
@@ -64,6 +66,8 @@
   }
 
   let {
+    commitRoute = true,
+    compact = false,
     connected = false,
     onToggleSidebar,
     profileName = 'default',
@@ -136,7 +140,21 @@
   const suggestionCardClass = `${cardClass} mb-2 border-primary/30 !bg-primary/5 p-2`
   const queueItemClass = `${terminalClass} flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink`
   const attachmentCardClass = `${cardClass} flex items-center gap-2 p-1.5 pr-2 text-xs text-ink`
-  const composerTextareaClass = `${textareaClass} max-h-55 min-h-24 border-0 !bg-transparent px-4 pt-3 pb-2 text-sm leading-6 text-ink-bright placeholder:text-ink-muted/70 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50`
+  const composerShellClass = $derived(compact ? 'shrink-0 bg-surface-raised/35 p-2' : 'p-3')
+  const composerInnerClass = $derived(compact ? 'w-full' : 'mx-auto max-w-5xl')
+  const composerFrameClass = $derived(compact ? 'mt-0' : 'mt-3')
+  const composerPanelClass = $derived(compact ? 'border-line bg-input' : '')
+  const composerTextareaClass = $derived(
+    `${textareaClass} border-0 !bg-transparent text-ink-bright placeholder:text-ink-muted/70 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 ${
+      compact ? 'max-h-32 min-h-14 px-3 pt-2 pb-1 text-[0.76rem] leading-5' : 'max-h-55 min-h-24 px-4 pt-3 pb-2 text-sm leading-6'
+    }`
+  )
+  const composerControlsClass = $derived(
+    compact
+      ? 'flex min-h-10 flex-wrap items-center justify-between gap-2 px-2 py-1.5'
+      : 'flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2'
+  )
+  const composerErrorClass = $derived(compact ? 'max-w-44 truncate text-[0.65rem]' : 'max-w-60 truncate text-xs')
   const profileTriggerClass = [
     'font-mono text-[11px] font-bold uppercase tracking-[0.05em]',
     'text-ink-muted hover:text-ink-bright',
@@ -202,7 +220,7 @@
       })
     ) {
       autoDrainInFlight = true
-      void drainNextQueuedPrompt(key).finally(() => {
+      void drainNextQueuedPrompt(key, { commitRoute }).finally(() => {
         autoDrainInFlight = false
       })
     }
@@ -235,13 +253,13 @@
     if (sessionId && !liveSid) return
 
     if (shouldDispatchSlashImmediately(command, busy)) {
-      await executeSlashCommand(sessionId, command)
+      await executeSlashCommand(sessionId, command, { commitRoute })
       focusTextarea()
       return
     }
 
     markComposerInterrupted(sessionId, false)
-    await submitPrompt(sessionId)
+    await submitPrompt(sessionId, { commitRoute })
     focusTextarea()
   }
 
@@ -318,8 +336,8 @@
   }
 </script>
 
-<section class="p-3" data-selectable="true" aria-label="Composer">
-  <div class="mx-auto max-w-5xl">
+<section class={composerShellClass} data-selectable="true" aria-label={compact ? 'Mini composer' : 'Composer'}>
+  <div class={composerInnerClass}>
     {#if queuedPrompts.length > 0}
       <div class={queueCardClass} aria-label="Queued prompts">
         <div class="mb-1 flex items-center justify-between px-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-warning/80">
@@ -407,8 +425,8 @@
       </div>
     {/if}
 
-    <div class="mt-3">
-      <Panel title={panelTitle} padded={false}>
+    <div class={composerFrameClass}>
+      <Panel title={panelTitle} padded={false} class={composerPanelClass}>
         {#snippet leading()}
           {#if onToggleSidebar}
             <Button
@@ -467,14 +485,14 @@
             class={composerTextareaClass}
             bind:this={textareaElement}
             value={composer.draft}
-            rows="4"
+            rows={compact ? 2 : 4}
             placeholder={connected ? 'type prompt :: Enter sends / Shift+Enter inserts newline' : 'link_down :: connect to Hermes gateway before typing'}
             disabled={!connected}
             oninput={handleDraftInput}
             onkeydown={handleKeydown}
           ></textarea>
 
-          <div class="flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <div class={composerControlsClass}>
             <div class="flex min-w-0 flex-wrap items-center gap-1.5">
               <input
                 class="hidden"
@@ -507,32 +525,34 @@
               {/if}
 
               {#if composer.commandError}
-                <span class="max-w-60 truncate text-xs text-warning" title={composer.commandError}>{composer.commandError}</span>
+                <span class={`${composerErrorClass} text-warning`} title={composer.commandError}>{composer.commandError}</span>
               {/if}
               {#if composer.error}
-                <span class="max-w-60 truncate text-xs text-danger" title={composer.error}>{composer.error}</span>
+                <span class={`${composerErrorClass} text-danger`} title={composer.error}>{composer.error}</span>
               {/if}
             </div>
 
             <div class="flex min-w-0 items-center gap-2">
-              <ModelPicker
-                busy={busy}
-                connected={connected}
-                currentFastMode={currentFastMode}
-                currentModelLabel={modelLabel}
-                currentModelOption={currentModelOption}
-                currentReasoningEffort={currentReasoningEffort}
-                fastSupported={fastSupported}
-                fastSwitching={composerState.model.fastSwitching}
-                modelGroups={modelGroups}
-                modelLoading={composerState.model.loading}
-                reasoningSupported={reasoningSupported}
-                reasoningSwitching={composerState.model.reasoningSwitching}
-                switching={composerState.model.switching}
-                onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled) }}
-                onModelSelect={(key: string) => { void selectComposerModel(sessionId, key) }}
-                onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort) }}
-              />
+              {#if !compact}
+                <ModelPicker
+                  busy={busy}
+                  connected={connected}
+                  currentFastMode={currentFastMode}
+                  currentModelLabel={modelLabel}
+                  currentModelOption={currentModelOption}
+                  currentReasoningEffort={currentReasoningEffort}
+                  fastSupported={fastSupported}
+                  fastSwitching={composerState.model.fastSwitching}
+                  modelGroups={modelGroups}
+                  modelLoading={composerState.model.loading}
+                  reasoningSupported={reasoningSupported}
+                  reasoningSwitching={composerState.model.reasoningSwitching}
+                  switching={composerState.model.switching}
+                  onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled, { commitRoute }) }}
+                  onModelSelect={(key: string) => { void selectComposerModel(sessionId, key, { commitRoute }) }}
+                  onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort, { commitRoute }) }}
+                />
+              {/if}
 
               {#if busy && sessionId}
                 <Button
@@ -551,6 +571,7 @@
               <Button
                 chrome="ghost"
                 variant="primary"
+                size={compact ? 'sm' : 'md'}
                 onclick={() => void handleSubmit()}
                 disabled={!canSubmit}
               >

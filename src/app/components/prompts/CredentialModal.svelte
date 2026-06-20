@@ -3,10 +3,10 @@
 </script>
 
 <script lang="ts">
-  import Button from '@/components/ui/Button.svelte'
-  import Panel from '@/components/ui/Panel.svelte'
-  import SectionTitle from '@/components/ui/SectionTitle.svelte'
-  import TextInput from '@/components/ui/TextInput.svelte'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
+  import SectionTitle from '@/app/components/ui/SectionTitle.svelte'
+  import TextInput from '@/app/components/ui/TextInput.svelte'
 
   interface Props {
     autocomplete?: 'current-password' | 'off'

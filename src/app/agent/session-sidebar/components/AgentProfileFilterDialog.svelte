@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Button from '@/components/ui/Button.svelte'
-  import Dialog from '@/components/ui/Dialog.svelte'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Dialog from '@/app/components/ui/Dialog.svelte'
   import {
     ALL_PROFILES,
     getProfileScope,

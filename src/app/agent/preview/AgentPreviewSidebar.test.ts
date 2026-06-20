@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import agentShellSource from '../AgentShell.svelte?raw'
-import markdownSource from '../thread/Markdown.svelte?raw'
-import previewSidebarSource from './PreviewSidebar.svelte?raw'
+import markdownSource from '../../components/thread/Markdown.svelte?raw'
+import previewSidebarSource from './AgentPreviewSidebar.svelte?raw'
 
-describe('PreviewSidebar source contract', () => {
+describe('AgentPreviewSidebar source contract', () => {
   it('renders canvas, image, pdf, audio, video, html, and text previews in the same right sidebar', () => {
     expect(previewSidebarSource).toContain("preview.kind === 'canvas'")
     expect(previewSidebarSource).toContain('<iframe')
@@ -35,7 +35,7 @@ describe('PreviewSidebar source contract', () => {
   })
 
   it('is wired as a conditional preview sidebar from the agent shell', () => {
-    expect(agentShellSource).toContain('PreviewSidebar')
+    expect(agentShellSource).toContain('AgentPreviewSidebar')
     expect(agentShellSource).not.toContain('CanvasSidebar')
     expect(agentShellSource).toContain('{#if activePreview}')
     expect(agentShellSource).toContain('preview={activePreview}')

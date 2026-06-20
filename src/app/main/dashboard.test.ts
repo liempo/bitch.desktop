@@ -30,20 +30,24 @@ describe('main dashboard helpers', () => {
   it('exposes implemented navigation plus planned operations surfaces without pretending they are wired', () => {
     const links = dashboardQuickLinks('stored session')
 
-    expect(links.map(link => link.id)).toEqual(['cmd', 'files', 'cron', 'kanban', 'calendar'])
-    expect(links.find(link => link.id === 'cmd')).toMatchObject({
-      href: '#/cmd/stored%20session',
-      label: 'CMD',
+    expect(links.map(link => link.id)).toEqual(['agent', 'assets', 'calendar', 'cron', 'kanban'])
+    expect(links.find(link => link.id === 'agent')).toMatchObject({
+      href: '#/agent/stored%20session',
+      label: 'Agent',
       state: 'ready'
     })
-    expect(links.find(link => link.id === 'files')).toMatchObject({ href: '#/files', label: 'Files', state: 'ready' })
+    expect(links.find(link => link.id === 'assets')).toMatchObject({
+      href: '#/assets',
+      label: 'Assets',
+      state: 'ready'
+    })
+    expect(links.find(link => link.id === 'calendar')).toMatchObject({
+      href: '#/calendar',
+      label: 'Calendar',
+      state: 'ready'
+    })
     expect(links.find(link => link.id === 'cron')).toMatchObject({ href: null, label: 'Cron', state: 'planned' })
     expect(links.find(link => link.id === 'kanban')).toMatchObject({ href: null, label: 'Kanban', state: 'planned' })
-    expect(links.find(link => link.id === 'calendar')).toMatchObject({
-      href: null,
-      label: 'Calendar',
-      state: 'planned'
-    })
   })
 
   it('summarizes dashboard gateway health and target with operator-facing labels', () => {
@@ -84,8 +88,8 @@ describe('main dashboard helpers', () => {
     )
 
     expect(sessions).toEqual([
-      expect.objectContaining({ href: '#/cmd/active', id: 'active', status: 'active', title: 'active thread' }),
-      expect.objectContaining({ href: '#/cmd/untitled', id: 'untitled', status: 'idle', title: 'preview fallback' })
+      expect.objectContaining({ href: '#/agent/active', id: 'active', status: 'active', title: 'active thread' }),
+      expect.objectContaining({ href: '#/agent/untitled', id: 'untitled', status: 'idle', title: 'preview fallback' })
     ])
   })
 

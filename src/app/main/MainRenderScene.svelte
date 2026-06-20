@@ -20,12 +20,12 @@
 
   let group = $state<Group | undefined>()
 
-  const cpuGeometry = new EdgesGeometry(new IcosahedronGeometry(1.65, 1))
-  const memoryGeometry = new EdgesGeometry(new IcosahedronGeometry(1.18, 1))
+  const cpuShape = new EdgesGeometry(new IcosahedronGeometry(1.65, 1))
+  const memoryShape = new EdgesGeometry(new IcosahedronGeometry(1.18, 1))
   const cpuMaterial = new LineBasicMaterial({ color: new Color('#8be9fd'), transparent: true, opacity: 0.95 })
   const memoryMaterial = new LineBasicMaterial({ color: new Color('#bd93f9'), transparent: true, opacity: 0.45 })
-  const cpuLines = new LineSegments(cpuGeometry, cpuMaterial)
-  const memoryLines = new LineSegments(memoryGeometry, memoryMaterial)
+  const cpuLines = new LineSegments(cpuShape, cpuMaterial)
+  const memoryLines = new LineSegments(memoryShape, memoryMaterial)
 
   const cpuLoad = $derived(Math.max(0, Math.min(1, cpuUsagePercent / 100)))
   const memoryLoad = $derived(Math.max(0, Math.min(1, memoryUsagePercent / 100)))

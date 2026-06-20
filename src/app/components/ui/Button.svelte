@@ -55,7 +55,7 @@
     'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2 ' +
     'disabled:cursor-not-allowed disabled:opacity-50'
 
-  const CONTROL_GEOMETRY = [
+  const CONTROL_LAYOUT = [
     'inline-flex items-center justify-center gap-1.5 rounded-control border font-mono font-semibold uppercase leading-none',
     'disabled:text-ink-muted'
   ].join(' ')
@@ -69,7 +69,7 @@
   const classes = $derived(
     variant === 'unstyled'
       ? `${BARE} ${className}`
-      : `${BARE} ${CONTROL_GEOMETRY} ${SIZE_CLASSES[size]} ${TONE_CLASSES[variant]} ${
+      : `${BARE} ${CONTROL_LAYOUT} ${SIZE_CLASSES[size]} ${TONE_CLASSES[variant]} ${
           chrome === 'control' ? `${CONTROL_CHROME} ${BORDER_CLASSES[variant]}` : GHOST_CHROME
         } ${className}`
   )

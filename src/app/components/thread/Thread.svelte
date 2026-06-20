@@ -2,10 +2,10 @@
   import { tick } from 'svelte'
   import Approval from '../prompts/Approval.svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
-  import Button from '@/components/ui/Button.svelte'
-  import Loader from '@/components/ui/Loader.svelte'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import bitchLogoUrl from '$lib/assets/bitch-logo.png'
-  import Panel from '@/components/ui/Panel.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
@@ -13,11 +13,12 @@
   import type { ThreadPreview } from '$lib/preview'
 
   interface Props {
+    compact?: boolean
     onOpenPreview?: (preview: ThreadPreview) => void
     sessionId?: null | string
   }
 
-  let { onOpenPreview, sessionId = null }: Props = $props()
+  let { compact = false, onOpenPreview, sessionId = null }: Props = $props()
 
   let scrollElement: HTMLElement | null = $state(null)
   let stickToBottom = $state(true)
@@ -31,6 +32,15 @@
       messages.length === 0 &&
       (thread?.loading || sessionState.resumingSessionId === sessionId)
   )
+
+  const sectionClass = $derived(compact ? 'flex-1 overflow-y-auto bg-chat-scroll/30' : 'flex-1 overflow-y-auto bg-chat-scroll/40')
+  const emptyStateClass = $derived(
+    compact ? 'flex min-h-full items-center justify-center px-3 py-6' : 'flex min-h-full items-center justify-center px-6 py-16'
+  )
+  const logoClass = $derived(
+    compact ? 'h-16 w-16 rounded-panel bg-black object-contain opacity-90' : 'h-28 w-28 rounded-panel bg-black object-contain opacity-90'
+  )
+  const transcriptClass = $derived(compact ? 'py-2' : 'py-4')
 
   const scrollSignature = $derived(
     messages
@@ -90,22 +100,22 @@
 </script>
 
 <section
-  class="flex-1 overflow-y-auto bg-chat-scroll/40"
+  class={sectionClass}
   data-selectable="true"
   bind:this={scrollElement}
   onscroll={handleScroll}
   aria-label="Message thread"
 >
   {#if !sessionId}
-    <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <img class="h-28 w-28 rounded-panel bg-black object-contain opacity-90" src={bitchLogoUrl} alt="BITCH logo" />
+    <div class={emptyStateClass}>
+      <img class={logoClass} src={bitchLogoUrl} alt="BITCH logo" />
     </div>
   {:else if loadingSession}
-    <div class="flex min-h-full items-center justify-center px-6 py-16">
-      <Loader size="xl" label="Loading session" />
+    <div class={emptyStateClass}>
+      <Loader size={compact ? 'md' : 'xl'} label="Loading session" />
     </div>
   {:else if resumeExhausted}
-    <div class="flex min-h-full items-center justify-center px-6 py-16">
+    <div class={emptyStateClass}>
       <Panel title="Resume Failed" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
         <p class="font-semibold uppercase tracking-[0.12em]">Could not resume this session.</p>
         <p class="mt-2 text-danger/80">
@@ -115,14 +125,14 @@
       </Panel>
     </div>
   {:else if thread?.error && messages.length === 0}
-    <div class="flex min-h-full items-center justify-center px-6 py-16">
+    <div class={emptyStateClass}>
       <Panel title="Transcript Error" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
         <p class="font-semibold uppercase tracking-[0.12em]">Could not load the transcript.</p>
         <p class="mt-2 text-danger/80">{thread.error}</p>
       </Panel>
     </div>
   {:else if messages.length === 0}
-    <div class="flex min-h-full items-center justify-center px-6 py-16">
+    <div class={emptyStateClass}>
       <Panel title="Empty Buffer" titleClass="text-secondary" class="max-w-md" contentClass="p-5 text-center" padded={false} fullHeight={false}>
         <h2 class="text-xl font-semibold tracking-[0.08em] text-ink-bright">No messages yet</h2>
         <p class="mt-3 text-sm leading-6 text-ink-muted">
@@ -131,7 +141,7 @@
       </Panel>
     </div>
   {:else}
-    <div class="py-4">
+    <div class={transcriptClass}>
       {#each messages as message, index (message.id)}
         <Message {message} {sessionId} {onOpenPreview} isLast={index === messages.length - 1} />
       {/each}

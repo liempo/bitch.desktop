@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Button from '@/components/ui/Button.svelte'
-  import Loader from '@/components/ui/Loader.svelte'
-  import SessionActionsMenu from './SessionActionsMenu.svelte'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
+  import AgentSessionActionsMenu from './AgentSessionActionsMenu.svelte'
   import type { SessionInfo, SessionSearchResult } from '$lib/types/hermes'
 
   interface Props {
@@ -140,7 +140,7 @@
 {/snippet}
 
 {#if session}
-  <SessionActionsMenu
+  <AgentSessionActionsMenu
     {session}
     {pinned}
     {disabled}
@@ -150,7 +150,7 @@
     onTogglePin={() => onTogglePin(session)}
   >
     {@render row()}
-  </SessionActionsMenu>
+  </AgentSessionActionsMenu>
 {:else}
   {@render row()}
 {/if}

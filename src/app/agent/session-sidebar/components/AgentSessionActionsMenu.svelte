@@ -1,9 +1,9 @@
 <script lang="ts">
   import { ContextMenu } from 'bits-ui'
   import type { Snippet } from 'svelte'
-  import Button from '@/components/ui/Button.svelte'
-  import Dialog from '@/components/ui/Dialog.svelte'
-  import { menuItemClass, popoverClass } from '@/components/ui/styles'
+  import Button from '@/app/components/ui/Button.svelte'
+  import Dialog from '@/app/components/ui/Dialog.svelte'
+  import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import type { SessionInfo } from '$lib/types/hermes'
 
   interface Props {

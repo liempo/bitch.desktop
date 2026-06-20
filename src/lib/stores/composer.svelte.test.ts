@@ -397,6 +397,50 @@ describe('composer runtime targeting', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/stored-new')
     expect(threadForSession('stored-new')?.messages.map(message => message.text)).toEqual(['first message'])
   })
+
+  it('can create and submit a new embedded session without navigating to the agent route', async () => {
+    mockRouterState.route = 'new'
+    mockRouterState.sessionId = null
+    sessionState.activeSessionId = null
+    sessionState.storedSessionId = null
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'session.create') {
+        return Promise.resolve({
+          session_id: 'live-dashboard',
+          stored_session_id: 'stored-dashboard',
+          message_count: 0,
+          messages: [],
+          info: { model: 'test-model' }
+        })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt(null, { commitRoute: false, text: 'dashboard message' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', expect.anything())
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-dashboard',
+      text: 'dashboard message'
+    })
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(threadForSession('stored-dashboard')?.messages.map(message => message.text)).toEqual(['dashboard message'])
+  })
+
+  it('can reset the embedded composer session without navigating', async () => {
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+
+    await expect(executeSlashCommand('stored-A', '/new', { commitRoute: false })).resolves.toBe(true)
+
+    expect(sessionState.activeSessionId).toBeNull()
+    expect(sessionState.storedSessionId).toBeNull()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
   it('reports the owning profile locally for /profile instead of forwarding backend default', async () => {
     rememberRuntimeSession('stored-A', 'live-A')
     sessionState.sessionProfilesById = { 'stored-A': 'crypto' }
