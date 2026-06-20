@@ -533,26 +533,25 @@
             </div>
 
             <div class="flex min-w-0 items-center gap-2">
-              {#if !compact}
-                <ModelPicker
-                  busy={busy}
-                  connected={connected}
-                  currentFastMode={currentFastMode}
-                  currentModelLabel={modelLabel}
-                  currentModelOption={currentModelOption}
-                  currentReasoningEffort={currentReasoningEffort}
-                  fastSupported={fastSupported}
-                  fastSwitching={composerState.model.fastSwitching}
-                  modelGroups={modelGroups}
-                  modelLoading={composerState.model.loading}
-                  reasoningSupported={reasoningSupported}
-                  reasoningSwitching={composerState.model.reasoningSwitching}
-                  switching={composerState.model.switching}
-                  onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled, { commitRoute }) }}
-                  onModelSelect={(key: string) => { void selectComposerModel(sessionId, key, { commitRoute }) }}
-                  onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort, { commitRoute }) }}
-                />
-              {/if}
+              <ModelPicker
+                busy={busy}
+                compact={compact}
+                connected={connected}
+                currentFastMode={currentFastMode}
+                currentModelLabel={modelLabel}
+                currentModelOption={currentModelOption}
+                currentReasoningEffort={currentReasoningEffort}
+                fastSupported={fastSupported}
+                fastSwitching={composerState.model.fastSwitching}
+                modelGroups={modelGroups}
+                modelLoading={composerState.model.loading}
+                reasoningSupported={reasoningSupported}
+                reasoningSwitching={composerState.model.reasoningSwitching}
+                switching={composerState.model.switching}
+                onFastChange={(enabled: boolean) => { void selectComposerFastMode(sessionId, enabled, { commitRoute }) }}
+                onModelSelect={(key: string) => { void selectComposerModel(sessionId, key, { commitRoute }) }}
+                onReasoningChange={(effort: ReasoningEffort) => { void selectComposerReasoningEffort(sessionId, effort, { commitRoute }) }}
+              />
 
               {#if busy && sessionId}
                 <Button

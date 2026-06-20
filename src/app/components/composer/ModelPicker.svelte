@@ -8,6 +8,7 @@
 
   interface Props {
     busy?: boolean
+    compact?: boolean
     connected?: boolean
     currentFastMode: boolean
     currentModelLabel: string
@@ -28,6 +29,7 @@
 
   let {
     busy = false,
+    compact = false,
     connected = true,
     currentFastMode,
     currentModelLabel,
@@ -95,12 +97,15 @@
     const reasoning = effortOptions.find(option => option.value === currentReasoningEffort)?.label ?? currentReasoningEffort
     return [model, reasoning, currentFastMode ? 'Fast' : ''].filter(Boolean).join(' ')
   })
-  const triggerClass = [
-    'inline-flex min-h-8 w-auto max-w-none items-center gap-1.5 whitespace-nowrap rounded-control border border-transparent bg-transparent',
-    'px-3 py-1 font-mono text-[11px] font-semibold uppercase leading-none tracking-[0.1em] text-ink-muted',
-    'hover:bg-primary/10 hover:text-ink-bright',
-    'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
-  ].join(' ')
+  const triggerClass = $derived(
+    [
+      'inline-flex w-auto min-w-0 items-center gap-1.5 whitespace-nowrap rounded-control border border-transparent bg-transparent',
+      compact ? 'min-h-6 max-w-32 px-2 py-0 text-[10px]' : 'min-h-8 max-w-none px-3 py-1 text-[11px]',
+      'font-mono font-semibold uppercase leading-none tracking-[0.1em] text-ink-muted',
+      'hover:bg-primary/10 hover:text-ink-bright',
+      'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
+    ].join(' ')
+  )
   const contentClass = 'w-[min(40rem,calc(100vw-2rem))]'
   const bodyClass = 'p-2'
   const groupTitleClass = `${sectionTitleClass} text-[0.65rem]`
@@ -177,7 +182,7 @@
   {#if isLoading}
     <Loader size="sm" label="Loading model settings" />
   {/if}
-  <span class="text-left">{switching ? 'Switching model' : currentModelButtonLabel}</span>
+  <span class="min-w-0 truncate text-left">{switching ? 'Switching model' : currentModelButtonLabel}</span>
 </button>
 
 <Dialog
