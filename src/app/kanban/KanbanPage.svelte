@@ -7,6 +7,7 @@
     addKanbanComment,
     getKanbanBoard,
     getKanbanTask,
+    kanbanDisplayStatus,
     listKanbanBoards,
     updateKanbanTaskStatus,
     type KanbanBoardMeta,
@@ -19,7 +20,7 @@
   import { messageForError } from '$lib/errors'
   import { ensureGatewayProfile, profileState } from '$lib/stores/profile.svelte'
 
-  const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'blocked', 'review', 'done', 'archived'])
+  const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'blocked', 'done', 'archived'])
   const COLUMN_LABELS: Record<string, string> = {
     triage: 'Triage',
     todo: 'Todo',
@@ -27,7 +28,6 @@
     ready: 'Ready',
     running: 'Running',
     blocked: 'Blocked',
-    review: 'Review',
     done: 'Done',
     archived: 'Archived'
   }
@@ -69,17 +69,16 @@
   })
 
   function statusLabel(status: string): string {
-    return COLUMN_LABELS[status] ?? status.replace(/[_-]/g, ' ')
+    const displayStatus = kanbanDisplayStatus(status)
+    return COLUMN_LABELS[displayStatus] ?? String(displayStatus).replace(/[_-]/g, ' ')
   }
 
   function statusTone(status: string): string {
-    switch (status) {
+    switch (kanbanDisplayStatus(status)) {
       case 'running':
         return 'border-primary/40 bg-primary/10 text-primary'
       case 'blocked':
         return 'border-danger/40 bg-danger/10 text-danger'
-      case 'review':
-        return 'border-warning/40 bg-warning/10 text-warning'
       case 'done':
         return 'border-success/40 bg-success/10 text-success'
       case 'scheduled':
@@ -97,12 +96,12 @@
   }
 
   function markerForTask(task: KanbanTask): string {
-    if (task.status === 'running') {
+    const displayStatus = kanbanDisplayStatus(task.status)
+    if (displayStatus === 'running') {
       const stale = typeof task.last_heartbeat_at === 'number' && boardNow > 0 && boardNow - task.last_heartbeat_at > 60 * 60
       return stale ? 'stale worker' : 'in progress'
     }
-    if (task.status === 'blocked') return 'blocked'
-    if (task.status === 'review') return 'review'
+    if (displayStatus === 'blocked') return 'blocked'
     if (task.warnings?.count) return `${task.warnings.count} diagnostics`
     if (task.progress) return `${task.progress.done}/${task.progress.total} children`
     return ''
@@ -111,7 +110,7 @@
   function markerClass(task: KanbanTask): string {
     const marker = markerForTask(task)
     if (marker.includes('stale') || marker === 'blocked') return 'border-danger/40 bg-danger/10 text-danger'
-    if (marker === 'review' || marker.includes('diagnostics')) return 'border-warning/40 bg-warning/10 text-warning'
+    if (marker.includes('diagnostics')) return 'border-warning/40 bg-warning/10 text-warning'
     if (marker === 'in progress') return 'border-primary/40 bg-primary/10 text-primary'
     return 'border-line bg-canvas text-ink-muted'
   }
@@ -354,7 +353,7 @@
 
   <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
     <Panel
-      title="Columns"
+      title="Grouped cards"
       badge={loadingBoard ? 'SYNC' : `${visibleTaskCount}`}
       padded={false}
       class="min-h-[28rem] md:min-h-0"
@@ -362,30 +361,30 @@
     >
       {#if loadingBoard && columns.length === 0}
         <div class="flex h-full items-center justify-center font-hud text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-          Loading board lanes…
+          Loading grouped cards…
         </div>
       {:else}
-        <div class="flex h-full min-h-0 gap-3 overflow-x-auto pb-2" data-selectable="true">
+        <div class="h-full min-h-0 space-y-3 overflow-auto pr-1" data-selectable="true">
           {#each columns as column (column.name)}
             <section
-              class="flex min-h-0 w-72 shrink-0 flex-col rounded-panel border border-line bg-canvas/45"
+              class="rounded-panel border border-line bg-canvas/45"
               data-kanban-column={column.name}
               role="list"
-              aria-label={`${statusLabel(column.name)} cards`}
+              aria-label={`${statusLabel(column.name)} grouped cards`}
               ondragover={handleColumnDragOver}
               ondrop={event => handleDrop(event, column.name)}
             >
-              <header class="flex items-center justify-between border-b border-line px-3 py-2">
+              <header class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-canvas/95 px-3 py-2 backdrop-blur">
                 <div class="min-w-0">
                   <h2 class="min-w-0 overflow-hidden whitespace-nowrap text-sm font-semibold uppercase tracking-[0.12em] text-ink-bright">{statusLabel(column.name)}</h2>
                   <p class="text-[0.62rem] uppercase tracking-[0.16em] text-ink-muted">
-                    {DIRECT_DROP_STATUSES.has(column.name) ? 'drop enabled' : 'dispatcher-owned'}
+                    {DIRECT_DROP_STATUSES.has(column.name) ? 'drop target' : 'dispatcher-owned'} · {column.tasks.length} cards
                   </p>
                 </div>
                 <span class={`rounded-control border px-2 py-1 font-mono text-[0.68rem] ${statusTone(column.name)}`}>{column.tasks.length}</span>
               </header>
 
-              <div class="min-h-0 flex-1 space-y-2 overflow-auto p-2">
+              <div class="space-y-2 p-2">
                 {#if column.tasks.length === 0}
                   <div class="rounded-panel border border-dashed border-line p-4 text-center text-xs leading-5 text-ink-muted">
                     No cards in {statusLabel(column.name)}.
@@ -395,21 +394,24 @@
                     {@const marker = markerForTask(task)}
                     <button
                       type="button"
-                      class={cardClass(task)}
+                      class={`${cardClass(task)} grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)] md:items-start`}
                       draggable="true"
                       ondragstart={event => handleDragStart(event, task)}
                       ondragend={handleDragEnd}
                       onclick={() => selectTask(task)}
                       aria-current={selectedTaskId === task.id ? 'true' : undefined}
                     >
-                      <div class="flex items-start justify-between gap-2">
-                        <h3 class="min-w-0 flex-1 text-sm font-semibold leading-5 text-ink-bright">{task.title}</h3>
-                        <span class="font-mono text-[0.62rem] text-ink-faint">{task.id}</span>
+                      <div class="min-w-0">
+                        <div class="flex items-start justify-between gap-2">
+                          <h3 class="min-w-0 flex-1 text-sm font-semibold leading-5 text-ink-bright">{task.title}</h3>
+                          <span class="font-mono text-[0.62rem] text-ink-faint">{task.id}</span>
+                        </div>
+                        <p class="mt-1 line-clamp-2 text-xs leading-5 text-ink-muted">
+                          {task.latest_summary || task.body || 'No description supplied.'}
+                        </p>
                       </div>
-                      <p class="mt-1 line-clamp-2 text-xs leading-5 text-ink-muted">
-                        {task.latest_summary || task.body || 'No description supplied.'}
-                      </p>
-                      <div class="mt-2 flex flex-wrap gap-1.5">
+
+                      <div class="flex flex-wrap gap-1.5 md:justify-end">
                         {#if task.assignee}
                           <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.62rem] text-secondary">@{task.assignee}</span>
                         {/if}
@@ -420,7 +422,8 @@
                           <span class={`rounded-control border px-1.5 py-0.5 text-[0.62rem] ${markerClass(task)}`}>{marker}</span>
                         {/if}
                       </div>
-                      <div class="mt-2 flex items-center justify-between font-mono text-[0.62rem] text-ink-faint">
+
+                      <div class="flex items-center justify-between gap-3 border-t border-line/60 pt-2 font-mono text-[0.62rem] text-ink-faint md:col-span-2">
                         <span>priority {task.priority ?? 0}</span>
                         <span>age {formatAge(task.age?.created_age_seconds)}</span>
                       </div>

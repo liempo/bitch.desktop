@@ -158,6 +158,36 @@ export interface KanbanStatusUpdateContext extends KanbanRequestContext {
 }
 
 const KANBAN_PLUGIN_BASE = '/api/plugins/kanban'
+const STATUS_DISPLAY_ALIASES: Record<string, KanbanStatus> = {
+  review: 'blocked'
+}
+
+export function kanbanDisplayStatus(status: KanbanStatus | (string & {})): KanbanStatus | (string & {}) {
+  return STATUS_DISPLAY_ALIASES[status] ?? status
+}
+
+export function normalizeKanbanBoardColumns(columns: KanbanColumn[]): KanbanColumn[] {
+  const order: string[] = []
+  const byName = new Map<string, KanbanColumn>()
+
+  for (const column of columns) {
+    const displayName = String(kanbanDisplayStatus(column.name))
+    const target = byName.get(displayName)
+    if (!target) {
+      order.push(displayName)
+      byName.set(displayName, { ...column, name: displayName, tasks: [] })
+    }
+
+    byName.get(displayName)?.tasks.push(
+      ...column.tasks.map(task => {
+        const displayStatus = kanbanDisplayStatus(task.status)
+        return displayStatus === task.status ? task : { ...task, status: displayStatus }
+      })
+    )
+  }
+
+  return order.map(name => byName.get(name)).filter((column): column is KanbanColumn => Boolean(column))
+}
 
 function querySuffix(params: Record<string, null | string | undefined>): string {
   const query = new URLSearchParams()
@@ -183,12 +213,17 @@ export function listKanbanBoards(profile?: null | string): Promise<KanbanBoardsR
   })
 }
 
-export function getKanbanBoard(context: KanbanRequestContext = {}): Promise<KanbanBoardResponse> {
-  return dashboardRequest<KanbanBoardResponse>({
+export async function getKanbanBoard(context: KanbanRequestContext = {}): Promise<KanbanBoardResponse> {
+  const response = await dashboardRequest<KanbanBoardResponse>({
     method: 'GET',
     path: `${KANBAN_PLUGIN_BASE}/board${boardQuery(context)}`,
     profile: context.profile
   })
+
+  return {
+    ...response,
+    columns: normalizeKanbanBoardColumns(response.columns)
+  }
 }
 
 export function getKanbanTask(taskId: string, context: KanbanRequestContext = {}): Promise<KanbanTaskDetailResponse> {
