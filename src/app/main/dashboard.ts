@@ -1,4 +1,4 @@
-import { agentRoute, assetsRoute, calendarRoute } from '../router.svelte'
+import { agentRoute, assetsRoute, calendarRoute, kanbanRoute } from '../router.svelte'
 import type { ConnectionState } from '$lib/stores/gateway.svelte'
 import type { SessionInfo } from '$lib/types/hermes'
 
@@ -61,13 +61,6 @@ const PLANNED_SURFACES: DashboardUtilityLink[] = [
     id: 'cron',
     label: 'Cron',
     state: 'planned'
-  },
-  {
-    description: 'Kanban board controls are planned for this desktop shell; no local board bootstrap is exposed.',
-    href: null,
-    id: 'kanban',
-    label: 'Kanban',
-    state: 'planned'
   }
 ]
 
@@ -96,6 +89,13 @@ export function dashboardQuickLinks(currentSessionId?: null | string): Dashboard
       href: `#${calendarRoute()}`,
       id: 'calendar',
       label: 'Calendar',
+      state: 'ready'
+    },
+    {
+      description: 'Inspect and steer Hermes Kanban boards through authenticated dashboard plugin routes.',
+      href: `#${kanbanRoute()}`,
+      id: 'kanban',
+      label: 'Kanban',
       state: 'ready'
     },
     ...PLANNED_SURFACES

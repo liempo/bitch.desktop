@@ -20,7 +20,7 @@
   } from '$lib/host-monitor'
   import MainRenderPanel from './MainRenderPanel.svelte'
   import MainAgentPanel from './MainAgentPanel.svelte'
-  import { agentRoute } from '../router.svelte'
+  import { agentRoute, kanbanRoute } from '../router.svelte'
   import { recentDashboardSessions } from './dashboard'
 
   type ThermalZone = HostMetrics['thermal'][number]
@@ -62,6 +62,7 @@
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
   const miniSessionFallbackId = $derived(recentSessions[0]?.id ?? null)
   const agentHref = $derived(`#${agentRoute(miniSessionFallbackId)}`)
+  const kanbanHref = $derived(`#${kanbanRoute()}`)
   const cpuThermal = $derived(findThermalZone(/cpu|package|pkg|core|tctl|tdie/i) ?? hostMetrics.thermal[0] ?? null)
   const processRows = $derived(
     sortHostProcesses(hostMetrics.processes, processSortKey, processSortDirection).slice(0, 12)
@@ -349,7 +350,7 @@
       <Panel
         fullHeight={false}
         title="KANBAN"
-        badge="placeholder"
+        badge="ready"
         class={dashboardPanelClass}
         contentClass="grid h-full content-center gap-2"
         titleClass={dashboardPanelTitleClass}
@@ -362,7 +363,16 @@
             </Panel>
           {/each}
         </div>
-        <div class="text-[0.68rem] leading-4 text-ink-muted">Summary endpoint not wired yet. The panel exists; the lie does not.</div>
+        <div class="flex flex-wrap items-center gap-2 text-[0.68rem] leading-4 text-ink-muted">
+          <span>Kanban route is wired through the authenticated dashboard plugin API.</span>
+          <a
+            class="rounded-control border border-primary/40 px-2 py-1 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary hover:border-primary/70 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus"
+            href={kanbanHref}
+            aria-label="Open Kanban board"
+          >
+            Open Kanban
+          </a>
+        </div>
       </Panel>
 
     </section>

@@ -2,6 +2,7 @@
   import AgentShell from './agent/AgentShell.svelte'
   import AssetsPage from './assets/AssetsPage.svelte'
   import CalendarPage from './calendar/CalendarPage.svelte'
+  import KanbanPage from './kanban/KanbanPage.svelte'
   import MainPage from './main/MainPage.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState } from './router.svelte'
@@ -18,6 +19,8 @@
         <AssetsPage />
       {:else if appRouterState.page === 'calendar'}
         <CalendarPage />
+      {:else if appRouterState.page === 'kanban'}
+        <KanbanPage />
       {:else}
         <MainPage />
       {/if}
