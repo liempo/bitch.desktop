@@ -34,7 +34,7 @@
     // RENDER
   </div>
   <div
-    class="pointer-events-none absolute inset-0 bg-[linear-gradient(var(--color-line)_1px,transparent_1px),linear-gradient(90deg,var(--color-line)_1px,transparent_1px)] bg-[size:24px_24px] opacity-15"
+    class="pointer-events-none absolute inset-0 bg-[linear-gradient(var(--color-line)_1px,transparent_1px),linear-gradient(90deg,var(--color-line)_1px,transparent_1px)] bg-size-[24px_24px] opacity-15"
   ></div>
   <Canvas renderMode="always" dpr={[1, 1.5]} colorManagementEnabled={false}>
     <MainRenderScene

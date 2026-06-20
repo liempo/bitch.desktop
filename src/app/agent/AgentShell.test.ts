@@ -42,6 +42,6 @@ describe('AgentShell resizable panel source contract', () => {
     expect(sidebarSource).toContain('--agent-sidebar-width')
     expect(sidebarSource).toContain('md:w-(--agent-sidebar-width)')
     expect(previewSidebarSource).toContain('--agent-preview-width')
-    expect(previewSidebarSource).toContain('md:w-[var(--agent-preview-width)]')
+    expect(previewSidebarSource).toContain('md:w-(--agent-preview-width)')
   })
 })
