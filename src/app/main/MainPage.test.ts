@@ -34,9 +34,9 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('Glyph')
   })
 
-  it('loads host monitor endpoint config from HOST_MONITOR_URL and HOST_MONITOR_PORT', () => {
+  it('loads host monitor endpoint config from HOST_MONITOR_URL', () => {
     expect(hostMonitorSource).toContain('__HOST_MONITOR_URL__')
-    expect(hostMonitorSource).toContain('__HOST_MONITOR_PORT__')
+    expect(hostMonitorSource).toContain('http://homestation:61208')
     expect(hostMonitorSource).toContain('/api/4')
     expect(hostMonitorSource).toContain('GLANCES_ENDPOINTS')
   })

@@ -16,8 +16,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      __HOST_MONITOR_URL__: JSON.stringify(env.HOST_MONITOR_URL ?? 'http://127.0.0.1'),
-      __HOST_MONITOR_PORT__: JSON.stringify(env.HOST_MONITOR_PORT ?? '61208')
+      __HOST_MONITOR_URL__: JSON.stringify(env.HOST_MONITOR_URL ?? 'http://homestation:61208')
     },
     clearScreen: false,
     server: {

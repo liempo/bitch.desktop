@@ -40,15 +40,12 @@ export interface HostMonitorConfig {
 }
 
 interface HostMonitorEnv {
-  port?: string
   url?: string
 }
 
 declare const __HOST_MONITOR_URL__: string | undefined
-declare const __HOST_MONITOR_PORT__: string | undefined
 
-const DEFAULT_HOST_MONITOR_URL = 'http://127.0.0.1'
-const DEFAULT_HOST_MONITOR_PORT = '61208'
+const DEFAULT_HOST_MONITOR_URL = 'http://homestation:61208'
 
 const GLANCES_ENDPOINTS = {
   cpu: '/cpu',
@@ -99,20 +96,20 @@ function normalizeUrl(url: string | undefined): string {
   return trimmed.replace(/\/+$/, '')
 }
 
-function normalizePort(port: string | undefined): string {
-  const trimmed = clean(port) || DEFAULT_HOST_MONITOR_PORT
-  return /^\d{2,5}$/.test(trimmed) ? trimmed : DEFAULT_HOST_MONITOR_PORT
+function urlPort(url: URL): string {
+  if (url.port) return url.port
+  if (url.protocol === 'https:') return '443'
+  if (url.protocol === 'http:') return '80'
+  return ''
 }
 
 export function hostMonitorConfig(env: HostMonitorEnv = {}): HostMonitorConfig {
-  const base = normalizeUrl(env.url ?? __HOST_MONITOR_URL__)
-  const port = normalizePort(env.port ?? __HOST_MONITOR_PORT__)
-  const hasPort = /:\d+$/.test(new URL(base).host)
-  const baseUrl = hasPort ? base : `${base}:${port}`
+  const baseUrl = normalizeUrl(env.url ?? __HOST_MONITOR_URL__)
+  const parsedUrl = new URL(baseUrl)
   return {
     baseUrl,
     metricsUrl: `${baseUrl}/api/4`,
-    port
+    port: urlPort(parsedUrl)
   }
 }
 

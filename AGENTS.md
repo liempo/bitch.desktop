@@ -18,6 +18,7 @@ The app uses these environment values, usually from `.env` copied from `.env.exa
 
 - `VITE_HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
 - `BITCH_DASHBOARD_API_KEY` — Hermes dashboard session token used by the Tauri bridge.
+- `HOST_MONITOR_URL` — Glances host monitor HTTP origin for the main dashboard. Defaults to `http://homestation:61208` when unset. Include scheme and port in this one URL; do not add a separate host-monitor port variable.
 
 Remote file preview, inline media, and the Files page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax.
 

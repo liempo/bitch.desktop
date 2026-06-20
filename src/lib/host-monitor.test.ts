@@ -10,16 +10,14 @@ import {
 } from './host-monitor'
 
 describe('host monitor helpers', () => {
-  it('builds a Glances API URL from HOST_MONITOR_URL and HOST_MONITOR_PORT style values', () => {
-    expect(hostMonitorConfig({ url: 'http://homestation.local', port: '61208' })).toEqual({
-      baseUrl: 'http://homestation.local:61208',
-      metricsUrl: 'http://homestation.local:61208/api/4',
+  it('builds a Glances API URL from a full HOST_MONITOR_URL value', () => {
+    expect(hostMonitorConfig({ url: 'http://homestation:61208' })).toEqual({
+      baseUrl: 'http://homestation:61208',
+      metricsUrl: 'http://homestation:61208/api/4',
       port: '61208'
     })
 
-    expect(hostMonitorConfig({ url: 'http://127.0.0.1:9999', port: '61208' }).metricsUrl).toBe(
-      'http://127.0.0.1:9999/api/4'
-    )
+    expect(hostMonitorConfig({ url: 'http://homestation:61208/' }).metricsUrl).toBe('http://homestation:61208/api/4')
   })
 
   it('normalizes Glances API payloads into the UI contract', () => {
