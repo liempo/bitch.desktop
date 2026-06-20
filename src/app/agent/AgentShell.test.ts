@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import agentShellSource from './AgentShell.svelte?raw'
 import previewSidebarSource from './preview/AgentPreviewSidebar.svelte?raw'
+import composerSource from '../components/composer/Composer.svelte?raw'
+import threadSource from '../components/thread/Thread.svelte?raw'
 import sidebarSource from './session-sidebar/AgentSessionSidebar.svelte?raw'
 
 function countOccurrences(source: string, needle: string): number {
@@ -38,10 +40,25 @@ describe('AgentShell resizable panel source contract', () => {
     expect(agentShellSource).toContain('<AgentPreviewSidebar preview={activePreview} width={previewPanelWidth}')
   })
 
-  it('keeps mobile panels full-width while applying desktop CSS variable widths', () => {
-    expect(sidebarSource).toContain('--agent-sidebar-width')
-    expect(sidebarSource).toContain('md:w-(--agent-sidebar-width)')
-    expect(previewSidebarSource).toContain('--agent-preview-width')
-    expect(previewSidebarSource).toContain('md:w-(--agent-preview-width)')
+  it('hides session and preview sidebars on mobile while preserving desktop widths', () => {
+    expect(sidebarSource).toContain('hidden h-64 w-full')
+    expect(sidebarSource).toContain('md:flex md:h-full md:w-(--agent-sidebar-width)')
+    expect(previewSidebarSource).toContain('hidden min-h-0 w-full')
+    expect(previewSidebarSource).toContain('md:block md:w-(--agent-preview-width)')
+  })
+
+  it('uses a mobile session picker dialog and responsive compact thread/composer chrome', () => {
+    expect(agentShellSource).toContain('md:hidden')
+    expect(agentShellSource).toContain('openSessionSelector')
+    expect(agentShellSource).toContain('title="Select AGENT Session"')
+    expect(agentShellSource).toContain('selectSession')
+    expect(agentShellSource).toContain('<Thread responsiveCompact')
+    expect(agentShellSource).toContain('<Composer')
+    expect(agentShellSource).toContain('responsiveCompact')
+    expect(composerSource).toContain('responsiveCompact?: boolean')
+    expect(composerSource).toContain('md:bg-transparent md:p-3')
+    expect(composerSource).toContain('hidden h-5 w-5 items-center')
+    expect(threadSource).toContain('responsiveCompact?: boolean')
+    expect(threadSource).toContain('md:bg-chat-scroll/40')
   })
 })

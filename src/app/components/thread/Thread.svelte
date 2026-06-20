@@ -14,11 +14,12 @@
 
   interface Props {
     compact?: boolean
+    responsiveCompact?: boolean
     onOpenPreview?: (preview: ThreadPreview) => void
     sessionId?: null | string
   }
 
-  let { compact = false, onOpenPreview, sessionId = null }: Props = $props()
+  let { compact = false, responsiveCompact = false, onOpenPreview, sessionId = null }: Props = $props()
 
   let scrollElement: HTMLElement | null = $state(null)
   let stickToBottom = $state(true)
@@ -33,14 +34,28 @@
       (thread?.loading || sessionState.resumingSessionId === sessionId)
   )
 
-  const sectionClass = $derived(compact ? 'flex-1 overflow-y-auto bg-chat-scroll/30' : 'flex-1 overflow-y-auto bg-chat-scroll/40')
+  const sectionClass = $derived(
+    compact
+      ? 'flex-1 overflow-y-auto bg-chat-scroll/30'
+      : responsiveCompact
+        ? 'flex-1 overflow-y-auto bg-chat-scroll/30 md:bg-chat-scroll/40'
+        : 'flex-1 overflow-y-auto bg-chat-scroll/40'
+  )
   const emptyStateClass = $derived(
-    compact ? 'flex min-h-full items-center justify-center px-3 py-6' : 'flex min-h-full items-center justify-center px-6 py-16'
+    compact
+      ? 'flex min-h-full items-center justify-center px-3 py-6'
+      : responsiveCompact
+        ? 'flex min-h-full items-center justify-center px-3 py-6 md:px-6 md:py-16'
+        : 'flex min-h-full items-center justify-center px-6 py-16'
   )
   const logoClass = $derived(
-    compact ? 'h-16 w-16 rounded-panel bg-black object-contain opacity-90' : 'h-28 w-28 rounded-panel bg-black object-contain opacity-90'
+    compact
+      ? 'h-16 w-16 rounded-panel bg-black object-contain opacity-90'
+      : responsiveCompact
+        ? 'h-16 w-16 rounded-panel bg-black object-contain opacity-90 md:h-28 md:w-28'
+        : 'h-28 w-28 rounded-panel bg-black object-contain opacity-90'
   )
-  const transcriptClass = $derived(compact ? 'py-2' : 'py-4')
+  const transcriptClass = $derived(compact ? 'py-2' : responsiveCompact ? 'py-2 md:py-4' : 'py-4')
 
   const scrollSignature = $derived(
     messages
@@ -112,7 +127,7 @@
     </div>
   {:else if loadingSession}
     <div class={emptyStateClass}>
-      <Loader size={compact ? 'md' : 'xl'} label="Loading session" />
+      <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
     </div>
   {:else if resumeExhausted}
     <div class={emptyStateClass}>

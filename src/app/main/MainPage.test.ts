@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import dashboardSource from './dashboard.ts?raw'
-import composerSource from '../components/composer/Composer.svelte?raw'
-import mainAgentPanelSource from './MainAgentPanel.svelte?raw'
 import mainPageSource from './MainPage.svelte?raw'
 import mainRenderPanelSource from './MainRenderPanel.svelte?raw'
 import mainRenderSceneSource from './MainRenderScene.svelte?raw'
 import hostMonitorSource from '$lib/host-monitor.ts?raw'
 
 describe('Main dashboard source contract', () => {
-  it('renders hardware, process, and AGENT sections without dashboard header/footer chrome', () => {
+  it('renders hardware, process, and AGENT-link sections without dashboard header/footer chrome', () => {
     expect(mainPageSource).toContain('recentDashboardSessions')
     expect(mainPageSource).toContain('fetchHostMetrics')
     expect(mainPageSource).toContain('hostMonitorConfig')
@@ -41,13 +39,15 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('processSortVariant')
     expect(mainPageSource).not.toContain("onclick={() => (processSortKey = 'cpu')}")
     expect(mainPageSource).not.toContain("onclick={() => (processSortKey = 'memory')}")
-    expect(mainPageSource).toContain('grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]')
-    expect(mainPageSource).toContain('grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]')
+    expect(mainPageSource).toContain('grid-cols-1')
+    expect(mainPageSource).toContain('md:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]')
+    expect(mainPageSource).toContain('md:grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]')
     expect(mainPageSource).toContain('min-h-56 flex-1')
     expect(mainPageSource).not.toContain('badge={monitorStatus}')
     expect(mainPageSource).not.toContain('monitorStatus')
-    expect(mainPageSource).toMatch(/title="HARDWARE"[\s\S]*title="PROCESS"[\s\S]*MainAgentPanel/)
-    expect(mainAgentPanelSource).toContain('title="AGENT"')
+    expect(mainPageSource).toMatch(/title="HARDWARE"[\s\S]*title="PROCESS"[\s\S]*title="AGENT"/)
+    expect(mainPageSource).toContain('badge="link"')
+    expect(mainPageSource).not.toContain('MainAgentPanel')
     expect(mainPageSource).toContain('aria-label="Process"')
     expect(mainPageSource).not.toContain('grid-rows-[minmax(0,0.72fr)_minmax(0,1.28fr)]')
     expect(mainPageSource).not.toContain('PROCESS_LIST')
@@ -98,31 +98,16 @@ describe('Main dashboard source contract', () => {
     )
   })
 
-  it('embeds a compact AGENT thread and composer with a selector dialog plus full AGENT link', () => {
-    expect(mainAgentPanelSource).toContain("import Composer from '../components/composer/Composer.svelte'")
-    expect(mainAgentPanelSource).toContain("import Thread from '../components/thread/Thread.svelte'")
-    expect(mainAgentPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
-    expect(mainAgentPanelSource).toContain("import Dialog from '@/app/components/ui/Dialog.svelte'")
-    expect(mainAgentPanelSource).toContain("import { agentRoute } from '../router.svelte'")
-    expect(mainAgentPanelSource).toContain('resumeAndHydrateStoredSession')
-    expect(mainAgentPanelSource).toContain("type MiniSessionMode = 'active' | 'new'")
-    expect(mainAgentPanelSource).toContain('title="AGENT"')
-    expect(mainAgentPanelSource).toContain('href={agentHref}')
-    expect(mainAgentPanelSource).toContain('aria-label="Open current chat in AGENT"')
-    expect(mainAgentPanelSource).toContain('d="M7 17 17 7M9 7h8v8"')
-    expect(mainAgentPanelSource).not.toContain('>OPEN<')
-    expect(mainAgentPanelSource).toContain('aria-haspopup="dialog"')
-    expect(mainAgentPanelSource).toContain('SESSION')
-    expect(mainAgentPanelSource).not.toContain('SELECT')
-    expect(mainAgentPanelSource).toContain('title="Select AGENT Session"')
-    expect(mainAgentPanelSource).toContain('New session')
-    expect(mainAgentPanelSource).toContain('startNewSession({ commitRoute: false })')
-    expect(mainAgentPanelSource).toContain('compact')
-    expect(mainAgentPanelSource).toContain('commitRoute={false}')
-    expect(composerSource).toContain("compact ? 'shrink-0 bg-surface-raised/35 p-2' : 'p-3'")
-    expect(composerSource).not.toContain("compact ? 'shrink-0 border-t border-line")
-    expect(mainAgentPanelSource).not.toContain('selectSession(')
-    expect(mainAgentPanelSource).not.toContain('aria-pressed')
+  it('links to the full AGENT tab instead of embedding a dashboard agent panel', () => {
+    expect(mainPageSource).toContain("import { agentRoute } from '../router.svelte'")
+    expect(mainPageSource).toContain('const agentHref')
+    expect(mainPageSource).toContain('href={agentHref}')
+    expect(mainPageSource).toContain('aria-label="Open AGENT tab"')
+    expect(mainPageSource).toContain('Open AGENT')
+    expect(mainPageSource).toContain('Main stays telemetry-first on mobile')
+    expect(mainPageSource).not.toContain('Thread compact')
+    expect(mainPageSource).not.toContain('<Composer')
+    expect(mainPageSource).not.toContain('resumeAndHydrateStoredSession')
   })
 
   it('renders Calendar, Cron, and Kanban dashboard panels while only Cron/Kanban remain planned', () => {

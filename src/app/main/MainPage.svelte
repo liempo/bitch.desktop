@@ -19,12 +19,12 @@
     type HostProcessSortKey
   } from '$lib/host-monitor'
   import MainRenderPanel from './MainRenderPanel.svelte'
-  import MainAgentPanel from './MainAgentPanel.svelte'
+  import { agentRoute } from '../router.svelte'
   import { recentDashboardSessions } from './dashboard'
 
   type ThermalZone = HostMetrics['thermal'][number]
 
-  const dashboardPanelClass = 'min-h-0 border-line bg-surface transition-colors hover:border-line-strong'
+  const dashboardPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong md:h-full'
   const dashboardPanelTitleClass = 'text-ink-muted'
   const raisedPanelClass = 'min-h-0 !border-line !bg-surface-raised'
   const placeholderPanels = [
@@ -60,6 +60,7 @@
   const connectionState = $derived(gatewayState.connectionState)
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
   const miniSessionFallbackId = $derived(recentSessions[0]?.id ?? null)
+  const agentHref = $derived(`#${agentRoute(miniSessionFallbackId)}`)
   const cpuThermal = $derived(findThermalZone(/cpu|package|pkg|core|tctl|tdie/i) ?? hostMetrics.thermal[0] ?? null)
   const processRows = $derived(
     sortHostProcesses(hostMetrics.processes, processSortKey, processSortDirection).slice(0, 12)
@@ -192,9 +193,9 @@
 
 </script>
 
-<section class="h-full min-h-0 overflow-hidden bg-canvas p-3 font-mono text-[11px] text-ink" aria-label="Main dashboard">
-  <div class="grid h-full min-h-0 grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)] gap-3">
-    <section class="grid min-h-0 grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)] gap-3">
+<section class="h-full min-h-0 overflow-y-auto bg-canvas p-3 font-mono text-[11px] text-ink md:overflow-hidden" aria-label="Main dashboard">
+  <div class="grid min-h-full grid-cols-1 gap-3 md:h-full md:min-h-0 md:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+    <section class="grid gap-3 md:min-h-0 md:grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
       <Panel
         title="HARDWARE"
         class={dashboardPanelClass}
@@ -302,9 +303,28 @@
       </Panel>
     </section>
 
-    <MainAgentPanel fallbackSessionId={miniSessionFallbackId} />
-
-    <section class="grid min-h-0 grid-rows-[0.8fr_0.8fr_0.95fr] gap-3">
+    <section class="grid gap-3 md:min-h-0 md:grid-rows-[auto_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
+      <Panel
+        fullHeight={false}
+        title="AGENT"
+        badge="link"
+        class={dashboardPanelClass}
+        contentClass="grid gap-3 p-3"
+        titleClass={dashboardPanelTitleClass}
+      >
+        <div class="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-primary">Agent workspace moved to AGENT</div>
+        <div class="text-[0.68rem] leading-4 text-ink-muted">
+          Main stays telemetry-first on mobile. Open the AGENT tab for the live thread and composer.
+        </div>
+        <a
+          class="inline-flex w-fit items-center gap-2 rounded-control border border-primary/40 bg-primary/10 px-3 py-2 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-primary transition-colors hover:border-primary hover:bg-primary/15 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+          href={agentHref}
+          aria-label="Open AGENT tab"
+        >
+          Open AGENT
+          <span aria-hidden="true">→</span>
+        </a>
+      </Panel>
       {#each placeholderPanels as placeholder (placeholder.title)}
         <Panel
           fullHeight={false}

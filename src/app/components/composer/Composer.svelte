@@ -55,6 +55,7 @@
     connected?: boolean
     onToggleSidebar?: () => void
     profileName?: null | string
+    responsiveCompact?: boolean
     sidebarOpen?: boolean
     sessionId?: null | string
     sessionTitle?: string
@@ -71,6 +72,7 @@
     connected = false,
     onToggleSidebar,
     profileName = 'default',
+    responsiveCompact = false,
     sidebarOpen = true,
     sessionId = null,
     sessionTitle = 'New session'
@@ -140,21 +142,35 @@
   const suggestionCardClass = `${cardClass} mb-2 border-primary/30 !bg-primary/5 p-2`
   const queueItemClass = `${terminalClass} flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink`
   const attachmentCardClass = `${cardClass} flex items-center gap-2 p-1.5 pr-2 text-xs text-ink`
-  const composerShellClass = $derived(compact ? 'shrink-0 bg-surface-raised/35 p-2' : 'p-3')
-  const composerInnerClass = $derived(compact ? 'w-full' : 'mx-auto max-w-5xl')
-  const composerFrameClass = $derived(compact ? 'mt-0' : 'mt-3')
-  const composerPanelClass = $derived(compact ? 'border-line bg-input' : '')
+  const composerShellClass = $derived(
+    compact
+      ? 'shrink-0 bg-surface-raised/35 p-2'
+      : responsiveCompact
+        ? 'shrink-0 bg-surface-raised/35 p-2 md:bg-transparent md:p-3'
+        : 'p-3'
+  )
+  const composerInnerClass = $derived(compact ? 'w-full' : responsiveCompact ? 'w-full md:mx-auto md:max-w-5xl' : 'mx-auto max-w-5xl')
+  const composerFrameClass = $derived(compact ? 'mt-0' : responsiveCompact ? 'mt-0 md:mt-3' : 'mt-3')
+  const composerPanelClass = $derived(compact ? 'border-line bg-input' : responsiveCompact ? 'border-line bg-input md:bg-surface' : '')
   const composerTextareaClass = $derived(
     `${textareaClass} border-0 !bg-transparent text-ink-bright placeholder:text-ink-muted/70 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 ${
-      compact ? 'max-h-32 min-h-14 px-3 pt-2 pb-1 text-[0.76rem] leading-5' : 'max-h-55 min-h-24 px-4 pt-3 pb-2 text-sm leading-6'
+      compact
+        ? 'max-h-32 min-h-14 px-3 pt-2 pb-1 text-[0.76rem] leading-5'
+        : responsiveCompact
+          ? 'max-h-32 min-h-14 px-3 pt-2 pb-1 text-[0.76rem] leading-5 md:max-h-55 md:min-h-24 md:px-4 md:pt-3 md:pb-2 md:text-sm md:leading-6'
+          : 'max-h-55 min-h-24 px-4 pt-3 pb-2 text-sm leading-6'
     }`
   )
   const composerControlsClass = $derived(
     compact
       ? 'flex min-h-10 flex-wrap items-center justify-between gap-2 px-2 py-1.5'
-      : 'flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2'
+      : responsiveCompact
+        ? 'flex min-h-10 flex-wrap items-center justify-between gap-2 px-2 py-1.5 md:min-h-12 md:px-3 md:py-2'
+        : 'flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2'
   )
-  const composerErrorClass = $derived(compact ? 'max-w-44 truncate text-[0.65rem]' : 'max-w-60 truncate text-xs')
+  const composerErrorClass = $derived(
+    compact ? 'max-w-44 truncate text-[0.65rem]' : responsiveCompact ? 'max-w-44 truncate text-[0.65rem] md:max-w-60 md:text-xs' : 'max-w-60 truncate text-xs'
+  )
   const profileTriggerClass = [
     'font-mono text-[11px] font-bold uppercase tracking-[0.05em]',
     'text-ink-muted hover:text-ink-bright',
@@ -431,7 +447,7 @@
           {#if onToggleSidebar}
             <Button
               variant="unstyled"
-              class="flex h-5 w-5 items-center justify-center p-0 text-ink-muted hover:text-ink-bright"
+              class="hidden h-5 w-5 items-center justify-center p-0 text-ink-muted hover:text-ink-bright md:flex"
               onclick={onToggleSidebar}
               aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
               title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
@@ -485,7 +501,7 @@
             class={composerTextareaClass}
             bind:this={textareaElement}
             value={composer.draft}
-            rows={compact ? 2 : 4}
+            rows={compact || responsiveCompact ? 2 : 4}
             placeholder={connected ? 'type prompt :: Enter sends / Shift+Enter inserts newline' : 'link_down :: connect to Hermes gateway before typing'}
             disabled={!connected}
             oninput={handleDraftInput}
@@ -570,7 +586,7 @@
               <Button
                 chrome="ghost"
                 variant="primary"
-                size={compact ? 'sm' : 'md'}
+                size={compact || responsiveCompact ? 'sm' : 'md'}
                 onclick={() => void handleSubmit()}
                 disabled={!canSubmit}
               >

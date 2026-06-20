@@ -134,7 +134,7 @@
 </script>
 
 <aside
-  class="box-border flex h-64 w-full shrink-0 flex-col pb-3 pl-3 pt-3 md:h-full md:w-(--agent-sidebar-width)"
+  class="box-border hidden h-64 w-full shrink-0 flex-col pb-3 pl-3 pt-3 md:flex md:h-full md:w-(--agent-sidebar-width)"
   style={sidebarStyle}
   aria-label="Session index"
 >
