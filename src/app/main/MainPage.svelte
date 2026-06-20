@@ -19,6 +19,7 @@
     type HostProcessSortKey
   } from '$lib/host-monitor'
   import MainRenderPanel from './MainRenderPanel.svelte'
+  import MainAgentPanel from './MainAgentPanel.svelte'
   import { agentRoute } from '../router.svelte'
   import { recentDashboardSessions } from './dashboard'
 
@@ -194,7 +195,7 @@
 </script>
 
 <section class="h-full min-h-0 overflow-y-auto bg-canvas p-3 font-mono text-[11px] text-ink md:overflow-hidden" aria-label="Main dashboard">
-  <div class="grid min-h-full grid-cols-1 gap-3 md:h-full md:min-h-0 md:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+  <div class="grid min-h-full grid-cols-1 gap-3 md:h-full md:min-h-0 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]">
     <section class="grid gap-3 md:min-h-0 md:grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
       <Panel
         title="HARDWARE"
@@ -303,12 +304,16 @@
       </Panel>
     </section>
 
-    <section class="grid gap-3 md:min-h-0 md:grid-rows-[auto_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
+    <div class="hidden h-full min-h-0 md:block">
+      <MainAgentPanel fallbackSessionId={miniSessionFallbackId} />
+    </div>
+
+    <section class="grid gap-3 md:min-h-0 md:grid-rows-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
       <Panel
         fullHeight={false}
         title="AGENT"
         badge="link"
-        class={dashboardPanelClass}
+        class={`${dashboardPanelClass} md:hidden`}
         contentClass="grid gap-3 p-3"
         titleClass={dashboardPanelTitleClass}
       >
