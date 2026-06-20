@@ -12,7 +12,9 @@ import {
   addKanbanComment,
   getKanbanBoard,
   getKanbanTask,
+  kanbanDisplayStatus,
   listKanbanBoards,
+  normalizeKanbanBoardColumns,
   updateKanbanTaskStatus
 } from '$lib/api/kanban'
 
@@ -37,9 +39,28 @@ describe('Kanban dashboard API client', () => {
   })
 
   it('loads a board with board and tenant filters preserved in the query string', async () => {
-    mockInvoke.mockResolvedValueOnce({ columns: [], tenants: ['bitch'], assignees: [], latest_event_id: 9, now: 10 })
+    mockInvoke.mockResolvedValueOnce({
+      columns: [
+        { name: 'blocked', tasks: [{ id: 't_blocked', status: 'blocked', title: 'Blocked' }] },
+        { name: 'review', tasks: [{ id: 't_review', status: 'review', title: 'Waiting PR' }] }
+      ],
+      tenants: ['bitch'],
+      assignees: [],
+      latest_event_id: 9,
+      now: 10
+    })
 
-    await getKanbanBoard({ board: 'homelab', tenant: 'bitch', profile: 'default' })
+    await expect(getKanbanBoard({ board: 'homelab', tenant: 'bitch', profile: 'default' })).resolves.toMatchObject({
+      columns: [
+        {
+          name: 'blocked',
+          tasks: [
+            { id: 't_blocked', status: 'blocked' },
+            { id: 't_review', status: 'blocked' }
+          ]
+        }
+      ]
+    })
 
     expect(mockInvoke).toHaveBeenCalledWith('dashboard_request', {
       request: {
@@ -49,6 +70,14 @@ describe('Kanban dashboard API client', () => {
         profile: 'default'
       }
     })
+  })
+
+  it('collapses review wire status into the blocked desktop lane', () => {
+    expect(kanbanDisplayStatus('review')).toBe('blocked')
+    expect(kanbanDisplayStatus('done')).toBe('done')
+    expect(
+      normalizeKanbanBoardColumns([{ name: 'review', tasks: [{ id: 't_1', status: 'review', title: 'PR waiting' }] }])
+    ).toEqual([{ name: 'blocked', tasks: [{ id: 't_1', status: 'blocked', title: 'PR waiting' }] }])
   })
 
   it('loads task detail without dropping board, tenant, or profile context', async () => {

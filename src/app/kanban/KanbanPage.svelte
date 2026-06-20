@@ -7,6 +7,7 @@
     addKanbanComment,
     getKanbanBoard,
     getKanbanTask,
+    kanbanDisplayStatus,
     listKanbanBoards,
     updateKanbanTaskStatus,
     type KanbanBoardMeta,
@@ -19,7 +20,7 @@
   import { messageForError } from '$lib/errors'
   import { ensureGatewayProfile, profileState } from '$lib/stores/profile.svelte'
 
-  const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'blocked', 'review', 'done', 'archived'])
+  const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'blocked', 'done', 'archived'])
   const COLUMN_LABELS: Record<string, string> = {
     triage: 'Triage',
     todo: 'Todo',
@@ -27,7 +28,6 @@
     ready: 'Ready',
     running: 'Running',
     blocked: 'Blocked',
-    review: 'Review',
     done: 'Done',
     archived: 'Archived'
   }
@@ -69,17 +69,16 @@
   })
 
   function statusLabel(status: string): string {
-    return COLUMN_LABELS[status] ?? status.replace(/[_-]/g, ' ')
+    const displayStatus = kanbanDisplayStatus(status)
+    return COLUMN_LABELS[displayStatus] ?? String(displayStatus).replace(/[_-]/g, ' ')
   }
 
   function statusTone(status: string): string {
-    switch (status) {
+    switch (kanbanDisplayStatus(status)) {
       case 'running':
         return 'border-primary/40 bg-primary/10 text-primary'
       case 'blocked':
         return 'border-danger/40 bg-danger/10 text-danger'
-      case 'review':
-        return 'border-warning/40 bg-warning/10 text-warning'
       case 'done':
         return 'border-success/40 bg-success/10 text-success'
       case 'scheduled':
@@ -97,12 +96,12 @@
   }
 
   function markerForTask(task: KanbanTask): string {
-    if (task.status === 'running') {
+    const displayStatus = kanbanDisplayStatus(task.status)
+    if (displayStatus === 'running') {
       const stale = typeof task.last_heartbeat_at === 'number' && boardNow > 0 && boardNow - task.last_heartbeat_at > 60 * 60
       return stale ? 'stale worker' : 'in progress'
     }
-    if (task.status === 'blocked') return 'blocked'
-    if (task.status === 'review') return 'review'
+    if (displayStatus === 'blocked') return 'blocked'
     if (task.warnings?.count) return `${task.warnings.count} diagnostics`
     if (task.progress) return `${task.progress.done}/${task.progress.total} children`
     return ''
@@ -111,7 +110,7 @@
   function markerClass(task: KanbanTask): string {
     const marker = markerForTask(task)
     if (marker.includes('stale') || marker === 'blocked') return 'border-danger/40 bg-danger/10 text-danger'
-    if (marker === 'review' || marker.includes('diagnostics')) return 'border-warning/40 bg-warning/10 text-warning'
+    if (marker.includes('diagnostics')) return 'border-warning/40 bg-warning/10 text-warning'
     if (marker === 'in progress') return 'border-primary/40 bg-primary/10 text-primary'
     return 'border-line bg-canvas text-ink-muted'
   }

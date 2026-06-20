@@ -34,6 +34,13 @@ describe('Kanban top-level route', () => {
     expect(kanbanPageSource).toContain('Activity')
   })
 
+  it('collapses Review into Blocked instead of exposing a separate review lane', () => {
+    expect(kanbanPageSource).toContain('kanbanDisplayStatus')
+    expect(kanbanPageSource).not.toContain("review: 'Review'")
+    expect(kanbanPageSource).not.toContain("'review', 'done'")
+    expect(kanbanPageSource).not.toContain("marker === 'review'")
+  })
+
   it('preserves board, tenant, and profile context for detail and mutations', () => {
     expect(kanbanPageSource).toContain(
       'getKanbanTask(selectedTaskId, { board: selectedBoard, profile: profileContext(), tenant: tenantFilter || null })'
