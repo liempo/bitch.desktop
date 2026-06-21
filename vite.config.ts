@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      __HOST_MONITOR_URL__: JSON.stringify(env.HOST_MONITOR_URL ?? 'http://homestation:61208')
+      __HOST_MONITOR_URL__: JSON.stringify(env.HOST_MONITOR_URL ?? 'http://homestation:8090')
     },
     clearScreen: false,
     server: {

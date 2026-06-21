@@ -71,22 +71,12 @@ interface HostMonitorEnv {
 
 declare const __HOST_MONITOR_URL__: string | undefined
 
-const DEFAULT_HOST_MONITOR_URL = 'http://homestation:61208'
+const DEFAULT_HOST_MONITOR_URL = 'http://homestation:8090'
+const GIB = 1024 ** 3
 
-const GLANCES_ENDPOINTS = {
-  cpu: '/cpu',
-  fs: '/fs',
-  load: '/load',
-  mem: '/mem',
-  memswap: '/memswap',
-  percpu: '/percpu',
-  processcount: '/processcount',
-  processlist: '/processlist',
-  quicklook: '/quicklook',
-  sensors: '/sensors',
-  status: '/status',
-  system: '/system',
-  uptime: '/uptime'
+const BESZEL_COLLECTIONS = {
+  systems: 'systems',
+  systemStats: 'system_stats'
 } as const
 
 export const EMPTY_HOST_METRICS: HostMetrics = {
@@ -116,7 +106,7 @@ export const EMPTY_HOST_METRICS: HostMetrics = {
   thermal: [],
   timestamp: '',
   uptimeSeconds: 0,
-  version: 'glances'
+  version: 'beszel'
 }
 
 function clean(value: string | undefined): string {
@@ -140,7 +130,7 @@ export function hostMonitorConfig(env: HostMonitorEnv = {}): HostMonitorConfig {
   const parsedUrl = new URL(baseUrl)
   return {
     baseUrl,
-    metricsUrl: `${baseUrl}/api/4`,
+    metricsUrl: `${baseUrl}/api/collections`,
     port: urlPort(parsedUrl)
   }
 }
@@ -190,7 +180,16 @@ function average(values: number[]): number {
 
 function percentFromPerCpu(value: unknown): number[] {
   if (!Array.isArray(value)) return []
-  return value.map(item => numberValue(asRecord(item).total)).filter(Number.isFinite)
+  return value.map(item => numberValue(asRecord(item).total, numberValue(item, Number.NaN))).filter(Number.isFinite)
+}
+
+function bytesFromGib(value: unknown): number {
+  const parsed = numberValue(value)
+  return parsed > 0 ? parsed * GIB : 0
+}
+
+function percentFromUsed(total: number, used: number): number {
+  return total > 0 && used >= 0 ? (used / total) * 100 : 0
 }
 
 function sensorUnit(value: unknown): string {
@@ -226,6 +225,11 @@ function isThermalSensor(sensor: Record<string, unknown>, fallback: string): boo
 }
 
 function collectThermalSensors(value: unknown, fallback = 'thermal'): HostThermalZone[] {
+  const numeric = numberValue(value, Number.NaN)
+  if (fallback !== 'thermal' && Number.isFinite(numeric) && numeric > 0) {
+    return [{ celsius: numeric, label: fallback }]
+  }
+
   if (Array.isArray(value))
     return value.flatMap((item, index) => collectThermalSensors(item, `${fallback} ${index + 1}`))
 
@@ -329,7 +333,7 @@ function memoryInfoBytes(value: unknown): number {
 }
 
 function normalizeProcessList(value: unknown, memoryTotalBytes: number): HostProcessMetrics[] {
-  return arrayFromPayload(value, ['processlist', 'processes'])
+  return arrayFromPayload(value, ['processes'])
     .map(item => {
       const process = asRecord(item)
       const pid = numberValue(process.pid)
@@ -359,8 +363,70 @@ function normalizeProcessList(value: unknown, memoryTotalBytes: number): HostPro
     .filter(process => process.pid > 0 || process.name !== 'process' || process.command !== 'process')
 }
 
-export function normalizeHostMetrics(value: unknown): HostMetrics {
-  const input = asRecord(value)
+function isBeszelPayload(input: Record<string, unknown>): boolean {
+  const system = asRecord(input.system)
+  const statsRecord = asRecord(input.statsRecord ?? input.systemStats)
+  return Object.keys(system).length > 0 || Object.keys(statsRecord).length > 0 || input.stats !== undefined
+}
+
+function osLabel(value: unknown): string {
+  if (typeof value === 'string' && value.trim()) return value
+  const labels = ['Linux', 'macOS', 'Windows', 'FreeBSD']
+  return labels[numberValue(value, -1)] ?? 'unknown'
+}
+
+function normalizeBeszelHostMetrics(input: Record<string, unknown>): HostMetrics {
+  const system = asRecord(input.system)
+  const info = asRecord(system.info)
+  const details = asRecord(input.details)
+  const statsRecord = asRecord(input.statsRecord ?? input.systemStats)
+  const stats = asRecord(statsRecord.stats ?? input.stats)
+  const perCorePercent = numberArray(stats.cpus)
+  const memoryTotal = bytesFromGib(stats.m)
+  const memoryUsed = bytesFromGib(stats.mu)
+  const swapTotal = bytesFromGib(stats.s)
+  const swapUsed = bytesFromGib(stats.su)
+  const agentVersion = stringValue(info.v, stringValue(system.v, ''))
+  const temperatureMap = Object.keys(asRecord(stats.t)).length ? stats.t : info.dt ? { temp: info.dt } : undefined
+
+  return {
+    cpu: {
+      cores: numberValue(details.cores, numberValue(info.c, perCorePercent.length)),
+      loadAverage: numberArray(stats.la).length ? numberArray(stats.la) : numberArray(info.la),
+      model: stringValue(details.cpu, stringValue(info.m, 'unknown')),
+      perCorePercent,
+      usagePercent: numberValue(stats.cpu, numberValue(info.cpu))
+    },
+    disk: {
+      usedPercent: numberValue(stats.dp, numberValue(info.dp))
+    },
+    hostname: stringValue(
+      details.hostname,
+      stringValue(info.h, stringValue(system.name, stringValue(system.host, 'unknown')))
+    ),
+    memory: {
+      availableBytes: Math.max(0, memoryTotal - memoryUsed),
+      swapTotalBytes: swapTotal,
+      swapUsedBytes: swapUsed,
+      swapUsedPercent: numberValue(stats.sp, percentFromUsed(swapTotal, swapUsed)),
+      totalBytes: memoryTotal || bytesFromGib(details.memory),
+      usedBytes: memoryUsed,
+      usedPercent: numberValue(stats.mp, numberValue(info.mp))
+    },
+    platform: osLabel(details.os_name ?? info.o ?? info.os),
+    processCount: 0,
+    processes: [],
+    thermal: thermalArray(temperatureMap),
+    timestamp: stringValue(
+      statsRecord.created,
+      stringValue(system.updated, stringValue(input.now, new Date().toISOString()))
+    ),
+    uptimeSeconds: numberValue(info.u, numberValue(input.uptimeSeconds)),
+    version: agentVersion ? `beszel ${agentVersion}` : 'beszel'
+  }
+}
+
+function normalizeLegacyHostMetrics(input: Record<string, unknown>): HostMetrics {
   const quicklook = asRecord(input.quicklook)
   const cpu = asRecord(input.cpu)
   const memory = asRecord(input.mem ?? input.memory)
@@ -383,10 +449,7 @@ export function normalizeHostMetrics(value: unknown): HostMetrics {
   const memoryUsed = numberValue(memory.used)
   const memoryAvailable = numberValue(memory.available, Math.max(0, memoryTotal - memoryUsed))
   const disk = normalizeDisk(input.fs ?? input.disk ?? input.filesystems)
-  const processes = normalizeProcessList(
-    input.processlist ?? input.processes,
-    memoryTotal || numberValue(memory.totalBytes)
-  )
+  const processes = normalizeProcessList(input.processes, memoryTotal || numberValue(memory.totalBytes))
 
   return {
     cpu: {
@@ -413,67 +476,88 @@ export function normalizeHostMetrics(value: unknown): HostMetrics {
     thermal: thermalArray(input.sensors ?? input.thermal),
     timestamp: stringValue(input.now, new Date().toISOString()),
     uptimeSeconds: parseUptimeSeconds(input.uptime ?? input.uptimeSeconds),
-    version: stringValue(status.version, stringValue(input.version, 'glances'))
+    version: stringValue(status.version, stringValue(input.version, 'legacy'))
   }
 }
 
-async function fetchJson(config: HostMonitorConfig, path: string, fetcher: typeof fetch): Promise<unknown> {
-  const response = await fetcher(`${config.metricsUrl}${path}`, { cache: 'no-store' })
+export function normalizeHostMetrics(value: unknown): HostMetrics {
+  const input = asRecord(value)
+  return isBeszelPayload(input) ? normalizeBeszelHostMetrics(input) : normalizeLegacyHostMetrics(input)
+}
+
+function collectionRecordsUrl(config: HostMonitorConfig, collection: string, params: Record<string, string>): string {
+  const url = new URL(`${config.metricsUrl}/${collection}/records`)
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value)
+  }
+  return url.toString()
+}
+
+async function fetchJson(url: string, fetcher: typeof fetch): Promise<unknown> {
+  const response = await fetcher(url, { cache: 'no-store' })
   if (!response.ok) {
-    throw new Error(`Glances host monitor returned HTTP ${response.status} for ${path}`)
+    throw new Error(`Beszel host monitor returned HTTP ${response.status} for ${new URL(url).pathname}`)
   }
   return response.json()
 }
 
-async function fetchOptionalJson(
+function pocketBaseItems(value: unknown): unknown[] {
+  const payload = asRecord(value)
+  return Array.isArray(payload.items) ? payload.items : []
+}
+
+async function fetchCollectionRecords(
   config: HostMonitorConfig,
-  path: string,
-  fetcher: typeof fetch,
-  fallback: unknown
-): Promise<unknown> {
-  try {
-    return await fetchJson(config, path, fetcher)
-  } catch {
-    return fallback
-  }
+  collection: string,
+  params: Record<string, string>,
+  fetcher: typeof fetch
+): Promise<unknown[]> {
+  const url = collectionRecordsUrl(config, collection, params)
+  return pocketBaseItems(await fetchJson(url, fetcher))
 }
 
 export async function fetchHostMetrics(
   config: HostMonitorConfig = hostMonitorConfig(),
   fetcher: typeof fetch = fetch
 ): Promise<HostMetrics> {
-  const [cpu, fs, mem, memswap, percpu, load, system, uptime, processcount, processlist, sensors, quicklook, status] =
-    await Promise.all([
-      fetchJson(config, GLANCES_ENDPOINTS.cpu, fetcher),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.fs, fetcher, []),
-      fetchJson(config, GLANCES_ENDPOINTS.mem, fetcher),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.memswap, fetcher, {}),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.percpu, fetcher, []),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.load, fetcher, {}),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.system, fetcher, {}),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.uptime, fetcher, ''),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.processcount, fetcher, {}),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.processlist, fetcher, []),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.sensors, fetcher, []),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.quicklook, fetcher, {}),
-      fetchOptionalJson(config, GLANCES_ENDPOINTS.status, fetcher, {})
-    ])
+  let systems = await fetchCollectionRecords(
+    config,
+    BESZEL_COLLECTIONS.systems,
+    { filter: 'status="up"', perPage: '1', sort: '-updated' },
+    fetcher
+  )
+
+  if (!systems.length) {
+    systems = await fetchCollectionRecords(
+      config,
+      BESZEL_COLLECTIONS.systems,
+      { perPage: '1', sort: '-updated' },
+      fetcher
+    )
+  }
+
+  const system = systems[0]
+  const systemId = stringValue(asRecord(system).id, '')
+  if (!system || !systemId) {
+    throw new Error('Beszel host monitor did not return any systems')
+  }
+
+  let statsRecords: unknown[] = []
+  try {
+    statsRecords = await fetchCollectionRecords(
+      config,
+      BESZEL_COLLECTIONS.systemStats,
+      { fields: 'created,stats,system', filter: `system="${systemId}"`, perPage: '1', sort: '-created' },
+      fetcher
+    )
+  } catch {
+    statsRecords = []
+  }
 
   return normalizeHostMetrics({
-    cpu,
-    fs,
-    load,
-    mem,
-    memswap,
     now: new Date().toISOString(),
-    percpu,
-    processcount,
-    processlist,
-    quicklook,
-    sensors,
-    status,
-    system,
-    uptime
+    statsRecord: statsRecords[0],
+    system
   })
 }
 

@@ -63,6 +63,11 @@
     sortHostProcesses(hostMetrics.processes, processSortKey, processSortDirection).slice(0, 12)
   )
   const processCount = $derived(hostMetrics.processCount || hostMetrics.processes.length)
+  const processEmptyLabel = $derived(
+    hostMetrics.version.startsWith('beszel')
+      ? 'Beszel exposes aggregate system and container history, but no host process rows for this panel.'
+      : 'Awaiting process sample.'
+  )
   const hardwareStats = $derived([
     {
       detail: hostMetrics.hostname,
@@ -293,7 +298,7 @@
           </div>
         {:else}
           <div class="border border-dashed border-line p-3 text-[0.68rem] text-ink-muted">
-            {hostMonitorError ? 'Process data unavailable while host monitor is degraded.' : 'Awaiting process sample.'}
+            {hostMonitorError ? 'Process data unavailable while host monitor is degraded.' : processEmptyLabel}
           </div>
         {/if}
       </div>
