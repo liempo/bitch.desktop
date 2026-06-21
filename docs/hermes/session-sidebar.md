@@ -3,7 +3,7 @@
 **Goal:** Feature parity for session navigation, backed by the HTTP bridge
 (plan 01) and the WebSocket RPCs.
 
-## Store ([`src/lib/stores/session.svelte.ts`](../src/lib/stores/session.svelte.ts))
+## Store ([`src/lib/hermes/sessions/view-models/session.svelte.ts`](../../src/lib/hermes/sessions/view-models/session.svelte.ts))
 
 - Load `listSessions` on boot and after every mutation. Paginate with
   limit/offset (page size ~40).

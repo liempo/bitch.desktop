@@ -26,7 +26,7 @@ The visible symptoms are:
 
 ## Resume and hydration flow
 
-`resumeAndHydrateStoredSession(sessionId)` coordinates route resume in `src/lib/session/resume.ts`:
+`resumeAndHydrateStoredSession(sessionId)` coordinates route resume in [`src/lib/hermes/sessions/application/resume.ts`](../../src/lib/hermes/sessions/application/resume.ts):
 
 1. Begin a resume request and mark the thread loading.
 2. Fetch the stored HTTP snapshot.
@@ -35,7 +35,7 @@ The visible symptoms are:
 5. Apply `SessionResumeResponse.info.running` with `syncRunningFromResume(...)`.
 6. If no stored snapshot exists, use the resume projection messages only when no live thread should be preserved.
 
-The preservation helper in `src/lib/stores/messages.svelte.ts` keeps the existing thread when it is hydrated and any of these are true:
+The preservation helper in [`src/lib/stores/messages.svelte.ts`](../../src/lib/stores/messages.svelte.ts) keeps the existing thread when it is hydrated and any of these are true:
 
 - `thread.busy` is true.
 - `thread.currentAssistantId` is set.
@@ -74,7 +74,7 @@ This keeps a normal server busy rejection from rendering as an assistant error o
 
 Coverage is split across focused store tests:
 
-- `src/lib/session/resume.test.ts`
+- [`src/lib/hermes/sessions/application/resume.test.ts`](../../src/lib/hermes/sessions/application/resume.test.ts)
   - preserves live in-memory threads when snapshots are shorter or stale
   - refreshes idle threads from stored snapshots
   - uses resume projection messages for first visits without stored history

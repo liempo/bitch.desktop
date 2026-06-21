@@ -21,7 +21,7 @@ layout after refresh as during live streaming.
    - `status.update`, `session.info` → update model / running / usage metadata.
    - `error` `{message}` → attach an inline error to the assistant message.
 3. Normalize stored `SessionMessage` content via helpers in
-   `messages/chat-runtime.ts`.
+   [`src/lib/hermes/threads/domain/message-normalization.ts`](../../src/lib/hermes/threads/domain/message-normalization.ts).
 
 ## Chronological `parts` model
 
@@ -95,15 +95,14 @@ Updates go through `commitMessage`, which replaces the message object and
 reassigns `thread.messages` so Svelte 5 re-renders tool status changes. Tool
 parts in `Message.svelte` are keyed on `tool.id:tool.status`.
 
-## Store ([`src/lib/stores/messages.svelte.ts`](../src/lib/stores/messages.svelte.ts))
+## Store and Hermes thread domain
 
-Per-session message map plus busy/needsInput flags. Exposes hydrate, the event
-handler, and helpers to append/complete/fail the current assistant message.
+The transitional message ViewModel remains at [`src/lib/stores/messages.svelte.ts`](../../src/lib/stores/messages.svelte.ts). Hermes-owned thread domain helpers live under [`src/lib/hermes/threads`](../../src/lib/hermes/threads/index.ts), including message normalization, previews, canvas extraction, and media attachments.
 
 ## UI
 
 ```
-src/app/thread/
+src/app/components/thread/
   Thread.svelte     # scroll container, auto-stick-to-bottom, empty intro
   Message.svelte    # user / assistant / system bubble; renders parts chronologically
   Tool.svelte       # tool name + status + summary
@@ -134,7 +133,7 @@ inline.
 
 ## Tests
 
-Coverage in [`messages.svelte.test.ts`](../src/lib/stores/messages.svelte.test.ts):
+Coverage in [`messages.svelte.test.ts`](../../src/lib/stores/messages.svelte.test.ts) and Hermes thread-domain tests:
 
 - Live streaming builds ordered `parts` (`reasoning` → `tool` → `text`).
 - Rehydration merges stored tool messages into the preceding assistant.

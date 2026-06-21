@@ -4,27 +4,28 @@
 `window.hermesDesktop.api({ path, method, body })` proxy so it can reach the
 remote dashboard's HTTP API without ever holding `HERMES_DASHBOARD_SESSION_TOKEN`.
 
-## Rust ([`src-tauri/src/lib.rs`](../src-tauri/src/lib.rs))
+## Rust Hermes lane
 
-- Add a `dashboard_request` command: `{ path, method?, body? }` → JSON `Value`.
-- Reuse `resolve_gateway_config()` for the base URL + token and the existing
-  `.env` resolution, exactly like the WebSocket path.
-- Attach the `X-Hermes-Session-Token` header on every request.
-- Default method `GET`; support `GET`/`POST`/`PUT`/`PATCH`/`DELETE`. Serialize
-  `body` as JSON when present.
-- Guard `path` so it must start with `/api/` (avoid an open proxy).
-- 15s timeout (reuse `HTTP_TIMEOUT_SECS`). On non-2xx, return an error string
-  that includes the status and a truncated body (reuse `summarize_response_body`).
-- Register the command in `tauri::generate_handler!`.
+- [`src-tauri/src/commands/dashboard.rs`](../../src-tauri/src/commands/dashboard.rs)
+  exposes the stable `dashboard_request` command: `{ path, method?, body? }` → JSON `Value`.
+- [`src-tauri/src/hermes/dashboard_http.rs`](../../src-tauri/src/hermes/dashboard_http.rs)
+  owns Hermes dashboard proxying and guards `path` so it must start with `/api/`.
+- [`src-tauri/src/hermes/config.rs`](../../src-tauri/src/hermes/config.rs) and
+  [`src-tauri/src/hermes/auth.rs`](../../src-tauri/src/hermes/auth.rs) own the
+  dashboard base URL, session-token compatibility, and auth headers.
+- [`src-tauri/src/http.rs`](../../src-tauri/src/http.rs) owns generic timeout,
+  client, and response-summary helpers without route-specific knowledge.
+- The command is registered from [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs),
+  which should remain the app builder and invoke-handler switchboard only.
 
 ## TypeScript
 
-- [`src/lib/types/hermes.ts`](../src/lib/types/hermes.ts) — minimal types
+- [`src/lib/types/hermes.ts`](../../src/lib/types/hermes.ts) — minimal types
   adapted from upstream: `SessionInfo`, `SessionMessage`, `SessionMessagesResponse`,
   `PaginatedSessions`, `SessionSearchResult`, `SessionSearchResponse`,
   `SessionCreateResponse`, `SessionResumeResponse`, `UsageStats`,
   `ModelInfoResponse`, `ModelOptionsResponse`, `ModelOptionProvider`.
-- [`src/lib/hermes/shared/adapters/dashboard-api-client.ts`](../src/lib/hermes/shared/adapters/dashboard-api-client.ts) — a
+- [`src/lib/hermes/shared/adapters/dashboard-api-client.ts`](../../src/lib/hermes/shared/adapters/dashboard-api-client.ts) — a
   `dashboardRequest<T>({ path, method?, body? })` wrapper over
   `invoke('dashboard_request', ...)` plus session helpers mirroring upstream
   [hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/hermes.ts):

@@ -11,9 +11,10 @@ src/
   app/
     AppShell.svelte        # layout: sidebar + main column
     router.svelte.ts       # hash router: '/', '/:sessionId'
-  lib/stores/
-    gateway.svelte.ts      # singleton HermesGateway + connectionState + requestGateway
-    layout.svelte.ts       # sidebar open + pins (localStorage)
+  lib/hermes/gateway/    # HermesGateway and Tauri socket transport
+  lib/hermes/sessions/   # route resume and session ViewModel exports
+  lib/stores/            # transitional app state re-exports
+    layout.svelte.ts     # sidebar open + pins (localStorage)
 ```
 
 `src/App.svelte` becomes a thin host that mounts `AppShell` and boots the
@@ -22,7 +23,7 @@ gateway.
 ## Behavior
 
 - **Boot:** on mount, connect the gateway (existing
-  [`HermesGateway`](../src/lib/gateway/hermes.ts) + Tauri socket). Surface
+  [`HermesGateway`](../../src/lib/hermes/gateway/hermes.ts) plus the Tauri socket). Surface
   `connectionState` (`idle`/`connecting`/`open`/`closed`/`error`) as a rune.
 - **`requestGateway`:** thin wrapper around `gateway.request` with a friendly
   error message when not connected (mirrors upstream `use-gateway-request`).
@@ -33,7 +34,7 @@ gateway.
 - **Layout:** collapsible sidebar (~280px), scrollable main, sticky composer,
   Bits UI primitives + Tailwind.
 - **Session re-select:** returning to a session runs
-  [`resumeAndHydrateStoredSession`](../src/lib/session/resume.ts). When the
+  [`resumeAndHydrateStoredSession`](../../src/lib/hermes/sessions/application/resume.ts). When the
   thread is idle and not ahead of the HTTP snapshot, history refreshes from the
   stored snapshot. When a turn is still in progress (busy, pending assistant,
   or more in-memory messages than the snapshot), the live in-memory thread is

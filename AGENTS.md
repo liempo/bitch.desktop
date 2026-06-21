@@ -8,10 +8,12 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 ## Current app shape
 
 - The Svelte renderer creates a `HermesGateway` from `src/lib/hermes/gateway/hermes.ts` (legacy `$lib/gateway` re-exports remain transitional).
-- Composer orchestration, slash-command dispatch, prompt response state, and profile switching helpers live under `src/lib/hermes/{composer,prompts,profiles}`; legacy `$lib/stores/*` and `$lib/composer` re-exports remain transitional.
+- Hermes-backed composer orchestration, slash-command dispatch, prompt response state, profile switching, sessions, threads, remote files, dashboard plugin APIs, Cron, and Kanban helpers live under `src/lib/hermes/*` public entrypoints.
+- Beszel host telemetry lives under the standalone `src/lib/monitoring/*` lane and must not import Hermes modules.
+- Native renderer helpers live under `src/lib/platform/*`; renderer components and feature modules should not import `@tauri-apps/api/*` directly.
 - `HermesGateway` extends the upstream-compatible `JsonRpcGatewayClient` and uses `createTauriGatewaySocket` from `src/lib/hermes/gateway/tauri-gateway-socket.ts`.
-- The Tauri Rust bridge in `src-tauri/src/lib.rs` resolves gateway config, probes `/api/status`, mints a `/api/auth/ws-ticket` when required, attaches `X-Hermes-Session-Token` when appropriate, and proxies WebSocket frames to the renderer.
-- Do not assume the browser can set the auth headers the Hermes gateway expects; keep token-sensitive auth in the Tauri bridge.
+- The Tauri Rust bridge is split into `src-tauri/src/{hermes,monitoring,platform}` lane modules plus shared `config.rs`, `errors.rs`, and `http.rs` helpers. `src-tauri/src/commands/*` preserves stable invoke command wrappers for the renderer.
+- Do not assume the browser can set the auth headers the Hermes gateway or Beszel hub expects; keep token-sensitive auth in the Tauri bridge.
 
 ## Renderer organization
 
@@ -48,9 +50,28 @@ Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BI
 The backend revamp uses explicit Clean MVVM / Ports & Adapters lanes. Prefer public lane entrypoints over deep imports when adding new code:
 
 - Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Existing `$lib/api`, `$lib/gateway`, `$lib/files`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and Hermes-backed `$lib/stores/{composer,prompts,profile}.svelte` imports remain valid transitional compatibility surfaces until their call sites are migrated.
-- Beszel/host telemetry goes through `$lib/monitoring` and must not import Hermes dashboard, gateway, files, sessions, or plugin helpers.
+- Beszel/host telemetry goes through `$lib/monitoring` and must not import Hermes dashboard, gateway, files, sessions, or plugin helpers. Monitoring credentials and token refresh must stay behind Tauri.
 - Native app utilities go through `$lib/platform`; renderer components and feature modules must not import `@tauri-apps/api/core` directly. Direct Tauri API imports are approved only inside platform adapter boundaries.
+- Shared renderer utilities under `src/lib/{errors,layout,notifications,platform,storage,types,ui}` must not import feature lanes.
 - Future non-Hermes services such as CalDAV should get their own lane instead of tunneling through `dashboard_request`.
+
+## Creating or extending backend-backed features
+
+Use the root [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/README.md`](docs/README.md) before changing hierarchy. The quick decision tree:
+
+1. Hermes dashboard/runtime, sessions, files, gateway, prompts, profiles, Cron, or Kanban work belongs in `src/lib/hermes/*` and `src-tauri/src/hermes/*`.
+2. Beszel/host telemetry belongs in `src/lib/monitoring/*` and `src-tauri/src/monitoring/*`; it must not import Hermes and must not use `dashboard_request`.
+3. Native desktop utilities belong in `src/lib/platform/*` and `src-tauri/src/platform/*`; platform modules must not know Hermes or Beszel route details.
+4. A separate external service, for example CalDAV, needs a new lane (`src/lib/<feature>/*`, `src-tauri/src/<feature>/*`, and `src-tauri/src/commands/<feature>.rs`) instead of abusing the Hermes dashboard bridge.
+5. Pure formatting, parsing, and normalization should stay in TypeScript `domain` or `application` modules unless privileged native access is required.
+
+When adding or moving a feature:
+
+- Add or update the public `index.ts` entrypoint first.
+- Preserve source-compatible re-export shims during migrations until source search proves consumers are gone.
+- Put UI state in ViewModels, orchestration in `application`, pure rules in `domain`, external contracts in `ports`, and Tauri/Hermes/Beszel calls in `adapters`.
+- Add or update source-contract tests such as `src/lib/architecture-boundaries.test.ts`, `src/lib/rust-bridge-lanes.test.ts`, or a lane-local boundary test when the import rules change.
+- Update the relevant feature doc under `docs/` and the root `ARCHITECTURE.md` in the same PR as hierarchy changes. Stale architecture docs are just ruins with nicer typography.
 
 ## Current upstream copy
 
