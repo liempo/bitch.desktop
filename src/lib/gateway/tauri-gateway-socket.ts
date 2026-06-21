@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { invokeTauriCommand, listenTauriEvent, type UnlistenFn } from '$lib/platform'
 
 type SocketEventName = 'close' | 'error' | 'message' | 'open'
 type SocketListener = EventListenerOrEventListenerObject
@@ -131,7 +130,7 @@ class TauriGatewaySocket {
     const message = String(data)
     browserLog('debug', `sending renderer frame through Tauri bridge (${message.length} bytes)`)
 
-    void invoke('send_ws_message', {
+    void invokeTauriCommand('send_ws_message', {
       connectionId: this.connectionId,
       message
     }).catch(error => this.handleBridgeError(error))
@@ -145,7 +144,7 @@ class TauriGatewaySocket {
     this.readyState = WebSocket.CLOSING
     browserLog('debug', 'closing Tauri socket shim')
 
-    void invoke('close_ws', { connectionId: this.connectionId })
+    void invokeTauriCommand('close_ws', { connectionId: this.connectionId })
       .catch(() => undefined)
       .finally(() => {
         this.readyState = WebSocket.CLOSED
@@ -157,22 +156,22 @@ class TauriGatewaySocket {
     try {
       browserLog('debug', 'registering Tauri WebSocket event listeners')
       this.unlisteners = await Promise.all([
-        listen<WsEventPayload>('ws-open', event => {
+        listenTauriEvent<WsEventPayload>('ws-open', event => {
           if (this.isCurrent(event.payload)) {
             this.handleOpen()
           }
         }),
-        listen<WsMessagePayload>('ws-message', event => {
+        listenTauriEvent<WsMessagePayload>('ws-message', event => {
           if (this.isCurrent(event.payload)) {
             this.handleMessage(event.payload.message)
           }
         }),
-        listen<WsErrorPayload>('ws-error', event => {
+        listenTauriEvent<WsErrorPayload>('ws-error', event => {
           if (this.isCurrent(event.payload)) {
             this.handleBridgeError(event.payload.message)
           }
         }),
-        listen<WsClosePayload>('ws-close', event => {
+        listenTauriEvent<WsClosePayload>('ws-close', event => {
           if (this.isCurrent(event.payload)) {
             this.handleBridgeClose(event.payload.reason)
           }
@@ -185,7 +184,7 @@ class TauriGatewaySocket {
       }
 
       browserLog('debug', `invoking connect_ws for profile=${this.profile}`)
-      await invoke('connect_ws', { connectionId: this.connectionId, profile: this.profile })
+      await invokeTauriCommand('connect_ws', { connectionId: this.connectionId, profile: this.profile })
     } catch (error) {
       this.handleBridgeError(error)
     }

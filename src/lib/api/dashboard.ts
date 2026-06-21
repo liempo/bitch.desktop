@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invokeTauriCommand } from '$lib/platform'
 
 import type {
   ModelInfoResponse,
@@ -49,7 +49,7 @@ export async function dashboardRequest<T>({
   body,
   profile
 }: DashboardRequestOptions): Promise<T> {
-  return invoke<T>('dashboard_request', {
+  return invokeTauriCommand<T>('dashboard_request', {
     request: {
       body,
       method,

@@ -1,8 +1,7 @@
-import { invoke } from '@tauri-apps/api/core'
-
 import { HermesGateway } from '$lib/gateway/hermes'
 import type { GatewayEvent } from '$lib/gateway/json-rpc-gateway'
 import { consumeLastTauriGatewaySocketError } from '$lib/gateway/tauri-gateway-socket'
+import { invokeTauriCommand } from '$lib/platform'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
@@ -105,7 +104,7 @@ function entryForProfile(profile: null | string | undefined): GatewayEntry {
 
 async function resolveConnection(profile: string): Promise<ResolvedConnection> {
   try {
-    return await invoke<ResolvedConnection>('resolve_connection', { profile })
+    return await invokeTauriCommand<ResolvedConnection>('resolve_connection', { profile })
   } catch {
     // Older dev harnesses/tests may not have the Tauri command registered yet.
     // Fall back to the default gateway origin so the UI can still surface the

@@ -42,6 +42,15 @@ Remote file preview, inline media, and the Assets page must use authenticated He
 
 Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BITCH_GATEWAY_URL`, or `VITE_BITCH_GATEWAY_WS_URL` unless the runtime code is intentionally changed to use them.
 
+## Renderer import rules
+
+The backend revamp uses explicit Clean MVVM / Ports & Adapters lanes. Prefer public lane entrypoints over deep imports when adding new code:
+
+- Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Existing `$lib/api`, `$lib/gateway`, and `$lib/files` imports remain valid transitional compatibility surfaces until their call sites are migrated.
+- Beszel/host telemetry goes through `$lib/monitoring` and must not import Hermes dashboard, gateway, files, sessions, or plugin helpers.
+- Native app utilities go through `$lib/platform`; renderer components and feature modules must not import `@tauri-apps/api/core` directly. Direct Tauri API imports are approved only inside platform adapter boundaries.
+- Future non-Hermes services such as CalDAV should get their own lane instead of tunneling through `dashboard_request`.
+
 ## Current upstream copy
 
 The only file currently copied from the official Hermes repo is:

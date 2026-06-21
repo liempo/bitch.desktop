@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invokeTauriCommand } from '$lib/platform'
 
 interface HostCpuMetrics {
   cores: number
@@ -438,7 +438,7 @@ function collectionRecordFieldsPath(collection: string, id: string, fields: stri
 }
 
 export async function requestHostMonitorJson(path: string): Promise<unknown> {
-  return invoke<unknown>('host_monitor_request', {
+  return invokeTauriCommand<unknown>('host_monitor_request', {
     request: {
       method: 'GET',
       path

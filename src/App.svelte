@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core'
   import { onMount } from 'svelte'
   import AppShell from './app/AppShell.svelte'
+  import { openExternalUrl } from '$lib/platform'
   import { installCustomScrollbars } from '$lib/ui/custom-scrollbars'
   import { connectGateway, disconnectGateway } from '$lib/stores/gateway.svelte'
   import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
@@ -23,7 +23,7 @@
       if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin === window.location.origin) return
 
       event.preventDefault()
-      void invoke('open_external_url', { url: url.toString() }).catch(error => {
+      void openExternalUrl(url.toString()).catch(error => {
         console.error('Failed to open external URL', error)
       })
     }
