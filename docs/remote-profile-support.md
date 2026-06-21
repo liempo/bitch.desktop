@@ -53,7 +53,7 @@ namespace. If the file is absent, Rust seeds the connection from the existing
 
 - `VITE_HERMES_DASHBOARD_URL`
 - `BITCH_DASHBOARD_API_KEY`
-- `HOST_MONITOR_URL` for the renderer-only Glances dashboard panel, for example `http://homestation:61208`
+- `HOST_MONITOR_URL` for the renderer-only Beszel dashboard panel, for example `http://homestation:8090`
 
 New Tauri commands:
 

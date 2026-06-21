@@ -59,6 +59,8 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('SESSIONS')
     expect(mainPageSource).not.toContain('THREADS')
     expect(mainPageSource).not.toContain('readonly')
+    expect(mainPageSource).toContain('processEmptyLabel')
+    expect(mainPageSource).toContain('Beszel exposes aggregate system and container history')
     expect(mainPageSource).not.toContain('Read-only process list')
     expect(mainPageSource).not.toContain('HOST_LINK')
     expect(mainPageSource).not.toContain('CPU_STATS')
@@ -84,13 +86,15 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('Glyph')
   })
 
-  it('loads host monitor endpoint config from HOST_MONITOR_URL', () => {
+  it('loads Beszel host monitor endpoint config from HOST_MONITOR_URL', () => {
     expect(hostMonitorSource).toContain('__HOST_MONITOR_URL__')
-    expect(hostMonitorSource).toContain('http://homestation:61208')
-    expect(hostMonitorSource).toContain('/api/4')
-    expect(hostMonitorSource).toContain('GLANCES_ENDPOINTS')
-    expect(hostMonitorSource).toContain("fs: '/fs'")
-    expect(hostMonitorSource).toContain('processlist')
+    expect(hostMonitorSource).toContain('http://homestation:8090')
+    expect(hostMonitorSource).toContain('/api/collections')
+    expect(hostMonitorSource).toContain('BESZEL_COLLECTIONS')
+    expect(hostMonitorSource).toContain("systemStats: 'system_stats'")
+    expect(hostMonitorSource).not.toContain('GLANCES_ENDPOINTS')
+    expect(hostMonitorSource).not.toContain('/api/4')
+    expect(hostMonitorSource).not.toContain('processlist')
   })
 
   it('loads remote dashboard state instead of offering local Hermes bootstrap controls', () => {

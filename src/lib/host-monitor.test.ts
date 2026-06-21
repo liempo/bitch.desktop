@@ -10,101 +10,98 @@ import {
   sortHostProcesses
 } from './host-monitor'
 
+const GIB = 1024 ** 3
+
+const beszelSystem = {
+  host: '10.0.0.2',
+  id: 'system_1',
+  info: {
+    c: 8,
+    cpu: 18,
+    dp: 55,
+    h: 'homestation.local',
+    la: [0.1, 0.2, 0.3],
+    m: 'Ryzen 7',
+    mp: 40,
+    u: 3661,
+    v: '0.13.8'
+  },
+  name: 'homestation',
+  status: 'up',
+  updated: '2026-06-21 05:00:00.000Z',
+  v: '0.13.8'
+}
+
+const beszelStatsRecord = {
+  created: '2026-06-21 05:01:00.000Z',
+  stats: {
+    cpu: 22.5,
+    cpus: [10, 20, 30, 40],
+    d: 512,
+    dp: 50,
+    du: 256,
+    la: [0.4, 0.5, 0.6],
+    m: 32,
+    mp: 37.5,
+    mu: 12,
+    s: 4,
+    su: 1,
+    t: {
+      CPU: 48.5,
+      NVMe: 41
+    }
+  }
+}
+
 describe('host monitor helpers', () => {
-  it('builds a Glances API URL from a full HOST_MONITOR_URL value', () => {
-    expect(hostMonitorConfig({ url: 'http://homestation:61208' })).toEqual({
-      baseUrl: 'http://homestation:61208',
-      metricsUrl: 'http://homestation:61208/api/4',
-      port: '61208'
+  it('builds a Beszel collection API URL from a full HOST_MONITOR_URL value', () => {
+    expect(hostMonitorConfig({ url: 'http://homestation:8090' })).toEqual({
+      baseUrl: 'http://homestation:8090',
+      metricsUrl: 'http://homestation:8090/api/collections',
+      port: '8090'
     })
 
-    expect(hostMonitorConfig({ url: 'http://homestation:61208/' }).metricsUrl).toBe('http://homestation:61208/api/4')
+    expect(hostMonitorConfig({ url: 'http://homestation:8090/' }).metricsUrl).toBe(
+      'http://homestation:8090/api/collections'
+    )
   })
 
-  it('normalizes Glances API payloads into the UI contract', () => {
-    const metrics = normalizeHostMetrics({
-      cpu: { cpucore: 4, total: 15.5 },
-      load: { min1: 0.1, min5: 0.2, min15: 0.3 },
-      fs: [
-        { mnt_point: '/etc/resolv.conf', percent: 99, size: 1 },
-        { mnt_point: '/', percent: 42.5, size: 2048 }
-      ],
-      mem: { available: 512, percent: 50, total: 1024, used: 512 },
-      memswap: { percent: 10, total: 100, used: 10 },
-      percpu: [{ total: 10 }, { total: 20 }],
-      processcount: { total: 42 },
-      processlist: [
-        { cpu_percent: 12.5, memory_info: { rss: 256 }, memory_percent: 25, name: 'node', pid: 101, username: 'hermes' }
-      ],
-      quicklook: { cpu_name: 'host cpu' },
-      sensors: [{ label: 'pkg', unit: 'C', value: 48.5 }],
-      status: { version: '4.5.5' },
-      system: { hostname: 'homestation', hr_name: 'Linux 6.12' },
-      uptime: '2 days, 01:02:03'
-    })
+  it('normalizes Beszel system and latest stats records into the UI contract', () => {
+    const metrics = normalizeHostMetrics({ system: beszelSystem, statsRecord: beszelStatsRecord })
 
-    expect(metrics.cpu).toMatchObject({ cores: 4, model: 'host cpu', perCorePercent: [10, 20], usagePercent: 15.5 })
-    expect(metrics.disk.usedPercent).toBe(42.5)
-    expect(metrics.memory).toMatchObject({ totalBytes: 1024, usedBytes: 512, usedPercent: 50 })
-    expect(metrics.processCount).toBe(42)
-    expect(metrics.processes[0]).toMatchObject({
-      cpuPercent: 12.5,
-      memoryPercent: 25,
-      name: 'node',
-      pid: 101,
-      user: 'hermes'
+    expect(metrics.cpu).toMatchObject({
+      cores: 8,
+      loadAverage: [0.4, 0.5, 0.6],
+      model: 'Ryzen 7',
+      perCorePercent: [10, 20, 30, 40],
+      usagePercent: 22.5
     })
-    expect(metrics.thermal[0]).toEqual({ celsius: 48.5, label: 'pkg' })
-    expect(metrics.uptimeSeconds).toBe(176_523)
-    expect(metrics.version).toBe('4.5.5')
-  })
-
-  it('normalizes nested remote Glances sensor payloads into thermal zones', () => {
-    const metrics = normalizeHostMetrics({
-      sensors: {
-        battery: [{ label: 'BAT0', unit: '%', value: 98 }],
-        nvme: {
-          composite: { label: 'nvme0 composite', unit: 'F', value: 104 }
-        },
-        thermal_zone: { current: 43, name: 'ACPI Thermal Zone', unit: 'C' },
-        temperatures: [
-          { label: 'Package id 0', type: 'temperature_core', unit: 'C', value: '52.5' },
-          { label: 'Case fan', type: 'fan_speed', unit: 'RPM', value: 1200 }
-        ]
-      }
+    expect(metrics.disk.usedPercent).toBe(50)
+    expect(metrics.hostname).toBe('homestation.local')
+    expect(metrics.memory).toMatchObject({
+      availableBytes: 20 * GIB,
+      swapTotalBytes: 4 * GIB,
+      swapUsedBytes: 1 * GIB,
+      swapUsedPercent: 25,
+      totalBytes: 32 * GIB,
+      usedBytes: 12 * GIB,
+      usedPercent: 37.5
     })
-
+    expect(metrics.processCount).toBe(0)
+    expect(metrics.processes).toEqual([])
     expect(metrics.thermal).toEqual([
-      { celsius: 40, label: 'nvme0 composite' },
-      { celsius: 43, label: 'ACPI Thermal Zone' },
-      { celsius: 52.5, label: 'Package id 0' }
+      { celsius: 48.5, label: 'CPU' },
+      { celsius: 41, label: 'NVMe' }
     ])
-  })
-
-  it('uses bind-mounted filesystem samples as disk fallback when Glances does not expose root', () => {
-    const metrics = normalizeHostMetrics({
-      fs: [
-        { mnt_point: '/etc/resolv.conf', percent: 77.6, size: 269_427_478_528 },
-        { mnt_point: '/etc/hostname', percent: 77.6, size: 269_427_478_528 },
-        { mnt_point: '/etc/hosts', percent: 77.6, size: 269_427_478_528 }
-      ]
-    })
-
-    expect(metrics.disk.usedPercent).toBe(77.6)
-  })
-
-  it('falls back to Glances quicklook/per-core CPU when the aggregate sample is cold', () => {
-    expect(
-      normalizeHostMetrics({ cpu: { total: 0 }, percpu: [{ total: 80 }, { total: 40 }], quicklook: {} }).cpu
-        .usagePercent
-    ).toBe(60)
-    expect(normalizeHostMetrics({ cpu: { total: 0 }, quicklook: { cpu: 12.5 } }).cpu.usagePercent).toBe(12.5)
+    expect(metrics.timestamp).toBe('2026-06-21 05:01:00.000Z')
+    expect(metrics.uptimeSeconds).toBe(3661)
+    expect(metrics.version).toBe('beszel 0.13.8')
   })
 
   it('sorts host process lists by CPU or memory usage', () => {
     const processes = normalizeHostMetrics({
       mem: { total: 1000 },
-      processlist: [
+      processes: [
         { cpu_percent: 2, memory_info: { rss: 600 }, name: 'memory-heavy', pid: 1 },
         { cpu_percent: 90, memory_info: { rss: 50 }, name: 'cpu-heavy', pid: 2 }
       ]
@@ -117,47 +114,49 @@ describe('host monitor helpers', () => {
   })
 
   it('formats host metric display values', () => {
-    expect(formatBytes(16 * 1024 ** 3)).toBe('16 GB')
+    expect(formatBytes(16 * GIB)).toBe('16 GB')
     expect(formatPercent(33.333)).toBe('33.3%')
     expect(formatUptime(3661)).toBe('01:01:01')
   })
 
-  it('fetches metrics from the configured Glances API endpoints including disk and process samples', async () => {
-    const payloadByPath: Record<string, unknown> = {
-      '/cpu': { cpucore: 2, total: 25 },
-      '/fs': [{ mnt_point: '/', percent: 61, size: 1000 }],
-      '/load': { min1: 0.1, min5: 0.2, min15: 0.3 },
-      '/mem': { available: 600, percent: 40, total: 1000, used: 400 },
-      '/memswap': { percent: 0, total: 0, used: 0 },
-      '/percpu': [{ total: 20 }, { total: 30 }],
-      '/processcount': { total: 12 },
-      '/processlist': [{ cpu_percent: 35, memory_percent: 10, name: 'python', pid: 99 }],
-      '/quicklook': { cpu_name: 'glances cpu' },
-      '/sensors': [],
-      '/status': { version: '4.5.5' },
-      '/system': { hostname: 'glances-host' },
-      '/uptime': '00:01:00'
-    }
+  it('fetches metrics from Beszel PocketBase collections without calling legacy per-endpoint monitor routes', async () => {
     const fetcher = vi.fn().mockImplementation(async (url: string) => {
-      const path = new URL(url).pathname.replace('/api/4', '')
-      return {
-        ok: true,
-        json: async () => payloadByPath[path]
+      const parsed = new URL(url)
+      if (parsed.pathname === '/api/collections/systems/records') {
+        return {
+          ok: true,
+          json: async () => ({ items: [beszelSystem] })
+        }
       }
+      if (parsed.pathname === '/api/collections/system_stats/records') {
+        expect(parsed.searchParams.get('filter')).toContain('system')
+        expect(parsed.searchParams.get('filter')).toContain('system_1')
+        return {
+          ok: true,
+          json: async () => ({ items: [beszelStatsRecord] })
+        }
+      }
+      throw new Error(`unexpected URL ${url}`)
     })
 
     const metrics = await fetchHostMetrics(
-      { baseUrl: 'http://127.0.0.1:61208', metricsUrl: 'http://127.0.0.1:61208/api/4', port: '61208' },
+      { baseUrl: 'http://127.0.0.1:8090', metricsUrl: 'http://127.0.0.1:8090/api/collections', port: '8090' },
       fetcher as unknown as typeof fetch
     )
 
-    expect(fetcher).toHaveBeenCalledWith('http://127.0.0.1:61208/api/4/cpu', { cache: 'no-store' })
-    expect(fetcher).toHaveBeenCalledWith('http://127.0.0.1:61208/api/4/fs', { cache: 'no-store' })
-    expect(fetcher).toHaveBeenCalledWith('http://127.0.0.1:61208/api/4/processlist', { cache: 'no-store' })
-    expect(fetcher).not.toHaveBeenCalledWith('http://127.0.0.1:61208/api/4/all', expect.anything())
-    expect(metrics.cpu.usagePercent).toBe(25)
-    expect(metrics.disk.usedPercent).toBe(61)
-    expect(metrics.memory.usedPercent).toBe(40)
-    expect(metrics.processes[0]).toMatchObject({ cpuPercent: 35, memoryPercent: 10, name: 'python' })
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining('http://127.0.0.1:8090/api/collections/systems/records'),
+      { cache: 'no-store' }
+    )
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining('http://127.0.0.1:8090/api/collections/system_stats/records'),
+      { cache: 'no-store' }
+    )
+    expect(fetcher).not.toHaveBeenCalledWith(expect.stringContaining('/api/4/'), expect.anything())
+    expect(fetcher).not.toHaveBeenCalledWith(expect.stringContaining('/processlist'), expect.anything())
+    expect(metrics.cpu.usagePercent).toBe(22.5)
+    expect(metrics.disk.usedPercent).toBe(50)
+    expect(metrics.memory.usedPercent).toBe(37.5)
+    expect(metrics.processes).toEqual([])
   })
 })
