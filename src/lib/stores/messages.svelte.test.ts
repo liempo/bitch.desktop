@@ -505,6 +505,171 @@ describe('message session id mapping', () => {
     expect(tools.find(tool => tool.name === 'delegate_task')?.status).toBe('running')
   })
 
+  it('nests subagent progress under the running delegate tool row', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'inspect thread UI', name: 'delegate_task', tool_id: 'delegate-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: {
+        child_session_id: 'child-session-1',
+        goal: 'Inspect thread rendering',
+        model: 'openai/gpt-test',
+        subagent_id: 'sa-0-test',
+        task_count: 2,
+        task_index: 0,
+        toolsets: ['terminal', 'file']
+      },
+      session_id: liveSid,
+      type: 'subagent.start'
+    })
+    handleGatewayEvent({
+      payload: {
+        goal: 'Inspect thread rendering',
+        subagent_id: 'sa-0-test',
+        task_count: 2,
+        task_index: 0,
+        text: 'reading Tool.svelte',
+        tool_count: 1,
+        tool_name: 'read_file',
+        tool_preview: 'src/app/components/thread/Tool.svelte'
+      },
+      session_id: liveSid,
+      type: 'subagent.tool'
+    })
+    handleGatewayEvent({
+      payload: {
+        api_calls: 3,
+        duration_seconds: 12.4,
+        goal: 'Inspect thread rendering',
+        input_tokens: 120,
+        output_tail: [{ is_error: false, preview: 'component supports nested rows', tool: 'terminal' }],
+        output_tokens: 45,
+        status: 'completed',
+        subagent_id: 'sa-0-test',
+        summary: 'Found the thread tool row entry point.',
+        task_count: 2,
+        task_index: 0
+      },
+      session_id: liveSid,
+      type: 'subagent.complete'
+    })
+
+    const delegate = threadForSession(storedKey)?.messages[0]?.tools[0]
+    expect(delegate?.subtasks).toHaveLength(1)
+    expect(delegate?.subtasks?.[0]).toMatchObject({
+      apiCalls: 3,
+      childSessionId: 'child-session-1',
+      durationSeconds: 12.4,
+      goal: 'Inspect thread rendering',
+      id: 'sa-0-test',
+      inputTokens: 120,
+      model: 'openai/gpt-test',
+      outputTokens: 45,
+      status: 'complete',
+      summary: 'Found the thread tool row entry point.',
+      taskCount: 2,
+      taskIndex: 0,
+      toolCount: 1,
+      toolName: 'read_file',
+      toolPreview: 'src/app/components/thread/Tool.svelte',
+      toolsets: ['terminal', 'file']
+    })
+    expect(delegate?.subtasks?.[0]?.outputTail).toEqual([
+      { isError: false, preview: 'component supports nested rows', tool: 'terminal' }
+    ])
+  })
+
+  it('tracks queued, progress, and failed child state under a delegate row', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'review the repo', name: 'delegate_task', tool_id: 'delegate-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: {
+        child_session_id: 'child-session-2',
+        goal: 'Review the repo',
+        subagent_id: 'sa-1-test',
+        task_count: 2,
+        task_index: 1
+      },
+      session_id: liveSid,
+      type: 'subagent.spawn_requested'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]?.subtasks?.[0]).toMatchObject({
+      id: 'sa-1-test',
+      status: 'queued'
+    })
+
+    handleGatewayEvent({
+      payload: {
+        goal: 'Review the repo',
+        subagent_id: 'sa-1-test',
+        task_count: 2,
+        task_index: 1,
+        text: 'waiting for file scan'
+      },
+      session_id: liveSid,
+      type: 'subagent.progress'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]?.subtasks?.[0]).toMatchObject({
+      status: 'running',
+      text: 'waiting for file scan'
+    })
+
+    handleGatewayEvent({
+      payload: {
+        duration_seconds: 7,
+        goal: 'Review the repo',
+        output_tail: [{ is_error: true, preview: 'Error: lint failed', tool: 'terminal' }],
+        status: 'failed',
+        subagent_id: 'sa-1-test',
+        summary: 'Lint failed',
+        task_count: 2,
+        task_index: 1
+      },
+      session_id: liveSid,
+      type: 'subagent.complete'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]?.subtasks?.[0]).toMatchObject({
+      durationSeconds: 7,
+      error: 'Lint failed',
+      status: 'failed',
+      summary: 'Lint failed'
+    })
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]?.subtasks?.[0]?.outputTail).toEqual([
+      { isError: true, preview: 'Error: lint failed', tool: 'terminal' }
+    ])
+  })
+
+  it('records failed subagents without attaching them to non-delegate tool rows', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { goal: 'Should be ignored', status: 'failed', subagent_id: 'sa-orphan', summary: 'No parent' },
+      session_id: liveSid,
+      type: 'subagent.complete'
+    })
+
+    expect(threadForSession(storedKey)?.messages[0]?.tools).toHaveLength(1)
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]?.name).toBe('terminal')
+    expect(threadForSession(storedKey)?.messages[0]?.tools[0]?.subtasks).toBeUndefined()
+  })
+
   it('falls back to name match when a stable id is present but not yet known', () => {
     rememberRuntimeSession(storedKey, liveSid)
 
