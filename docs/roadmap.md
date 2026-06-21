@@ -4,143 +4,178 @@ BITCH is a remote-only Tauri + Svelte 5 client for Hermes dashboard
 gateway access. This file is the canonical roadmap and the source text for
 future Kanban scans.
 
+The current product posture is **component refinement before new features**.
+The shipped shell, agent, asset, Kanban, Cron, media, and remote-file surfaces
+need consolidation and polish before paused feature work is reintroduced.
+
 ## Kanban scanner contract
 
 - Generate Kanban cards only from unchecked items under
   [Feature checklist](#feature-checklist).
+- The current checklist is intentionally refinement-focused; it should not
+  produce new feature-route implementation cards.
 - Use the checklist item title as the card title.
 - Use the `Description`, `Scope`, `Dependencies`, and `References` fields as the
   card body.
-- Do not create cards from [Delivered](#delivered) or
-  [Deferred / out of scope](#deferred--out-of-scope).
-- Mark a feature complete only after the implementation, validation, and docs are
+- Do not create cards from [Paused new-feature backlog](#paused-new-feature-backlog),
+  [Delivered](#delivered), or [Deferred / out of scope](#deferred--out-of-scope).
+- Mark a refinement complete only after implementation, validation, and docs are
   merged.
 
 ## Feature checklist
 
-### Near-term
+### Current focus: existing component refinement
 
-- [ ] **Main Dashboard Shell**
-  - Description: Replace the placeholder `MAIN` route with a useful operations
-    landing page for connection status, active profile state, recent sessions,
-    and links into the app's utility surfaces.
+- [ ] **Main dashboard refinement**
+  - Description: Refine the delivered operations dashboard instead of adding new
+    dashboard surfaces. The current MAIN route already has host telemetry,
+    recent-session context, utility navigation, and a desktop AGENT panel.
   - Scope:
-    - show active dashboard/profile health and current connection target
-    - expose quick navigation to AGENT, Assets, Cron, Kanban, Calendar, and other
-      implemented utility routes
-    - keep the route remote-only and avoid local Hermes bootstrap controls
+    - harden host-monitor degraded states, refresh cadence, sensor/process
+      display, and empty/error copy
+    - keep the desktop dashboard dense and one-screen where practical while
+      preserving the mobile single-column layout
+    - keep quick links to AGENT, ASSETS, CALENDAR, CRON, and KANBAN honest about
+      what is implemented versus reserved
+    - preserve the remote-only contract: no local Hermes bootstrap controls and
+      no public file-server fallbacks
 
-- [ ] **Cron Job Manager**
-  - Description: Port a dashboard-style scheduled job manager into Svelte/Tauri
-    so desktop users can inspect and steer Hermes cron jobs without opening the
-    web dashboard.
+- [ ] **Agent thread, composer, and prompt refinement**
+  - Description: Tighten the existing AGENT workflow before adding branch/fork,
+    voice, or delegated-progress feature surfaces.
   - Scope:
-    - list jobs with status, schedule, prompt summary, delivery target, profile,
-      last run, and next run
-    - create and edit schedule, prompt, skills, model override, toolset
-      restriction, delivery, script, no-agent mode, context chaining, workdir,
-      and profile fields
-    - pause, resume, remove, and run jobs from row actions
-    - show recent run output and failure state outside the chat thread
-    - reuse dashboard/gateway cron endpoints through the Tauri HTTP bridge
+    - refine streaming message, reasoning, tool-row, attachment, and completion
+      states in the shared thread components
+    - harden composer behavior for busy sessions, queued prompts, model picker,
+      slash commands, attachments, and `/reload-mcp`
+    - keep clarify, approval, sudo, and secret prompts profile/session scoped
+    - preserve responsive reuse between the AGENT page and embedded dashboard
+      chat panel
 
-- [ ] **Kanban Board**
-  - Description: Add a first-class Kanban route that can display and manage
-    Hermes boards, using this roadmap as the source for generated project tasks
-    when scans are requested.
+- [ ] **Assets, preview, and media refinement**
+  - Description: Refine the delivered remote filesystem, preview rail, inline
+    media, and canvas behavior before expanding into web/tool-output previews.
   - Scope:
-    - list boards and cards available through the Hermes Kanban API/tooling
-    - show columns, card metadata, assignee/status labels, and stale or
-      in-progress markers
-    - support drag/drop status changes where the backend supports mutation
-    - open card detail panes for description, linked session, PR, issue, and
-      activity
-    - preserve remote-profile context so cards created or updated from a profile
-      stay associated with the correct backend lane
+    - keep ASSETS mounted at the authenticated remote filesystem root `/`
+    - preserve explicit `@file:` preview and `MEDIA:` inline rendering through
+      Hermes dashboard filesystem APIs
+    - keep image/video/PDF overlays and audio controls consistent across thread
+      and preview surfaces
+    - make unknown-file text fallback, binary-looking paths, loading states, and
+      copy/download affordances clear
 
-- [ ] **Calendar UI over CalDAV**
+- [ ] **Kanban board refinement**
+  - Description: Refine the delivered KANBAN route and vertical grouped-list
+    workflow instead of generating more feature cards.
+  - Scope:
+    - harden board/card loading, active profile context, stale/running labels,
+      and empty/error states
+    - keep review/blocked/done display semantics aligned with the homelab board
+      workflow
+    - refine card detail panes, comments, PR links, issue links, and activity
+      display
+    - verify status mutations and drag/drop affordances only where the backend
+      supports them cleanly
+
+- [ ] **Cron manager refinement**
+  - Description: Refine the delivered CRON route and dashboard scheduler API
+    client before adding more administrative utilities.
+  - Scope:
+    - harden job listing, status, last/next run, failure state, and recent output
+      presentation
+    - refine create/edit flows for schedule, prompt, skills, model, toolsets,
+      delivery, script, no-agent mode, context chaining, and workdir fields
+    - verify pause, resume, remove, and run actions through authenticated
+      dashboard cron endpoints
+    - keep scheduler behavior remote-only; do not add local scheduler shims
+
+- [ ] **Navigation, routing, responsive, and accessibility polish**
+  - Description: Consolidate the shipped shell behavior across desktop and mobile
+    before re-opening new feature branches.
+  - Scope:
+    - keep canonical navigation labels as BITCH, AGENT, ASSETS, CALENDAR, CRON,
+      and KANBAN
+    - preserve legacy route aliases only as compatibility paths, not visible
+      product branding
+    - verify keyboard/focus behavior for dialogs, sidebars, resize handles, and
+      primary route navigation
+    - keep route lifecycle safe so gateway streams and background completions are
+      not lost while another tab is mounted
+
+## Paused new-feature backlog
+
+These items are intentionally parked outside the Kanban scan surface while the
+current focus is refinement. Move an item back under
+[Feature checklist](#feature-checklist) only when new feature work is allowed
+again.
+
+- **Calendar UI over CalDAV**
   - Description: Add a calendar route backed by CalDAV using an existing CalDAV
     client and a Svelte-compatible calendar UI library instead of hand-rolling
     protocol or calendar-grid machinery.
-  - Scope:
-    - connect to the configured CalDAV source used by the homestation calendar
-      stack
-    - display day, week, month, and agenda views
-    - start read-only, then add create/edit/delete event flows after sync
-      behavior is proven
-    - support multiple calendars, color mapping, timezone correctness, recurring
-      events, and alarms where the CalDAV client exposes them cleanly
-    - store credentials/configuration in the same connection settings model as
-      other remote desktop integrations, with Tauri bridge support if browser
-      CORS blocks direct CalDAV access
+  - Status: paused after the open feature PR was discarded.
 
-- [ ] **Audio / Voice**
+- **Audio / Voice**
   - Description: Add the missing desktop UI and device handling for the already
     proxied `/api/audio/transcribe` and `/api/audio/speak` endpoints.
-  - Scope:
-    - capture microphone input through browser `getUserMedia` or a Tauri dialog
-      flow
-    - transcribe captured audio into composer input
-    - play TTS responses from the gateway
-    - provide a conversation-mode toggle for voice-in, submit, and spoken
-      response playback
-    - expose ElevenLabs voice selection where the backend supports it
   - References:
     - upstream `composer/voice-activity.tsx`
     - upstream `use-voice-conversation.ts`
     - upstream `hermes.ts` audio helpers
+  - Status: paused after the open feature PR was discarded.
 
-- [ ] **Web and Tool Output Preview Rail**
+- **Web and Tool Output Preview Rail**
   - Description: Extend the existing right preview sidebar beyond delivered
     file/canvas/media previews so URLs, rendered web content, and selected tool
     outputs can be inspected alongside the thread.
-  - Scope:
-    - reuse the existing preview sidebar instead of creating a second rail
-    - render trusted previews through a sandboxed iframe or webview pane
-    - keep Electron-only terminal behavior out of scope
-    - preserve current `@file:`, `MEDIA:`, and canvas preview behavior
   - References:
     - upstream `right-rail/preview-pane.tsx`
     - upstream `use-preview-routing.ts`
+  - Status: paused; refine the existing preview/media surfaces first.
 
-- [ ] **Session Branch / Fork UI**
+- **Session Branch / Fork UI**
   - Description: Add visible branch/fork controls for the gateway-supported
     branch semantics so users can see parentage and navigate between related
     sessions.
-  - Scope:
-    - expose branch creation from the current session
-    - show branch indicator and parent session navigation in the thread shell
-    - use gateway `session.create` seed-message behavior and the existing
-      `/branch` slash-command semantics
+  - Status: paused after the open feature PR was discarded.
 
-### Medium-term
-
-- [ ] **Admin Utilities: Settings, Skills, Messaging**
+- **Admin Utilities: Settings, Skills, Messaging**
   - Description: Port selected upstream admin utilities into desktop routes after
-    the higher-value Cron surface lands.
-  - Scope:
-    - model/provider/tool settings panels
-    - skill list, edit, create, and delete flows
-    - messaging channel list and status views
-    - Tauri HTTP bridge extensions for any admin routes that require dashboard
-      auth or remote-profile routing
+    the higher-value Cron surface lands and the delivered admin-adjacent surfaces
+    are refined.
   - References:
     - upstream `app/settings/`
     - upstream `app/skills/`
+  - Status: paused after the open feature PR was discarded.
 
-- [ ] **Subagent / Delegate Progress UI**
+- **Subagent / Delegate Progress UI**
   - Description: Replace flat delegated-tool rows with richer nested progress for
     subagents, including intermediate status and result surfacing where the
     gateway provides it.
-  - Scope:
-    - show nested subtasks under the parent delegate tool row
-    - display progress, completion, and failure state per child task
-    - keep the display compact enough for long agent threads
-    - preserve existing tool-row behavior for non-delegation tools
+  - Status: paused after the open feature PR was discarded.
 
 ## Delivered
 
 Delivered items are historical context. They are not Kanban task sources.
+
+- [x] **Main Dashboard Shell**
+  - Description: Replaced the placeholder MAIN route with an operations landing
+    page, host-monitor telemetry, recent-session context, utility navigation,
+    and a desktop AGENT panel while keeping the app remote-only.
+
+- [x] **Cron Job Manager**
+  - Description: Added a CRON route and scheduler API client for inspecting and
+    steering Hermes cron jobs through authenticated dashboard endpoints.
+
+- [x] **Kanban Board**
+  - Description: Added a KANBAN route for Hermes board/card inspection and
+    refined it into a vertical grouped-list workflow aligned with review/blocked
+    board semantics.
+
+- [x] **Mobile responsive shell**
+  - Description: Added mobile responsive behavior for the MAIN and AGENT views,
+    including the mobile AGENT link panel and desktop-only embedded dashboard
+    chat panel behavior.
 
 - [x] **Tauri HTTP bridge**
   - Description: Bridge dashboard HTTP calls through Tauri so auth headers and
@@ -225,6 +260,12 @@ feature checklist.
 ## Reference docs
 
 - [Architecture index](ARCHITECTURE.md)
+- [App shell](app-shell.md)
+- [HTTP bridge](http-bridge.md)
 - [Remote profile support](remote-profile-support.md)
+- [Session sidebar](session-sidebar.md)
+- [Message thread](message-thread.md)
+- [Rich composer](rich-composer.md)
+- [Interactive prompts](interactive-prompts.md)
 - [Live thread preservation](live-thread-preservation.md)
 - [Hermes remote files](hermes-remote-files.md)
