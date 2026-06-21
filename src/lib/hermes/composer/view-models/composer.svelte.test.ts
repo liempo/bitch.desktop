@@ -58,10 +58,10 @@ import {
   slashSuggestions,
   submitPrompt,
   type ComposerAttachment
-} from '$lib/stores/composer.svelte'
-import { clearQueuedPrompts, getQueuedPrompts } from '$lib/stores/composer-queue'
+} from '$lib/hermes/composer'
+import { clearQueuedPrompts, getQueuedPrompts } from '$lib/hermes/composer'
 import { messageState, setThreadBusy, threadForSession } from '$lib/stores/messages.svelte'
-import { profileState } from '$lib/stores/profile.svelte'
+import { profileState } from '$lib/hermes/profiles'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 
 describe('composer slash dispatch policy', () => {

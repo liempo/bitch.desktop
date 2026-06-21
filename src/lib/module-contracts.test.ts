@@ -45,6 +45,9 @@ import type {
   PromptSubmissionPort,
   SessionResumePort
 } from '$lib/hermes/gateway'
+import * as hermesComposerContract from '$lib/hermes/composer'
+import * as hermesProfilesContract from '$lib/hermes/profiles'
+import * as hermesPromptsContract from '$lib/hermes/prompts'
 import * as hermesSessionsContract from '$lib/hermes/sessions'
 import type {
   DashboardSessionPort as HermesDashboardSessionPort,
@@ -54,9 +57,13 @@ import * as hermesThreadsContract from '$lib/hermes/threads'
 import * as monitoringContract from '$lib/monitoring'
 import * as platformContract from '$lib/platform'
 import * as composerContract from '$lib/composer'
+import * as composerQueueStoreContract from '$lib/stores/composer-queue'
+import * as composerStoreContract from '$lib/stores/composer.svelte'
 import * as layoutContract from '$lib/layout'
 import * as messagesContract from '$lib/messages'
 import * as notificationsContract from '$lib/notifications'
+import * as profileStoreContract from '$lib/stores/profile.svelte'
+import * as promptsStoreContract from '$lib/stores/prompts.svelte'
 import * as sessionContract from '$lib/session'
 import * as storageContract from '$lib/storage'
 import * as threadContract from '$lib/thread'
@@ -139,6 +146,36 @@ describe('module contract barrels', () => {
     expect(legacyThreadCanvas.extractCanvasReferences).toBe(hermesThreadsContract.extractCanvasReferences)
     expect(legacyThreadPreview.previewFromRemoteFilePath).toBe(hermesThreadsContract.previewFromRemoteFilePath)
     expect(hermesContract.coerceGatewayText).toBe(hermesThreadsContract.coerceGatewayText)
+  })
+
+  it('exposes Hermes composer orchestration through new and legacy entrypoints', () => {
+    expect(hermesComposerContract.submitPrompt).toBeTypeOf('function')
+    expect(hermesComposerContract.executeSlashCommand).toBeTypeOf('function')
+    expect(hermesComposerContract.getQueuedPrompts).toBeTypeOf('function')
+    expect(hermesComposerContract.parseSlashCommand).toBeTypeOf('function')
+    expect(hermesComposerContract.shouldDispatchSlashImmediately).toBeTypeOf('function')
+    expect(composerContract.parseSlashCommand).toBe(hermesComposerContract.parseSlashCommand)
+    expect(composerContract.shouldDispatchSlashImmediately).toBe(hermesComposerContract.shouldDispatchSlashImmediately)
+    expect(composerStoreContract.submitPrompt).toBe(hermesComposerContract.submitPrompt)
+    expect(composerStoreContract.executeSlashCommand).toBe(hermesComposerContract.executeSlashCommand)
+    expect(composerQueueStoreContract.getQueuedPrompts).toBe(hermesComposerContract.getQueuedPrompts)
+  })
+
+  it('exposes Hermes prompt response orchestration through new and legacy entrypoints', () => {
+    expect(hermesPromptsContract.respondToClarify).toBeTypeOf('function')
+    expect(hermesPromptsContract.respondToApproval).toBeTypeOf('function')
+    expect(hermesPromptsContract.respondToSudo).toBeTypeOf('function')
+    expect(hermesPromptsContract.respondToSecret).toBeTypeOf('function')
+    expect(promptsStoreContract.respondToClarify).toBe(hermesPromptsContract.respondToClarify)
+    expect(promptsStoreContract.respondToApproval).toBe(hermesPromptsContract.respondToApproval)
+  })
+
+  it('exposes Hermes profile state helpers through new and legacy entrypoints', () => {
+    expect(hermesProfilesContract.normalizeProfileKey).toBeTypeOf('function')
+    expect(hermesProfilesContract.ensureGatewayProfile).toBeTypeOf('function')
+    expect(hermesProfilesContract.getProfileScope).toBeTypeOf('function')
+    expect(profileStoreContract.normalizeProfileKey).toBe(hermesProfilesContract.normalizeProfileKey)
+    expect(profileStoreContract.ensureGatewayProfile).toBe(hermesProfilesContract.ensureGatewayProfile)
   })
 
   it('exposes existing Hermes file contracts through old and transitional entrypoints', () => {

@@ -61,7 +61,8 @@
       ".cargo/**",
       ".rustup/**",
       "src-tauri/target/**",
-      "src/lib/hermes/gateway/json-rpc-gateway.ts"
+      "src/lib/hermes/gateway/json-rpc-gateway.ts",
+      "src/lib/composer/slash-commands.ts"
     ],
     "ignoreDependencies": [
       "@tauri-apps/cli"

@@ -1,1 +1,1 @@
-export * from './slash-commands'
+export * from '$lib/hermes/composer'

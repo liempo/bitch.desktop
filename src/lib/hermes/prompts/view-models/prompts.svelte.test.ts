@@ -28,9 +28,9 @@ import {
   setClarifyRequest,
   setSecretRequest,
   setSudoRequest
-} from '$lib/stores/prompts.svelte'
+} from '$lib/hermes/prompts'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
-import { profileState } from '$lib/stores/profile.svelte'
+import { profileState } from '$lib/hermes/profiles'
 
 function resetPrompts(): void {
   promptsState.clarifyRequests = {}

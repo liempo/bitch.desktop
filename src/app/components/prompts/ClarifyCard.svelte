@@ -4,7 +4,7 @@
   import SectionTitle from '@/app/components/ui/SectionTitle.svelte'
   import TextArea from '@/app/components/ui/TextArea.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import { clarifyRequestForSession, promptsState, respondToClarify } from '$lib/stores/prompts.svelte'
+  import { clarifyRequestForSession, promptsState, respondToClarify } from '$lib/hermes/prompts'
 
   interface Props {
     sessionId: string

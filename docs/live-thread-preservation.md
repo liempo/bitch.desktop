@@ -50,7 +50,7 @@ If a stored session already has a cached runtime id, `resumeSession(...)` can sk
 
 ## Composer busy handling
 
-The normal queue path lives in `src/lib/stores/composer.svelte.ts`: if the selected thread is already busy, `submitPrompt(...)` enqueues the draft instead of calling `prompt.submit`.
+The normal queue path lives in `src/lib/hermes/composer/view-models/composer.svelte.ts`: if the selected thread is already busy, `submitPrompt(...)` enqueues the draft instead of calling `prompt.submit`.
 
 The desync safety net catches `prompt.submit` errors whose message matches `/session busy/i`:
 
@@ -79,7 +79,7 @@ Coverage is split across focused store tests:
   - refreshes idle threads from stored snapshots
   - uses resume projection messages for first visits without stored history
   - syncs local busy from resume `info.running`
-- `src/lib/stores/composer.svelte.test.ts`
+- `src/lib/hermes/composer/view-models/composer.svelte.test.ts`
   - re-sets busy and queues the draft when `prompt.submit` returns `session busy`
 
 ## Out of scope

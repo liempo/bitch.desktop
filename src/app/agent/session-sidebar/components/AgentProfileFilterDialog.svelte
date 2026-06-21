@@ -9,7 +9,7 @@
     selectProfile,
     setShowAllProfiles,
     sortByProfileOrder
-  } from '$lib/stores/profile.svelte'
+  } from '$lib/hermes/profiles'
   import type { ProfileInfo } from '$lib/types/hermes'
 
   interface Props {

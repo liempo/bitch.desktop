@@ -81,7 +81,7 @@ for per-profile remote URLs is intentionally deferred.
 
 ### Profile store
 
-[`src/lib/stores/profile.svelte.ts`](../src/lib/stores/profile.svelte.ts)
+[`src/lib/hermes/profiles/view-models/profile.svelte.ts`](../src/lib/hermes/profiles/view-models/profile.svelte.ts)
 contains the profile execution state:
 
 - `profileState.activeGatewayProfile` — profile whose live WebSocket is active.
@@ -125,7 +125,7 @@ profile-aware for list, hydration, and mutations:
 
 ### Composer and prompt responses
 
-[`src/lib/stores/composer.svelte.ts`](../src/lib/stores/composer.svelte.ts)
+[`src/lib/hermes/composer/view-models/composer.svelte.ts`](../src/lib/hermes/composer/view-models/composer.svelte.ts)
 routes live RPCs through the owning profile before calling `commands.catalog`,
 `session.interrupt`, and `prompt.submit`. The `/profile` slash command is
 handled locally in Desktop so status reflects the session/new-chat profile
@@ -134,7 +134,7 @@ the next new-chat profile and ensures that profile's gateway before a new chat
 sends. New sessions still pass the selected profile into `session.create` so
 the gateway persists the row in the correct profile state database.
 
-[`src/lib/stores/prompts.svelte.ts`](../src/lib/stores/prompts.svelte.ts)
+[`src/lib/hermes/prompts/view-models/prompts.svelte.ts`](../src/lib/hermes/prompts/view-models/prompts.svelte.ts)
 keeps clarify, approval, sudo, and secret responses profile-scoped. Sudo and
 secret prompt events now remember the stored session key, allowing modal responses
 to switch to the owning profile before sending `sudo.respond` or `secret.respond`.

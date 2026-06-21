@@ -6,9 +6,9 @@ attachments.
 
 ## Stores
 
-- [`src/lib/stores/composer.svelte.ts`](../src/lib/stores/composer.svelte.ts)
+- [`src/lib/hermes/composer/view-models/composer.svelte.ts`](../src/lib/hermes/composer/view-models/composer.svelte.ts)
   — per-session draft text and attachment list.
-- [`src/lib/stores/composer-queue.ts`](../src/lib/stores/composer-queue.ts) —
+- [`src/lib/hermes/composer/application/composer-queue.ts`](../src/lib/hermes/composer/application/composer-queue.ts) —
   per-session queued prompts persisted to localStorage (ported from upstream,
   including `shouldAutoDrainOnSettle`).
 

@@ -60,7 +60,7 @@ vi.mock('$lib/stores/messages.svelte', () => ({
   threadForSession: vi.fn()
 }))
 
-vi.mock('$lib/stores/profile.svelte', () => ({
+vi.mock('$lib/hermes/profiles', () => ({
   ensureGatewayProfile: mockEnsureGatewayProfile,
   normalizeProfileKey: (value: string) => value.trim().toLowerCase(),
   profileState: mockProfileState
@@ -81,7 +81,7 @@ vi.mock('@/app/agent/router.svelte', () => ({
   sessionRoute: mockSessionRoute
 }))
 
-import { composerState, executeSlashCommand, setComposerDraft } from '$lib/stores/composer.svelte'
+import { composerState, executeSlashCommand, setComposerDraft } from '$lib/hermes/composer'
 
 function resetComposerSession(): void {
   composerState.sessions = {}

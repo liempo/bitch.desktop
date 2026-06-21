@@ -1,5 +1,8 @@
+export * from './composer'
 export * from './dashboard'
 export * from './files'
 export * from './gateway'
+export * from './profiles'
+export * from './prompts'
 export { resumeAndHydrateStoredSession, sessionMessagesLoaded, shouldShowSessionSidebarLoader } from './sessions'
 export * from './threads'

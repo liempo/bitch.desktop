@@ -19,7 +19,7 @@ import {
   setClarifyRequest,
   setSecretRequest,
   setSudoRequest
-} from '$lib/stores/prompts.svelte'
+} from '$lib/hermes/prompts'
 import type { GatewayEvent } from '$lib/hermes/gateway'
 import {
   compactWhitespace,

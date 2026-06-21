@@ -9,7 +9,7 @@ import {
   renderSlashOutput,
   shouldDispatchSlashImmediately,
   slashExecCommand
-} from '$lib/composer/slash-commands'
+} from '$lib/hermes/composer/domain/slash-commands'
 
 describe('composer slash command helpers', () => {
   it('flattens catalog categories before top-level pairs and removes duplicate commands', () => {

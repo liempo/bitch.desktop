@@ -4,7 +4,7 @@
   import Loader from '@/app/components/ui/Loader.svelte'
   import TextInput from '@/app/components/ui/TextInput.svelte'
   import { menuItemClass, sectionTitleClass, tagClass } from '@/app/components/ui/styles'
-  import type { ComposerModelGroup, ComposerModelOption, ReasoningEffort } from '$lib/stores/composer.svelte'
+  import type { ComposerModelGroup, ComposerModelOption, ReasoningEffort } from '$lib/hermes/composer'
 
   interface Props {
     busy?: boolean

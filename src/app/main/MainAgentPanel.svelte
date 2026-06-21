@@ -9,7 +9,7 @@
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import { threadForSession } from '$lib/stores/messages.svelte'
-  import { profileState } from '$lib/stores/profile.svelte'
+  import { profileState } from '$lib/hermes/profiles'
   import { sessionState, startNewSession } from '$lib/stores/session.svelte'
   import type { SessionInfo } from '$lib/types/hermes'
 

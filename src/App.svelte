@@ -5,7 +5,7 @@
   import { installCustomScrollbars } from '$lib/ui/custom-scrollbars'
   import { connectGateway, disconnectGateway } from '$lib/stores/gateway.svelte'
   import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
-  import { refreshActiveProfile } from '$lib/stores/profile.svelte'
+  import { refreshActiveProfile } from '$lib/hermes/profiles'
 
   onMount(() => {
     function handleContextMenu(event: MouseEvent): void {

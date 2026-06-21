@@ -14,7 +14,7 @@ import {
   getProfileScope,
   profileState,
   normalizeProfileKey
-} from '$lib/stores/profile.svelte'
+} from '$lib/hermes/profiles'
 import {
   isPinned as isStoredPin,
   layoutState,
