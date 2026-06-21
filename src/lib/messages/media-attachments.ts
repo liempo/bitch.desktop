@@ -1,4 +1,4 @@
-import { remoteFileLabel, viewerKindForRemoteFile } from '$lib/files/remote'
+import { remoteFileLabel, viewerKindForRemoteFile } from '$lib/hermes/files'
 import { extractEmbeddedImages } from '$lib/messages/chat-runtime'
 
 export type ThreadAttachmentKind = 'audio' | 'file' | 'image' | 'pdf' | 'video'

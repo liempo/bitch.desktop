@@ -1,4 +1,4 @@
-import { filePathFromRemoteSource, isAbsoluteRemoteFilePath, remoteFileLabel } from '$lib/files/remote'
+import { filePathFromRemoteSource, isAbsoluteRemoteFilePath, remoteFileLabel } from '$lib/hermes/files'
 
 export interface ThreadCanvas {
   error?: string

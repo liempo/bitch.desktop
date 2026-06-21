@@ -5,7 +5,7 @@ import {
   remoteFileLabel,
   viewerKindForRemoteFile,
   type RemoteFileViewerKind
-} from '$lib/files/remote'
+} from '$lib/hermes/files'
 
 type ThreadPreviewKind = 'canvas' | 'file' | 'image'
 

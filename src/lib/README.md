@@ -4,13 +4,10 @@ Shared renderer code is grouped by boundary instead of parked at the root. Prefe
 
 - `api/` — typed HTTP dashboard helpers that go through the Tauri `dashboard_request` bridge.
 - `errors/` — shared error normalization helpers.
-- `files/` — file helpers split by boundary:
-  - `remote.ts` — authenticated Hermes dashboard filesystem helpers.
-  - `local.ts` — reserved for future local file access support; currently intentionally empty.
-  - `preview.ts` — file preview/presentation classification helpers.
-  - `media.ts` — remote media/file reference rendering helpers.
+- `files/` — transitional compatibility re-exports for the Hermes remote-file lane; new code should import `$lib/hermes/files`.
 - `gateway/` — JSON-RPC transport, Hermes gateway subclass, and Tauri WebSocket shim.
-- `hermes/` — transitional Hermes lane facades for dashboard REST/plugin routes, remote files, and gateway runtime contracts.
+- `hermes/` — Hermes lane facades for dashboard REST/plugin routes, remote files, and gateway runtime contracts.
+  - `hermes/files/` — authenticated remote filesystem Ports & Adapters modules for `@file:`, `MEDIA:`, Assets, preview, and attachment behavior.
 - `monitoring/` — standalone Beszel host monitor configuration, fetch, normalization, and formatting helpers.
 - `messages/` — transcript/message normalization helpers.
 - `platform/` — renderer adapter boundary for native Tauri commands/events and OS utilities.
