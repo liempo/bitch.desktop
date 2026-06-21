@@ -16,7 +16,7 @@ import {
   listKanbanBoards,
   normalizeKanbanBoardColumns,
   updateKanbanTaskStatus
-} from '$lib/api/kanban'
+} from '$lib/hermes/kanban'
 
 describe('Kanban dashboard API client', () => {
   beforeEach(() => {

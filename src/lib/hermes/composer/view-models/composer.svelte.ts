@@ -1,4 +1,4 @@
-import { getGlobalModelInfo, getModelOptions, getProfiles } from '$lib/api/dashboard'
+import { getGlobalModelInfo, getModelOptions, getProfiles } from '$lib/hermes/dashboard'
 import {
   commandNotFoundMessage,
   commandPairs,

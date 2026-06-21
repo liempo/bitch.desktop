@@ -42,7 +42,7 @@ const {
   }
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   getGlobalModelInfo: mockGetGlobalModelInfo,
   getModelOptions: mockGetModelOptions,
   getProfiles: mockGetProfiles

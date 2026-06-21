@@ -24,13 +24,13 @@ remote dashboard's HTTP API without ever holding `HERMES_DASHBOARD_SESSION_TOKEN
   `PaginatedSessions`, `SessionSearchResult`, `SessionSearchResponse`,
   `SessionCreateResponse`, `SessionResumeResponse`, `UsageStats`,
   `ModelInfoResponse`, `ModelOptionsResponse`, `ModelOptionProvider`.
-- [`src/lib/api/dashboard.ts`](../src/lib/api/dashboard.ts) — a
+- [`src/lib/hermes/shared/adapters/dashboard-api-client.ts`](../src/lib/hermes/shared/adapters/dashboard-api-client.ts) — a
   `dashboardRequest<T>({ path, method?, body? })` wrapper over
   `invoke('dashboard_request', ...)` plus session helpers mirroring upstream
   [hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/hermes.ts):
   `listSessions`, `searchSessions`, `getSessionMessages`, `renameSession`,
   `setSessionArchived`, `deleteSession`, `getGlobalModelInfo`,
-  `getModelOptions`.
+  `getModelOptions`. Legacy `$lib/api/dashboard` re-exports this Hermes-lane adapter during migration.
 
 ## Upstream files
 

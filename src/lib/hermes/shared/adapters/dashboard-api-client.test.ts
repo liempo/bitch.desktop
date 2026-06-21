@@ -14,7 +14,7 @@ import {
   renameSession,
   SESSION_MESSAGES_LOAD_DELAY_MS,
   setSessionArchived
-} from '$lib/api/dashboard'
+} from '$lib/hermes/dashboard'
 import type { SessionMessagesResponse } from '$lib/types/hermes'
 
 describe('getSessionMessages', () => {

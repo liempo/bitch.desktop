@@ -17,10 +17,12 @@ The lane must not absorb Beszel/host telemetry or generic native helpers. Monito
 
 The subfeature entrypoints here are the preferred Hermes-lane imports. Some legacy top-level folders now re-export them during the migration:
 
-- `src/lib/hermes/dashboard` wraps `src/lib/api` for dashboard REST/plugin routes
+- `src/lib/hermes/dashboard` exposes the shared dashboard REST client and compatibility plugin re-exports
+- `src/lib/hermes/cron` owns Hermes dashboard Cron plugin helpers
 - `src/lib/hermes/composer` owns slash commands, composer queueing, attachment relay, runtime selection, and prompt submission orchestration
 - `src/lib/hermes/files` owns authenticated remote-file helpers
 - `src/lib/hermes/gateway` owns JSON-RPC gateway transport, the Tauri WebSocket shim, and runtime ports
+- `src/lib/hermes/kanban` owns Hermes dashboard Kanban plugin helpers
 - `src/lib/hermes/profiles` owns profile selection and profile-scoped gateway/API routing helpers
 - `src/lib/hermes/prompts` owns clarify/approval/sudo/secret prompt request state and response orchestration
 - `src/lib/hermes/sessions` owns session lifecycle, resume, sidebar, and transitional session ViewModel exports

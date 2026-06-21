@@ -1,4 +1,4 @@
-import { dashboardRequest } from '$lib/api/dashboard'
+import { dashboardRequest } from '$lib/hermes/shared/adapters/dashboard-api-client'
 import { filePathFromRemoteSource } from '../domain/preview'
 import type {
   RawRemoteFileDataUrlResponse,

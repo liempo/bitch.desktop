@@ -5,7 +5,7 @@ import {
   renameSession as apiRenameSession,
   setSessionArchived as apiSetSessionArchived,
   deleteSession as apiDeleteSession
-} from '$lib/api/dashboard'
+} from '$lib/hermes/dashboard'
 import { messageForError } from '$lib/errors'
 import { gatewayState, requestGateway } from '$lib/stores/gateway.svelte'
 import {

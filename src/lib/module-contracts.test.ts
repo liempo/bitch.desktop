@@ -30,7 +30,10 @@ import * as legacyThreadCanvas from '$lib/thread/canvas'
 import * as legacyThreadPreview from '$lib/thread/preview'
 import * as hermesContract from '$lib/hermes'
 import * as hermesDashboardContract from '$lib/hermes/dashboard'
+import * as hermesDashboardAdapterContract from '$lib/hermes/shared/adapters/dashboard-api-client'
+import * as hermesCronContract from '$lib/hermes/cron'
 import * as hermesFilesContract from '$lib/hermes/files'
+import * as hermesKanbanContract from '$lib/hermes/kanban'
 import type {
   HermesFileRef,
   HermesFileReference,
@@ -71,12 +74,19 @@ import * as typesContract from '$lib/types'
 import * as uiContract from '$lib/ui'
 
 describe('module contract barrels', () => {
-  it('exposes existing Hermes dashboard contracts through old and transitional entrypoints', () => {
+  it('exposes Hermes dashboard, Cron, and Kanban plugin contracts through explicit Hermes entrypoints', () => {
     expect(apiContract.dashboardRequest).toBeTypeOf('function')
     expect(apiContract.getCronJobs).toBeTypeOf('function')
     expect(apiContract.getKanbanBoard).toBeTypeOf('function')
+    expect(hermesDashboardAdapterContract.dashboardRequest).toBe(apiContract.dashboardRequest)
     expect(hermesDashboardContract.dashboardRequest).toBe(apiContract.dashboardRequest)
+    expect(hermesDashboardContract.getCronJobs).toBe(apiContract.getCronJobs)
+    expect(hermesDashboardContract.getKanbanBoard).toBe(apiContract.getKanbanBoard)
+    expect(hermesCronContract.getCronJobs).toBe(apiContract.getCronJobs)
+    expect(hermesKanbanContract.getKanbanBoard).toBe(apiContract.getKanbanBoard)
     expect(hermesContract.dashboardRequest).toBe(apiContract.dashboardRequest)
+    expect(hermesContract.getCronJobs).toBe(apiContract.getCronJobs)
+    expect(hermesContract.getKanbanBoard).toBe(apiContract.getKanbanBoard)
   })
 
   it('exposes existing Hermes gateway contracts through old and transitional entrypoints', () => {

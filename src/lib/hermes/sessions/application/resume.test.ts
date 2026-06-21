@@ -9,7 +9,7 @@ const { mockGetSessionMessages, mockNavigate, mockRequestGateway, mockSessionRou
     mockEnsureGatewayForProfile: vi.fn()
   }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages,
   listSessions: vi.fn(),
   searchSessions: vi.fn(),

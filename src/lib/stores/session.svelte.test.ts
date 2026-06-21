@@ -38,7 +38,7 @@ vi.mock('@/app/agent/router.svelte', () => ({
   routerState: {}
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   deleteSession: mockApiDeleteSession,
   listAllProfileSessions: mockApiListAllProfileSessions,
   listSessions: mockApiListSessions,

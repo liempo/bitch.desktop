@@ -16,7 +16,7 @@
     type KanbanStatus,
     type KanbanTask,
     type KanbanTaskDetailResponse
-  } from '$lib/api/kanban'
+  } from '$lib/hermes/kanban'
   import { messageForError } from '$lib/errors'
   import { ensureGatewayProfile, profileState } from '$lib/hermes/profiles'
 

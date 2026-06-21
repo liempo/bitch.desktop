@@ -17,7 +17,7 @@ vi.mock('$lib/notifications/macos', () => ({
   sendMacosNotification: mockSendMacosNotification
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages
 }))
 

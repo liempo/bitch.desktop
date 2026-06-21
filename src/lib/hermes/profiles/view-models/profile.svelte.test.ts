@@ -5,7 +5,7 @@ const { mockEnsureGatewayForProfile, mockSetApiRequestProfile } = vi.hoisted(() 
   mockSetApiRequestProfile: vi.fn()
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   getActiveProfile: vi.fn(),
   getProfiles: vi.fn(),
   setApiRequestProfile: mockSetApiRequestProfile

@@ -26,7 +26,7 @@ function resetComposerModelState(): void {
   composerState.model.reasoningSwitching = false
 }
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   getGlobalModelInfo: vi.fn(),
   getModelOptions: vi.fn(),
   getProfiles: mockGetProfiles,

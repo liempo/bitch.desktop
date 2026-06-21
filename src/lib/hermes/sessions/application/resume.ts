@@ -1,4 +1,4 @@
-import { getSessionMessages } from '$lib/api/dashboard'
+import { getSessionMessages } from '$lib/hermes/dashboard'
 import { messageForError } from '$lib/errors'
 import {
   hydrateSessionMessagesFromGateway,

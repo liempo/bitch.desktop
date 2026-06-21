@@ -1,4 +1,4 @@
-import { getActiveProfile, getProfiles, setApiRequestProfile } from '$lib/api/dashboard'
+import { getActiveProfile, getProfiles, setApiRequestProfile } from '$lib/hermes/dashboard'
 import { messageForError } from '$lib/errors'
 import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage/namespace'
 import { ensureGatewayForProfile } from '$lib/stores/gateway.svelte'
