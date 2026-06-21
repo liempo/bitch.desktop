@@ -8,6 +8,7 @@ const {
   mockApiRenameSession,
   mockApiSetSessionArchived,
   mockApiDeleteSession,
+  mockApiGetSessionMessages,
   mockApiListSessions,
   mockApiListAllProfileSessions,
   mockApiSearchSessions,
@@ -20,6 +21,7 @@ const {
   mockApiRenameSession: vi.fn(),
   mockApiSetSessionArchived: vi.fn(),
   mockApiDeleteSession: vi.fn(),
+  mockApiGetSessionMessages: vi.fn(),
   mockApiListSessions: vi.fn(),
   mockApiListAllProfileSessions: vi.fn(),
   mockApiSearchSessions: vi.fn(),
@@ -40,6 +42,7 @@ vi.mock('@/app/agent/router.svelte', () => ({
 
 vi.mock('$lib/api/dashboard', () => ({
   deleteSession: mockApiDeleteSession,
+  getSessionMessages: mockApiGetSessionMessages,
   listAllProfileSessions: mockApiListAllProfileSessions,
   listSessions: mockApiListSessions,
   renameSession: mockApiRenameSession,
@@ -53,6 +56,7 @@ import {
   collapseArchivedSessionsToThreads,
   collapseSessionsToThreads,
   createSession,
+  branchSession,
   deleteSession,
   getRecentlySettledSessionIds,
   hasMoreSessions,
@@ -258,6 +262,91 @@ describe('createSession', () => {
     expect(rawSessionState.activeSessionId).not.toBe('stale001')
     expect(rawSessionState.storedSessionId).toBe('operator-clicked-elsewhere')
     expect(mockNavigate).not.toHaveBeenCalledWith('/stored-stale')
+  })
+})
+
+describe('branchSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rawSessionState.activeSessionId = 'live-parent'
+    rawSessionState.storedSessionId = 'stored-parent'
+    rawSessionState.error = null
+    rawSessionState.mutatingSessionIds = []
+    rawSessionState.runtimeIdsByStoredSessionId = { 'stored-parent': 'live-parent' }
+    rawSessionState.storedSessionIdsByRuntimeId = { 'live-parent': 'stored-parent' }
+    rawSessionState.sessions = [
+      session({ id: 'stored-parent', title: 'Original job', profile: 'default', message_count: 4 })
+    ]
+    rawSessionState.sessionsTotal = 1
+    rawSessionState.sessionProfileTotals = {}
+    rawSessionState.sessionProfilesById = { 'stored-parent': 'default' }
+    rawSessionState.sessionThreadIdsById = { 'stored-parent': 'stored-parent' }
+    profileState.activeGatewayProfile = 'default'
+    profileState.newChatProfile = null
+  })
+
+  it('creates a seeded gateway branch from the stored parent and navigates to the child', async () => {
+    mockApiGetSessionMessages.mockResolvedValueOnce({
+      messages: [
+        { content: 'original question', role: 'user' },
+        { content: 'original answer', role: 'assistant' }
+      ],
+      session_id: 'stored-parent'
+    })
+    mockRequestGateway.mockResolvedValueOnce({
+      message_count: 2,
+      messages: [],
+      session_id: 'live-branch',
+      stored_session_id: 'stored-branch'
+    })
+
+    await expect(branchSession('stored-parent', 'Seeded fork')).resolves.toBe('stored-branch')
+
+    expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('default')
+    expect(mockApiGetSessionMessages).toHaveBeenCalledWith('stored-parent', 'default')
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', {
+      cols: 96,
+      messages: [
+        { content: 'original question', role: 'user' },
+        { content: 'original answer', role: 'assistant' }
+      ],
+      parent_session_id: 'stored-parent',
+      profile: 'default',
+      title: 'Seeded fork'
+    })
+    expect(runtimeSessionIdForStored('stored-branch')).toBe('live-branch')
+    expect(rawSessionState.storedSessionId).toBe('stored-branch')
+    expect(rawSessionState.activeSessionId).toBe('live-branch')
+    expect(rawSessionState.sessions[0]).toMatchObject({
+      id: 'stored-branch',
+      parent_session_id: 'stored-parent',
+      title: 'Seeded fork'
+    })
+    expect(mockNavigate).toHaveBeenCalledWith('/stored-branch')
+  })
+
+  it('derives the next branch title from existing child branches when no name is provided', async () => {
+    rawSessionState.sessions = [
+      session({ id: 'stored-parent', title: 'Original job', profile: 'default', message_count: 4 }),
+      session({ id: 'stored-branch-1', parent_session_id: 'stored-parent', title: 'Original job #2' })
+    ]
+    mockApiGetSessionMessages.mockResolvedValueOnce({
+      messages: [{ content: 'original question', role: 'user' }],
+      session_id: 'stored-parent'
+    })
+    mockRequestGateway.mockResolvedValueOnce({
+      message_count: 1,
+      messages: [],
+      session_id: 'live-branch-2',
+      stored_session_id: 'stored-branch-2'
+    })
+
+    await expect(branchSession('stored-parent')).resolves.toBe('stored-branch-2')
+
+    expect(mockRequestGateway).toHaveBeenCalledWith(
+      'session.create',
+      expect.objectContaining({ title: 'Original job #3' })
+    )
   })
 })
 

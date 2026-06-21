@@ -6,6 +6,7 @@ const {
   mockSessionRoute,
   mockRouterState,
   mockEnsureGatewayForProfile,
+  mockGetSessionMessages,
   mockGetProfiles
 } = vi.hoisted(() => ({
   mockRequestGateway: vi.fn(),
@@ -13,6 +14,7 @@ const {
   mockSessionRoute: vi.fn((id: string) => `/${id}`),
   mockRouterState: { route: 'new' as 'new' | 'session', sessionId: null as string | null },
   mockEnsureGatewayForProfile: vi.fn(),
+  mockGetSessionMessages: vi.fn(),
   mockGetProfiles: vi.fn()
 }))
 
@@ -27,11 +29,17 @@ function resetComposerModelState(): void {
 }
 
 vi.mock('$lib/api/dashboard', () => ({
+  deleteSession: vi.fn(),
   getGlobalModelInfo: vi.fn(),
   getModelOptions: vi.fn(),
   getProfiles: mockGetProfiles,
+  getSessionMessages: mockGetSessionMessages,
+  listAllProfileSessions: vi.fn(),
   listSessions: vi.fn(),
-  setApiRequestProfile: vi.fn()
+  renameSession: vi.fn(),
+  searchSessions: vi.fn(),
+  setApiRequestProfile: vi.fn(),
+  setSessionArchived: vi.fn()
 }))
 
 vi.mock('$lib/stores/gateway.svelte', () => ({
@@ -122,6 +130,7 @@ describe('composer runtime targeting', () => {
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
+    sessionState.sessions = []
     sessionState.sessionProfilesById = {}
     sessionState.sessionThreadIdsById = {}
     profileState.activeGatewayProfile = 'default'
@@ -428,6 +437,56 @@ describe('composer runtime targeting', () => {
     })
     expect(mockNavigate).not.toHaveBeenCalled()
     expect(threadForSession('stored-dashboard')?.messages.map(message => message.text)).toEqual(['dashboard message'])
+  })
+
+  it('routes /branch through seeded session.create instead of slash.exec', async () => {
+    rememberRuntimeSession('stored-A', 'live-A')
+    sessionState.activeSessionId = 'live-A'
+    sessionState.storedSessionId = 'stored-A'
+    sessionState.sessionProfilesById = { 'stored-A': 'default' }
+    sessionState.sessionThreadIdsById = { 'stored-A': 'stored-A' }
+    sessionState.sessions = [
+      {
+        archived: false,
+        cwd: null,
+        ended_at: null,
+        id: 'stored-A',
+        input_tokens: 0,
+        is_active: false,
+        last_active: 100,
+        message_count: 2,
+        model: null,
+        output_tokens: 0,
+        preview: null,
+        profile: 'default',
+        source: 'tui',
+        started_at: 100,
+        title: 'Parent session',
+        tool_call_count: 0
+      }
+    ]
+    mockGetSessionMessages.mockResolvedValueOnce({
+      messages: [{ content: 'seed me', role: 'user' }],
+      session_id: 'stored-A'
+    })
+    mockRequestGateway.mockResolvedValueOnce({
+      message_count: 1,
+      messages: [],
+      session_id: 'live-branch',
+      stored_session_id: 'stored-branch'
+    })
+
+    await expect(executeSlashCommand('stored-A', '/branch alternate path')).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith(
+      'session.create',
+      expect.objectContaining({
+        parent_session_id: 'stored-A',
+        title: 'alternate path'
+      })
+    )
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+    expect(mockNavigate).toHaveBeenCalledWith('/stored-branch')
   })
 
   it('can reset the embedded composer session without navigating', async () => {

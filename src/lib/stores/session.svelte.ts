@@ -4,7 +4,8 @@ import {
   searchSessions as apiSearchSessions,
   renameSession as apiRenameSession,
   setSessionArchived as apiSetSessionArchived,
-  deleteSession as apiDeleteSession
+  deleteSession as apiDeleteSession,
+  getSessionMessages
 } from '$lib/api/dashboard'
 import { messageForError } from '$lib/errors'
 import { gatewayState, requestGateway } from '$lib/stores/gateway.svelte'
@@ -25,10 +26,12 @@ import type {
   PaginatedSessions,
   SessionCreateResponse,
   SessionInfo,
+  SessionMessage,
   SessionResumeResponse,
   SessionSearchResult
 } from '$lib/types/hermes'
 import { navigate, routerState, sessionRoute } from '@/app/agent/router.svelte'
+import { nextBranchTitle } from '$lib/session/branching'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -480,7 +483,8 @@ function upsertOptimisticSession(
   response: SessionCreateResponse,
   storedKey: string,
   profile: string,
-  preview: null | string
+  preview: null | string,
+  patch: Partial<SessionInfo> = {}
 ): void {
   const now = Date.now() / 1000
   const session = sessionWithProfile(
@@ -500,7 +504,8 @@ function upsertOptimisticSession(
       source: 'tui',
       started_at: now,
       title: null,
-      tool_call_count: 0
+      tool_call_count: 0,
+      ...patch
     },
     profile
   )
@@ -1031,6 +1036,112 @@ export async function createSession(preview: null | string = null): Promise<stri
     sessionState.error = messageForError(error)
     console.error('Failed to create session:', error)
     return null
+  }
+}
+
+function sessionForBranchTitle(sessionId: string): SessionInfo {
+  return (
+    sessionState.sessions.find(session => session.id === sessionId) ??
+    ({
+      archived: false,
+      cwd: null,
+      ended_at: null,
+      id: sessionId,
+      input_tokens: 0,
+      is_active: false,
+      last_active: 0,
+      message_count: 0,
+      model: null,
+      output_tokens: 0,
+      preview: null,
+      source: 'tui',
+      started_at: 0,
+      title: null,
+      tool_call_count: 0
+    } satisfies SessionInfo)
+  )
+}
+
+function seededBranchMessages(messages: SessionMessage[]): SessionMessage[] {
+  return messages.filter(message => {
+    if (
+      message.role !== 'assistant' &&
+      message.role !== 'system' &&
+      message.role !== 'tool' &&
+      message.role !== 'user'
+    ) {
+      return false
+    }
+
+    if (typeof message.content === 'string') return message.content.trim().length > 0
+    if (typeof message.text === 'string') return message.text.trim().length > 0
+    return message.content != null
+  })
+}
+
+export async function branchSession(sessionId: string, title: null | string = null): Promise<string | null> {
+  const parentSessionId = sessionId.trim()
+  if (!parentSessionId) return null
+
+  const liveParentSessionId =
+    runtimeSessionIdForStored(parentSessionId) ??
+    (parentSessionId === sessionState.storedSessionId ? sessionState.activeSessionId : null)
+
+  if (!liveParentSessionId) {
+    sessionState.error = 'Resume this session before forking it.'
+    return null
+  }
+
+  const profile = normalizeProfileKey(profileForSession(parentSessionId) ?? defaultProfileForCurrentScope())
+  const parentSession = sessionForBranchTitle(parentSessionId)
+  const branchTitle = title?.trim() || nextBranchTitle(parentSession, sessionState.sessions)
+
+  setMutating(parentSessionId, true)
+  sessionState.error = null
+
+  try {
+    await ensureGatewayProfile(profile)
+    const snapshot = await getSessionMessages(parentSessionId, profile)
+    const messages = seededBranchMessages(snapshot.messages)
+
+    if (messages.length === 0) {
+      sessionState.error = 'Branch requires a parent session with at least one message.'
+      return null
+    }
+
+    const response = await requestGateway<SessionCreateResponse>('session.create', {
+      cols: COLS,
+      messages,
+      parent_session_id: parentSessionId,
+      profile,
+      title: branchTitle
+    })
+    const liveBranchSessionId = response.session_id
+    const storedBranchSessionId = response.stored_session_id ?? response.session_id
+    const now = Date.now() / 1000
+
+    rememberRuntimeSession(storedBranchSessionId, liveBranchSessionId)
+    sessionState.activeSessionId = liveBranchSessionId
+    sessionState.storedSessionId = storedBranchSessionId
+    sessionState.sessionLineageIdsByThreadId[storedBranchSessionId] = [storedBranchSessionId]
+    sessionState.sessionStartedAtById[storedBranchSessionId] = now
+    sessionState.sessionThreadIdsById[storedBranchSessionId] = storedBranchSessionId
+    sessionState.sessionProfilesById[storedBranchSessionId] = profile
+
+    upsertOptimisticSession(response, storedBranchSessionId, profile, parentSession.preview, {
+      parent_session_id: parentSessionId,
+      started_at: now,
+      title: branchTitle
+    })
+    navigate(sessionRoute(storedBranchSessionId))
+
+    return storedBranchSessionId
+  } catch (error) {
+    sessionState.error = messageForError(error)
+    console.error('Failed to branch session:', error)
+    return null
+  } finally {
+    setMutating(parentSessionId, false)
   }
 }
 

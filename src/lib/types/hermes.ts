@@ -40,6 +40,9 @@ export interface SessionInfo {
   _lineage_root_id?: null | string
   /** Alternate lineage root shape returned by some session/search payloads. */
   lineage_root?: null | string
+  /** Parent conversation when this session is an explicit branch/fork. Branches
+   *  remain separate threads, unlike compression lineage segments. */
+  parent_session_id?: null | string
   input_tokens: number
   is_active: boolean
   last_active: number

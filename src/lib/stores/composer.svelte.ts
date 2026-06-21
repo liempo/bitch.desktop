@@ -30,6 +30,7 @@ import {
   threadForSession
 } from '$lib/stores/messages.svelte'
 import {
+  branchSession,
   createSession,
   displaySessionIdFor,
   loadSessions,
@@ -864,6 +865,26 @@ export async function executeSlashCommand(
 
     if (normalizedName === 'new' || normalizedName === 'reset') {
       startNewSession({ commitRoute: options.commitRoute })
+      return true
+    }
+
+    if (normalizedName === 'branch' || normalizedName === 'fork') {
+      const branchSourceSessionId = displaySessionKey(sessionId) ?? sessionState.storedSessionId
+
+      if (!branchSourceSessionId) {
+        composer.error = 'Open a session before branching.'
+        return false
+      }
+
+      const branchedSessionId = await branchSession(branchSourceSessionId, parsed.arg)
+
+      if (!branchedSessionId) {
+        composer.error = sessionState.error || 'Branch failed.'
+        return false
+      }
+
+      clearComposerDraft(targetComposerKey)
+      clearComposerAttachments(targetComposerKey)
       return true
     }
 
