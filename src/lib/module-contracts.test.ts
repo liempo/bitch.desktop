@@ -58,6 +58,12 @@ import type {
 } from '$lib/hermes/sessions'
 import * as hermesThreadsContract from '$lib/hermes/threads'
 import * as monitoringContract from '$lib/monitoring'
+import * as monitoringApplicationContract from '$lib/monitoring/application/get-host-metrics'
+import * as monitoringAdapterContract from '$lib/monitoring/adapters/beszel-monitoring-adapter'
+import * as monitoringFormatContract from '$lib/monitoring/domain/format'
+import * as monitoringMetricsContract from '$lib/monitoring/domain/metrics'
+import * as monitoringNormalizeContract from '$lib/monitoring/domain/normalize'
+import type { HostMonitorRequestJson } from '$lib/monitoring/ports/monitoring-port'
 import * as platformContract from '$lib/platform'
 import * as composerContract from '$lib/composer'
 import * as composerQueueStoreContract from '$lib/stores/composer-queue'
@@ -233,8 +239,16 @@ describe('module contract barrels', () => {
   })
 
   it('keeps monitoring and platform as separate public lanes', () => {
-    expect(monitoringContract.fetchHostMetrics).toBeTypeOf('function')
-    expect(monitoringContract.hostMonitorConfig).toBeTypeOf('function')
+    const assertRequestPort = (requestJson: HostMonitorRequestJson) => typeof requestJson === 'function'
+
+    expect(monitoringContract.fetchHostMetrics).toBe(monitoringApplicationContract.fetchHostMetrics)
+    expect(monitoringContract.hostMonitorConfig).toBe(monitoringAdapterContract.hostMonitorConfig)
+    expect(monitoringContract.requestHostMonitorJson).toBe(monitoringAdapterContract.requestHostMonitorJson)
+    expect(monitoringContract.formatBytes).toBe(monitoringFormatContract.formatBytes)
+    expect(monitoringContract.sortHostProcesses).toBe(monitoringFormatContract.sortHostProcesses)
+    expect(monitoringContract.EMPTY_HOST_METRICS).toBe(monitoringMetricsContract.EMPTY_HOST_METRICS)
+    expect(monitoringContract.normalizeHostMetrics).toBe(monitoringNormalizeContract.normalizeHostMetrics)
+    expect(assertRequestPort(async () => null)).toBe(true)
     expect(platformContract.invokeTauriCommand).toBeTypeOf('function')
     expect(platformContract.listenTauriEvent).toBeTypeOf('function')
     expect(platformContract.openExternalUrl).toBeTypeOf('function')

@@ -151,8 +151,7 @@ struct WsClosePayload {
     reason: String,
 }
 
-static MONITORING_AUTH_TOKEN: LazyLock<Mutex<Option<String>>> =
-    LazyLock::new(|| Mutex::new(None));
+static MONITORING_AUTH_TOKEN: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
 static WS_STATE: LazyLock<Mutex<HashMap<String, WsProxyState>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -417,8 +416,7 @@ fn env_connection_config() -> ConnectionConfig {
         profiles: None,
         token: config_value("HERMES_DASHBOARD_SESSION_TOKEN"),
         url: Some(
-            config_value("HERMES_DASHBOARD_URL")
-                .unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string()),
+            config_value("HERMES_DASHBOARD_URL").unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string()),
         ),
     }
 }
@@ -1419,6 +1417,91 @@ mod tests {
         );
         assert!(validate_host_monitor_path("https://monitoring.example.test/api/health").is_err());
         assert!(validate_host_monitor_path("/system/el6ygn9w6w41w41").is_err());
+    }
+
+    static TEST_ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+    const MONITORING_ENV_KEYS: [&str; 6] = [
+        "MONITORING_URL",
+        "MONITORING_AUTH_TOKEN",
+        "MONITORING_IDENTITY",
+        "MONITORING_EMAIL",
+        "MONITORING_PASSWORD",
+        "HOST_MONITOR_URL",
+    ];
+
+    fn with_monitoring_env<R>(pairs: &[(&str, &str)], test: impl FnOnce() -> R) -> R {
+        let _guard = TEST_ENV_LOCK.lock().unwrap();
+        let previous: Vec<(&str, Option<String>)> = MONITORING_ENV_KEYS
+            .iter()
+            .map(|key| (*key, std::env::var(key).ok()))
+            .collect();
+
+        for key in MONITORING_ENV_KEYS {
+            std::env::remove_var(key);
+        }
+        for (key, value) in pairs {
+            std::env::set_var(key, value);
+        }
+        clear_cached_host_monitor_token().unwrap();
+
+        let result = test();
+
+        clear_cached_host_monitor_token().unwrap();
+        for (key, value) in previous {
+            match value {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
+
+        result
+    }
+
+    #[test]
+    fn resolves_static_host_monitor_token_auth() {
+        with_monitoring_env(
+            &[
+                (
+                    "MONITORING_URL",
+                    "https://monitoring.example.test/system/el6ygn9w6w41w41?tab=cpu",
+                ),
+                ("MONITORING_AUTH_TOKEN", " static-token "),
+                ("MONITORING_EMAIL", "ignored@example.test"),
+                ("MONITORING_PASSWORD", "ignored-password"),
+            ],
+            || {
+                let config = resolve_host_monitor_config().unwrap();
+
+                assert_eq!(config.base_url, "https://monitoring.example.test");
+                match config.auth {
+                    HostMonitorAuth::StaticToken(token) => assert_eq!(token, "static-token"),
+                    other => panic!("expected static token auth, got {other:?}"),
+                }
+            },
+        );
+    }
+
+    #[test]
+    fn resolves_password_host_monitor_auth() {
+        with_monitoring_env(
+            &[
+                ("MONITORING_URL", "http://homestation:8090/"),
+                ("MONITORING_EMAIL", "beszel-user@example.test"),
+                ("MONITORING_PASSWORD", " beszel-password "),
+            ],
+            || {
+                let config = resolve_host_monitor_config().unwrap();
+
+                assert_eq!(config.base_url, "http://homestation:8090");
+                match config.auth {
+                    HostMonitorAuth::Password { identity, password } => {
+                        assert_eq!(identity, "beszel-user@example.test");
+                        assert_eq!(password, "beszel-password");
+                    }
+                    other => panic!("expected password auth, got {other:?}"),
+                }
+            },
+        );
     }
 
     #[test]
