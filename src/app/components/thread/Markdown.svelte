@@ -3,7 +3,7 @@
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
   import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/hermes/files'
-  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/thread/preview'
+  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/hermes/threads'
   import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/hermes/files'
   import './markdown.css'
 

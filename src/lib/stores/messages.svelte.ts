@@ -4,7 +4,7 @@ import {
   sendMacosNotification
 } from '$lib/notifications/macos'
 import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
-import { extractCanvasReferences, type ThreadCanvas } from '$lib/thread/canvas'
+import { extractCanvasReferences, type ThreadCanvas } from '$lib/hermes/threads'
 import {
   loadSessions,
   noteSessionActivity,
@@ -20,14 +20,14 @@ import {
   setSecretRequest,
   setSudoRequest
 } from '$lib/stores/prompts.svelte'
-import type { GatewayEvent } from '$lib/gateway/json-rpc-gateway'
+import type { GatewayEvent } from '$lib/hermes/gateway'
 import {
   compactWhitespace,
   coerceGatewayText,
   coerceThinkingBlocks,
   coerceThinkingText,
   extractEmbeddedImages
-} from '$lib/messages/chat-runtime'
+} from '$lib/hermes/threads'
 import {
   attachmentDisplayLabel,
   attachmentFromMediaSource,
@@ -37,10 +37,10 @@ import {
   imageSourcesFromContent,
   type ThreadAttachment,
   type ThreadAttachmentInput
-} from '$lib/messages/media-attachments'
+} from '$lib/hermes/threads'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
-export type { ThreadAttachment, ThreadAttachmentInput, ThreadAttachmentKind } from '$lib/messages/media-attachments'
+export type { ThreadAttachment, ThreadAttachmentInput, ThreadAttachmentKind } from '$lib/hermes/threads'
 
 type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'

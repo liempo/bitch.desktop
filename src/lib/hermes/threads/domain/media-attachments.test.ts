@@ -10,7 +10,7 @@ import {
   imageSourcesFromContent,
   mediaLabelFromSource,
   mimeTypeFromDataUrl
-} from '$lib/messages/media-attachments'
+} from './media-attachments'
 
 describe('message media attachment helpers', () => {
   const nextId = (prefix: string): string => `${prefix}-id`

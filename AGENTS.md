@@ -7,8 +7,8 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 
 ## Current app shape
 
-- The Svelte renderer creates a `HermesGateway` from `src/lib/gateway/hermes.ts`.
-- `HermesGateway` extends the upstream `JsonRpcGatewayClient` and uses `createTauriGatewaySocket` from `src/lib/gateway/tauri-gateway-socket.ts`.
+- The Svelte renderer creates a `HermesGateway` from `src/lib/hermes/gateway/hermes.ts` (legacy `$lib/gateway` re-exports remain transitional).
+- `HermesGateway` extends the upstream-compatible `JsonRpcGatewayClient` and uses `createTauriGatewaySocket` from `src/lib/hermes/gateway/tauri-gateway-socket.ts`.
 - The Tauri Rust bridge in `src-tauri/src/lib.rs` resolves gateway config, probes `/api/status`, mints a `/api/auth/ws-ticket` when required, attaches `X-Hermes-Session-Token` when appropriate, and proxies WebSocket frames to the renderer.
 - Do not assume the browser can set the auth headers the Hermes gateway expects; keep token-sensitive auth in the Tauri bridge.
 
@@ -46,7 +46,7 @@ Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BI
 
 The backend revamp uses explicit Clean MVVM / Ports & Adapters lanes. Prefer public lane entrypoints over deep imports when adding new code:
 
-- Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Existing `$lib/api`, `$lib/gateway`, and `$lib/files` imports remain valid transitional compatibility surfaces until their call sites are migrated.
+- Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Existing `$lib/api`, `$lib/gateway`, `$lib/files`, `$lib/session`, `$lib/thread`, and `$lib/messages` imports remain valid transitional compatibility surfaces until their call sites are migrated.
 - Beszel/host telemetry goes through `$lib/monitoring` and must not import Hermes dashboard, gateway, files, sessions, or plugin helpers.
 - Native app utilities go through `$lib/platform`; renderer components and feature modules must not import `@tauri-apps/api/core` directly. Direct Tauri API imports are approved only inside platform adapter boundaries.
 - Future non-Hermes services such as CalDAV should get their own lane instead of tunneling through `dashboard_request`.
@@ -55,7 +55,7 @@ The backend revamp uses explicit Clean MVVM / Ports & Adapters lanes. Prefer pub
 
 The only file currently copied from the official Hermes repo is:
 
-- `src/lib/gateway/json-rpc-gateway.ts` ← copied from `NousResearch/hermes-agent`:
+- `src/lib/hermes/gateway/json-rpc-gateway.ts` ← copied from `NousResearch/hermes-agent`:
   `apps/shared/src/json-rpc-gateway.ts`
 
 The local copy is formatted with this repo's Prettier config, so raw bytes may differ from upstream while the formatted source should have zero semantic diff. Knip suppresses unused-export findings for this vendored file so upstream's public type surface is not stripped locally.

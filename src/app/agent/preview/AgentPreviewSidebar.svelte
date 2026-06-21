@@ -1,7 +1,7 @@
 <script lang="ts">
   import Panel from '@/app/components/ui/Panel.svelte'
   import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
-  import type { ThreadPreview } from '$lib/thread/preview'
+  import type { ThreadPreview } from '$lib/hermes/threads'
   import { readRemoteFileDataUrl, readRemoteFileText, viewerKindForRemoteFile, type RemoteFileViewerKind } from '$lib/hermes/files'
 
   interface Props {

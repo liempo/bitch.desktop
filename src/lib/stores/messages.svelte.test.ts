@@ -33,7 +33,7 @@ import {
   setThreadBusy,
   threadForSession
 } from '$lib/stores/messages.svelte'
-import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
+import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
 import {
   promptsState,
   setApprovalRequest,

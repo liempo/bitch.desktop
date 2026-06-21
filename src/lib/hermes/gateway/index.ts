@@ -1,1 +1,6 @@
-export * from '../../gateway'
+export * from './connection-config'
+export * from './hermes'
+export * from './json-rpc-gateway'
+export * from './tauri-gateway-socket'
+export type { GatewayRuntimePort, PromptSubmissionPort } from './ports/runtime-port'
+export type { DashboardSessionPort, SessionResumePort } from '../sessions/ports/session-ports'

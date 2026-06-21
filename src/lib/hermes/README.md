@@ -15,10 +15,12 @@ The lane must not absorb Beszel/host telemetry or generic native helpers. Monito
 
 ## Compatibility contract
 
-The subfeature entrypoints here are transitional re-exports of the existing modules:
+The subfeature entrypoints here are the preferred Hermes-lane imports. Some legacy top-level folders now re-export them during the migration:
 
-- `src/lib/hermes/dashboard` -> `src/lib/api`
-- `src/lib/hermes/files` -> `src/lib/files`
-- `src/lib/hermes/gateway` -> `src/lib/gateway`
+- `src/lib/hermes/dashboard` wraps `src/lib/api` for dashboard REST/plugin routes
+- `src/lib/hermes/files` owns authenticated remote-file helpers
+- `src/lib/hermes/gateway` owns JSON-RPC gateway transport, the Tauri WebSocket shim, and runtime ports
+- `src/lib/hermes/sessions` owns session lifecycle, resume, sidebar, and transitional session ViewModel exports
+- `src/lib/hermes/threads` owns canvas, preview, media attachment, and message normalization helpers
 
-Existing imports from `$lib/api`, `$lib/files`, and `$lib/gateway` remain valid during the migration. New code that is explicitly Hermes-lane work should prefer `$lib/hermes/...` once a slice owns that call site.
+Existing imports from `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`, `$lib/thread`, and `$lib/messages` remain valid during the migration. New Hermes-lane work should prefer `$lib/hermes/...` once a slice owns that call site.

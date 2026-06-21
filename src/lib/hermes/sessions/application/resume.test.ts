@@ -31,7 +31,7 @@ vi.mock('@/app/agent/router.svelte', () => ({
   routerState: {}
 }))
 
-import { resumeAndHydrateStoredSession } from '$lib/session/resume'
+import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
 import {
   appendUserMessage,
   handleGatewayEvent,

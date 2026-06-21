@@ -19,7 +19,7 @@ import {
   removeNamespacedStorageItem,
   writeNamespacedStorageItem
 } from '$lib/storage/namespace'
-import { compactWhitespace } from '$lib/messages/chat-runtime'
+import { compactWhitespace } from '$lib/hermes/threads'
 import { requestGateway } from '$lib/stores/gateway.svelte'
 import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/stores/profile.svelte'
 import {
