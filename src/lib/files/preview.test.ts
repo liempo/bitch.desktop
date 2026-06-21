@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import assetsPageSource from '../app/assets/AssetsPage.svelte?raw'
-import { filePresentation, isTextPreviewFile, viewerKindForFile } from './file-presentation'
+import assetsPageSource from '@/app/assets/AssetsPage.svelte?raw'
+import { filePresentation, isTextPreviewFile, viewerKindForFile } from './preview'
 
 describe('remote file presentation', () => {
   it('classifies image files as thumbnail-backed previews', () => {

@@ -34,9 +34,9 @@ Keep the Svelte app organized around page folders plus shared app components:
 
 The app uses these environment values, usually from `.env` copied from `.env.example`:
 
-- `VITE_HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
-- `BITCH_DASHBOARD_API_KEY` — Hermes dashboard session token used by the Tauri bridge.
-- `HOST_MONITOR_URL` — Beszel hub HTTP origin for the main dashboard host monitor. Defaults to `http://homestation:8090` when unset. Include scheme and port in this one URL; do not add a separate host-monitor port variable.
+- `HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
+- `HERMES_DASHBOARD_SESSION_TOKEN` — Hermes dashboard session token used by the Tauri bridge.
+- `MONITORING_URL` — Beszel hub HTTP origin for the main dashboard monitoring panel. Defaults to `http://homestation:8090` when unset. Include scheme and port in this one URL; do not add a separate monitoring port variable.
 
 Remote file preview, inline media, and the Assets page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax. File/filesystem wording is still appropriate when describing remote filesystem APIs or actual remote file entries.
 

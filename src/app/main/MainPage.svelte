@@ -17,7 +17,7 @@
     type HostProcessMetrics,
     type HostProcessSortDirection,
     type HostProcessSortKey
-  } from '$lib/host-monitor'
+  } from '$lib/monitoring'
   import MainRenderPanel from './MainRenderPanel.svelte'
   import MainAgentPanel from './MainAgentPanel.svelte'
   import { agentRoute, cronRoute, kanbanRoute } from '../router.svelte'
@@ -63,53 +63,41 @@
     sortHostProcesses(hostMetrics.processes, processSortKey, processSortDirection).slice(0, 12)
   )
   const processCount = $derived(hostMetrics.processCount || hostMetrics.processes.length)
-  const processEmptyLabel = $derived(
-    hostMetrics.version.startsWith('beszel')
-      ? 'Beszel exposes aggregate system and container history, but no host process rows for this panel.'
-      : 'Awaiting process sample.'
-  )
-  const hardwareStats = $derived([
+  const processEmptyLabel = 'Beszel exposes aggregate system and container history, but no host process rows for this panel.'
+  const hardwareHostStats = $derived([
     {
-      detail: hostMetrics.hostname,
       label: 'UPTIME',
-      value: formatUptime(hostMetrics.uptimeSeconds),
-      valueClass: 'text-primary'
+      value: formatUptime(hostMetrics.uptimeSeconds)
     },
     {
-      detail: `${temperatureLabel(cpuThermal)} temp`,
-      label: 'CPU',
-      value: `${formatPercent(hostMetrics.cpu.usagePercent)} usage`,
-      valueClass: 'text-primary'
+      label: 'OS',
+      value: hostMetrics.platform
     },
     {
-      detail: `RAM: ${formatBytes(hostMetrics.memory.totalBytes)}`,
-      label: 'RAM',
-      value: `${formatPercent(hostMetrics.memory.usedPercent)} usage`,
-      valueClass: 'text-success'
+      label: 'CPU NAME',
+      value: hostMetrics.cpu.model
     },
     {
-      detail: '',
-      label: 'DISK',
-      value: `${formatPercent(hostMetrics.disk.usedPercent)} usage`,
-      valueClass: 'text-secondary'
+      label: 'TOTAL RAM',
+      value: formatBytes(hostMetrics.memory.totalBytes)
     }
   ])
   const hardwareUsageRows = $derived([
     {
-      barClass: 'bg-primary',
-      label: 'CPU',
+      detail: temperatureLabel(cpuThermal),
+      label: 'CPU Usage',
       percent: hostMetrics.cpu.usagePercent,
       value: formatPercent(hostMetrics.cpu.usagePercent)
     },
     {
-      barClass: 'bg-success',
-      label: 'RAM',
+      detail: `${formatBytes(hostMetrics.memory.usedBytes)} / ${formatBytes(hostMetrics.memory.totalBytes)}`,
+      label: 'Mem Usage',
       percent: hostMetrics.memory.usedPercent,
-      value: formatBytes(hostMetrics.memory.totalBytes)
+      value: formatPercent(hostMetrics.memory.usedPercent)
     },
     {
-      barClass: 'bg-secondary',
-      label: 'DISK',
+      detail: `${formatBytes(hostMetrics.disk.usedBytes)} / ${formatBytes(hostMetrics.disk.totalBytes)}`,
+      label: 'Disk Usage',
       percent: hostMetrics.disk.usedPercent,
       value: formatPercent(hostMetrics.disk.usedPercent)
     }
@@ -208,39 +196,40 @@
         <MainRenderPanel metrics={hostMetrics} />
       </div>
 
-      <div class="grid shrink-0 grid-cols-2 gap-2 text-[0.68rem] uppercase tracking-widest xl:grid-cols-4">
-        {#each hardwareStats as stat (stat.label)}
-          <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-            <div class="text-ink-muted">{stat.label}</div>
-            <div class={`mt-1 ${stat.valueClass}`}>{stat.value}</div>
-            {#if stat.detail}
-              <div class="mt-1 truncate text-ink-muted">{stat.detail}</div>
-            {/if}
-          </Panel>
-        {/each}
-      </div>
+      <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
+        <div class="mb-2 flex items-center justify-between gap-3 text-[0.68rem] uppercase tracking-widest text-ink-muted">
+          <span>HOST</span>
+          <span class="truncate text-ink-bright" title={hostMetrics.hostname}>{hostMetrics.hostname}</span>
+        </div>
+        <dl class="grid grid-cols-2 gap-2 text-[0.68rem] uppercase tracking-widest">
+          {#each hardwareHostStats as stat (stat.label)}
+            <div class="min-w-0 border border-line bg-canvas/45 p-2">
+              <dt class="text-ink-muted">{stat.label}</dt>
+              <dd class="mt-1 truncate text-ink-bright" title={stat.value}>{stat.value}</dd>
+            </div>
+          {/each}
+        </dl>
+      </Panel>
 
-      <div class="grid shrink-0 gap-2 text-[0.68rem] uppercase tracking-widest">
-        <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-          <div class="mb-2 flex items-center justify-between text-ink-muted">
-            <span>USAGE</span>
-            <span>{updatedLabel()}</span>
-          </div>
-          <div class="grid gap-1.5">
-            {#each hardwareUsageRows as row (row.label)}
-              <div>
-                <div class="mb-1 flex justify-between text-ink-muted">
-                  <span>{row.label}</span>
-                  <span>{row.value}</span>
-                </div>
-                <div class="h-2 overflow-hidden rounded-full bg-input">
-                  <div class={`h-full ${row.barClass}`} style={barStyle(row.percent)}></div>
-                </div>
+      <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
+        <div class="mb-2 flex items-center justify-between text-[0.68rem] uppercase tracking-widest text-ink-muted">
+          <span>USAGE</span>
+          <span>{updatedLabel()}</span>
+        </div>
+        <div class="grid gap-2 text-[0.68rem] uppercase tracking-widest">
+          {#each hardwareUsageRows as row (row.label)}
+            <div>
+              <div class="mb-1 flex items-baseline justify-between gap-3">
+                <span class="text-ink-muted">{row.label}</span>
+                <span class="min-w-fit text-right text-ink-bright">{row.value} - {row.detail}</span>
               </div>
-            {/each}
-          </div>
-        </Panel>
-      </div>
+              <div class="h-2 overflow-hidden rounded-full border border-line bg-input">
+                <div class="h-full bg-ink-bright/70 transition-[width]" style={barStyle(row.percent)}></div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </Panel>
 
       {#if hostMonitorError}
         <div class="shrink-0 border border-danger/40 bg-danger/10 p-2 text-[0.68rem] text-danger">{hostMonitorError}</div>

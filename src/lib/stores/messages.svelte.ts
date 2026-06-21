@@ -4,7 +4,7 @@ import {
   sendMacosNotification
 } from '$lib/notifications/macos'
 import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
-import { extractCanvasReferences, type ThreadCanvas } from '$lib/canvas'
+import { extractCanvasReferences, type ThreadCanvas } from '$lib/thread/canvas'
 import {
   loadSessions,
   noteSessionActivity,

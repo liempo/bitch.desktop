@@ -6,7 +6,7 @@ import mainAgentPanelSource from './MainAgentPanel.svelte?raw'
 import mainPageSource from './MainPage.svelte?raw'
 import mainRenderPanelSource from './MainRenderPanel.svelte?raw'
 import mainRenderSceneSource from './MainRenderScene.svelte?raw'
-import hostMonitorSource from '$lib/host-monitor.ts?raw'
+import hostMonitorSource from '$lib/monitoring/index.ts?raw'
 
 describe('Main dashboard source contract', () => {
   it('renders hardware, process, desktop AGENT panel, and mobile AGENT link without dashboard header/footer chrome', () => {
@@ -15,13 +15,16 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).toContain('hostMonitorConfig')
     expect(mainPageSource).toContain('sessionState.sessions')
     expect(mainPageSource).toContain('HARDWARE')
-    expect(mainPageSource).toContain('DISK')
+    expect(mainPageSource).toContain('Disk Usage')
+    expect(mainPageSource).toContain('CPU NAME')
+    expect(mainPageSource).toContain('TOTAL RAM')
     expect(mainPageSource).toContain('formatPercent(hostMetrics.disk.usedPercent)')
-    expect(mainPageSource).not.toContain('formatBytes(hostMetrics.disk')
+    expect(mainPageSource).toContain('formatBytes(hostMetrics.disk.usedBytes)')
+    expect(mainPageSource).toContain('formatBytes(hostMetrics.disk.totalBytes)')
     expect(mainPageSource).toContain('title="PROCESS"')
     expect(mainPageSource).toContain('dashboardPanelClass')
     expect(mainPageSource).toContain('raisedPanelClass')
-    expect(mainPageSource).toContain('{#each hardwareStats as stat')
+    expect(mainPageSource).toContain('{#each hardwareHostStats as stat')
     expect(mainPageSource).toContain('{#each hardwareUsageRows as row')
     expect(mainPageSource).not.toContain('remoteTemperatureRows')
     expect(mainPageSource).not.toContain('REMOTE TEMP')
@@ -61,6 +64,12 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('readonly')
     expect(mainPageSource).toContain('processEmptyLabel')
     expect(mainPageSource).toContain('Beszel exposes aggregate system and container history')
+    expect(mainPageSource).toContain('CPU Usage')
+    expect(mainPageSource).toContain('Mem Usage')
+    expect(mainPageSource).toContain('Disk Usage')
+    expect(mainPageSource).not.toContain('barClass')
+    expect(mainPageSource).not.toContain('valueClass')
+    expect(mainPageSource).not.toContain("hostMetrics.version.startsWith('beszel')")
     expect(mainPageSource).not.toContain('Read-only process list')
     expect(mainPageSource).not.toContain('HOST_LINK')
     expect(mainPageSource).not.toContain('CPU_STATS')
@@ -83,16 +92,26 @@ describe('Main dashboard source contract', () => {
     expect(mainRenderSceneSource).toContain('memoryUsagePercent')
     expect(mainRenderSceneSource).toContain('cpuShape')
     expect(mainRenderSceneSource).toContain('LineSegments')
+    expect(mainRenderPanelSource).toContain('--color-ink-bright')
+    expect(mainRenderPanelSource).toContain('--color-ink-muted')
+    expect(mainRenderPanelSource).toContain('--color-line-strong')
+    expect(mainRenderSceneSource).toContain('foregroundColor')
+    expect(mainRenderSceneSource).toContain('mutedColor')
+    expect(`${mainRenderPanelSource}\n${mainRenderSceneSource}`).not.toMatch(/#8be9fd|#bd93f9|#ff79c6/)
     expect(mainPageSource).not.toContain('Glyph')
   })
 
-  it('loads Beszel host monitor endpoint config from HOST_MONITOR_URL', () => {
-    expect(hostMonitorSource).toContain('__HOST_MONITOR_URL__')
+  it('loads Beszel monitoring endpoint config from MONITORING_URL', () => {
+    expect(hostMonitorSource).toContain('__MONITORING_SYSTEM_ID__')
+    expect(hostMonitorSource).toContain('__MONITORING_URL__')
+    expect(hostMonitorSource).toContain('host_monitor_request')
     expect(hostMonitorSource).toContain('http://homestation:8090')
     expect(hostMonitorSource).toContain('/api/collections')
     expect(hostMonitorSource).toContain('BESZEL_COLLECTIONS')
     expect(hostMonitorSource).toContain("systemStats: 'system_stats'")
     expect(hostMonitorSource).not.toContain('GLANCES_ENDPOINTS')
+    expect(hostMonitorSource).not.toContain('normalizeLegacyHostMetrics')
+    expect(hostMonitorSource).not.toContain('quicklook')
     expect(hostMonitorSource).not.toContain('/api/4')
     expect(hostMonitorSource).not.toContain('processlist')
   })

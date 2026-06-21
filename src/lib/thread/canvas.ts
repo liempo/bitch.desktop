@@ -1,4 +1,4 @@
-import { filePathFromRemoteSource, isAbsoluteRemoteFilePath, remoteFileLabel } from '$lib/remote-files'
+import { filePathFromRemoteSource, isAbsoluteRemoteFilePath, remoteFileLabel } from '$lib/files/remote'
 
 export interface ThreadCanvas {
   error?: string

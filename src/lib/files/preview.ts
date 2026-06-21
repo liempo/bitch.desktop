@@ -1,4 +1,4 @@
-import { remoteFileExtension, viewerKindForRemoteFile, type RemoteFileViewerKind } from './remote-files'
+import { remoteFileExtension, viewerKindForRemoteFile, type RemoteFileViewerKind } from './remote'
 
 export type FileAccent = 'archive' | 'audio' | 'code' | 'file' | 'html' | 'image' | 'pdf' | 'text' | 'video'
 type FileViewerKind = RemoteFileViewerKind

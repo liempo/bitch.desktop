@@ -4,7 +4,7 @@ import {
   remoteFileHref,
   remoteFileLabel,
   viewerKindForRemoteFile
-} from '$lib/remote-files'
+} from '$lib/files/remote'
 
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
 const AUDIO_EXTENSIONS = new Set(['.flac', '.m4a', '.mp3', '.ogg', '.opus', '.wav'])

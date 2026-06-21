@@ -1,11 +1,11 @@
-import type { ThreadCanvas } from '$lib/canvas'
+import type { ThreadCanvas } from '$lib/thread/canvas'
 import {
   isDeniedRemoteFilePath,
   parseHermesFileRef,
   remoteFileLabel,
   viewerKindForRemoteFile,
   type RemoteFileViewerKind
-} from '$lib/remote-files'
+} from '$lib/files/remote'
 
 type ThreadPreviewKind = 'canvas' | 'file' | 'image'
 

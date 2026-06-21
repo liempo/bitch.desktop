@@ -5,25 +5,25 @@
   interface Props {
     cpuUsagePercent?: number
     memoryUsagePercent?: number
-    primaryColor?: string
-    secondaryColor?: string
-    warningColor?: string
+    foregroundColor?: string
+    mutedColor?: string
+    lineColor?: string
   }
 
   let {
     cpuUsagePercent = 0,
     memoryUsagePercent = 0,
-    primaryColor = '#8be9fd',
-    secondaryColor = '#bd93f9',
-    warningColor = '#ff79c6'
+    foregroundColor = 'white',
+    mutedColor = 'gray',
+    lineColor = 'white'
   }: Props = $props()
 
   let group = $state<Group | undefined>()
 
   const cpuShape = new EdgesGeometry(new IcosahedronGeometry(1.65, 1))
   const memoryShape = new EdgesGeometry(new IcosahedronGeometry(1.18, 1))
-  const cpuMaterial = new LineBasicMaterial({ color: new Color('#8be9fd'), transparent: true, opacity: 0.95 })
-  const memoryMaterial = new LineBasicMaterial({ color: new Color('#bd93f9'), transparent: true, opacity: 0.45 })
+  const cpuMaterial = new LineBasicMaterial({ color: new Color('white'), transparent: true, opacity: 0.95 })
+  const memoryMaterial = new LineBasicMaterial({ color: new Color('gray'), transparent: true, opacity: 0.45 })
   const cpuLines = new LineSegments(cpuShape, cpuMaterial)
   const memoryLines = new LineSegments(memoryShape, memoryMaterial)
 
@@ -31,9 +31,9 @@
   const memoryLoad = $derived(Math.max(0, Math.min(1, memoryUsagePercent / 100)))
 
   $effect(() => {
-    cpuMaterial.color.set(cpuUsagePercent > 82 ? warningColor : primaryColor)
+    cpuMaterial.color.set(cpuUsagePercent > 82 ? lineColor : foregroundColor)
     cpuMaterial.opacity = 0.72 + cpuLoad * 0.28
-    memoryMaterial.color.set(secondaryColor)
+    memoryMaterial.color.set(mutedColor)
     memoryMaterial.opacity = 0.3 + memoryLoad * 0.45
     cpuLines.scale.setScalar(0.94 + cpuLoad * 0.2)
     memoryLines.scale.setScalar(0.76 + memoryLoad * 0.36)

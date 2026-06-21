@@ -21,7 +21,7 @@ describe('remote file helpers', () => {
       remoteFilePreviewHref,
       sourceFromRemoteFilePreviewHref,
       viewerKindForRemoteFile
-    } = await import('./remote-files')
+    } = await import('./remote')
 
     expect(filePathFromRemoteSource('file:///tmp/a%20b.png')).toBe('/tmp/a b.png')
     expect(remoteFileLabel('/opt/data/reports/summary.pdf')).toBe('summary.pdf')
@@ -37,7 +37,7 @@ describe('remote file helpers', () => {
   })
 
   it('parses Hermes @file references with quoted paths and line ranges', async () => {
-    const { parseHermesFileReference } = await import('./remote-files')
+    const { parseHermesFileReference } = await import('./remote')
 
     expect(parseHermesFileReference('`/tmp/remote probe.txt`')).toMatchObject({
       path: '/tmp/remote probe.txt',
@@ -51,7 +51,7 @@ describe('remote file helpers', () => {
   })
 
   it('normalizes remote filesystem listings from /api/fs/list', async () => {
-    const { normalizeRemoteFileListing } = await import('./remote-files')
+    const { normalizeRemoteFileListing } = await import('./remote')
 
     expect(
       normalizeRemoteFileListing(
@@ -74,7 +74,7 @@ describe('remote file helpers', () => {
 
   it('reads through authenticated dashboard filesystem endpoints', async () => {
     const { fetchRemoteFileListing, getRemoteDefaultCwd, readRemoteFileDataUrl, readRemoteFileText } =
-      await import('./remote-files')
+      await import('./remote')
     mockDashboardRequest.mockResolvedValueOnce({ entries: [] })
     await expect(fetchRemoteFileListing('/', { profile: 'astra' })).resolves.toEqual({
       entries: [],

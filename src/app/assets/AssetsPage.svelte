@@ -8,8 +8,8 @@
     readRemoteFileText,
     type RemoteFileEntry,
     type RemoteFileListing
-  } from '$lib/remote-files'
-  import { filePresentation, type FileAccent } from '$lib/file-presentation'
+  } from '$lib/files/remote'
+  import { filePresentation, type FileAccent } from '$lib/files/preview'
 
   interface TreeRow {
     depth: number

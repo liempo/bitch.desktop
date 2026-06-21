@@ -2,7 +2,7 @@
 
 **Goal:** Give the renderer a safe equivalent of the Electron
 `window.hermesDesktop.api({ path, method, body })` proxy so it can reach the
-remote dashboard's HTTP API without ever holding `BITCH_DASHBOARD_API_KEY`.
+remote dashboard's HTTP API without ever holding `HERMES_DASHBOARD_SESSION_TOKEN`.
 
 ## Rust ([`src-tauri/src/lib.rs`](../src-tauri/src/lib.rs))
 

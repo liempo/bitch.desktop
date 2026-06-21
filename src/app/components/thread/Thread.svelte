@@ -10,7 +10,7 @@
   import { messageState } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
-  import type { ThreadPreview } from '$lib/preview'
+  import type { ThreadPreview } from '$lib/thread/preview'
 
   interface Props {
     compact?: boolean

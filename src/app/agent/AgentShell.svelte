@@ -13,7 +13,7 @@
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
   import { getProfileScope, profileState } from '$lib/stores/profile.svelte'
   import { threadForSession } from '$lib/stores/messages.svelte'
-  import { previewFromCanvas, type ThreadPreview } from '$lib/preview'
+  import { previewFromCanvas, type ThreadPreview } from '$lib/thread/preview'
   import { resumeAndHydrateStoredSession } from '$lib/session/resume'
   import {
     clampPanelWidth,

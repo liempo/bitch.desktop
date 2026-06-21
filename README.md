@@ -18,14 +18,19 @@ This repo is remote-only: it does not bootstrap or run a local Hermes server. Th
 Create a local `.env` from `.env.example` and set:
 
 ```bash
-VITE_HERMES_DASHBOARD_URL=http://127.0.0.1:9119
-BITCH_DASHBOARD_API_KEY=replace-me
-HOST_MONITOR_URL=http://homestation:8090
+HERMES_DASHBOARD_URL=http://127.0.0.1:9119
+HERMES_DASHBOARD_SESSION_TOKEN=replace-me
+MONITORING_URL=https://monitoring.airplane-skilift.ts.net
+MONITORING_SYSTEM_ID=replace-with-system-id
+MONITORING_EMAIL=beszel-user@example.com
+MONITORING_PASSWORD=replace-me
 ```
 
-`VITE_HERMES_DASHBOARD_URL` points at the Hermes dashboard HTTP origin. Remote file preview and inline media use the authenticated Hermes filesystem APIs through the Tauri bridge; the renderer does not fetch a public file-server origin or own dashboard auth headers. `BITCH_DASHBOARD_API_KEY` is consumed by the Tauri backend so the browser renderer does not need to set Hermes auth headers directly.
+`HERMES_DASHBOARD_URL` points at the Hermes dashboard HTTP origin. Remote file preview and inline media use the authenticated Hermes filesystem APIs through the Tauri bridge; the renderer does not fetch a public file-server origin or own dashboard auth headers. `HERMES_DASHBOARD_SESSION_TOKEN` is consumed by the Tauri backend so the browser renderer does not need to set Hermes auth headers directly.
 
-`HOST_MONITOR_URL` points at the Beszel hub HTTP origin used by the main dashboard. It should include the scheme and port in one value, for example `http://homestation:8090`; the renderer reads only this one host monitor setting and uses Beszel's PocketBase collection API.
+`MONITORING_URL` points at the Beszel hub HTTP origin used by the main dashboard. It should include the scheme and port in one value, for example `https://monitoring.airplane-skilift.ts.net` or `http://homestation:8090`; do not add a separate port setting. If you accidentally paste a Beszel page URL such as `/system/<id>`, the app will use the origin and derive the system ID.
+
+Beszel metrics come from PocketBase collection records, not `/api/health`. The health endpoint only proves the hub is alive; `systems` and `system_stats` records usually require auth. Set either `MONITORING_AUTH_TOKEN` or `MONITORING_EMAIL`/`MONITORING_PASSWORD` in `.env`. These secrets are consumed by the Tauri bridge and are not exposed through Vite. `MONITORING_SYSTEM_ID` is optional but useful when the dashboard should target one known system.
 
 ## Development
 

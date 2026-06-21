@@ -51,9 +51,9 @@ read, Rust migrates the old desktop-qualified config path into the new app
 namespace. If the file is absent, Rust seeds the connection from the existing
 `.env` variables:
 
-- `VITE_HERMES_DASHBOARD_URL`
-- `BITCH_DASHBOARD_API_KEY`
-- `HOST_MONITOR_URL` for the renderer-only Beszel dashboard panel, for example `http://homestation:8090`
+- `HERMES_DASHBOARD_URL`
+- `HERMES_DASHBOARD_SESSION_TOKEN`
+- `MONITORING_URL` for the renderer-only Beszel dashboard panel, for example `http://homestation:8090`
 
 New Tauri commands:
 

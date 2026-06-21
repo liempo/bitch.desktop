@@ -7,7 +7,7 @@
   import { cardClass } from '@/app/components/ui/styles'
   import { profileForSession } from '$lib/stores/session.svelte'
   import type { ThreadMessage } from '$lib/stores/messages.svelte'
-  import type { ThreadPreview } from '$lib/preview'
+  import type { ThreadPreview } from '$lib/thread/preview'
 
   interface Props {
     isLast?: boolean

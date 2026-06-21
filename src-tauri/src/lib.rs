@@ -1,4 +1,5 @@
 const DEFAULT_GATEWAY_URL: &str = "http://127.0.0.1:9119";
+const DEFAULT_MONITORING_URL: &str = "http://homestation:8090";
 const DEFAULT_STATUS_PATH: &str = "/api/status";
 const DEFAULT_WS_PATH: &str = "/api/ws";
 const WS_TICKET_PATH: &str = "/api/auth/ws-ticket";
@@ -56,6 +57,19 @@ struct GatewayConfig {
     token: String,
 }
 
+#[derive(Clone, Debug)]
+struct HostMonitorConfig {
+    auth: HostMonitorAuth,
+    base_url: String,
+}
+
+#[derive(Clone, Debug)]
+enum HostMonitorAuth {
+    None,
+    Password { identity: String, password: String },
+    StaticToken(String),
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ConnectionProfileConfig {
@@ -90,6 +104,14 @@ struct DashboardRequest {
     method: Option<String>,
     path: String,
     profile: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HostMonitorRequest {
+    body: Option<Value>,
+    method: Option<String>,
+    path: String,
 }
 
 struct WsTarget {
@@ -129,6 +151,8 @@ struct WsClosePayload {
     reason: String,
 }
 
+static MONITORING_AUTH_TOKEN: LazyLock<Mutex<Option<String>>> =
+    LazyLock::new(|| Mutex::new(None));
 static WS_STATE: LazyLock<Mutex<HashMap<String, WsProxyState>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -230,6 +254,48 @@ fn normalize_gateway_url(raw_url: &str) -> Result<String, String> {
     parsed.set_path(&prefix);
 
     Ok(parsed.as_str().trim_end_matches('/').to_string())
+}
+
+fn normalize_host_monitor_url(raw_url: &str) -> Result<String, String> {
+    let value = raw_url.trim();
+
+    if value.is_empty() {
+        return Err("Beszel host monitor URL is required".to_string());
+    }
+
+    let mut parsed =
+        url::Url::parse(value).map_err(|e| format!("Invalid Beszel host monitor URL: {e}"))?;
+
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err(format!(
+            "Beszel host monitor URL must be http:// or https://, got {}",
+            parsed.scheme()
+        ));
+    }
+
+    parsed.set_fragment(None);
+    parsed.set_query(None);
+    parsed.set_path("");
+
+    Ok(parsed.as_str().trim_end_matches('/').to_string())
+}
+
+fn resolve_host_monitor_config() -> Result<HostMonitorConfig, String> {
+    let raw_base_url =
+        config_value("MONITORING_URL").unwrap_or_else(|| DEFAULT_MONITORING_URL.to_string());
+    let base_url = normalize_host_monitor_url(&raw_base_url)?;
+    let auth = if let Some(token) = config_value("MONITORING_AUTH_TOKEN") {
+        HostMonitorAuth::StaticToken(token)
+    } else if let (Some(identity), Some(password)) = (
+        config_value("MONITORING_IDENTITY").or_else(|| config_value("MONITORING_EMAIL")),
+        config_value("MONITORING_PASSWORD"),
+    ) {
+        HostMonitorAuth::Password { identity, password }
+    } else {
+        HostMonitorAuth::None
+    };
+
+    Ok(HostMonitorConfig { auth, base_url })
 }
 
 fn normalize_auth_mode(auth_mode: Option<&str>) -> String {
@@ -349,9 +415,9 @@ fn env_connection_config() -> ConnectionConfig {
         auth_mode: Some("token".to_string()),
         mode: Some("remote".to_string()),
         profiles: None,
-        token: config_value("BITCH_DASHBOARD_API_KEY"),
+        token: config_value("HERMES_DASHBOARD_SESSION_TOKEN"),
         url: Some(
-            config_value("VITE_HERMES_DASHBOARD_URL")
+            config_value("HERMES_DASHBOARD_URL")
                 .unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string()),
         ),
     }
@@ -394,7 +460,7 @@ fn resolve_gateway_config(profile: Option<&str>) -> Result<GatewayConfig, String
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .ok_or_else(|| {
-            "BITCH_DASHBOARD_API_KEY is not set in connection config, environment, or .env"
+            "HERMES_DASHBOARD_SESSION_TOKEN is not set in connection config, environment, or .env"
                 .to_string()
         })?;
     let auth_mode = override_config
@@ -443,7 +509,10 @@ fn http_client() -> Result<reqwest::Client, String> {
         .map_err(|e| e.to_string())
 }
 
-fn normalize_dashboard_method(method: Option<String>) -> Result<reqwest::Method, String> {
+fn normalize_request_method(
+    method: Option<String>,
+    command: &str,
+) -> Result<reqwest::Method, String> {
     let method = method
         .unwrap_or_else(|| "GET".to_string())
         .trim()
@@ -456,9 +525,13 @@ fn normalize_dashboard_method(method: Option<String>) -> Result<reqwest::Method,
         "PATCH" => Ok(reqwest::Method::PATCH),
         "DELETE" => Ok(reqwest::Method::DELETE),
         other => Err(format!(
-            "dashboard_request only supports GET, POST, PUT, PATCH, and DELETE, got {other}"
+            "{command} only supports GET, POST, PUT, PATCH, and DELETE, got {other}"
         )),
     }
+}
+
+fn normalize_dashboard_method(method: Option<String>) -> Result<reqwest::Method, String> {
+    normalize_request_method(method, "dashboard_request")
 }
 
 fn validate_dashboard_path(path: &str) -> Result<&str, String> {
@@ -466,6 +539,20 @@ fn validate_dashboard_path(path: &str) -> Result<&str, String> {
 
     if !path.starts_with("/api/") {
         return Err("dashboard_request path must start with /api/".to_string());
+    }
+
+    Ok(path)
+}
+
+fn validate_host_monitor_path(path: &str) -> Result<&str, String> {
+    let path = path.trim();
+
+    if path.starts_with("http://") || path.starts_with("https://") {
+        return Err("host_monitor_request path must be a relative /api/ path".to_string());
+    }
+
+    if !path.starts_with("/api/") {
+        return Err("host_monitor_request path must start with /api/".to_string());
     }
 
     Ok(path)
@@ -507,6 +594,134 @@ async fn dashboard_request_impl(
     serde_json::from_str::<Value>(&text).map_err(|e| {
         format!(
             "dashboard request returned invalid JSON: {e}; body: {}",
+            summarize_response_body(&text)
+        )
+    })
+}
+
+fn clear_cached_host_monitor_token() -> Result<(), String> {
+    let mut token = MONITORING_AUTH_TOKEN.lock().map_err(|e| e.to_string())?;
+    *token = None;
+    Ok(())
+}
+
+async fn host_monitor_auth_token(
+    client: &reqwest::Client,
+    config: &HostMonitorConfig,
+    refresh: bool,
+) -> Result<Option<String>, String> {
+    match &config.auth {
+        HostMonitorAuth::None => Ok(None),
+        HostMonitorAuth::StaticToken(token) => Ok(Some(token.clone())),
+        HostMonitorAuth::Password { identity, password } => {
+            if refresh {
+                clear_cached_host_monitor_token()?;
+            }
+
+            if let Some(token) = MONITORING_AUTH_TOKEN
+                .lock()
+                .map_err(|e| e.to_string())?
+                .clone()
+            {
+                return Ok(Some(token));
+            }
+
+            let url = build_api_url(
+                &config.base_url,
+                "/api/collections/users/auth-with-password",
+            );
+            let response = client
+                .post(url)
+                .header("Accept", "application/json")
+                .json(&serde_json::json!({ "identity": identity, "password": password }))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+            let status = response.status();
+            let text = response.text().await.map_err(|e| e.to_string())?;
+
+            if !status.is_success() {
+                return Err(format!(
+                    "Beszel host monitor auth returned {status}: {}",
+                    summarize_response_body(&text)
+                ));
+            }
+
+            let body = serde_json::from_str::<Value>(&text).map_err(|e| {
+                format!(
+                    "Beszel host monitor auth returned invalid JSON: {e}; body: {}",
+                    summarize_response_body(&text)
+                )
+            })?;
+            let token = body
+                .get("token")
+                .and_then(Value::as_str)
+                .filter(|token| !token.is_empty())
+                .ok_or_else(|| "Beszel host monitor auth did not return a token".to_string())?
+                .to_string();
+
+            *MONITORING_AUTH_TOKEN.lock().map_err(|e| e.to_string())? = Some(token.clone());
+
+            Ok(Some(token))
+        }
+    }
+}
+
+async fn send_host_monitor_request(
+    client: &reqwest::Client,
+    config: &HostMonitorConfig,
+    request: &HostMonitorRequest,
+    refresh_auth: bool,
+) -> Result<(reqwest::StatusCode, String), String> {
+    let path = validate_host_monitor_path(&request.path)?;
+    let method = normalize_request_method(request.method.clone(), "host_monitor_request")?;
+    let url = build_api_url(&config.base_url, path);
+    let mut builder = client
+        .request(method, url)
+        .header("Accept", "application/json");
+
+    if let Some(token) = host_monitor_auth_token(client, config, refresh_auth).await? {
+        builder = builder.header("Authorization", token);
+    }
+
+    if let Some(body) = &request.body {
+        builder = builder.json(body);
+    }
+
+    let response = builder.send().await.map_err(|e| e.to_string())?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| e.to_string())?;
+
+    Ok((status, text))
+}
+
+async fn host_monitor_request_impl(
+    client: &reqwest::Client,
+    config: &HostMonitorConfig,
+    request: HostMonitorRequest,
+) -> Result<Value, String> {
+    let (mut status, mut text) = send_host_monitor_request(client, config, &request, false).await?;
+
+    if matches!(&config.auth, HostMonitorAuth::Password { .. })
+        && (status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN)
+    {
+        (status, text) = send_host_monitor_request(client, config, &request, true).await?;
+    }
+
+    if !status.is_success() {
+        return Err(format!(
+            "host monitor request returned {status}: {}",
+            summarize_response_body(&text)
+        ));
+    }
+
+    if status == reqwest::StatusCode::NO_CONTENT || text.trim().is_empty() {
+        return Ok(Value::Null);
+    }
+
+    serde_json::from_str::<Value>(&text).map_err(|e| {
+        format!(
+            "host monitor request returned invalid JSON: {e}; body: {}",
             summarize_response_body(&text)
         )
     })
@@ -813,6 +1028,15 @@ async fn dashboard_request(
     let profile = request.profile.clone();
     let config = resolve_gateway_config(profile.as_deref())?;
     dashboard_request_impl(&client, &config, request).await
+}
+
+#[tauri::command]
+async fn host_monitor_request(
+    client: tauri::State<'_, reqwest::Client>,
+    request: HostMonitorRequest,
+) -> Result<Value, String> {
+    let config = resolve_host_monitor_config()?;
+    host_monitor_request_impl(&client, &config, request).await
 }
 
 #[tauri::command]
@@ -1172,6 +1396,32 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_host_monitor_url_to_origin() {
+        assert_eq!(
+            normalize_host_monitor_url(
+                "https://monitoring.example.test/system/el6ygn9w6w41w41?tab=cpu#chart"
+            )
+            .unwrap(),
+            "https://monitoring.example.test"
+        );
+        assert_eq!(
+            normalize_host_monitor_url("http://homestation:8090/").unwrap(),
+            "http://homestation:8090"
+        );
+        assert!(normalize_host_monitor_url("ws://monitoring.example.test").is_err());
+    }
+
+    #[test]
+    fn validates_host_monitor_api_paths() {
+        assert_eq!(
+            validate_host_monitor_path(" /api/collections/systems/records ").unwrap(),
+            "/api/collections/systems/records"
+        );
+        assert!(validate_host_monitor_path("https://monitoring.example.test/api/health").is_err());
+        assert!(validate_host_monitor_path("/system/el6ygn9w6w41w41").is_err());
+    }
+
+    #[test]
     fn profile_override_requires_remote_mode_and_url() {
         let mut profiles = HashMap::new();
         profiles.insert(
@@ -1254,6 +1504,7 @@ pub fn run() {
             save_connection_config,
             resolve_connection,
             dashboard_request,
+            host_monitor_request,
             connect_ws,
             send_ws_message,
             close_ws,

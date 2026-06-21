@@ -106,19 +106,15 @@ function entryForProfile(profile: null | string | undefined): GatewayEntry {
 async function resolveConnection(profile: string): Promise<ResolvedConnection> {
   try {
     return await invoke<ResolvedConnection>('resolve_connection', { profile })
-  } catch (error) {
+  } catch {
     // Older dev harnesses/tests may not have the Tauri command registered yet.
-    // Fall back to the legacy env default so the UI can still surface the bridge
-    // error instead of dying before it opens the socket shim.
-    if (typeof import.meta !== 'undefined') {
-      return {
-        authMode: 'token',
-        baseUrl: import.meta.env.VITE_HERMES_DASHBOARD_URL ?? 'http://127.0.0.1:9119',
-        profile
-      }
+    // Fall back to the default gateway origin so the UI can still surface the
+    // bridge error instead of dying before it opens the socket shim.
+    return {
+      authMode: 'token',
+      baseUrl: 'http://127.0.0.1:9119',
+      profile
     }
-
-    throw error
   }
 }
 
