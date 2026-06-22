@@ -42,7 +42,7 @@ describe('architecture boundary rules', () => {
         source: `
           <script lang="ts">
             import { invoke } from '@tauri-apps/api/core'
-            import { normalizeHostMetrics } from '$lib/monitoring/domain/normalize'
+            import { normalizeMonitoringMetrics } from '$lib/monitoring/domain/normalize'
           </script>
         `
       },
@@ -52,7 +52,7 @@ describe('architecture boundary rules', () => {
       },
       {
         path: 'src/lib/platform/tauri.ts',
-        source: `import { fetchHostMetrics } from '$lib/monitoring'`
+        source: `import { fetchMonitoringMetrics } from '$lib/monitoring'`
       },
       {
         path: 'src/lib/hermes/files/domain/bad-domain.ts',

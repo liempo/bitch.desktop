@@ -3,30 +3,34 @@ import { describe, expect, it } from 'vitest'
 import composerSource from '../components/composer/Composer.svelte?raw'
 import dashboardSource from './dashboard.ts?raw'
 import mainAgentPanelSource from './MainAgentPanel.svelte?raw'
+import mainContainersPanelSource from './MainContainersPanel.svelte?raw'
 import mainPageSource from './MainPage.svelte?raw'
 import mainRenderPanelSource from './MainRenderPanel.svelte?raw'
 import mainRenderSceneSource from './MainRenderScene.svelte?raw'
-import hostMonitorAdapterSource from '$lib/monitoring/adapters/beszel-monitoring-adapter.ts?raw'
-import hostMetricsApplicationSource from '$lib/monitoring/application/get-host-metrics.ts?raw'
+import monitoringAdapterSource from '$lib/monitoring/adapters/beszel-monitoring-adapter.ts?raw'
+import monitoringMetricsApplicationSource from '$lib/monitoring/application/get-monitoring-metrics.ts?raw'
 
 describe('Main dashboard source contract', () => {
-  it('renders hardware, process, desktop AGENT panel, and mobile AGENT link without dashboard header/footer chrome', () => {
+  it('renders monitoring, containers, desktop AGENT panel, and mobile AGENT link without dashboard header/footer chrome', () => {
     expect(mainPageSource).toContain('recentDashboardSessions')
-    expect(mainPageSource).toContain('fetchHostMetrics')
-    expect(mainPageSource).toContain('hostMonitorConfig')
+    expect(mainPageSource).toContain('fetchMonitoringMetrics')
+    expect(mainPageSource).toContain('monitoringConfig')
     expect(mainPageSource).toContain('sessionState.sessions')
-    expect(mainPageSource).toContain('HARDWARE')
+    expect(mainPageSource).toContain('MONITORING')
     expect(mainPageSource).toContain('Disk Usage')
     expect(mainPageSource).toContain('CPU NAME')
     expect(mainPageSource).toContain('TOTAL RAM')
-    expect(mainPageSource).toContain('formatPercent(hostMetrics.disk.usedPercent)')
-    expect(mainPageSource).toContain('formatBytes(hostMetrics.disk.usedBytes)')
-    expect(mainPageSource).toContain('formatBytes(hostMetrics.disk.totalBytes)')
-    expect(mainPageSource).toContain('title="PROCESS"')
+    expect(mainPageSource).toContain('formatPercent(monitoringMetrics.disk.usedPercent)')
+    expect(mainPageSource).toContain('formatBytes(monitoringMetrics.disk.usedBytes)')
+    expect(mainPageSource).toContain('formatBytes(monitoringMetrics.disk.totalBytes)')
+    expect(mainPageSource).toContain('MainContainersPanel')
+    expect(mainContainersPanelSource).toContain('title="CONTAINERS"')
+    expect(mainContainersPanelSource).toContain('{containerCount} containers')
+    expect(mainContainersPanelSource).toContain('Container')
     expect(mainPageSource).toContain('dashboardPanelClass')
     expect(mainPageSource).toContain('raisedPanelClass')
-    expect(mainPageSource).toContain('{#each hardwareHostStats as stat')
-    expect(mainPageSource).toContain('{#each hardwareUsageRows as row')
+    expect(mainPageSource).toContain('{#each monitoringSystemStats as stat')
+    expect(mainPageSource).toContain('{#each monitoringUsageRows as row')
     expect(mainPageSource).not.toContain('remoteTemperatureRows')
     expect(mainPageSource).not.toContain('REMOTE TEMP')
     expect(mainPageSource).not.toContain('No remote thermal sensors reported.')
@@ -34,44 +38,48 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).toContain('{#each kanbanStats as stat')
     expect(mainPageSource).toContain('<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}')
     expect(mainPageSource).not.toContain('border border-line bg-surface-raised p-2')
-    expect(mainPageSource).toContain("let processSortDirection = $state<HostProcessSortDirection>('desc')")
-    expect(mainPageSource).toContain('toggleProcessSort')
-    expect(mainPageSource).toContain('sortHostProcesses(hostMetrics.processes, processSortKey, processSortDirection)')
-    expect(mainPageSource).toContain("onclick={() => toggleProcessSort('cpu')}")
-    expect(mainPageSource).toContain("onclick={() => toggleProcessSort('memory')}")
-    expect(mainPageSource).toContain('MEM{processSortLabel')
-    expect(mainPageSource).toContain('return formatBytes(process.memoryBytes)')
-    expect(mainPageSource).not.toContain('formatPercent(process.memoryPercent)')
-    expect(mainPageSource).not.toContain('processSortVariant')
-    expect(mainPageSource).not.toContain("onclick={() => (processSortKey = 'cpu')}")
-    expect(mainPageSource).not.toContain("onclick={() => (processSortKey = 'memory')}")
+    expect(mainContainersPanelSource).toContain(
+      "let containerSortDirection = $state<MonitoringContainerSortDirection>('desc')"
+    )
+    expect(mainContainersPanelSource).toContain('toggleContainerSort')
+    expect(mainContainersPanelSource).toContain(
+      'sortMonitoringContainers(metrics.containers, containerSortKey, containerSortDirection)'
+    )
+    expect(mainContainersPanelSource).toContain("onclick={() => toggleContainerSort('cpu')}")
+    expect(mainContainersPanelSource).toContain("onclick={() => toggleContainerSort('memory')}")
+    expect(mainContainersPanelSource).toContain('MEM{containerSortLabel')
+    expect(mainContainersPanelSource).toContain('return formatBytes(container.memoryBytes)')
+    expect(mainContainersPanelSource).not.toContain('formatPercent(container.memoryPercent)')
+    expect(mainContainersPanelSource).not.toContain('containerSortVariant')
+    expect(mainContainersPanelSource).not.toContain("onclick={() => (containerSortKey = 'cpu')}")
+    expect(mainContainersPanelSource).not.toContain("onclick={() => (containerSortKey = 'memory')}")
     expect(mainPageSource).toContain('grid-cols-1')
     expect(mainPageSource).toContain('md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]')
     expect(mainPageSource).toContain('md:grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]')
     expect(mainPageSource).toContain('min-h-56 flex-1')
     expect(mainPageSource).not.toContain('badge={monitorStatus}')
     expect(mainPageSource).not.toContain('monitorStatus')
-    expect(mainPageSource).toMatch(/title="HARDWARE"[\s\S]*title="PROCESS"[\s\S]*MainAgentPanel/)
+    expect(mainPageSource).toMatch(/title="MONITORING"[\s\S]*MainContainersPanel[\s\S]*MainAgentPanel/)
     expect(mainAgentPanelSource).toContain('title="AGENT"')
     expect(mainPageSource).toContain('class="hidden h-full min-h-0 md:block"')
     expect(mainPageSource).toContain('class={`${dashboardPanelClass} md:hidden`}')
     expect(mainPageSource).toContain('badge="link"')
-    expect(mainPageSource).toContain('aria-label="Process"')
+    expect(mainContainersPanelSource).toContain('aria-label="Containers"')
     expect(mainPageSource).not.toContain('grid-rows-[minmax(0,0.72fr)_minmax(0,1.28fr)]')
     expect(mainPageSource).not.toContain('PROCESS_LIST')
     expect(mainPageSource).not.toContain('aria-label="Process list"')
     expect(mainPageSource).not.toContain('SESSIONS')
     expect(mainPageSource).not.toContain('THREADS')
     expect(mainPageSource).not.toContain('readonly')
-    expect(mainPageSource).toContain('processEmptyLabel')
-    expect(mainPageSource).toContain('Beszel exposes aggregate system and container history')
+    expect(mainContainersPanelSource).toContain('containerEmptyLabel')
+    expect(mainContainersPanelSource).toContain('No Beszel containers reported for this system.')
     expect(mainPageSource).toContain('CPU Usage')
     expect(mainPageSource).toContain('Mem Usage')
     expect(mainPageSource).toContain('Disk Usage')
     expect(mainPageSource).not.toContain('barClass')
     expect(mainPageSource).not.toContain('valueClass')
-    expect(mainPageSource).not.toContain("hostMetrics.version.startsWith('beszel')")
-    expect(mainPageSource).not.toContain('Read-only process list')
+    expect(mainPageSource).not.toContain("monitoringMetrics.version.startsWith('beszel')")
+    expect(`${mainPageSource}\n${mainContainersPanelSource}`).not.toContain('Read-only process list')
     expect(mainPageSource).not.toContain('HOST_LINK')
     expect(mainPageSource).not.toContain('CPU_STATS')
     expect(mainPageSource).not.toContain('MEMORY_STATS')
@@ -103,20 +111,22 @@ describe('Main dashboard source contract', () => {
   })
 
   it('loads Beszel monitoring endpoint config from MONITORING_URL', () => {
-    const hostMonitorSource = `${hostMonitorAdapterSource}\n${hostMetricsApplicationSource}`
+    const monitoringSource = `${monitoringAdapterSource}\n${monitoringMetricsApplicationSource}`
 
-    expect(hostMonitorAdapterSource).toContain('__MONITORING_SYSTEM_ID__')
-    expect(hostMonitorAdapterSource).toContain('__MONITORING_URL__')
-    expect(hostMonitorAdapterSource).toContain('host_monitor_request')
-    expect(hostMonitorAdapterSource).toContain('http://homestation:8090')
-    expect(hostMonitorSource).toContain('/api/collections')
-    expect(hostMonitorSource).toContain('BESZEL_COLLECTIONS')
-    expect(hostMonitorSource).toContain("systemStats: 'system_stats'")
-    expect(hostMonitorSource).not.toContain('GLANCES_ENDPOINTS')
-    expect(hostMonitorSource).not.toContain('normalizeLegacyHostMetrics')
-    expect(hostMonitorSource).not.toContain('quicklook')
-    expect(hostMonitorSource).not.toContain('/api/4')
-    expect(hostMonitorSource).not.toContain('processlist')
+    expect(monitoringAdapterSource).toContain('__MONITORING_SYSTEM_ID__')
+    expect(monitoringAdapterSource).toContain('__MONITORING_URL__')
+    expect(monitoringAdapterSource).toContain('monitoring_request')
+    expect(monitoringAdapterSource).toContain('http://homestation:8090')
+    expect(monitoringSource).toContain('/api/collections')
+    expect(monitoringSource).toContain('BESZEL_COLLECTIONS')
+    expect(monitoringSource).toContain("containers: 'containers'")
+    expect(monitoringSource).toContain('BESZEL_CONTAINER_FIELDS')
+    expect(monitoringSource).toContain("systemStats: 'system_stats'")
+    expect(monitoringSource).not.toContain('GLANCES_ENDPOINTS')
+    expect(monitoringSource).not.toContain('normalizeLegacyMonitoringMetrics')
+    expect(monitoringSource).not.toContain('quicklook')
+    expect(monitoringSource).not.toContain('/api/4')
+    expect(monitoringSource).not.toContain('processlist')
   })
 
   it('loads remote dashboard state instead of offering local Hermes bootstrap controls', () => {

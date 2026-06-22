@@ -22,7 +22,6 @@ import monitoringConfigSource from '../../src-tauri/src/monitoring/config.rs?raw
 import monitoringModSource from '../../src-tauri/src/monitoring/mod.rs?raw'
 import platformExternalUrlSource from '../../src-tauri/src/platform/external_url.rs?raw'
 import platformModSource from '../../src-tauri/src/platform/mod.rs?raw'
-import platformNotificationsSource from '../../src-tauri/src/platform/notifications.rs?raw'
 import platformWindowSource from '../../src-tauri/src/platform/window.rs?raw'
 
 const rustLaneSources = {
@@ -32,7 +31,6 @@ const rustLaneSources = {
   'platform/mod.rs': platformModSource,
   'platform/window.rs': platformWindowSource,
   'platform/external_url.rs': platformExternalUrlSource,
-  'platform/notifications.rs': platformNotificationsSource,
   'hermes/mod.rs': hermesModSource,
   'hermes/config.rs': hermesConfigSource,
   'hermes/auth.rs': hermesAuthSource,
@@ -60,7 +58,6 @@ describe('Rust bridge backend lanes', () => {
       'platform/mod.rs',
       'platform/window.rs',
       'platform/external_url.rs',
-      'platform/notifications.rs',
       'hermes/mod.rs',
       'hermes/config.rs',
       'hermes/auth.rs',
@@ -88,17 +85,17 @@ describe('Rust bridge backend lanes', () => {
     expect(libSource).toContain('tauri::generate_handler!')
     expect(libSource).toContain('commands::config::get_connection_config')
     expect(libSource).toContain('commands::gateway::connect_ws')
-    expect(libSource).toContain('commands::monitoring::host_monitor_request')
+    expect(libSource).toContain('commands::monitoring::monitoring_request')
     expect(libSource).not.toMatch(/fn\s+resolve_gateway_config/)
-    expect(libSource).not.toMatch(/fn\s+host_monitor_auth_token/)
+    expect(libSource).not.toMatch(/fn\s+monitoring_auth_token/)
     expect(libSource).not.toMatch(/fn\s+open_url_in_browser/)
   })
 
   it('does not leak Hermes, monitoring, or platform concerns across Rust lanes', () => {
-    expect(hermesConfigSource).not.toMatch(/MONITORING_|HOST_MONITOR|Beszel/)
+    expect(hermesConfigSource).not.toMatch(/MONITORING_|Beszel/)
     expect(monitoringConfigSource).not.toMatch(/HERMES_DASHBOARD|BITCH_DASHBOARD|GatewayConfig/)
     expect(`${platformWindowSource}\n${platformExternalUrlSource}`).not.toMatch(
-      /HERMES_DASHBOARD|MONITORING_|HOST_MONITOR|Beszel|dashboard_request|host_monitor_request/
+      /HERMES_DASHBOARD|MONITORING_|Beszel|dashboard_request|monitoring_request/
     )
     expect(commandsDashboardSource).toContain('crate::hermes::dashboard_http')
     expect(commandsDashboardSource).not.toContain('monitoring')

@@ -22,7 +22,7 @@ pub fn run() {
             commands::config::save_connection_config,
             commands::config::resolve_connection,
             commands::dashboard::dashboard_request,
-            commands::monitoring::host_monitor_request,
+            commands::monitoring::monitoring_request,
             commands::gateway::connect_ws,
             commands::gateway::send_ws_message,
             commands::gateway::close_ws,

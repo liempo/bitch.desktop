@@ -17,7 +17,7 @@ is what keeps the glass box from filling with smoke.
 ```text
 src/app/                  Svelte routes, page views, and shared UI components
 src/lib/hermes/           Hermes dashboard/runtime lane
-src/lib/monitoring/       Standalone Beszel/PocketBase host telemetry lane
+src/lib/monitoring/       Standalone Beszel/PocketBase monitoring telemetry lane
 src/lib/platform/         Renderer adapter boundary for native Tauri helpers
 src/lib/{errors,layout,
   notifications,storage,
@@ -67,8 +67,8 @@ plumbing because it happens to be nearby and unsupervised.
 | Lane       | Owns                                                                                                                                                            | Must not own                                                   |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Hermes     | Dashboard `/api/*` requests, authenticated remote files/media, JSON-RPC runtime gateway, ws-ticket/session-token handling, profile-scoped dashboard/plugin APIs | Beszel/monitoring, generic native helpers, non-Hermes services |
-| Monitoring | Beszel/PocketBase host telemetry, `MONITORING_*` config, system selection, token refresh, metrics reads                                                         | Hermes dashboard/session/files/gateway/plugin modules          |
-| Platform   | Native app helpers: connection config storage, external URL opening, notifications, window setup, generic invoke/event wrappers                                 | Product backend route knowledge for Hermes or Beszel           |
+| Monitoring | Beszel/PocketBase monitoring telemetry, `MONITORING_*` config, system selection, token refresh, metrics reads                                                   | Hermes dashboard/session/files/gateway/plugin modules          |
+| Platform   | Native app helpers: connection config storage, external URL opening, window setup, generic invoke/event wrappers                                                | Product backend route knowledge for Hermes or Beszel           |
 | Shared     | Pure utilities such as errors, layout helpers, UI helpers, typed DTOs, storage namespace helpers                                                                | Feature-lane imports or privileged backend calls               |
 
 `dashboard_request` is Hermes-only. It is path-validated to Hermes dashboard
@@ -111,7 +111,7 @@ reintroducing `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`,
 
 ## Monitoring renderer lane: `src/lib/monitoring/*`
 
-`src/lib/monitoring` is standalone host telemetry backed by Beszel/PocketBase. It
+`src/lib/monitoring` is standalone monitoring telemetry backed by Beszel/PocketBase. It
 is not a Hermes plugin and must not import Hermes sessions, gateway, files,
 dashboard clients, composer state, or plugin helpers.
 
@@ -124,12 +124,12 @@ src/lib/monitoring/
   domain/format.ts
   ports/monitoring-port.ts
   adapters/beszel-monitoring-adapter.ts
-  application/get-host-metrics.ts
+  application/get-monitoring-metrics.ts
   lane-boundary.test.ts
 ```
 
 The renderer receives only explicit monitoring config exposed by the Vite define
-bridge and calls the `host_monitor_request` Tauri command through the monitoring
+bridge and calls the `monitoring_request` Tauri command through the monitoring
 adapter. Beszel passwords, static tokens, cached auth tokens, and CORS-sensitive
 requests stay in the Rust monitoring lane. Monitoring never calls
 `dashboard_request`.
@@ -174,12 +174,11 @@ src-tauri/src/
     mod.rs
     config.rs        MONITORING_* configuration
     auth.rs          Beszel static/password auth and cached token refresh
-    beszel.rs        PocketBase systems/system_stats reads
+    beszel.rs        Beszel PocketBase /api/* proxy with auth refresh
   platform/
     mod.rs
     window.rs
     external_url.rs
-    notifications.rs
   commands/
     mod.rs
     config.rs
@@ -222,7 +221,7 @@ Decision rule:
 
 - Hermes dashboard, runtime, files, profiles, sessions, Cron, Kanban, prompts ->
   Hermes lane.
-- Beszel and host telemetry -> monitoring lane.
+- Beszel and monitoring telemetry -> monitoring lane.
 - OS/native utility -> platform lane.
 - Separate external service such as CalDAV -> its own lane.
 - Pure formatting, parsing, normalization, or local state orchestration ->

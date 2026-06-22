@@ -11,7 +11,7 @@ The Hermes lane owns only Hermes dashboard and runtime concerns:
 - JSON-RPC gateway client wiring and the Tauri WebSocket shim;
 - profile-scoped Hermes dashboard/plugin helpers such as composer submission, sessions, cron, Kanban, prompts, profiles, and runtime calls.
 
-The lane must not absorb Beszel/host telemetry or generic native helpers. Monitoring belongs in `src/lib/monitoring`; native capabilities belong in `src/lib/platform`. Future non-Hermes services get their own lane.
+The lane must not absorb Beszel/monitoring telemetry or generic native helpers. Monitoring belongs in `src/lib/monitoring`; native capabilities belong in `src/lib/platform`. Future non-Hermes services get their own lane.
 
 ## Public entrypoints
 

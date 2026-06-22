@@ -1,11 +1,13 @@
 import { invokeTauriCommand } from '$lib/platform'
 
-import type { HostMonitorConfig, HostMonitorEnv, HostMonitorRequestJson } from '../ports/monitoring-port'
+import type { MonitoringConfig, MonitoringEnv, MonitoringRequestJson } from '../ports/monitoring-port'
 
 const DEFAULT_MONITORING_URL = 'http://homestation:8090'
+export const BESZEL_CONTAINER_FIELDS = 'id,name,image,ports,cpu,memory,net,health,status,system,updated'
 export const BESZEL_SYSTEM_DETAILS_FIELDS = 'hostname,kernel,cores,threads,cpu,os,os_name,arch,memory,podman'
 
 export const BESZEL_COLLECTIONS = {
+  containers: 'containers',
   systemDetails: 'system_details',
   systems: 'systems',
   systemStats: 'system_stats'
@@ -18,11 +20,11 @@ function clean(value: string | undefined): string {
   return value?.trim() ?? ''
 }
 
-function configuredHostMonitorUrl(): string | undefined {
+function configuredMonitoringUrl(): string | undefined {
   return typeof __MONITORING_URL__ === 'undefined' ? undefined : __MONITORING_URL__
 }
 
-function configuredHostMonitorSystemId(): string | undefined {
+function configuredMonitoringSystemId(): string | undefined {
   return typeof __MONITORING_SYSTEM_ID__ === 'undefined' ? undefined : __MONITORING_SYSTEM_ID__
 }
 
@@ -32,7 +34,7 @@ function systemIdFromUrl(url: URL): string {
   return systemIndex >= 0 ? clean(parts[systemIndex + 1]) : ''
 }
 
-function normalizeHostMonitorUrl(url: string | undefined): { baseUrl: string; systemId: string } {
+function normalizeMonitoringUrl(url: string | undefined): { baseUrl: string; systemId: string } {
   const trimmed = clean(url) || DEFAULT_MONITORING_URL
   const parsedUrl = new URL(trimmed)
   const systemId = systemIdFromUrl(parsedUrl)
@@ -53,11 +55,11 @@ function urlPort(url: URL): string {
   return ''
 }
 
-export function hostMonitorConfig(env: HostMonitorEnv = {}): HostMonitorConfig {
-  const normalized = normalizeHostMonitorUrl(env.url ?? configuredHostMonitorUrl())
+export function monitoringConfig(env: MonitoringEnv = {}): MonitoringConfig {
+  const normalized = normalizeMonitoringUrl(env.url ?? configuredMonitoringUrl())
   const baseUrl = normalized.baseUrl
   const parsedUrl = new URL(baseUrl)
-  const systemId = clean(env.systemId ?? configuredHostMonitorSystemId()) || normalized.systemId
+  const systemId = clean(env.systemId ?? configuredMonitoringSystemId()) || normalized.systemId
 
   return {
     baseUrl,
@@ -68,7 +70,7 @@ export function hostMonitorConfig(env: HostMonitorEnv = {}): HostMonitorConfig {
 }
 
 export function collectionRecordsPath(collection: string, params: Record<string, string>): string {
-  const url = new URL(`/api/collections/${collection}/records`, 'http://host-monitor.local')
+  const url = new URL(`/api/collections/${collection}/records`, 'http://monitoring.local')
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
   }
@@ -80,13 +82,13 @@ export function collectionRecordPath(collection: string, id: string): string {
 }
 
 export function collectionRecordFieldsPath(collection: string, id: string, fields: string): string {
-  const url = new URL(collectionRecordPath(collection, id), 'http://host-monitor.local')
+  const url = new URL(collectionRecordPath(collection, id), 'http://monitoring.local')
   url.searchParams.set('fields', fields)
   return `${url.pathname}${url.search}`
 }
 
-export const requestHostMonitorJson: HostMonitorRequestJson = async path =>
-  invokeTauriCommand<unknown>('host_monitor_request', {
+export const requestMonitoringJson: MonitoringRequestJson = async path =>
+  invokeTauriCommand<unknown>('monitoring_request', {
     request: {
       method: 'GET',
       path

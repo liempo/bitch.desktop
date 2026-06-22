@@ -1,4 +1,4 @@
-import type { HostMetrics, HostThermalZone } from './metrics'
+import type { MonitoringContainerMetrics, MonitoringMetrics, MonitoringThermalZone } from './metrics'
 import { BYTES_PER_GIB } from './metrics'
 
 export function asRecord(value: unknown): Record<string, unknown> {
@@ -45,6 +45,11 @@ function bytesFromGib(value: unknown): number {
   return parsed > 0 ? parsed * BYTES_PER_GIB : 0
 }
 
+function bytesFromMib(value: unknown): number {
+  const parsed = numberValue(value, Number.NaN)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed * 1024 ** 2 : 0
+}
+
 function bytesValue(value: unknown): number {
   const parsed = numberValue(value, Number.NaN)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
@@ -65,6 +70,13 @@ function bytesFromPercent(total: number, percent: unknown): number {
 
 function percentFromUsed(total: number, used: number): number {
   return total > 0 && used >= 0 ? (used / total) * 100 : 0
+}
+
+function pocketBaseItems(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value
+
+  const payload = asRecord(value)
+  return Array.isArray(payload.items) ? payload.items : []
 }
 
 function sensorUnit(value: unknown): string {
@@ -99,7 +111,7 @@ function isThermalSensor(sensor: Record<string, unknown>, fallback: string): boo
   return (sensor.value !== undefined || sensor.current !== undefined) && !unit
 }
 
-function collectThermalSensors(value: unknown, fallback = 'thermal'): HostThermalZone[] {
+function collectThermalSensors(value: unknown, fallback = 'thermal'): MonitoringThermalZone[] {
   const numeric = numberValue(value, Number.NaN)
   if (fallback !== 'thermal' && Number.isFinite(numeric) && numeric > 0) {
     return [{ celsius: numeric, label: fallback }]
@@ -132,7 +144,7 @@ function collectThermalSensors(value: unknown, fallback = 'thermal'): HostTherma
   return Object.entries(sensor).flatMap(([key, nestedValue]) => collectThermalSensors(nestedValue, key))
 }
 
-function thermalArray(value: unknown): HostThermalZone[] {
+function thermalArray(value: unknown): MonitoringThermalZone[] {
   return collectThermalSensors(value).filter(zone => Number.isFinite(zone.celsius) && zone.celsius > 0)
 }
 
@@ -150,7 +162,7 @@ function latestPercent(value: unknown, total: number, used: number, fallback: un
   return numberValue(computed, numberValue(fallback))
 }
 
-function normalizeBeszelHostMetrics(payload: Record<string, unknown>): HostMetrics {
+function normalizeBeszelMonitoringMetrics(payload: Record<string, unknown>): MonitoringMetrics {
   const explicitSystem = asRecord(payload.system)
   let system = explicitSystem
   if (!Object.keys(system).length) {
@@ -205,6 +217,8 @@ function normalizeBeszelHostMetrics(payload: Record<string, unknown>): HostMetri
     stats.t ?? stats.temps ?? stats.temperatures ?? (info.dt !== undefined ? { CPU: info.dt } : info.t)
 
   return {
+    containerCount: 0,
+    containers: [],
     cpu: {
       cores: firstNumberValue(
         [details.cores, details.Cores, details.coreCount, details.CoreCount, info.c],
@@ -220,7 +234,7 @@ function normalizeBeszelHostMetrics(payload: Record<string, unknown>): HostMetri
       usedBytes: diskUsed,
       usedPercent: latestPercent(stats.dp, diskTotal, diskUsed, info.dp)
     },
-    hostname: firstStringValue(
+    systemName: firstStringValue(
       [details.hostname, details.Hostname, details.hostName, info.h, system.name, system.host],
       'unknown'
     ),
@@ -234,8 +248,6 @@ function normalizeBeszelHostMetrics(payload: Record<string, unknown>): HostMetri
       usedPercent: latestPercent(stats.mp, memoryTotal, memoryUsed, info.mp)
     },
     platform: osDisplayName || osLabel(osEnum),
-    processCount: 0,
-    processes: [],
     thermal: thermalArray(temperatureMap),
     timestamp: stringValue(
       statsRecord.created,
@@ -246,6 +258,29 @@ function normalizeBeszelHostMetrics(payload: Record<string, unknown>): HostMetri
   }
 }
 
-export function normalizeHostMetrics(value: unknown): HostMetrics {
-  return normalizeBeszelHostMetrics(asRecord(value))
+export function normalizeBeszelContainers(value: unknown, memoryTotalBytes = 0): MonitoringContainerMetrics[] {
+  return pocketBaseItems(value).map((item, index) => {
+    const record = asRecord(item)
+    const id = stringValue(record.id, '')
+    const name = stringValue(record.name, id || `container-${index + 1}`)
+    const image = stringValue(record.image, '')
+    const ports = stringValue(record.ports, '')
+    const status = stringValue(record.status, stringValue(record.health, ''))
+    const memoryBytes = bytesFromMib(record.memory)
+
+    return {
+      cpuPercent: numberValue(record.cpu),
+      ...(id ? { id } : {}),
+      image,
+      memoryBytes,
+      memoryPercent: percentFromUsed(memoryTotalBytes, memoryBytes),
+      name,
+      ports,
+      status
+    }
+  })
+}
+
+export function normalizeMonitoringMetrics(value: unknown): MonitoringMetrics {
+  return normalizeBeszelMonitoringMetrics(asRecord(value))
 }

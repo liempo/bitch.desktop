@@ -14,7 +14,7 @@ Shared renderer code is grouped by boundary instead of parked at the root. Prefe
   - `hermes/sessions/` — session lifecycle, resume, sidebar, and session ViewModel.
   - `hermes/threads/` — message ViewModel, canvas, preview, media attachment, and gateway message normalization helpers.
 - `layout/` — shared layout helpers plus layout rune state for sidebar visibility and pinned sessions.
-- `monitoring/` — standalone Beszel host monitor configuration, fetch, normalization, and formatting helpers.
+- `monitoring/` — standalone Beszel monitoring configuration, fetch, normalization, and formatting helpers.
 - `notifications/` — native/user notification helpers.
 - `platform/` — renderer adapter boundary for native Tauri commands/events and OS utilities.
 - `storage/` — namespaced localStorage helpers.

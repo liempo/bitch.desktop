@@ -26,7 +26,7 @@ feature work; the complete final architecture lives in
 
 - Hermes dashboard/runtime route, profile, session, file, Cron, Kanban, prompt,
   or gateway behavior -> Hermes lane.
-- Beszel/host telemetry -> monitoring lane.
+- Beszel/monitoring telemetry -> monitoring lane.
 - OS/native utility -> platform lane.
 - Separate external service such as CalDAV -> its own lane.
 - Pure normalization/formatting/parsing -> TypeScript domain/application module

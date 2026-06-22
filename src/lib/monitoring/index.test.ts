@@ -9,16 +9,18 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 import {
-  fetchHostMetrics,
+  fetchMonitoringMetrics,
   formatBytes,
   formatPercent,
   formatUptime,
-  hostMonitorConfig,
-  normalizeHostMetrics,
-  requestHostMonitorJson,
-  sortHostProcesses
+  monitoringConfig,
+  normalizeBeszelContainers,
+  normalizeMonitoringMetrics,
+  requestMonitoringJson,
+  sortMonitoringContainers
 } from './index'
 
+const MIB = 1024 ** 2
 const GIB = 1024 ** 3
 
 const beszelSystem = {
@@ -71,27 +73,52 @@ const beszelStatsRecord = {
   }
 }
 
-describe('host monitor helpers', () => {
+const beszelContainers = [
+  {
+    cpu: 18.25,
+    id: 'container_web',
+    image: 'ghcr.io/example/web:latest',
+    memory: 1536,
+    name: 'web',
+    ports: '0.0.0.0:443->443/tcp',
+    status: 'running',
+    system: 'system_1',
+    updated: '2026-06-21 05:01:00.000Z'
+  },
+  {
+    cpu: '3.5',
+    health: 'healthy',
+    id: 'container_worker',
+    image: 'ghcr.io/example/worker:latest',
+    memory: '256',
+    name: 'worker',
+    ports: '',
+    system: 'system_1',
+    updated: '2026-06-21 05:01:00.000Z'
+  }
+]
+
+describe('monitoring helpers', () => {
   beforeEach(() => {
     mockInvoke.mockReset()
   })
 
   it('builds a Beszel collection API URL from a full MONITORING_URL value', () => {
-    expect(hostMonitorConfig({ systemId: '', url: 'http://homestation:8090' })).toEqual({
+    expect(monitoringConfig({ systemId: '', url: 'http://homestation:8090' })).toEqual({
       baseUrl: 'http://homestation:8090',
       metricsUrl: 'http://homestation:8090/api/collections',
       port: '8090',
       systemId: ''
     })
 
-    expect(hostMonitorConfig({ systemId: '', url: 'http://homestation:8090/' }).metricsUrl).toBe(
+    expect(monitoringConfig({ systemId: '', url: 'http://homestation:8090/' }).metricsUrl).toBe(
       'http://homestation:8090/api/collections'
     )
   })
 
   it('normalizes accidental Beszel system page URLs and derives the system ID', () => {
     expect(
-      hostMonitorConfig({ url: 'https://monitoring.airplane-skilift.ts.net/system/el6ygn9w6w41w41?tab=cpu' })
+      monitoringConfig({ url: 'https://monitoring.airplane-skilift.ts.net/system/el6ygn9w6w41w41?tab=cpu' })
     ).toEqual({
       baseUrl: 'https://monitoring.airplane-skilift.ts.net',
       metricsUrl: 'https://monitoring.airplane-skilift.ts.net/api/collections',
@@ -100,7 +127,7 @@ describe('host monitor helpers', () => {
     })
 
     expect(
-      hostMonitorConfig({
+      monitoringConfig({
         systemId: 'explicit_system',
         url: 'https://monitoring.airplane-skilift.ts.net/system/el6ygn9w6w41w41'
       }).systemId
@@ -108,7 +135,7 @@ describe('host monitor helpers', () => {
   })
 
   it('normalizes Beszel system and latest stats records into the UI contract', () => {
-    const metrics = normalizeHostMetrics({
+    const metrics = normalizeMonitoringMetrics({
       details: beszelDetails,
       system: beszelSystem,
       statsRecord: beszelStatsRecord
@@ -126,7 +153,7 @@ describe('host monitor helpers', () => {
       usedBytes: 256 * GIB,
       usedPercent: 50
     })
-    expect(metrics.hostname).toBe('homestation.local')
+    expect(metrics.systemName).toBe('homestation.local')
     expect(metrics.memory).toMatchObject({
       availableBytes: 20 * GIB,
       swapTotalBytes: 4 * GIB,
@@ -137,8 +164,8 @@ describe('host monitor helpers', () => {
       usedPercent: 37.5
     })
     expect(metrics.platform).toBe('Ubuntu 24.04 LTS')
-    expect(metrics.processCount).toBe(0)
-    expect(metrics.processes).toEqual([])
+    expect(metrics.containerCount).toBe(0)
+    expect(metrics.containers).toEqual([])
     expect(metrics.thermal).toEqual([
       { celsius: 48.5, label: 'CPU' },
       { celsius: 41, label: 'NVMe' }
@@ -148,11 +175,36 @@ describe('host monitor helpers', () => {
     expect(metrics.version).toBe('beszel 0.13.8')
   })
 
+  it('normalizes Beszel container records into dashboard container rows', () => {
+    const rows = normalizeBeszelContainers({ items: beszelContainers }, 32 * GIB)
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({
+      cpuPercent: 18.25,
+      id: 'container_web',
+      image: 'ghcr.io/example/web:latest',
+      memoryBytes: 1536 * MIB,
+      name: 'web',
+      ports: '0.0.0.0:443->443/tcp',
+      status: 'running'
+    })
+    expect(rows[0].memoryPercent).toBeCloseTo(4.6875)
+    expect(formatBytes(rows[0].memoryBytes)).toBe('1.5 GB')
+    expect(rows[1]).toMatchObject({
+      cpuPercent: 3.5,
+      image: 'ghcr.io/example/worker:latest',
+      memoryBytes: 256 * MIB,
+      name: 'worker',
+      status: 'healthy'
+    })
+    expect(formatBytes(rows[1].memoryBytes)).toBe('256 MB')
+  })
+
   it('normalizes Beszel system detail aliases used by Go structs and PocketBase records', () => {
     const statsWithoutMemoryTotal: Record<string, unknown> = { ...beszelStatsRecord.stats }
     delete statsWithoutMemoryTotal.m
 
-    const metrics = normalizeHostMetrics({
+    const metrics = normalizeMonitoringMetrics({
       details: {
         CoreCount: 4,
         CpuModel: 'AMD Ryzen 7 5700G',
@@ -170,59 +222,56 @@ describe('host monitor helpers', () => {
     expect(metrics.platform).toBe('Ubuntu 24.04 LTS')
   })
 
-  it('sorts host process lists by CPU or memory usage', () => {
-    const processes = [
+  it('sorts monitoring container lists by CPU or memory usage', () => {
+    const containers = [
       {
-        command: 'memory-heavy',
         cpuPercent: 2,
+        image: 'memory-heavy:latest',
         memoryBytes: 600,
         memoryPercent: 60,
         name: 'memory-heavy',
-        pid: 1,
-        status: '',
-        user: ''
+        ports: '',
+        status: ''
       },
       {
-        command: 'cpu-heavy',
         cpuPercent: 90,
+        image: 'cpu-heavy:latest',
         memoryBytes: 50,
         memoryPercent: 5,
         name: 'cpu-heavy',
-        pid: 2,
-        status: '',
-        user: ''
+        ports: '',
+        status: ''
       }
     ]
 
-    expect(sortHostProcesses(processes, 'cpu')[0].name).toBe('cpu-heavy')
-    expect(sortHostProcesses(processes, 'cpu', 'asc')[0].name).toBe('memory-heavy')
-    expect(sortHostProcesses(processes, 'memory')[0].name).toBe('memory-heavy')
-    expect(sortHostProcesses(processes, 'memory', 'asc')[0].name).toBe('cpu-heavy')
+    expect(sortMonitoringContainers(containers, 'cpu')[0].name).toBe('cpu-heavy')
+    expect(sortMonitoringContainers(containers, 'cpu', 'asc')[0].name).toBe('memory-heavy')
+    expect(sortMonitoringContainers(containers, 'memory')[0].name).toBe('memory-heavy')
+    expect(sortMonitoringContainers(containers, 'memory', 'asc')[0].name).toBe('cpu-heavy')
   })
 
-  it('formats host metric display values', () => {
+  it('formats monitoring metric display values', () => {
     expect(formatBytes(16 * GIB)).toBe('16 GB')
     expect(formatPercent(33.333)).toBe('33.3%')
     expect(formatUptime(3661)).toBe('01:01:01')
   })
 
   it('does not normalize legacy Glances payloads into the Beszel contract', () => {
-    const metrics = normalizeHostMetrics({
+    const metrics = normalizeMonitoringMetrics({
       mem: { total: 1000, used: 500 },
-      processes: [{ cpu_percent: 90, memory_info: { rss: 50 }, name: 'cpu-heavy', pid: 2 }],
       quicklook: { cpu: 99, cpu_name: 'legacy cpu' }
     })
 
     expect(metrics.cpu.usagePercent).toBe(0)
     expect(metrics.cpu.model).toBe('unknown')
     expect(metrics.memory.totalBytes).toBe(0)
-    expect(metrics.processes).toEqual([])
+    expect(metrics.containers).toEqual([])
     expect(metrics.version).toBe('beszel')
   })
 
   it('fetches metrics from Beszel PocketBase collections without calling legacy per-endpoint monitor routes', async () => {
     const requestJson = vi.fn().mockImplementation(async (path: string) => {
-      const parsed = new URL(path, 'http://host-monitor.local')
+      const parsed = new URL(path, 'http://monitoring.local')
       if (parsed.pathname === '/api/collections/systems/records') {
         return { items: [beszelSystem] }
       }
@@ -235,10 +284,18 @@ describe('host monitor helpers', () => {
         expect(parsed.searchParams.get('fields')).toContain('hostname,kernel,cores,threads,cpu')
         return beszelDetails
       }
+      if (parsed.pathname === '/api/collections/containers/records') {
+        expect(parsed.searchParams.get('fields')).toContain('id,name,image,ports,cpu,memory')
+        expect(parsed.searchParams.get('filter')).toContain('system')
+        expect(parsed.searchParams.get('filter')).toContain('system_1')
+        expect(parsed.searchParams.get('perPage')).toBe('2000')
+        expect(parsed.searchParams.get('sort')).toBe('-cpu')
+        return { items: beszelContainers }
+      }
       throw new Error(`unexpected path ${path}`)
     })
 
-    const metrics = await fetchHostMetrics(
+    const metrics = await fetchMonitoringMetrics(
       {
         baseUrl: 'http://127.0.0.1:8090',
         metricsUrl: 'http://127.0.0.1:8090/api/collections',
@@ -253,6 +310,7 @@ describe('host monitor helpers', () => {
     expect(requestJson).toHaveBeenCalledWith(
       expect.stringContaining('/api/collections/system_details/records/system_1')
     )
+    expect(requestJson).toHaveBeenCalledWith(expect.stringContaining('/api/collections/containers/records'))
     expect(requestJson).not.toHaveBeenCalledWith(expect.stringContaining('/api/4/'))
     expect(requestJson).not.toHaveBeenCalledWith(expect.stringContaining('/processlist'))
     expect(metrics.cpu.model).toBe('Ryzen 7')
@@ -260,19 +318,28 @@ describe('host monitor helpers', () => {
     expect(metrics.disk).toMatchObject({ totalBytes: 512 * GIB, usedBytes: 256 * GIB, usedPercent: 50 })
     expect(metrics.memory.usedPercent).toBe(37.5)
     expect(metrics.platform).toBe('Ubuntu 24.04 LTS')
-    expect(metrics.processes).toEqual([])
+    expect(metrics.containerCount).toBe(2)
+    expect(metrics.containers[0]).toMatchObject({
+      cpuPercent: 18.25,
+      id: 'container_web',
+      image: 'ghcr.io/example/web:latest',
+      memoryBytes: 1536 * MIB,
+      name: 'web',
+      ports: '0.0.0.0:443->443/tcp',
+      status: 'running'
+    })
   })
 
   it('fetches a configured Beszel system directly before loading latest stats', async () => {
     const requestJson = vi.fn().mockImplementation(async (path: string) => {
-      const parsed = new URL(path, 'http://host-monitor.local')
+      const parsed = new URL(path, 'http://monitoring.local')
       if (parsed.pathname === '/api/collections/systems/records/el6ygn9w6w41w41') return beszelSystem
       if (parsed.pathname === '/api/collections/system_stats/records') return { items: [beszelStatsRecord] }
       if (parsed.pathname === '/api/collections/system_details/records/el6ygn9w6w41w41') return beszelDetails
       throw new Error(`unexpected path ${path}`)
     })
 
-    const metrics = await fetchHostMetrics(
+    const metrics = await fetchMonitoringMetrics(
       {
         baseUrl: 'https://monitoring.airplane-skilift.ts.net',
         metricsUrl: 'https://monitoring.airplane-skilift.ts.net/api/collections',
@@ -286,12 +353,12 @@ describe('host monitor helpers', () => {
     expect(metrics.cpu.usagePercent).toBe(22.5)
   })
 
-  it('uses the Tauri host monitor command for default requests', async () => {
+  it('uses the Tauri monitoring command for default requests', async () => {
     mockInvoke.mockResolvedValueOnce({ items: [] })
 
-    await requestHostMonitorJson('/api/collections/systems/records?page=1')
+    await requestMonitoringJson('/api/collections/systems/records?page=1')
 
-    expect(mockInvoke).toHaveBeenCalledWith('host_monitor_request', {
+    expect(mockInvoke).toHaveBeenCalledWith('monitoring_request', {
       request: {
         method: 'GET',
         path: '/api/collections/systems/records?page=1'
@@ -303,7 +370,7 @@ describe('host monitor helpers', () => {
     const requestJson = vi.fn().mockResolvedValue({ items: [] })
 
     await expect(
-      fetchHostMetrics(
+      fetchMonitoringMetrics(
         {
           baseUrl: 'https://monitoring.airplane-skilift.ts.net',
           metricsUrl: 'https://monitoring.airplane-skilift.ts.net/api/collections',

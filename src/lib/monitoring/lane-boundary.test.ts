@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import adapterSource from './adapters/beszel-monitoring-adapter.ts?raw'
-import applicationSource from './application/get-host-metrics.ts?raw'
+import applicationSource from './application/get-monitoring-metrics.ts?raw'
 import formatSource from './domain/format.ts?raw'
 import metricsSource from './domain/metrics.ts?raw'
 import normalizeSource from './domain/normalize.ts?raw'
@@ -13,7 +13,7 @@ const monitoringLaneSources = {
   'domain/format.ts': formatSource,
   'ports/monitoring-port.ts': portSource,
   'adapters/beszel-monitoring-adapter.ts': adapterSource,
-  'application/get-host-metrics.ts': applicationSource
+  'application/get-monitoring-metrics.ts': applicationSource
 }
 
 describe('monitoring lane boundaries', () => {
@@ -24,7 +24,7 @@ describe('monitoring lane boundaries', () => {
       'domain/format.ts',
       'ports/monitoring-port.ts',
       'adapters/beszel-monitoring-adapter.ts',
-      'application/get-host-metrics.ts'
+      'application/get-monitoring-metrics.ts'
     ])
   })
 

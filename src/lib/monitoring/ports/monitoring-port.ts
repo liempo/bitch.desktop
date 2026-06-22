@@ -1,13 +1,13 @@
-export interface HostMonitorConfig {
+export interface MonitoringConfig {
   baseUrl: string
   metricsUrl: string
   port: string
   systemId: string
 }
 
-export interface HostMonitorEnv {
+export interface MonitoringEnv {
   systemId?: string
   url?: string
 }
 
-export type HostMonitorRequestJson = (path: string) => Promise<unknown>
+export type MonitoringRequestJson = (path: string) => Promise<unknown>

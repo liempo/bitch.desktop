@@ -95,7 +95,7 @@ export function findArchitectureBoundaryViolations(
       })
     }
 
-    if (isHermesRendererSource(path) && !isTest && /\b(?:MONITORING_|HOST_MONITOR|Beszel)\b/.test(source)) {
+    if (isHermesRendererSource(path) && !isTest && /\b(?:MONITORING_|Beszel)\b/.test(source)) {
       violations.push({
         rule: 'hermes-to-monitoring-import',
         path,
@@ -321,7 +321,7 @@ function rustSourceMentionsHermes(source: string): boolean {
 }
 
 function rustSourceMentionsMonitoring(source: string): boolean {
-  return /\b(?:crate::monitoring|super::monitoring|MONITORING_|HOST_MONITOR|Beszel|host_monitor_request)\b/.test(source)
+  return /\b(?:crate::monitoring|super::monitoring|MONITORING_|Beszel|monitoring_request)\b/.test(source)
 }
 
 function isRustSharedOrPlatformPath(path: string): boolean {

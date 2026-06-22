@@ -28,10 +28,10 @@ need consolidation and polish before paused feature work is reintroduced.
 
 - [ ] **Main dashboard refinement**
   - Description: Refine the delivered operations dashboard instead of adding new
-    dashboard surfaces. The current MAIN route already has host telemetry,
+    dashboard surfaces. The current MAIN route already has monitoring telemetry,
     recent-session context, utility navigation, and a desktop AGENT panel.
   - Scope:
-    - harden host-monitor degraded states, refresh cadence, sensor/process
+    - harden monitoring degraded states, refresh cadence, sensor/container
       display, and empty/error copy
     - keep the desktop dashboard dense and one-screen where practical while
       preserving the mobile single-column layout
@@ -160,7 +160,7 @@ Delivered items are historical context. They are not Kanban task sources.
 
 - [x] **Main Dashboard Shell**
   - Description: Replaced the placeholder MAIN route with an operations landing
-    page, host-monitor telemetry, recent-session context, utility navigation,
+    page, monitoring telemetry, recent-session context, utility navigation,
     and a desktop AGENT panel while keeping the app remote-only.
 
 - [x] **Cron Job Manager**

@@ -6,24 +6,21 @@
   import { getProfileScope, refreshActiveProfile } from '$lib/hermes/profiles'
   import { initializeSessions, loadSessions, sessionState } from '$lib/hermes/sessions'
   import {
-    EMPTY_HOST_METRICS,
-    fetchHostMetrics,
+    EMPTY_MONITORING_METRICS,
+    fetchMonitoringMetrics,
     formatBytes,
     formatPercent,
     formatUptime,
-    hostMonitorConfig,
-    sortHostProcesses,
-    type HostMetrics,
-    type HostProcessMetrics,
-    type HostProcessSortDirection,
-    type HostProcessSortKey
+    monitoringConfig,
+    type MonitoringMetrics
   } from '$lib/monitoring'
   import MainRenderPanel from './MainRenderPanel.svelte'
   import MainAgentPanel from './MainAgentPanel.svelte'
+  import MainContainersPanel from './MainContainersPanel.svelte'
   import { agentRoute, cronRoute, kanbanRoute } from '../router.svelte'
   import { recentDashboardSessions } from './dashboard'
 
-  type ThermalZone = HostMetrics['thermal'][number]
+  type ThermalZone = MonitoringMetrics['thermal'][number]
 
   const dashboardPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong md:h-full'
   const dashboardPanelTitleClass = 'text-ink-muted'
@@ -44,13 +41,11 @@
 
   let lastLoadedScope: null | string = null
   let profileRefreshStarted = false
-  let hostMetrics = $state<HostMetrics>(EMPTY_HOST_METRICS)
-  let hostMonitorError = $state('')
-  let hostMonitorUpdatedAt = $state<null | number>(null)
-  let processSortKey = $state<HostProcessSortKey>('cpu')
-  let processSortDirection = $state<HostProcessSortDirection>('desc')
+  let monitoringMetrics = $state<MonitoringMetrics>(EMPTY_MONITORING_METRICS)
+  let monitoringError = $state('')
+  let monitoringUpdatedAt = $state<null | number>(null)
 
-  const hostMonitor = hostMonitorConfig()
+  const monitoring = monitoringConfig()
 
   const connectionState = $derived(gatewayState.connectionState)
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
@@ -58,55 +53,50 @@
   const agentHref = $derived(`#${agentRoute(miniSessionFallbackId)}`)
   const cronHref = $derived(`#${cronRoute()}`)
   const kanbanHref = $derived(`#${kanbanRoute()}`)
-  const cpuThermal = $derived(findThermalZone(/cpu|package|pkg|core|tctl|tdie/i) ?? hostMetrics.thermal[0] ?? null)
-  const processRows = $derived(
-    sortHostProcesses(hostMetrics.processes, processSortKey, processSortDirection).slice(0, 12)
-  )
-  const processCount = $derived(hostMetrics.processCount || hostMetrics.processes.length)
-  const processEmptyLabel = 'Beszel exposes aggregate system and container history, but no host process rows for this panel.'
-  const hardwareHostStats = $derived([
+  const cpuThermal = $derived(findThermalZone(/cpu|package|pkg|core|tctl|tdie/i) ?? monitoringMetrics.thermal[0] ?? null)
+  const monitoringSystemStats = $derived([
     {
       label: 'UPTIME',
-      value: formatUptime(hostMetrics.uptimeSeconds)
+      value: formatUptime(monitoringMetrics.uptimeSeconds)
     },
     {
       label: 'OS',
-      value: hostMetrics.platform
+      value: monitoringMetrics.platform
     },
     {
       label: 'CPU NAME',
-      value: hostMetrics.cpu.model
+      value: monitoringMetrics.cpu.model
     },
     {
       label: 'TOTAL RAM',
-      value: formatBytes(hostMetrics.memory.totalBytes)
+      value: formatBytes(monitoringMetrics.memory.totalBytes)
     }
   ])
-  const hardwareUsageRows = $derived([
+  const monitoringUsageRows = $derived([
     {
       detail: temperatureLabel(cpuThermal),
       label: 'CPU Usage',
-      percent: hostMetrics.cpu.usagePercent,
-      value: formatPercent(hostMetrics.cpu.usagePercent)
+      percent: monitoringMetrics.cpu.usagePercent,
+      value: formatPercent(monitoringMetrics.cpu.usagePercent)
     },
     {
-      detail: `${formatBytes(hostMetrics.memory.usedBytes)} / ${formatBytes(hostMetrics.memory.totalBytes)}`,
+      detail: `${formatBytes(monitoringMetrics.memory.usedBytes)} / ${formatBytes(monitoringMetrics.memory.totalBytes)}`,
       label: 'Mem Usage',
-      percent: hostMetrics.memory.usedPercent,
-      value: formatPercent(hostMetrics.memory.usedPercent)
+      percent: monitoringMetrics.memory.usedPercent,
+      value: formatPercent(monitoringMetrics.memory.usedPercent)
     },
     {
-      detail: `${formatBytes(hostMetrics.disk.usedBytes)} / ${formatBytes(hostMetrics.disk.totalBytes)}`,
+      detail: `${formatBytes(monitoringMetrics.disk.usedBytes)} / ${formatBytes(monitoringMetrics.disk.totalBytes)}`,
       label: 'Disk Usage',
-      percent: hostMetrics.disk.usedPercent,
-      value: formatPercent(hostMetrics.disk.usedPercent)
+      percent: monitoringMetrics.disk.usedPercent,
+      value: formatPercent(monitoringMetrics.disk.usedPercent)
     }
   ])
 
   onMount(() => {
     void refreshActiveProfile()
-    void refreshHostMonitor()
-    const timer = window.setInterval(() => void refreshHostMonitor(), 2500)
+    void refreshMonitoring()
+    const timer = window.setInterval(() => void refreshMonitoring(), 2500)
 
     return () => window.clearInterval(timer)
   })
@@ -128,34 +118,14 @@
     }
   })
 
-  async function refreshHostMonitor(): Promise<void> {
+  async function refreshMonitoring(): Promise<void> {
     try {
-      hostMetrics = await fetchHostMetrics(hostMonitor)
-      hostMonitorUpdatedAt = Date.now()
-      hostMonitorError = ''
+      monitoringMetrics = await fetchMonitoringMetrics(monitoring)
+      monitoringUpdatedAt = Date.now()
+      monitoringError = ''
     } catch (error) {
-      hostMonitorError = error instanceof Error ? error.message : 'Host monitor unavailable'
+      monitoringError = error instanceof Error ? error.message : 'Monitoring unavailable'
     }
-  }
-
-  function toggleProcessSort(key: HostProcessSortKey): void {
-    if (processSortKey === key) {
-      processSortDirection = processSortDirection === 'desc' ? 'asc' : 'desc'
-      return
-    }
-
-    processSortKey = key
-    processSortDirection = 'desc'
-  }
-
-  function processSortLabel(key: HostProcessSortKey): string {
-    if (processSortKey !== key) return ''
-    return processSortDirection === 'desc' ? ' ↓' : ' ↑'
-  }
-
-  function processSortAriaLabel(key: HostProcessSortKey, label: string): string {
-    const nextDirection = processSortKey === key && processSortDirection === 'desc' ? 'ascending' : 'descending'
-    return `Sort processes by ${label} ${nextDirection}`
   }
 
   function barStyle(percent: number): string {
@@ -163,135 +133,82 @@
   }
 
   function updatedLabel(): string {
-    if (!hostMonitorUpdatedAt) return 'awaiting first sample'
+    if (!monitoringUpdatedAt) return 'awaiting first sample'
     return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
-      new Date(hostMonitorUpdatedAt)
+      new Date(monitoringUpdatedAt)
     )
   }
 
   function findThermalZone(pattern: RegExp): ThermalZone | null {
-    return hostMetrics.thermal.find(zone => pattern.test(zone.label)) ?? null
+    return monitoringMetrics.thermal.find(zone => pattern.test(zone.label)) ?? null
   }
 
   function temperatureLabel(zone: ThermalZone | null): string {
     return zone ? `${zone.celsius.toFixed(1)}°C` : '--°C'
   }
-
-  function processMemoryLabel(process: HostProcessMetrics): string {
-    return formatBytes(process.memoryBytes)
-  }
-
 </script>
 
 <section class="h-full min-h-0 overflow-y-auto bg-canvas p-3 font-mono text-[11px] text-ink md:overflow-hidden" aria-label="Main dashboard">
   <div class="grid min-h-full grid-cols-1 gap-3 md:h-full md:min-h-0 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]">
     <section class="grid gap-3 md:min-h-0 md:grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
       <Panel
-        title="HARDWARE"
+        title="MONITORING"
         class={dashboardPanelClass}
         contentClass="flex h-full min-h-0 flex-col gap-3"
         titleClass={dashboardPanelTitleClass}
       >
-      <div class="min-h-56 flex-1">
-        <MainRenderPanel metrics={hostMetrics} />
-      </div>
-
-      <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-        <div class="mb-2 flex items-center justify-between gap-3 text-[0.68rem] uppercase tracking-widest text-ink-muted">
-          <span>HOST</span>
-          <span class="truncate text-ink-bright" title={hostMetrics.hostname}>{hostMetrics.hostname}</span>
+        <div class="min-h-56 flex-1">
+          <MainRenderPanel metrics={monitoringMetrics} />
         </div>
-        <dl class="grid grid-cols-2 gap-2 text-[0.68rem] uppercase tracking-widest">
-          {#each hardwareHostStats as stat (stat.label)}
-            <div class="min-w-0 border border-line bg-canvas/45 p-2">
-              <dt class="text-ink-muted">{stat.label}</dt>
-              <dd class="mt-1 truncate text-ink-bright" title={stat.value}>{stat.value}</dd>
-            </div>
-          {/each}
-        </dl>
-      </Panel>
 
-      <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-        <div class="mb-2 flex items-center justify-between text-[0.68rem] uppercase tracking-widest text-ink-muted">
-          <span>USAGE</span>
-          <span>{updatedLabel()}</span>
-        </div>
-        <div class="grid gap-2 text-[0.68rem] uppercase tracking-widest">
-          {#each hardwareUsageRows as row (row.label)}
-            <div>
-              <div class="mb-1 flex items-baseline justify-between gap-3">
-                <span class="text-ink-muted">{row.label}</span>
-                <span class="min-w-fit text-right text-ink-bright">{row.value} - {row.detail}</span>
+        <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
+          <div class="mb-2 flex items-center justify-between gap-3 text-[0.68rem] uppercase tracking-widest text-ink-muted">
+            <span>SYSTEM</span>
+            <span class="truncate text-ink-bright" title={monitoringMetrics.systemName}>{monitoringMetrics.systemName}</span>
+          </div>
+          <dl class="grid grid-cols-2 gap-2 text-[0.68rem] uppercase tracking-widest">
+            {#each monitoringSystemStats as stat (stat.label)}
+              <div class="min-w-0 border border-line bg-canvas/45 p-2">
+                <dt class="text-ink-muted">{stat.label}</dt>
+                <dd class="mt-1 truncate text-ink-bright" title={stat.value}>{stat.value}</dd>
               </div>
-              <div class="h-2 overflow-hidden rounded-full border border-line bg-input">
-                <div class="h-full bg-ink-bright/70 transition-[width]" style={barStyle(row.percent)}></div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </Panel>
+            {/each}
+          </dl>
+        </Panel>
 
-      {#if hostMonitorError}
-        <div class="shrink-0 border border-danger/40 bg-danger/10 p-2 text-[0.68rem] text-danger">{hostMonitorError}</div>
-      {/if}
-      </Panel>
-
-      <Panel
-        title="PROCESS"
-        class={dashboardPanelClass}
-        contentClass="flex h-full min-h-0 flex-col gap-2"
-        titleClass={dashboardPanelTitleClass}
-      >
-      <div class="flex shrink-0 items-center justify-between border border-line bg-surface-raised px-2 py-1 text-[0.66rem] uppercase tracking-[0.12em] text-ink-muted">
-        <span>{processCount} processes</span>
-        <span>sort: {processSortKey}/{processSortDirection}</span>
-      </div>
-
-      <div class="grid shrink-0 grid-cols-[minmax(0,1fr)_3.6rem_5.6rem] gap-2 border-b border-line px-2 pb-1 text-[0.64rem] uppercase tracking-[0.12em] text-ink-muted">
-        <span>Process</span>
-        <button
-          class="justify-self-end rounded-sm border-none bg-transparent p-0 text-right font-mono text-[0.64rem] uppercase tracking-[0.12em] text-primary transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          type="button"
-          aria-pressed={processSortKey === 'cpu'}
-          aria-label={processSortAriaLabel('cpu', 'CPU')}
-          onclick={() => toggleProcessSort('cpu')}
-        >
-          CPU{processSortLabel('cpu')}
-        </button>
-        <button
-          class="justify-self-end rounded-sm border-none bg-transparent p-0 text-right font-mono text-[0.64rem] uppercase tracking-[0.12em] text-primary transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          type="button"
-          aria-pressed={processSortKey === 'memory'}
-          aria-label={processSortAriaLabel('memory', 'memory')}
-          onclick={() => toggleProcessSort('memory')}
-        >
-          MEM{processSortLabel('memory')}
-        </button>
-      </div>
-
-      <div class="min-h-0 flex-1 overflow-auto" aria-label="Process">
-        {#if processRows.length}
-          <div class="grid gap-1">
-            {#each processRows as process (process.pid || process.command)}
-              <div class="grid grid-cols-[minmax(0,1fr)_3.6rem_5.6rem] gap-2 border border-line bg-surface-raised px-2 py-1.5">
-                <div class="min-w-0">
-                  <div class="truncate text-ink-bright">{process.name}</div>
-                  <div class="truncate text-[0.62rem] text-ink-muted">
-                    {process.user || process.status || process.command}
-                  </div>
+        <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
+          <div class="mb-2 flex items-center justify-between text-[0.68rem] uppercase tracking-widest text-ink-muted">
+            <span>USAGE</span>
+            <span>{updatedLabel()}</span>
+          </div>
+          <div class="grid gap-2 text-[0.68rem] uppercase tracking-widest">
+            {#each monitoringUsageRows as row (row.label)}
+              <div>
+                <div class="mb-1 flex items-baseline justify-between gap-3">
+                  <span class="text-ink-muted">{row.label}</span>
+                  <span class="min-w-fit text-right text-ink-bright">{row.value} - {row.detail}</span>
                 </div>
-                <div class="self-center text-right text-primary">{formatPercent(process.cpuPercent)}</div>
-                <div class="self-center text-right text-secondary">{processMemoryLabel(process)}</div>
+                <div class="h-2 overflow-hidden rounded-full border border-line bg-input">
+                  <div class="h-full bg-ink-bright/70 transition-[width]" style={barStyle(row.percent)}></div>
+                </div>
               </div>
             {/each}
           </div>
-        {:else}
-          <div class="border border-dashed border-line p-3 text-[0.68rem] text-ink-muted">
-            {hostMonitorError ? 'Process data unavailable while host monitor is degraded.' : processEmptyLabel}
+        </Panel>
+
+        {#if monitoringError}
+          <div class="shrink-0 border border-danger/40 bg-danger/10 p-2 text-[0.68rem] text-danger">
+            {monitoringError}
           </div>
         {/if}
-      </div>
       </Panel>
+
+      <MainContainersPanel
+        class={dashboardPanelClass}
+        titleClass={dashboardPanelTitleClass}
+        metrics={monitoringMetrics}
+        error={monitoringError}
+      />
     </section>
 
     <div class="hidden h-full min-h-0 md:block">

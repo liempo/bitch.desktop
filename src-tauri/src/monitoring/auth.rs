@@ -3,43 +3,43 @@ use std::sync::{LazyLock, Mutex};
 
 use crate::{
     http::{build_api_url, summarize_response_body},
-    monitoring::config::{HostMonitorAuth, HostMonitorConfig},
+    monitoring::config::{MonitoringAuth, MonitoringConfig},
 };
 
 static MONITORING_AUTH_TOKEN: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
 
-pub fn clear_cached_host_monitor_token() -> Result<(), String> {
+pub fn clear_cached_monitoring_token() -> Result<(), String> {
     let mut token = MONITORING_AUTH_TOKEN.lock().map_err(|e| e.to_string())?;
     *token = None;
     Ok(())
 }
 
-fn cached_host_monitor_token() -> Result<Option<String>, String> {
+fn cached_monitoring_token() -> Result<Option<String>, String> {
     MONITORING_AUTH_TOKEN
         .lock()
         .map_err(|e| e.to_string())
         .map(|token| token.clone())
 }
 
-fn cache_host_monitor_token(token: String) -> Result<(), String> {
+fn cache_monitoring_token(token: String) -> Result<(), String> {
     *MONITORING_AUTH_TOKEN.lock().map_err(|e| e.to_string())? = Some(token);
     Ok(())
 }
 
-pub async fn host_monitor_auth_token(
+pub async fn monitoring_auth_token(
     client: &reqwest::Client,
-    config: &HostMonitorConfig,
+    config: &MonitoringConfig,
     refresh: bool,
 ) -> Result<Option<String>, String> {
     match &config.auth {
-        HostMonitorAuth::None => Ok(None),
-        HostMonitorAuth::StaticToken(token) => Ok(Some(token.clone())),
-        HostMonitorAuth::Password { identity, password } => {
+        MonitoringAuth::None => Ok(None),
+        MonitoringAuth::StaticToken(token) => Ok(Some(token.clone())),
+        MonitoringAuth::Password { identity, password } => {
             if refresh {
-                clear_cached_host_monitor_token()?;
+                clear_cached_monitoring_token()?;
             }
 
-            if let Some(token) = cached_host_monitor_token()? {
+            if let Some(token) = cached_monitoring_token()? {
                 return Ok(Some(token));
             }
 
@@ -59,14 +59,14 @@ pub async fn host_monitor_auth_token(
 
             if !status.is_success() {
                 return Err(format!(
-                    "Beszel host monitor auth returned {status}: {}",
+                    "Beszel monitoring auth returned {status}: {}",
                     summarize_response_body(&text)
                 ));
             }
 
             let body = serde_json::from_str::<Value>(&text).map_err(|e| {
                 format!(
-                    "Beszel host monitor auth returned invalid JSON: {e}; body: {}",
+                    "Beszel monitoring auth returned invalid JSON: {e}; body: {}",
                     summarize_response_body(&text)
                 )
             })?;
@@ -74,10 +74,10 @@ pub async fn host_monitor_auth_token(
                 .get("token")
                 .and_then(Value::as_str)
                 .filter(|token| !token.is_empty())
-                .ok_or_else(|| "Beszel host monitor auth did not return a token".to_string())?
+                .ok_or_else(|| "Beszel monitoring auth did not return a token".to_string())?
                 .to_string();
 
-            cache_host_monitor_token(token.clone())?;
+            cache_monitoring_token(token.clone())?;
 
             Ok(Some(token))
         }
@@ -90,14 +90,14 @@ mod tests {
 
     #[test]
     fn clears_cached_password_auth_token() {
-        cache_host_monitor_token("cached-token".to_string()).unwrap();
+        cache_monitoring_token("cached-token".to_string()).unwrap();
         assert_eq!(
-            cached_host_monitor_token().unwrap().as_deref(),
+            cached_monitoring_token().unwrap().as_deref(),
             Some("cached-token")
         );
 
-        clear_cached_host_monitor_token().unwrap();
+        clear_cached_monitoring_token().unwrap();
 
-        assert_eq!(cached_host_monitor_token().unwrap(), None);
+        assert_eq!(cached_monitoring_token().unwrap(), None);
     }
 }

@@ -1,13 +1,17 @@
-import type { HostProcessMetrics, HostProcessSortDirection, HostProcessSortKey } from './metrics'
+import type {
+  MonitoringContainerMetrics,
+  MonitoringContainerSortDirection,
+  MonitoringContainerSortKey
+} from './metrics'
 
-export function sortHostProcesses(
-  processes: HostProcessMetrics[],
-  key: HostProcessSortKey,
-  direction: HostProcessSortDirection = 'desc'
-): HostProcessMetrics[] {
+export function sortMonitoringContainers(
+  containers: MonitoringContainerMetrics[],
+  key: MonitoringContainerSortKey,
+  direction: MonitoringContainerSortDirection = 'desc'
+): MonitoringContainerMetrics[] {
   const multiplier = direction === 'asc' ? 1 : -1
 
-  return [...processes].sort((left, right) => {
+  return [...containers].sort((left, right) => {
     if (key === 'memory') {
       const memoryDelta = left.memoryPercent - right.memoryPercent
       if (Math.abs(memoryDelta) > 0.001) return memoryDelta * multiplier
@@ -19,7 +23,7 @@ export function sortHostProcesses(
       if (Math.abs(cpuDelta) > 0.001) return cpuDelta * multiplier
     }
 
-    return left.name.localeCompare(right.name) || left.pid - right.pid
+    return left.name.localeCompare(right.name) || (left.id ?? '').localeCompare(right.id ?? '')
   })
 }
 

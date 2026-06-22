@@ -4,10 +4,10 @@
 
   import Panel from '@/app/components/ui/Panel.svelte'
   import MainRenderScene from './MainRenderScene.svelte'
-  import type { HostMetrics } from '$lib/monitoring'
+  import type { MonitoringMetrics } from '$lib/monitoring'
 
   interface Props {
-    metrics: HostMetrics
+    metrics: MonitoringMetrics
   }
 
   let { metrics }: Props = $props()

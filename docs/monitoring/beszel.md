@@ -1,6 +1,6 @@
 # Monitoring / Beszel lane
 
-The monitoring lane is a standalone Beszel/PocketBase integration for host
+The monitoring lane is a standalone Beszel/PocketBase integration for monitoring
 telemetry. It is not a Hermes dashboard plugin and must not import Hermes
 sessions, files, gateway, dashboard, composer, prompt, Cron, or Kanban modules.
 
@@ -15,7 +15,7 @@ src/lib/monitoring/
   domain/format.ts
   ports/monitoring-port.ts
   adapters/beszel-monitoring-adapter.ts
-  application/get-host-metrics.ts
+  application/get-monitoring-metrics.ts
   lane-boundary.test.ts
 ```
 
@@ -24,10 +24,10 @@ Responsibilities:
 - normalize `MONITORING_URL` defaults;
 - derive the Beszel system id from configuration or a `/system/:id` URL when
   present;
-- read PocketBase `systems` and `system_stats` records through the monitoring
-  adapter;
-- normalize CPU, memory, disk, load, thermal, uptime, and placeholder process
-  values for the dashboard UI;
+- read PocketBase `systems`, `system_stats`, and `containers` records through
+  the monitoring adapter;
+- normalize CPU, memory, disk, load, thermal, uptime, and container rows for the
+  dashboard UI;
 - expose public helpers through `$lib/monitoring`.
 
 The renderer should receive only explicit non-secret monitoring configuration
@@ -51,7 +51,7 @@ Responsibilities:
 - normalize Beszel/PocketBase base URLs and collection paths;
 - use static token auth or email/password auth when configured;
 - cache and refresh Beszel tokens behind Tauri;
-- expose host metrics through the stable `host_monitor_request` command wrapper.
+- expose monitoring metrics through the stable `monitoring_request` command wrapper.
 
 Monitoring must not call Hermes `dashboard_request`. If credentials, CORS, or
 network policy require privileged handling, add or extend monitoring commands in

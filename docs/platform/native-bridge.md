@@ -34,7 +34,6 @@ src-tauri/src/
     mod.rs
     window.rs
     external_url.rs
-    notifications.rs
   commands/
     config.rs
     platform.rs
@@ -44,7 +43,6 @@ Responsibilities:
 
 - window setup and macOS traffic-light behavior;
 - external URL opening;
-- native notifications;
 - connection configuration storage;
 - generic env/.env configuration helpers;
 - generic HTTP client and response helpers;

@@ -1,4 +1,4 @@
-interface HostCpuMetrics {
+interface MonitoringCpuMetrics {
   cores: number
   loadAverage: number[]
   model: string
@@ -6,7 +6,7 @@ interface HostCpuMetrics {
   usagePercent: number
 }
 
-interface HostMemoryMetrics {
+interface MonitoringMemoryMetrics {
   availableBytes: number
   swapTotalBytes: number
   swapUsedBytes: number
@@ -16,40 +16,40 @@ interface HostMemoryMetrics {
   usedPercent: number
 }
 
-interface HostDiskMetrics {
+interface MonitoringDiskMetrics {
   totalBytes: number
   usedBytes: number
   usedPercent: number
 }
 
-export interface HostThermalZone {
+export interface MonitoringThermalZone {
   celsius: number
   label: string
 }
 
-export interface HostProcessMetrics {
-  command: string
+export interface MonitoringContainerMetrics {
   cpuPercent: number
+  id?: string
+  image: string
   memoryBytes: number
   memoryPercent: number
   name: string
-  pid: number
+  ports: string
   status: string
-  user: string
 }
 
-export type HostProcessSortKey = 'cpu' | 'memory'
-export type HostProcessSortDirection = 'asc' | 'desc'
+export type MonitoringContainerSortKey = 'cpu' | 'memory'
+export type MonitoringContainerSortDirection = 'asc' | 'desc'
 
-export interface HostMetrics {
-  cpu: HostCpuMetrics
-  disk: HostDiskMetrics
-  hostname: string
-  memory: HostMemoryMetrics
+export interface MonitoringMetrics {
+  containerCount: number
+  containers: MonitoringContainerMetrics[]
+  cpu: MonitoringCpuMetrics
+  disk: MonitoringDiskMetrics
+  systemName: string
+  memory: MonitoringMemoryMetrics
   platform: string
-  processCount: number
-  processes: HostProcessMetrics[]
-  thermal: HostThermalZone[]
+  thermal: MonitoringThermalZone[]
   timestamp: string
   uptimeSeconds: number
   version: string
@@ -57,7 +57,9 @@ export interface HostMetrics {
 
 export const BYTES_PER_GIB = 1024 ** 3
 
-export const EMPTY_HOST_METRICS: HostMetrics = {
+export const EMPTY_MONITORING_METRICS: MonitoringMetrics = {
+  containerCount: 0,
+  containers: [],
   cpu: {
     cores: 0,
     loadAverage: [0, 0, 0],
@@ -70,7 +72,7 @@ export const EMPTY_HOST_METRICS: HostMetrics = {
     usedBytes: 0,
     usedPercent: 0
   },
-  hostname: 'unknown',
+  systemName: 'unknown',
   memory: {
     availableBytes: 0,
     swapTotalBytes: 0,
@@ -81,8 +83,6 @@ export const EMPTY_HOST_METRICS: HostMetrics = {
     usedPercent: 0
   },
   platform: 'unknown',
-  processCount: 0,
-  processes: [],
   thermal: [],
   timestamp: '',
   uptimeSeconds: 0,
