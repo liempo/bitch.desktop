@@ -20,7 +20,7 @@ import {
   writeNamespacedStorageItem
 } from '$lib/storage/namespace'
 import { compactWhitespace } from '$lib/hermes/threads'
-import { requestGateway } from '$lib/stores/gateway.svelte'
+import { requestGateway } from '$lib/hermes/gateway'
 import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/hermes/profiles'
 import {
   appendAssistantErrorMessage,
@@ -28,7 +28,7 @@ import {
   appendUserMessage,
   setThreadBusy,
   threadForSession
-} from '$lib/stores/messages.svelte'
+} from '$lib/hermes/threads'
 import {
   createSession,
   displaySessionIdFor,
@@ -38,7 +38,7 @@ import {
   sessionState,
   startNewSession,
   threadIdForSessionId
-} from '$lib/stores/session.svelte'
+} from '$lib/hermes/sessions'
 import { navigate, routerState, sessionRoute } from '@/app/agent/router.svelte'
 import type { ModelInfoResponse, ModelOptionProvider, ModelOptionsResponse } from '$lib/types/hermes'
 

@@ -1,5 +1,5 @@
-import { threadForSession } from '$lib/stores/messages.svelte'
-import { isSessionWorking, sessionState } from '$lib/stores/session.svelte'
+import { threadForSession } from '$lib/hermes/threads'
+import { isSessionWorking, sessionState } from '$lib/hermes/sessions'
 
 export function sessionMessagesLoaded(sessionId: null | string | undefined): boolean {
   return threadForSession(sessionId)?.hydrated === true

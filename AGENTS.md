@@ -7,7 +7,7 @@ Keep the repo remote-only and do not reintroduce local Hermes bootstrap logic un
 
 ## Current app shape
 
-- The Svelte renderer creates a `HermesGateway` from `src/lib/hermes/gateway/hermes.ts` (legacy `$lib/gateway` re-exports remain transitional).
+- The Svelte renderer creates a `HermesGateway` from `src/lib/hermes/gateway/hermes.ts`; gateway registry state lives under `src/lib/hermes/gateway/view-models/`.
 - Hermes-backed composer orchestration, slash-command dispatch, prompt response state, profile switching, sessions, threads, remote files, dashboard plugin APIs, Cron, and Kanban helpers live under `src/lib/hermes/*` public entrypoints.
 - Beszel host telemetry lives under the standalone `src/lib/monitoring/*` lane and must not import Hermes modules.
 - Native renderer helpers live under `src/lib/platform/*`; renderer components and feature modules should not import `@tauri-apps/api/*` directly.
@@ -49,7 +49,7 @@ Do not reintroduce stale gateway variables such as `BITCH_GATEWAY_URL`, `VITE_BI
 
 The backend revamp uses explicit Clean MVVM / Ports & Adapters lanes. Prefer public lane entrypoints over deep imports when adding new code:
 
-- Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Existing `$lib/api`, `$lib/gateway`, `$lib/files`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and Hermes-backed `$lib/stores/{composer,prompts,profile}.svelte` imports remain valid transitional compatibility surfaces until their call sites are migrated.
+- Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Legacy top-level compatibility paths such as `$lib/api`, `$lib/gateway`, `$lib/files`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and `$lib/stores/*` have been removed; do not reintroduce them.
 - Beszel/host telemetry goes through `$lib/monitoring` and must not import Hermes dashboard, gateway, files, sessions, or plugin helpers. Monitoring credentials and token refresh must stay behind Tauri.
 - Native app utilities go through `$lib/platform`; renderer components and feature modules must not import `@tauri-apps/api/core` directly. Direct Tauri API imports are approved only inside platform adapter boundaries.
 - Shared renderer utilities under `src/lib/{errors,layout,notifications,platform,storage,types,ui}` must not import feature lanes.
@@ -68,7 +68,7 @@ Use the root [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/README.md`](docs/RE
 When adding or moving a feature:
 
 - Add or update the public `index.ts` entrypoint first.
-- Preserve source-compatible re-export shims during migrations until source search proves consumers are gone.
+- Prefer same-PR call-site migration over re-export shims; if a temporary shim is unavoidable, remove it once source search proves consumers are gone.
 - Put UI state in ViewModels, orchestration in `application`, pure rules in `domain`, external contracts in `ports`, and Tauri/Hermes/Beszel calls in `adapters`.
 - Add or update source-contract tests such as `src/lib/architecture-boundaries.test.ts`, `src/lib/rust-bridge-lanes.test.ts`, or a lane-local boundary test when the import rules change.
 - Update the relevant feature doc under `docs/` and the root `ARCHITECTURE.md` in the same PR as hierarchy changes. Stale architecture docs are just ruins with nicer typography.

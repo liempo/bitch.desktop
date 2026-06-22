@@ -19,7 +19,7 @@ vi.mock('$lib/hermes/dashboard', () => ({
   setApiRequestProfile: vi.fn()
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   requestGateway: mockRequestGateway,
   ensureGatewayForProfile: mockEnsureGatewayForProfile,
   gatewayState: { connectionState: 'open' }
@@ -38,8 +38,8 @@ import {
   messageState,
   setThreadBusy,
   threadForSession
-} from '$lib/stores/messages.svelte'
-import { rememberRuntimeSession, sessionState, beginResumeSession } from '$lib/stores/session.svelte'
+} from '$lib/hermes/threads'
+import { rememberRuntimeSession, sessionState, beginResumeSession } from '$lib/hermes/sessions'
 import type { SessionMessage } from '$lib/types/hermes'
 
 function storedMessage(text: string): SessionMessage {

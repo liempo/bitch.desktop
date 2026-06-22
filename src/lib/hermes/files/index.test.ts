@@ -3,7 +3,7 @@ import assetsPageSource from '@/app/assets/AssetsPage.svelte?raw'
 import markdownSource from '@/app/components/thread/Markdown.svelte?raw'
 import messageAttachmentsSource from '@/app/components/thread/MessageAttachments.svelte?raw'
 import previewSidebarSource from '@/app/agent/preview/AgentPreviewSidebar.svelte?raw'
-import * as transitionalFiles from '$lib/files'
+import * as transitionalFiles from '$lib/hermes/files'
 import * as hermesFiles from '$lib/hermes/files'
 import { createHermesRemoteFilesAdapter } from './adapters/hermes-remote-files-adapter'
 import { listRemoteDirectory } from './application/list-remote-directory'
@@ -70,7 +70,7 @@ describe('Hermes files lane module shape', () => {
   it('migrates renderer file consumers to the Hermes files public entrypoint', () => {
     for (const source of [assetsPageSource, markdownSource, messageAttachmentsSource, previewSidebarSource]) {
       expect(source).toContain('$lib/hermes/files')
-      expect(source).not.toContain('$lib/files/')
+      expect(source).not.toContain('$lib/hermes/files/')
     }
   })
 })

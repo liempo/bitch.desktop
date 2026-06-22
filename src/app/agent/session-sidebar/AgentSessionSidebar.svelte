@@ -8,7 +8,7 @@
   import AgentProfileFilterDialog from './components/AgentProfileFilterDialog.svelte'
   import AgentSessionList from './components/AgentSessionList.svelte'
   import AgentSessionRow from './components/AgentSessionRow.svelte'
-  import { gatewayState } from '$lib/stores/gateway.svelte'
+  import { gatewayState } from '$lib/hermes/gateway'
   import {
     archiveSession,
     clearSearch,
@@ -25,7 +25,7 @@
     sessionState,
     setSearchQuery,
     toggleSessionPinned
-  } from '$lib/stores/session.svelte'
+  } from '$lib/hermes/sessions'
   import {
     ALL_PROFILES,
     getProfileScope,

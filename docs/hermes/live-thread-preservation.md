@@ -35,7 +35,7 @@ The visible symptoms are:
 5. Apply `SessionResumeResponse.info.running` with `syncRunningFromResume(...)`.
 6. If no stored snapshot exists, use the resume projection messages only when no live thread should be preserved.
 
-The preservation helper in [`src/lib/stores/messages.svelte.ts`](../../src/lib/stores/messages.svelte.ts) keeps the existing thread when it is hydrated and any of these are true:
+The preservation helper in [`src/lib/hermes/threads/view-models/messages.svelte.ts`](../../src/lib/hermes/threads/view-models/messages.svelte.ts) keeps the existing thread when it is hydrated and any of these are true:
 
 - `thread.busy` is true.
 - `thread.currentAssistantId` is set.

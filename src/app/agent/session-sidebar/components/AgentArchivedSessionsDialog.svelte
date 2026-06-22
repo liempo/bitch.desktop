@@ -3,7 +3,7 @@
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import { gatewayState } from '$lib/stores/gateway.svelte'
+  import { gatewayState } from '$lib/hermes/gateway'
   import {
     hasMoreArchivedSessions,
     isSessionMutating,
@@ -12,7 +12,7 @@
     restoreArchivedSession,
     sessionState,
     sessionThreadId
-  } from '$lib/stores/session.svelte'
+  } from '$lib/hermes/sessions'
   import type { SessionInfo } from '$lib/types/hermes'
 
   interface Props {

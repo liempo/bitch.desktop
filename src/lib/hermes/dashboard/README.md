@@ -1,6 +1,6 @@
 # Hermes dashboard subfeature
 
-This subfeature is the public renderer contract for the shared Hermes dashboard REST client. The implementation lives under `src/lib/hermes/shared/adapters/dashboard-api-client.ts`; `$lib/api/*` remains a compatibility shim during migration.
+This subfeature is the public renderer contract for the shared Hermes dashboard REST client. The implementation lives under `src/lib/hermes/shared/adapters/dashboard-api-client.ts`; Cron and Kanban plugin helpers expose their own Hermes-lane entrypoints.
 
 ## Ownership
 

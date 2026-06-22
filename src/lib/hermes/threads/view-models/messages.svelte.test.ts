@@ -21,7 +21,7 @@ vi.mock('$lib/hermes/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   getGateway: vi.fn(() => ({ on: vi.fn(() => vi.fn()) }))
 }))
 
@@ -32,7 +32,7 @@ import {
   messageState,
   setThreadBusy,
   threadForSession
-} from '$lib/stores/messages.svelte'
+} from '$lib/hermes/threads'
 import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
 import {
   promptsState,
@@ -41,7 +41,7 @@ import {
   setSecretRequest,
   setSudoRequest
 } from '$lib/hermes/prompts'
-import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
+import { rememberRuntimeSession, sessionState } from '$lib/hermes/sessions'
 import type { SessionMessage } from '$lib/types/hermes'
 
 const storedKey = 'stored-session-key'

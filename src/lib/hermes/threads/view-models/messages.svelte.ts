@@ -3,8 +3,8 @@ import {
   buildInputNeededNotification,
   sendMacosNotification
 } from '$lib/notifications/macos'
-import { configureGatewayRegistry } from '$lib/stores/gateway.svelte'
-import { extractCanvasReferences, type ThreadCanvas } from '$lib/hermes/threads'
+import { configureGatewayRegistry } from '$lib/hermes/gateway'
+import { extractCanvasReferences, type ThreadCanvas } from '../domain/canvas'
 import {
   loadSessions,
   noteSessionActivity,
@@ -12,7 +12,7 @@ import {
   setSessionNeedsInput,
   setSessionWorking,
   displaySessionIdFor
-} from '$lib/stores/session.svelte'
+} from '$lib/hermes/sessions'
 import {
   clearAllPrompts,
   setApprovalRequest,
@@ -27,7 +27,7 @@ import {
   coerceThinkingBlocks,
   coerceThinkingText,
   extractEmbeddedImages
-} from '$lib/hermes/threads'
+} from '../domain/message-normalization'
 import {
   attachmentDisplayLabel,
   attachmentFromMediaSource,
@@ -37,10 +37,8 @@ import {
   imageSourcesFromContent,
   type ThreadAttachment,
   type ThreadAttachmentInput
-} from '$lib/hermes/threads'
+} from '../domain/media-attachments'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
-
-export type { ThreadAttachment, ThreadAttachmentInput, ThreadAttachmentKind } from '$lib/hermes/threads'
 
 type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ThreadToolStatus = 'complete' | 'running'

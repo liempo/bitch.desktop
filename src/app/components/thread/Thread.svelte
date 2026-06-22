@@ -7,8 +7,8 @@
   import bitchLogoUrl from '$lib/assets/bitch-logo.png'
   import Panel from '@/app/components/ui/Panel.svelte'
   import Message from './Message.svelte'
-  import { messageState } from '$lib/stores/messages.svelte'
-  import { sessionState } from '$lib/stores/session.svelte'
+  import { messageState } from '$lib/hermes/threads'
+  import { sessionState } from '$lib/hermes/sessions'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import type { ThreadPreview } from '$lib/hermes/threads'
 

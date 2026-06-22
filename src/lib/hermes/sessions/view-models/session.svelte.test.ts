@@ -26,7 +26,7 @@ const {
   mockSetApiRequestProfile: vi.fn()
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   requestGateway: mockRequestGateway,
   ensureGatewayForProfile: mockEnsureGatewayForProfile,
   gatewayState: {}
@@ -71,9 +71,9 @@ import {
   sessionThreadId,
   startNewSession,
   storedSessionIdForRuntime
-} from '$lib/stores/session.svelte'
+} from '$lib/hermes/sessions'
 import { profileState } from '$lib/hermes/profiles'
-import { gatewayState } from '$lib/stores/gateway.svelte'
+import { gatewayState } from '$lib/hermes/gateway'
 import type { SessionInfo } from '$lib/types/hermes'
 
 function session(overrides: Partial<SessionInfo>): SessionInfo {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import assetsPageSource from '@/app/assets/AssetsPage.svelte?raw'
-import { filePresentation, isTextPreviewFile, viewerKindForFile } from './preview'
+import { filePresentation, isTextPreviewFile, viewerKindForRemoteFile } from './preview'
 
 describe('remote file presentation', () => {
   it('classifies image files as thumbnail-backed previews', () => {
@@ -39,7 +39,7 @@ describe('remote file presentation', () => {
       viewerKind: 'text'
     })
     expect(isTextPreviewFile('photo.png')).toBe(false)
-    expect(viewerKindForFile('blob.bin')).toBe('text')
+    expect(viewerKindForRemoteFile('blob.bin')).toBe('text')
   })
 })
 

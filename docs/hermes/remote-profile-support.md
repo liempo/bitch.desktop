@@ -98,13 +98,13 @@ so the store only persists active UI state.
 
 ### Gateway registry
 
-[`src/lib/stores/gateway.svelte.ts`](../../src/lib/stores/gateway.svelte.ts)
+[`src/lib/hermes/gateway/view-models/gateway.svelte.ts`](../../src/lib/hermes/gateway/view-models/gateway.svelte.ts)
 keeps a `profile → HermesGateway` registry. `ensureGatewayForProfile(profile)`
 opens or reuses the socket for that profile, marks the selected gateway active,
 and exposes `$gatewaySwapTarget` state for the app-shell swap overlay.
 
 The registry fans gateway events from every open profile socket into
-`messages.svelte.ts`, so background profile turns, tool progress, and blocking
+`src/lib/hermes/threads/view-models/messages.svelte.ts`, so background profile turns, tool progress, and blocking
 prompt requests continue to render under their stored session keys while another
 profile is active.
 
@@ -113,14 +113,14 @@ Tauri when opening `/api/ws`.
 
 ### Session store
 
-[`src/lib/stores/session.svelte.ts`](../../src/lib/stores/session.svelte.ts) is
+[`src/lib/hermes/sessions/view-models/session.svelte.ts`](../../src/lib/hermes/sessions/view-models/session.svelte.ts) is
 profile-aware for list, hydration, and mutations:
 
 - List calls prefer `/api/profiles/sessions` and pass `profile` when scoped.
 - Existing `/api/sessions` remains as a fallback for older backends.
 - Create, select, resume, rename, archive, delete, and history hydration resolve
   the session's owning profile before touching REST or live RPC.
-- `messages.svelte.ts` and `session/resume.ts` pass profile through stored message
+- `src/lib/hermes/threads/view-models/messages.svelte.ts` and `src/lib/hermes/sessions/application/resume.ts` pass profile through stored message
   hydration so history reads hit the right dashboard host.
 
 ### Composer and prompt responses

@@ -5,7 +5,7 @@ const { mockEnsureGatewayForProfile, mockRequestGateway } = vi.hoisted(() => ({
   mockRequestGateway: vi.fn()
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   ensureGatewayForProfile: mockEnsureGatewayForProfile,
   requestGateway: mockRequestGateway
 }))
@@ -29,7 +29,7 @@ import {
   setSecretRequest,
   setSudoRequest
 } from '$lib/hermes/prompts'
-import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
+import { rememberRuntimeSession, sessionState } from '$lib/hermes/sessions'
 import { profileState } from '$lib/hermes/profiles'
 
 function resetPrompts(): void {

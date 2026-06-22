@@ -12,7 +12,7 @@ items under its `## Feature checklist` are task sources.
 | Hermes dashboard/runtime            | [`hermes/README.md`](hermes/README.md)                   | `src/lib/hermes/*`, `src-tauri/src/hermes/*`, stable `commands/dashboard.rs` and `commands/gateway.rs` wrappers |
 | Monitoring / Beszel                 | [`monitoring/beszel.md`](monitoring/beszel.md)           | `src/lib/monitoring/*`, `src-tauri/src/monitoring/*`, `commands/monitoring.rs`                                  |
 | Platform / native bridge            | [`platform/native-bridge.md`](platform/native-bridge.md) | `src/lib/platform/*`, `src-tauri/src/platform/*`, shared Rust `config/errors/http` helpers                      |
-| Shared conventions and future lanes | [`shared/backend-revamp.md`](shared/backend-revamp.md)   | architecture-boundary tests, source-compatible re-export rules, future lane pattern                             |
+| Shared conventions and future lanes | [`shared/backend-revamp.md`](shared/backend-revamp.md)   | architecture-boundary tests, migration rules, future lane pattern                                               |
 | Roadmap                             | [`roadmap.md`](roadmap.md)                               | scannable feature checklist and delivered/backlog history                                                       |
 | Devlog                              | [`devlog.md`](devlog.md)                                 | chronological historical notes                                                                                  |
 

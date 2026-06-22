@@ -1,7 +1,7 @@
 import { messageForError } from '$lib/errors'
-import { requestGateway } from '$lib/stores/gateway.svelte'
+import { requestGateway } from '$lib/hermes/gateway'
 import { ensureGatewayProfile, normalizeProfileKey } from '$lib/hermes/profiles'
-import { profileForSession, runtimeSessionIdForStored, sessionState } from '$lib/stores/session.svelte'
+import { profileForSession, runtimeSessionIdForStored, sessionState } from '$lib/hermes/sessions'
 
 export type ApprovalChoice = 'once' | 'session' | 'always' | 'deny'
 
