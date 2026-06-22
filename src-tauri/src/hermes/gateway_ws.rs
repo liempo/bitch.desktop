@@ -71,7 +71,7 @@ fn encode_query_value(value: &str) -> String {
         .collect()
 }
 
-fn build_ws_url(base_url: &str, query_name: &str, query_value: &str) -> Result<String, String> {
+fn build_ws_endpoint_url(base_url: &str, query: Option<(&str, &str)>) -> Result<String, String> {
     let parsed = url::Url::parse(base_url).map_err(|e| format!("Invalid dashboard URL: {e}"))?;
     let scheme = if parsed.scheme() == "https" {
         "wss"
@@ -84,11 +84,24 @@ fn build_ws_url(base_url: &str, query_name: &str, query_value: &str) -> Result<S
         .to_string();
     let port = parsed.port().map(|p| format!(":{p}")).unwrap_or_default();
     let prefix = parsed.path().trim_end_matches('/');
+    let mut url = format!("{scheme}://{host}{port}{prefix}{DEFAULT_WS_PATH}");
 
-    Ok(format!(
-        "{scheme}://{host}{port}{prefix}{DEFAULT_WS_PATH}?{query_name}={}",
-        encode_query_value(query_value)
-    ))
+    if let Some((query_name, query_value)) = query {
+        url.push_str(&format!(
+            "?{query_name}={}",
+            encode_query_value(query_value)
+        ));
+    }
+
+    Ok(url)
+}
+
+fn build_ws_url(base_url: &str, query_name: &str, query_value: &str) -> Result<String, String> {
+    build_ws_endpoint_url(base_url, Some((query_name, query_value)))
+}
+
+fn build_ws_url_without_auth(base_url: &str) -> Result<String, String> {
+    build_ws_endpoint_url(base_url, None)
 }
 
 fn redacted_ws_url(ws_url: &str) -> String {
@@ -144,8 +157,10 @@ async fn resolve_ws_target(connection_id: &str, profile: Option<&str>) -> Result
         connection_id,
         "debug",
         format!(
-            "config resolved: base_url={} auth_mode={} token_present=true",
-            config.base_url, config.auth_mode
+            "config resolved: base_url={} auth_mode={} token_present={}",
+            config.base_url,
+            config.auth_mode,
+            config.token.is_some()
         ),
     );
 
@@ -188,10 +203,17 @@ async fn resolve_ws_target(connection_id: &str, profile: Option<&str>) -> Result
     );
 
     if auth_required {
+        let ticket_auth_description = if config.uses_session_auth() {
+            "session cookies"
+        } else {
+            "session token header"
+        };
         log_gateway(
             connection_id,
             "debug",
-            "dashboard requires WS ticket auth; POST /api/auth/ws-ticket with session token header",
+            format!(
+                "dashboard requires WS ticket auth; POST /api/auth/ws-ticket with {ticket_auth_description}"
+            ),
         );
         let ticket = mint_ws_ticket(&client, &config).await.map_err(|error| {
             let message = format!(
@@ -221,6 +243,28 @@ async fn resolve_ws_target(connection_id: &str, profile: Option<&str>) -> Result
         });
     }
 
+    if config.uses_session_auth() {
+        let url = build_ws_url_without_auth(&config.base_url).map_err(|error| {
+            log_gateway(
+                connection_id,
+                "error",
+                format!("WS URL build failed: {error}"),
+            );
+            error
+        })?;
+
+        log_gateway(
+            connection_id,
+            "debug",
+            format!("dashboard does not require WS auth; target={url}"),
+        );
+
+        return Ok(WsTarget {
+            auth_header: None,
+            url,
+        });
+    }
+
     let url = token_ws_target(&config).map_err(|error| {
         log_gateway(
             connection_id,
@@ -241,13 +285,13 @@ async fn resolve_ws_target(connection_id: &str, profile: Option<&str>) -> Result
     );
 
     Ok(WsTarget {
-        auth_header: Some(config.token.clone()),
+        auth_header: Some(config.required_token()?.to_string()),
         url,
     })
 }
 
 fn token_ws_target(config: &GatewayConfig) -> Result<String, String> {
-    build_ws_url(&config.base_url, "token", &config.token)
+    build_ws_url(&config.base_url, "token", config.required_token()?)
 }
 
 fn emit_ws_error(app: &tauri::AppHandle, connection_id: &str, message: String) {
@@ -368,11 +412,7 @@ async fn connect_and_listen(
         })?;
         request.headers_mut().insert(AUTH_HEADER, token_header);
     } else {
-        log_gateway(
-            &connection_id,
-            "debug",
-            "no WebSocket auth header attached; using query ticket",
-        );
+        log_gateway(&connection_id, "debug", "no WebSocket auth header attached");
     }
 
     log_gateway(&connection_id, "debug", "opening native WebSocket");

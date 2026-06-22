@@ -20,7 +20,7 @@ describe('connection-config helpers', () => {
     expect(connectionScopeKey(null)).toBeNull()
   })
 
-  it('returns token-auth remote profile overrides only for configured remote entries', () => {
+  it('returns remote profile overrides with normalized auth modes only for configured remote entries', () => {
     const config = {
       mode: 'remote',
       url: 'http://127.0.0.1:9119',
@@ -29,7 +29,8 @@ describe('connection-config helpers', () => {
         crypto: { mode: 'remote', url: 'http://127.0.0.1:9121/', token: 'profile-token' },
         localish: { mode: 'local', url: 'http://127.0.0.1:9122' },
         empty: { mode: 'remote', url: '   ' },
-        oauth: { authMode: 'oauth' as const, mode: 'remote', url: 'https://example.com' }
+        oauth: { authMode: 'oauth' as const, mode: 'remote', url: 'https://example.com' },
+        basic: { authMode: 'basic' as const, mode: 'remote', url: 'https://basic.example.com' }
       }
     }
 
@@ -39,9 +40,14 @@ describe('connection-config helpers', () => {
       url: 'http://127.0.0.1:9121/'
     })
     expect(profileRemoteOverride(config, 'oauth')).toEqual({
-      authMode: 'oauth',
+      authMode: 'session',
       token: undefined,
       url: 'https://example.com'
+    })
+    expect(profileRemoteOverride(config, 'basic')).toEqual({
+      authMode: 'session',
+      token: undefined,
+      url: 'https://basic.example.com'
     })
     expect(profileRemoteOverride(config, 'localish')).toBeNull()
     expect(profileRemoteOverride(config, 'empty')).toBeNull()

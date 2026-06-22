@@ -10,7 +10,23 @@ const DEFAULT_GATEWAY_URL: &str = "http://127.0.0.1:9119";
 pub struct GatewayConfig {
     pub auth_mode: String,
     pub base_url: String,
-    pub token: String,
+    pub token: Option<String>,
+}
+
+impl GatewayConfig {
+    pub fn uses_session_auth(&self) -> bool {
+        self.auth_mode == "session"
+    }
+
+    pub fn required_token(&self) -> Result<&str, String> {
+        self.token
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                "HERMES_DASHBOARD_SESSION_TOKEN is not set in connection config, environment, or .env"
+                    .to_string()
+            })
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -47,10 +63,20 @@ pub fn normalize_gateway_url(raw_url: &str) -> Result<String, String> {
 }
 
 fn normalize_auth_mode(auth_mode: Option<&str>) -> String {
-    match auth_mode.unwrap_or("token").trim() {
-        "oauth" => "oauth".to_string(),
+    match auth_mode
+        .unwrap_or("token")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "basic" | "oauth" | "session" => "session".to_string(),
         _ => "token".to_string(),
     }
+}
+
+fn env_password_login_credentials_present() -> bool {
+    config_value("HERMES_DASHBOARD_USERNAME").is_some()
+        && config_value("HERMES_DASHBOARD_PASSWORD").is_some()
 }
 
 pub fn connection_scope_key(profile: Option<&str>) -> Option<String> {
@@ -68,11 +94,18 @@ pub fn ws_profile_key(profile: Option<&str>) -> String {
 }
 
 fn env_connection_config() -> ConnectionConfig {
+    let token = config_value("HERMES_DASHBOARD_SESSION_TOKEN");
+    let auth_mode = if token.is_some() || !env_password_login_credentials_present() {
+        "token"
+    } else {
+        "session"
+    };
+
     ConnectionConfig {
-        auth_mode: Some("token".to_string()),
+        auth_mode: Some(auth_mode.to_string()),
         mode: Some("remote".to_string()),
         profiles: None,
-        token: config_value("HERMES_DASHBOARD_SESSION_TOKEN"),
+        token,
         url: Some(
             config_value("HERMES_DASHBOARD_URL").unwrap_or_else(|| DEFAULT_GATEWAY_URL.to_string()),
         ),
@@ -114,17 +147,25 @@ pub fn resolve_gateway_config(profile: Option<&str>) -> Result<GatewayConfig, St
         .and_then(|entry| entry.token.as_ref())
         .or(config.token.as_ref())
         .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            "HERMES_DASHBOARD_SESSION_TOKEN is not set in connection config, environment, or .env"
-                .to_string()
-        })?;
-    let auth_mode = override_config
+        .filter(|value| !value.is_empty());
+    let configured_auth_mode = override_config
         .and_then(|entry| entry.auth_mode.as_deref())
         .or(config.auth_mode.as_deref());
+    let mut auth_mode = normalize_auth_mode(configured_auth_mode);
+
+    if auth_mode == "token" && token.is_none() && env_password_login_credentials_present() {
+        auth_mode = "session".to_string();
+    }
+
+    if auth_mode == "token" && token.is_none() {
+        return Err(
+            "HERMES_DASHBOARD_SESSION_TOKEN is not set in connection config, environment, or .env"
+                .to_string(),
+        );
+    }
 
     Ok(GatewayConfig {
-        auth_mode: normalize_auth_mode(auth_mode),
+        auth_mode,
         base_url,
         token,
     })
@@ -152,6 +193,37 @@ mod tests {
             normalize_gateway_url("https://example.test:9121/root/?token=nope#frag").unwrap(),
             "https://example.test:9121/root"
         );
+    }
+
+    #[test]
+    fn normalizes_session_auth_aliases() {
+        assert_eq!(normalize_auth_mode(Some("session")), "session");
+        assert_eq!(normalize_auth_mode(Some("oauth")), "session");
+        assert_eq!(normalize_auth_mode(Some("basic")), "session");
+        assert_eq!(normalize_auth_mode(Some("token")), "token");
+        assert_eq!(normalize_auth_mode(None), "token");
+    }
+
+    #[test]
+    fn session_auth_does_not_require_static_token() {
+        let config = GatewayConfig {
+            auth_mode: "session".to_string(),
+            base_url: "http://127.0.0.1:9119".to_string(),
+            token: None,
+        };
+
+        assert!(config.uses_session_auth());
+    }
+
+    #[test]
+    fn token_auth_requires_static_token() {
+        let config = GatewayConfig {
+            auth_mode: "token".to_string(),
+            base_url: "http://127.0.0.1:9119".to_string(),
+            token: None,
+        };
+
+        assert!(config.required_token().is_err());
     }
 
     #[test]

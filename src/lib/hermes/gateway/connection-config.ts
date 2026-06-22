@@ -1,8 +1,8 @@
-type ConnectionAuthMode = 'oauth' | 'token'
+type ConnectionAuthMode = 'session' | 'token'
 type ConnectionMode = 'remote'
 
 interface ConnectionProfileConfig {
-  authMode?: ConnectionAuthMode | null
+  authMode?: ConnectionAuthMode | string | null
   mode?: ConnectionMode | string | null
   token?: string | null
   url?: string | null
@@ -49,7 +49,11 @@ export function connectionScopeKey(profile: string | null | undefined): string |
 }
 
 function normAuthMode(mode: string | null | undefined): ConnectionAuthMode {
-  return mode === 'oauth' ? 'oauth' : 'token'
+  const value = String(mode ?? '')
+    .trim()
+    .toLowerCase()
+
+  return value === 'basic' || value === 'oauth' || value === 'session' ? 'session' : 'token'
 }
 
 export function profileRemoteOverride(

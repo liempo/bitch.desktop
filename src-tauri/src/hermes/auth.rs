@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::{
-    hermes::config::GatewayConfig,
+    hermes::{config::GatewayConfig, session_auth},
     http::{build_api_url, summarize_response_body},
 };
 
@@ -39,28 +39,56 @@ pub fn status_requires_ws_ticket(status: &Value) -> bool {
         .unwrap_or(false)
 }
 
+async fn send_ws_ticket_request(
+    client: &reqwest::Client,
+    config: &GatewayConfig,
+) -> Result<reqwest::Response, String> {
+    let url = build_api_url(&config.base_url, WS_TICKET_PATH);
+    let mut builder = client
+        .post(url)
+        .header("Accept", "application/json")
+        .json(&serde_json::json!({}));
+
+    if config.uses_session_auth() {
+        builder = session_auth::attach_session_cookie(client, config, builder).await?;
+    } else {
+        builder = builder.header(AUTH_HEADER, config.required_token()?);
+    }
+
+    builder.send().await.map_err(|e| e.to_string())
+}
+
 pub async fn mint_ws_ticket(
     client: &reqwest::Client,
     config: &GatewayConfig,
 ) -> Result<String, String> {
-    let url = build_api_url(&config.base_url, WS_TICKET_PATH);
-    let response = client
-        .post(url)
-        .header(AUTH_HEADER, &config.token)
-        .header("Accept", "application/json")
-        .json(&serde_json::json!({}))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut response = send_ws_ticket_request(client, config).await?;
+    let mut status = response.status();
 
-    let status = response.status();
+    if config.uses_session_auth() {
+        session_auth::capture_response_cookies(&config.base_url, response.headers());
+
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            session_auth::clear_session_cookies(&config.base_url);
+            response = send_ws_ticket_request(client, config).await?;
+            status = response.status();
+            session_auth::capture_response_cookies(&config.base_url, response.headers());
+        }
+    }
+
     let text = response.text().await.map_err(|e| e.to_string())?;
 
     if !status.is_success() {
-        return Err(format!(
-            "ws-ticket endpoint returned {status}: {}",
-            summarize_response_body(&text)
-        ));
+        let message = if config.uses_session_auth() && status == reqwest::StatusCode::UNAUTHORIZED {
+            "Remote Hermes session expired or login was rejected; check HERMES_DASHBOARD_USERNAME and HERMES_DASHBOARD_PASSWORD, then try again".to_string()
+        } else {
+            format!(
+                "ws-ticket endpoint returned {status}: {}",
+                summarize_response_body(&text)
+            )
+        };
+
+        return Err(message);
     }
 
     let body = serde_json::from_str::<Value>(&text)

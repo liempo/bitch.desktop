@@ -52,7 +52,10 @@ namespace. If the file is absent, Rust seeds the connection from the existing
 `.env` variables:
 
 - `HERMES_DASHBOARD_URL`
-- `HERMES_DASHBOARD_SESSION_TOKEN`
+- `HERMES_DASHBOARD_SESSION_TOKEN` for legacy/static token mode
+- `HERMES_DASHBOARD_USERNAME` and `HERMES_DASHBOARD_PASSWORD` for Hermes dashboard
+  password-login session mode, defaulting to provider `basic`
+- `HERMES_DASHBOARD_AUTH_PROVIDER` when the password-login provider name is not `basic`
 - `MONITORING_URL` for the renderer-only Beszel dashboard panel, for example `http://homestation:8090`
 
 New Tauri commands:
@@ -74,8 +77,13 @@ profile }` for the global config or a profile override. The dashboard token
 - `send_ws_message` and `close_ws` operate on connection IDs while the internal
   proxy state remains profile-indexed.
 
-Token auth remains the supported remote profile auth path. OAuth cookie partition
-for per-profile remote URLs is intentionally deferred.
+Token auth remains supported. Session-cookie auth is also supported for remote
+Hermes dashboards using upstream dashboard providers such as `basic`; old
+`authMode: "oauth"` and provider-name `authMode: "basic"` configs normalize to
+`authMode: "session"`. The native bridge performs `POST /auth/password-login`,
+stores cookies in the Tauri process, and mints a fresh `/api/auth/ws-ticket` for
+gated WebSocket connections. The password is read from environment/`.env` only and
+is not saved to `connection.json` or returned to the renderer.
 
 ## Frontend stores
 
@@ -182,7 +190,9 @@ hermes --profile research dashboard --port 9122
 - **Same URL, multiple profiles:** history can be scoped through
   `/api/profiles/sessions?profile=...`, but live WebSocket chat still executes in
   the profile that backend process booted with. Use one backend per profile.
-- **OAuth remote gateways:** per-profile overrides are token-first in this pass.
+- **Session credentials:** password-login credentials are environment/`.env` backed
+  in this pass. A renderer sign-in form can be added later without changing the
+  downstream cookie/ticket bridge.
 - **Profile administration UI:** create/rename/delete/SOUL editor routes are not
   ported yet, so the renderer keeps only the profile list/scope types used by
   the current UI.

@@ -101,8 +101,9 @@ src/lib/hermes/
 Hermes source may use `hermes/shared` and platform adapters. It must not import
 monitoring modules, read `MONITORING_*` configuration, mention Beszel, or route
 through monitoring commands. Token-sensitive Hermes work stays behind Tauri: the
-renderer does not read `HERMES_DASHBOARD_SESSION_TOKEN`, mint WebSocket tickets,
-or attach dashboard auth headers directly.
+renderer does not read `HERMES_DASHBOARD_SESSION_TOKEN`,
+`HERMES_DASHBOARD_USERNAME`, `HERMES_DASHBOARD_PASSWORD`, dashboard session
+cookies, mint WebSocket tickets, or attach dashboard auth headers directly.
 
 Legacy top-level feature barrels and stores were removed after call sites migrated.
 New code must import `$lib/hermes/...` public entrypoints directly rather than
@@ -167,6 +168,7 @@ src-tauri/src/
     mod.rs
     config.rs        HERMES_DASHBOARD_* / BITCH_DASHBOARD_* compatibility
     auth.rs          dashboard auth headers and ws-ticket/session-token rules
+    session_auth.rs  password-login session cookies for gated dashboards
     dashboard_http.rs Hermes-only /api/* proxying for dashboard_request
     files.rs         authenticated Hermes file/media routes
     gateway_ws.rs    native WebSocket proxy for Hermes JSON-RPC runtime

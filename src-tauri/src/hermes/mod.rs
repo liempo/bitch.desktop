@@ -3,3 +3,4 @@ pub mod config;
 pub mod dashboard_http;
 pub mod files;
 pub mod gateway_ws;
+pub mod session_auth;
