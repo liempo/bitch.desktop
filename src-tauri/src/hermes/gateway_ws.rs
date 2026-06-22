@@ -60,7 +60,15 @@ static WS_STATE: LazyLock<Mutex<HashMap<String, WsProxyState>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn encode_query_value(value: &str) -> String {
-    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
+    value
+        .bytes()
+        .flat_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                vec![byte as char]
+            }
+            _ => format!("%{byte:02X}").chars().collect(),
+        })
+        .collect()
 }
 
 fn build_ws_url(base_url: &str, query_name: &str, query_value: &str) -> Result<String, String> {

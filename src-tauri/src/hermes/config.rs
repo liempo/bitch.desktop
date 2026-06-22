@@ -1,5 +1,4 @@
 use serde::Serialize;
-use std::collections::HashMap;
 
 use crate::config::{
     config_value, read_saved_connection_config, ConnectionConfig, ConnectionProfileConfig,
@@ -145,6 +144,7 @@ pub fn resolve_connection(profile: Option<&str>) -> Result<ResolvedConnection, S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn normalizes_remote_base_url() {

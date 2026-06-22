@@ -7,7 +7,6 @@
 Monitoring owns only host telemetry concerns:
 
 - `MONITORING_*` renderer configuration exposed by Vite defines;
-- optional compatibility with existing `HOST_MONITOR_URL` defaults when provided by the backend;
 - Beszel/PocketBase URL normalization, system selection, and metrics reads through the `host_monitor_request` Tauri command;
 - normalization and formatting of host CPU, memory, disk, thermal, uptime, and process placeholders.
 

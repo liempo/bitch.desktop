@@ -67,7 +67,7 @@ plumbing because it happens to be nearby and unsupervised.
 | Lane       | Owns                                                                                                                                                            | Must not own                                                   |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Hermes     | Dashboard `/api/*` requests, authenticated remote files/media, JSON-RPC runtime gateway, ws-ticket/session-token handling, profile-scoped dashboard/plugin APIs | Beszel/monitoring, generic native helpers, non-Hermes services |
-| Monitoring | Beszel/PocketBase host telemetry, `MONITORING_*` config, optional `HOST_MONITOR_URL` compatibility, system selection, token refresh, metrics reads              | Hermes dashboard/session/files/gateway/plugin modules          |
+| Monitoring | Beszel/PocketBase host telemetry, `MONITORING_*` config, system selection, token refresh, metrics reads                                                         | Hermes dashboard/session/files/gateway/plugin modules          |
 | Platform   | Native app helpers: connection config storage, external URL opening, notifications, window setup, generic invoke/event wrappers                                 | Product backend route knowledge for Hermes or Beszel           |
 | Shared     | Pure utilities such as errors, layout helpers, UI helpers, typed DTOs, storage namespace helpers                                                                | Feature-lane imports or privileged backend calls               |
 
@@ -172,7 +172,7 @@ src-tauri/src/
     gateway_ws.rs    native WebSocket proxy for Hermes JSON-RPC runtime
   monitoring/
     mod.rs
-    config.rs        MONITORING_* / HOST_MONITOR_URL compatibility
+    config.rs        MONITORING_* configuration
     auth.rs          Beszel static/password auth and cached token refresh
     beszel.rs        PocketBase systems/system_stats reads
   platform/

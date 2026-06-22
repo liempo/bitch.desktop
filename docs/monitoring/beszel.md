@@ -21,7 +21,7 @@ src/lib/monitoring/
 
 Responsibilities:
 
-- normalize `MONITORING_URL` and compatible `HOST_MONITOR_URL` defaults;
+- normalize `MONITORING_URL` defaults;
 - derive the Beszel system id from configuration or a `/system/:id` URL when
   present;
 - read PocketBase `systems` and `system_stats` records through the monitoring
@@ -47,7 +47,7 @@ src-tauri/src/commands/monitoring.rs
 
 Responsibilities:
 
-- own `MONITORING_*` and `HOST_MONITOR_URL` compatibility parsing;
+- own `MONITORING_*` configuration parsing;
 - normalize Beszel/PocketBase base URLs and collection paths;
 - use static token auth or email/password auth when configured;
 - cache and refresh Beszel tokens behind Tauri;
