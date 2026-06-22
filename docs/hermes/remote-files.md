@@ -7,7 +7,7 @@
 
 `BITCH` is remote-only. Every file preview, inline media render, and composer attachment resolves through the authenticated Hermes dashboard/gateway for the active profile. The renderer must not fetch public file-server origins, derive URLs from a special root, or own dashboard auth headers.
 
-Raw absolute paths remain plain text in the desktop thread. Renderer behavior requires an explicit Hermes directive or an internal preview marker.
+Raw absolute paths remain plain text in the desktop conversation. Renderer behavior requires an explicit Hermes directive or an internal preview marker.
 
 ## Official syntax and semantics
 
@@ -19,7 +19,7 @@ Raw absolute paths remain plain text in the desktop thread. Renderer behavior re
 | `@image:<path>`                                                    | Legacy/user-side image chip. In remote mode, local image bytes are uploaded through `image.attach_bytes`; gateway-visible paths may use `image.attach`.                                                                    | Keep only for compatibility with stored user messages and image attachments. Prefer `MEDIA:` for new assistant-authored inline media.                                                                               |
 | `MEDIA:<path>`                                                     | Assistant-side inline media directive. Desktop rewrites it to a media marker and renders by media kind.                                                                                                                    | Render image/audio/video inline when the authenticated remote resolver can provide bytes. Degrade unknown or unsupported files to an explicit preview/download link.                                                |
 | `[Preview: name](#preview:%2Fpath)`                                | Internal preview marker. Raw paths and URLs are not inferred as preview targets.                                                                                                                                           | Use internal markers for renderer-created links; public agent output should use explicit `@file:<path>` for file preview.                                                                                           |
-| Plain absolute path in an agent response                           | Gateway Deliverable Mode on messaging platforms may scan absolute paths and upload native attachments. This is not Desktop remote-preview syntax.                                                                          | Do not rely on this in the desktop thread. Require `@file:` or `MEDIA:` for renderer behavior.                                                                                                                      |
+| Plain absolute path in an agent response                           | Gateway Deliverable Mode on messaging platforms may scan absolute paths and upload native attachments. This is not Desktop remote-preview syntax.                                                                          | Do not rely on this in the desktop conversation. Require `@file:` or `MEDIA:` for renderer behavior.                                                                                                                |
 
 Supported `MEDIA:` media groups are extension-driven:
 

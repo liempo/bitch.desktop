@@ -28,7 +28,7 @@ src/lib/hermes/
   kanban/
   gateway/
   sessions/
-  threads/
+  conversations/
   files/
   profiles/
   composer/
@@ -48,13 +48,13 @@ after call sites migrated; do not recreate them for new work.
 - [`remote-profile-support.md`](remote-profile-support.md) — profile-scoped
   dashboard and gateway routing.
 - [`session-sidebar.md`](session-sidebar.md) — session sidebar and switching.
-- [`message-thread.md`](message-thread.md) — message/thread normalization and
+- [`message-conversation.md`](message-conversation.md) — message/conversation normalization and
   rendering.
 - [`rich-composer.md`](rich-composer.md) — composer orchestration, queueing,
   slash commands, and model controls.
 - [`interactive-prompts.md`](interactive-prompts.md) — prompt response state and
   UI behavior.
-- [`live-thread-preservation.md`](live-thread-preservation.md) — running-session
+- [`live-conversation-preservation.md`](live-conversation-preservation.md) — running-session
   resume and busy synchronization.
 
 See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the complete lane model.

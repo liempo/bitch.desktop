@@ -26,13 +26,13 @@ items under its `## Feature checklist` are task sources.
   profile-scoped dashboard/gateway routing.
 - [`hermes/session-sidebar.md`](hermes/session-sidebar.md) — session list,
   switching, archive/delete/rename behavior.
-- [`hermes/message-thread.md`](hermes/message-thread.md) — thread message model,
+- [`hermes/message-conversation.md`](hermes/message-conversation.md) — conversation message model,
   streaming, tools, markdown, and rehydration.
 - [`hermes/rich-composer.md`](hermes/rich-composer.md) — composer queue,
   attachments, slash commands, and model controls.
 - [`hermes/interactive-prompts.md`](hermes/interactive-prompts.md) — clarify,
   approval, sudo, and secret prompt responses.
-- [`hermes/live-thread-preservation.md`](hermes/live-thread-preservation.md) —
+- [`hermes/live-conversation-preservation.md`](hermes/live-conversation-preservation.md) —
   resume/busy-state invariants for running sessions.
 
 ## Shared and platform docs

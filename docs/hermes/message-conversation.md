@@ -1,4 +1,4 @@
-# 04 — Message thread
+# 04 — Message conversation
 
 **Goal:** Render a session's transcript and stream live turns with the same
 layout after refresh as during live streaming.
@@ -21,7 +21,7 @@ layout after refresh as during live streaming.
    - `status.update`, `session.info` → update model / running / usage metadata.
    - `error` `{message}` → attach an inline error to the assistant message.
 3. Normalize stored `SessionMessage` content via helpers in
-   [`src/lib/hermes/threads/domain/message-normalization.ts`](../../src/lib/hermes/threads/domain/message-normalization.ts).
+   [`src/lib/hermes/conversations/domain/message-normalization.ts`](../../src/lib/hermes/conversations/domain/message-normalization.ts).
 
 ## Chronological `parts` model
 
@@ -30,10 +30,10 @@ truth. Legacy buckets (`reasoning`, `text`, `tools`) stay populated for scroll
 signatures, copy, and tests.
 
 ```ts
-export type ThreadMessagePart =
+export type ConversationMessagePart =
   | { type: 'reasoning'; text: string }
   | { type: 'text'; text: string }
-  | { type: 'tool'; tool: ThreadTool }
+  | { type: 'tool'; tool: ConversationTool }
 ```
 
 | Path           | Behaviour                                                                                                                                             |
@@ -65,23 +65,23 @@ Orphaned stored tool messages (no preceding assistant) remain standalone
 - Tool rows merge into `lastAssistant.tools` and `lastAssistant.parts`.
 - Orphan tools keep their own message with a standalone tool part.
 
-## Live thread preservation on re-select
+## Live conversation preservation on re-select
 
 Route resume does not always call `replaceStoredMessages`. Before snapshot
-hydration, `shouldPreserveLiveThread(sessionId, snapshotLength)` checks whether
-there is already a hydrated live thread that is busy, has `currentAssistantId`,
+hydration, `shouldPreserveLiveConversation(sessionId, snapshotLength)` checks whether
+there is already a hydrated live conversation that is busy, has `currentAssistantId`,
 has pending messages, or has more messages than the stored snapshot. When true,
-the in-memory live thread remains the render source so partial assistant output,
+the in-memory live conversation remains the render source so partial assistant output,
 running tools, and busy state survive session switching.
 
-When the thread is idle and not ahead of stored history, the HTTP snapshot
-refreshes the thread normally. See
-[`live-thread-preservation.md`](live-thread-preservation.md) for the resume and
+When the conversation is idle and not ahead of stored history, the HTTP snapshot
+refreshes the conversation normally. See
+[`live-conversation-preservation.md`](live-conversation-preservation.md) for the resume and
 busy-sync flow.
 
 ## Tool upsert and completion matching
 
-`upsertTool` resolves the target row with `findToolInThread`:
+`upsertTool` resolves the target row with `findToolInConversation`:
 
 - Prefer the current assistant, then scan recent assistant messages (handles
   late `tool.complete` after `message.complete` clears `currentAssistantId`).
@@ -92,18 +92,18 @@ busy-sync flow.
   `done` / `success` as complete.
 
 Updates go through `commitMessage`, which replaces the message object and
-reassigns `thread.messages` so Svelte 5 re-renders tool status changes. Tool
+reassigns `conversation.messages` so Svelte 5 re-renders tool status changes. Tool
 parts in `Message.svelte` are keyed on `tool.id:tool.status`.
 
-## Store and Hermes thread domain
+## Store and Hermes conversation domain
 
-The message ViewModel lives at [`src/lib/hermes/threads/view-models/messages.svelte.ts`](../../src/lib/hermes/threads/view-models/messages.svelte.ts). Hermes-owned thread domain helpers live under [`src/lib/hermes/threads`](../../src/lib/hermes/threads/index.ts), including message normalization, previews, canvas extraction, and media attachments.
+The message ViewModel lives at [`src/lib/hermes/conversations/view-models/messages.svelte.ts`](../../src/lib/hermes/conversations/view-models/messages.svelte.ts). Hermes-owned conversation domain helpers live under [`src/lib/hermes/conversations`](../../src/lib/hermes/conversations/index.ts), including message normalization, previews, canvas extraction, and media attachments.
 
 ## UI
 
 ```
-src/app/components/thread/
-  Thread.svelte     # scroll container, auto-stick-to-bottom, empty intro
+src/app/components/conversation/
+  Conversation.svelte     # scroll container, auto-stick-to-bottom, empty intro
   Message.svelte    # user / assistant / system bubble; renders parts chronologically
   Tool.svelte       # tool name + status + summary
   Reasoning.svelte  # collapsible thinking/reasoning block
@@ -120,7 +120,7 @@ src/app/components/thread/
 - [use-message-stream.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/app/session/hooks/use-message-stream.ts)
 - [chat-messages.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/lib/chat-messages.ts) — `upsertToolPart`, `findToolPartIndex`
 - [chat-runtime.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/lib/chat-runtime.ts)
-- [thread.tsx](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/components/assistant-ui/thread.tsx)
+- [conversation.tsx](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/components/assistant-ui/conversation.tsx)
 - [markdown-text.tsx](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/components/assistant-ui/markdown-text.tsx)
 - [tool-fallback.tsx](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/components/assistant-ui/tool-fallback.tsx)
 
@@ -133,7 +133,7 @@ inline.
 
 ## Tests
 
-Coverage in [`messages.svelte.test.ts`](../../src/lib/hermes/threads/view-models/messages.svelte.test.ts) and Hermes thread-domain tests:
+Coverage in [`messages.svelte.test.ts`](../../src/lib/hermes/conversations/view-models/messages.svelte.test.ts) and Hermes conversation-domain tests:
 
 - Live streaming builds ordered `parts` (`reasoning` → `tool` → `text`).
 - Rehydration merges stored tool messages into the preceding assistant.

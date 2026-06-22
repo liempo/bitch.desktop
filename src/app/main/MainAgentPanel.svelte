@@ -1,6 +1,6 @@
 <script lang="ts">
   import Composer from '../components/composer/Composer.svelte'
-  import Thread from '../components/thread/Thread.svelte'
+  import Conversation from '../components/conversation/Conversation.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
@@ -8,7 +8,7 @@
   import { agentRoute } from '../router.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import { gatewayState } from '$lib/hermes/gateway'
-  import { threadForSession } from '$lib/hermes/threads'
+  import { conversationForSession } from '$lib/hermes/conversations'
   import { profileState } from '$lib/hermes/profiles'
   import { sessionState, startNewSession } from '$lib/hermes/sessions'
   import type { SessionInfo } from '$lib/types/hermes'
@@ -34,7 +34,7 @@
   const selectedSession = $derived(
     selectedSessionId ? (sessionState.sessions.find(session => session.id === selectedSessionId) ?? null) : null
   )
-  const selectedThread = $derived(threadForSession(selectedSessionId))
+  const selectedConversation = $derived(conversationForSession(selectedSessionId))
   const selectedSessionProfile = $derived(
     selectedSessionId ? (selectedSession?.profile ?? sessionState.sessionProfilesById[selectedSessionId] ?? null) : null
   )
@@ -75,8 +75,8 @@
     }
 
     const hasHydratedRuntime =
-      sessionState.storedSessionId === sessionId && Boolean(sessionState.activeSessionId) && selectedThread?.hydrated
-    if (hasHydratedRuntime || selectedThread?.busy || selectedThread?.loading || sessionState.resumingSessionId === sessionId) return
+      sessionState.storedSessionId === sessionId && Boolean(sessionState.activeSessionId) && selectedConversation?.hydrated
+    if (hasHydratedRuntime || selectedConversation?.busy || selectedConversation?.loading || sessionState.resumingSessionId === sessionId) return
     if (lastResumeSessionId === sessionId) return
 
     lastResumeSessionId = sessionId
@@ -190,7 +190,7 @@
   {/snippet}
 
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <Thread compact sessionId={selectedSessionId} />
+    <Conversation compact sessionId={selectedSessionId} />
   </div>
 
   <Composer
@@ -222,7 +222,7 @@
       <span class="min-w-0">
         <span class="block truncate text-[11px] font-semibold uppercase tracking-wider">New session</span>
         <span class="mt-1 block truncate text-[10px] uppercase tracking-[0.12em] text-ink-muted/80">
-          start with an empty embedded thread
+          start with an empty embedded conversation
         </span>
       </span>
       <span class="text-[10px] uppercase tracking-[0.12em] text-ink-muted">blank</span>

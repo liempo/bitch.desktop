@@ -52,12 +52,12 @@ vi.mock('$lib/hermes/gateway', () => ({
   requestGateway: mockRequestGateway
 }))
 
-vi.mock('$lib/hermes/threads', () => ({
+vi.mock('$lib/hermes/conversations', () => ({
   appendAssistantErrorMessage: mockAppendAssistantErrorMessage,
   appendSystemMessage: mockAppendSystemMessage,
   appendUserMessage: vi.fn(),
-  setThreadBusy: vi.fn(),
-  threadForSession: vi.fn()
+  setConversationBusy: vi.fn(),
+  conversationForSession: vi.fn()
 }))
 
 vi.mock('$lib/hermes/profiles', () => ({
@@ -69,6 +69,7 @@ vi.mock('$lib/hermes/profiles', () => ({
 vi.mock('$lib/hermes/sessions', () => ({
   createSession: mockCreateSession,
   displaySessionIdFor: (id: string) => id,
+  lineageIdForSessionId: (id: string | null | undefined) => id?.trim() || null,
   loadSessions: mockLoadSessions,
   profileForSession: vi.fn(() => null),
   runtimeSessionIdForStored: vi.fn(() => null),
@@ -92,6 +93,9 @@ function resetComposerSession(): void {
   composerState.model.options = null
   composerState.model.reasoningSwitching = false
   composerState.model.switching = false
+  composerState.newSessionFastSelection = null
+  composerState.newSessionModelSelection = null
+  composerState.newSessionReasoningSelection = null
 }
 
 describe('executeSlashCommand reload-mcp routing', () => {

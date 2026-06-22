@@ -204,7 +204,7 @@ function isFeatureInternalImport(specifier: string): boolean {
 }
 
 function isHermesRendererSpecifier(specifier: string): boolean {
-  return /^\$lib\/(?:api|composer|files|gateway|hermes|messages|session|stores|thread)(?:\/|$)/.test(specifier)
+  return /^\$lib\/(?:api|composer|files|gateway|hermes|messages|session|stores|conversation)(?:\/|$)/.test(specifier)
 }
 
 function isMonitoringRendererSpecifier(specifier: string): boolean {
@@ -212,7 +212,7 @@ function isMonitoringRendererSpecifier(specifier: string): boolean {
 }
 
 function isFeatureRendererSpecifier(specifier: string): boolean {
-  return /^\$lib\/(?:api|composer|files|gateway|hermes|messages|monitoring|session|stores|thread)(?:\/|$)/.test(
+  return /^\$lib\/(?:api|composer|files|gateway|hermes|messages|monitoring|session|stores|conversation)(?:\/|$)/.test(
     specifier
   )
 }

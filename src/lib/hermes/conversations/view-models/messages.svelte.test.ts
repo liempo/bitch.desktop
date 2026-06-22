@@ -30,9 +30,9 @@ import {
   handleGatewayEvent,
   hydrateSessionMessagesFromGateway,
   messageState,
-  setThreadBusy,
-  threadForSession
-} from '$lib/hermes/threads'
+  setConversationBusy,
+  conversationForSession
+} from '$lib/hermes/conversations'
 import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
 import {
   promptsState,
@@ -54,9 +54,9 @@ function resetState(): void {
   sessionState.workingSessionIds = []
   sessionState.needsInputSessionIds = []
   sessionState.runtimeIdsByStoredSessionId = {}
-  sessionState.sessionLineageIdsByThreadId = {}
+  sessionState.sessionLineageIdsByRootId = {}
   sessionState.sessionStartedAtById = {}
-  sessionState.sessionThreadIdsById = {}
+  sessionState.sessionLineageIdsById = {}
   sessionState.storedSessionIdsByRuntimeId = {}
   promptsState.clarifyRequests = {}
   promptsState.approvalRequest = null
@@ -87,11 +87,11 @@ describe('message session id mapping', () => {
 
     hydrateSessionMessagesFromGateway(liveSid, [storedMessage('visible history')])
 
-    expect(threadForSession(storedKey)?.messages.map(message => message.text)).toEqual(['visible history'])
-    expect(threadForSession(liveSid)).toBe(threadForSession(storedKey))
+    expect(conversationForSession(storedKey)?.messages.map(message => message.text)).toEqual(['visible history'])
+    expect(conversationForSession(liveSid)).toBe(conversationForSession(storedKey))
   })
 
-  it('applies live gateway stream events to the stored visible thread', () => {
+  it('applies live gateway stream events to the stored visible conversation', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -106,9 +106,9 @@ describe('message session id mapping', () => {
       payload: { text: 'streamed answer' }
     })
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages).toHaveLength(1)
-    expect(thread?.messages[0]?.text).toBe('streamed answer')
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages).toHaveLength(1)
+    expect(conversation?.messages[0]?.text).toBe('streamed answer')
     expect(sessionState.workingSessionIds).toContain(storedKey)
     expect(sessionState.workingSessionIds).not.toContain(liveSid)
   })
@@ -129,19 +129,21 @@ describe('message session id mapping', () => {
       payload: { text: 'background output' }
     })
 
-    expect(threadForSession('background-stored')?.messages.map(message => message.text)).toEqual(['background output'])
+    expect(conversationForSession('background-stored')?.messages.map(message => message.text)).toEqual([
+      'background output'
+    ])
     expect(messageState.sessions['background-live']).toBeUndefined()
     expect(sessionState.workingSessionIds).toContain('background-stored')
     expect(sessionState.workingSessionIds).not.toContain('background-live')
   })
 
-  it('renders optimistic user messages in the stored visible thread even when submit uses the live sid', () => {
+  it('renders optimistic user messages in the stored visible conversation even when submit uses the live sid', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
     appendUserMessage(liveSid, 'operator payload')
 
-    expect(threadForSession(storedKey)?.messages.map(message => message.text)).toEqual(['operator payload'])
+    expect(conversationForSession(storedKey)?.messages.map(message => message.text)).toEqual(['operator payload'])
     expect(Object.keys(messageState.sessions)).toEqual([storedKey])
   })
 
@@ -160,13 +162,13 @@ describe('message session id mapping', () => {
   it('keeps the sidebar loader for hydrated sessions that are still busy', () => {
     hydrateSessionMessagesFromGateway(storedKey, [])
     sessionState.resumingSessionId = storedKey
-    setThreadBusy(storedKey, true)
+    setConversationBusy(storedKey, true)
 
     expect(sessionMessagesLoaded(storedKey)).toBe(true)
     expect(shouldShowSessionSidebarLoader(storedKey)).toBe(true)
   })
 
-  it('preserves optimistic user image and PDF attachments on the visible thread message', () => {
+  it('preserves optimistic user image and PDF attachments on the visible conversation message', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -190,7 +192,7 @@ describe('message session id mapping', () => {
       }
     ])
 
-    const message = threadForSession(storedKey)?.messages[0]
+    const message = conversationForSession(storedKey)?.messages[0]
     expect(message?.text).toBe('inspect these\n\nAttached files:\n- screen.png (5 B)\n- brief.pdf (PDF · 8 B)')
     expect(message?.attachments).toEqual([
       expect.objectContaining({
@@ -203,7 +205,7 @@ describe('message session id mapping', () => {
     ])
   })
 
-  it('extracts persisted user image_url and @image references into thread attachments', () => {
+  it('extracts persisted user image_url and @image references into conversation attachments', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
     const dataUrl = 'data:image/png;base64,aW1hZ2U='
@@ -225,7 +227,7 @@ describe('message session id mapping', () => {
       } as SessionMessage
     ])
 
-    const messages = threadForSession(storedKey)?.messages ?? []
+    const messages = conversationForSession(storedKey)?.messages ?? []
     expect(messages[0]?.text).toBe('look at this')
     expect(messages[0]?.attachments?.[0]).toMatchObject({
       dataUrl,
@@ -258,7 +260,7 @@ describe('message session id mapping', () => {
       } as SessionMessage
     ])
 
-    const messages = threadForSession(storedKey)?.messages ?? []
+    const messages = conversationForSession(storedKey)?.messages ?? []
     expect(messages[0]?.text).toBe('rendered output\nMEDIA:/opt/data/neon-render.png')
     expect(messages[0]?.attachments).toBeUndefined()
     expect(messages[1]?.text).toBe('artifact: MEDIA:/opt/data/wiki/personal/notes.pdf')
@@ -287,7 +289,7 @@ describe('message session id mapping', () => {
       } as SessionMessage
     ])
 
-    const messages = threadForSession(storedKey)?.messages ?? []
+    const messages = conversationForSession(storedKey)?.messages ?? []
     expect(messages[0]?.text).toBe('rendered output\n/opt/data/.hermes/cache/render 1.png')
     expect(messages[0]?.attachments).toBeUndefined()
     expect(messages[1]?.text).toBe('artifact ready\n`/opt/data/wiki/personal/notes.pdf`')
@@ -307,12 +309,12 @@ describe('message session id mapping', () => {
       payload: { text: 'Done\nMEDIA:/opt/data/live.png' }
     })
 
-    const message = threadForSession(storedKey)?.messages[0]
+    const message = conversationForSession(storedKey)?.messages[0]
     expect(message?.text).toBe('Done\nMEDIA:/opt/data/live.png')
     expect(message?.attachments).toBeUndefined()
   })
 
-  it('extracts stored assistant canvas references into the thread canvas sidebar state', () => {
+  it('extracts stored assistant canvas references into the conversation canvas sidebar state', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
 
@@ -324,9 +326,9 @@ describe('message session id mapping', () => {
       } as SessionMessage
     ])
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages[0]?.text).toBe('rendered output')
-    expect(thread?.canvas).toMatchObject({
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages[0]?.text).toBe('rendered output')
+    expect(conversation?.canvas).toMatchObject({
       label: 'render.html',
       path: '/tmp/render.html',
       source: '/tmp/render.html'
@@ -344,9 +346,9 @@ describe('message session id mapping', () => {
       payload: { text: 'Canvas ready\nCANVAS:/opt/data/live-render.html' }
     })
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages[0]?.text).toBe('Canvas ready')
-    expect(thread?.canvas).toMatchObject({
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages[0]?.text).toBe('Canvas ready')
+    expect(conversation?.canvas).toMatchObject({
       label: 'live-render.html',
       path: '/opt/data/live-render.html',
       source: '/opt/data/live-render.html'
@@ -423,7 +425,7 @@ describe('message session id mapping', () => {
       type: 'tool.start'
     })
 
-    const runningTool = threadForSession(storedKey)?.messages[0]?.tools[0]
+    const runningTool = conversationForSession(storedKey)?.messages[0]?.tools[0]
     expect(runningTool).toMatchObject({
       context: 'npm run test',
       id: 'tool-1',
@@ -438,7 +440,7 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    expect(threadForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+    expect(conversationForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
       context: 'npm run test',
       output: 'tests passed',
       status: 'complete'
@@ -454,9 +456,9 @@ describe('message session id mapping', () => {
       type: 'tool.start'
     })
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages[0]?.tools).toHaveLength(1)
-    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages[0]?.tools).toHaveLength(1)
+    expect(conversation?.messages[0]?.tools[0]).toMatchObject({
       context: 'npm run test',
       name: 'terminal',
       status: 'running'
@@ -468,8 +470,8 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    expect(thread?.messages[0]?.tools).toHaveLength(1)
-    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+    expect(conversation?.messages[0]?.tools).toHaveLength(1)
+    expect(conversation?.messages[0]?.tools[0]).toMatchObject({
       context: 'npm run test',
       name: 'terminal',
       output: 'tests passed',
@@ -491,8 +493,8 @@ describe('message session id mapping', () => {
       type: 'tool.start'
     })
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages[0]?.tools).toHaveLength(2)
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages[0]?.tools).toHaveLength(2)
 
     handleGatewayEvent({
       payload: { name: 'terminal', output: 'tests passed' },
@@ -500,7 +502,7 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    const tools = thread?.messages[0]?.tools ?? []
+    const tools = conversation?.messages[0]?.tools ?? []
     expect(tools.find(tool => tool.name === 'terminal')?.status).toBe('complete')
     expect(tools.find(tool => tool.name === 'delegate_task')?.status).toBe('running')
   })
@@ -515,8 +517,8 @@ describe('message session id mapping', () => {
       type: 'tool.start'
     })
 
-    const thread = threadForSession(storedKey)
-    const syntheticId = thread?.messages[0]?.tools[0]?.id
+    const conversation = conversationForSession(storedKey)
+    const syntheticId = conversation?.messages[0]?.tools[0]?.id
     expect(syntheticId).toBeDefined()
 
     // Later events carry a real tool_id that the local row has never seen.
@@ -534,8 +536,8 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    expect(thread?.messages[0]?.tools).toHaveLength(1)
-    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+    expect(conversation?.messages[0]?.tools).toHaveLength(1)
+    expect(conversation?.messages[0]?.tools[0]).toMatchObject({
       context: 'npm test',
       id: syntheticId,
       name: 'terminal',
@@ -567,9 +569,9 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages[0]?.tools).toHaveLength(1)
-    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages[0]?.tools).toHaveLength(1)
+    expect(conversation?.messages[0]?.tools[0]).toMatchObject({
       context: 'npm test',
       name: 'terminal',
       output: 'done',
@@ -603,8 +605,8 @@ describe('message session id mapping', () => {
       type: 'reasoning.delta'
     })
 
-    const thread = threadForSession(storedKey)
-    const reasoning = thread?.messages[0]?.reasoning
+    const conversation = conversationForSession(storedKey)
+    const reasoning = conversation?.messages[0]?.reasoning
     expect(reasoning).toHaveLength(2)
     expect(reasoning?.[0]).toBe('first thought')
     expect(reasoning?.[1]).toBe('second thought')
@@ -631,8 +633,8 @@ describe('message session id mapping', () => {
       type: 'reasoning.delta'
     })
 
-    const thread = threadForSession(storedKey)
-    const reasoning = thread?.messages[0]?.reasoning
+    const conversation = conversationForSession(storedKey)
+    const reasoning = conversation?.messages[0]?.reasoning
     expect(reasoning).toHaveLength(2)
     expect(reasoning?.[0]).toBe('planning phase')
     expect(reasoning?.[1]).toBe('post-text reasoning')
@@ -658,7 +660,7 @@ describe('message session id mapping', () => {
       type: 'message.delta'
     })
 
-    const parts = threadForSession(storedKey)?.messages[0]?.parts
+    const parts = conversationForSession(storedKey)?.messages[0]?.parts
     expect(parts).toHaveLength(3)
     expect(parts?.[0]).toMatchObject({ type: 'reasoning', text: 'thinking first' })
     expect(parts?.[1]).toMatchObject({ type: 'tool', tool: { id: 'tool-1', name: 'terminal', status: 'running' } })
@@ -685,15 +687,15 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages).toHaveLength(1)
-    expect(thread?.messages[0]?.tools).toHaveLength(1)
-    expect(thread?.messages[0]?.tools[0]).toMatchObject({
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages).toHaveLength(1)
+    expect(conversation?.messages[0]?.tools).toHaveLength(1)
+    expect(conversation?.messages[0]?.tools[0]).toMatchObject({
       id: 'tool-1',
       output: 'tests passed',
       status: 'complete'
     })
-    expect(thread?.messages[0]?.parts?.[0]).toMatchObject({
+    expect(conversation?.messages[0]?.parts?.[0]).toMatchObject({
       type: 'tool',
       tool: { id: 'tool-1', status: 'complete' }
     })
@@ -712,8 +714,8 @@ describe('message session id mapping', () => {
       type: 'tool.start'
     })
 
-    const thread = threadForSession(storedKey)
-    const messagesBefore = thread?.messages
+    const conversation = conversationForSession(storedKey)
+    const messagesBefore = conversation?.messages
 
     handleGatewayEvent({
       payload: { name: 'terminal', output: 'done', tool_id: 'tool-1' },
@@ -721,9 +723,9 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    expect(thread?.messages).not.toBe(messagesBefore)
-    expect(thread?.messages[0]?.tools[0]?.status).toBe('complete')
-    expect(thread?.messages[0]?.parts?.[0]).toMatchObject({
+    expect(conversation?.messages).not.toBe(messagesBefore)
+    expect(conversation?.messages[0]?.tools[0]?.status).toBe('complete')
+    expect(conversation?.messages[0]?.parts?.[0]).toMatchObject({
       type: 'tool',
       tool: { id: 'tool-1', status: 'complete', output: 'done' }
     })
@@ -743,7 +745,7 @@ describe('message session id mapping', () => {
       type: 'tool.complete'
     })
 
-    expect(threadForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+    expect(conversationForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
       id: 'tool-1',
       name: 'terminal',
       output: 'tests passed',
@@ -765,7 +767,7 @@ describe('message session id mapping', () => {
       type: 'tool.progress'
     })
 
-    expect(threadForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+    expect(conversationForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
       id: 'tool-1',
       output: 'done',
       status: 'complete'
@@ -792,10 +794,10 @@ describe('message session id mapping', () => {
       } as SessionMessage
     ])
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages).toHaveLength(1)
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages).toHaveLength(1)
 
-    const assistant = thread?.messages[0]
+    const assistant = conversation?.messages[0]
     expect(assistant?.role).toBe('assistant')
     expect(assistant?.tools).toHaveLength(1)
     expect(assistant?.tools[0]).toMatchObject({
@@ -826,10 +828,10 @@ describe('message session id mapping', () => {
       } as SessionMessage
     ])
 
-    const thread = threadForSession(storedKey)
-    expect(thread?.messages).toHaveLength(1)
-    expect(thread?.messages[0]?.role).toBe('tool')
-    expect(thread?.messages[0]?.parts).toEqual([
+    const conversation = conversationForSession(storedKey)
+    expect(conversation?.messages).toHaveLength(1)
+    expect(conversation?.messages[0]?.role).toBe('tool')
+    expect(conversation?.messages[0]?.parts).toEqual([
       {
         type: 'tool',
         tool: expect.objectContaining({ id: 'orphan-1', name: 'terminal', status: 'complete' })

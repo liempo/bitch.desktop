@@ -214,7 +214,7 @@
       >
         <div class="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-primary">Agent workspace moved to AGENT</div>
         <div class="text-[0.68rem] leading-4 text-ink-muted">
-          Main stays telemetry-first on mobile. Open the AGENT tab for the live thread and composer.
+          Main stays telemetry-first on mobile. Open the AGENT tab for the live conversation and composer.
         </div>
         <a
           class="inline-flex w-fit items-center gap-2 rounded-control border border-primary/40 bg-primary/10 px-3 py-2 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-primary transition-colors hover:border-primary hover:bg-primary/15 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"

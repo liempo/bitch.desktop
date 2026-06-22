@@ -4,7 +4,7 @@ import {
   attachmentDisplayLabel,
   attachmentFromMediaSource,
   attachmentKindFromMediaSource,
-  cloneThreadAttachment,
+  cloneConversationAttachment,
   extractImageDirectiveSources,
   extractMediaDirectiveSources,
   imageSourcesFromContent,
@@ -79,7 +79,7 @@ describe('message media attachment helpers', () => {
     )
 
     const original = { kind: 'image' as const, label: 'plot.png', previewUrl: 'data:image/png;base64,aW1hZ2U=' }
-    const cloned = cloneThreadAttachment(original, nextId)
+    const cloned = cloneConversationAttachment(original, nextId)
 
     expect(cloned).toEqual({
       dataUrl: undefined,

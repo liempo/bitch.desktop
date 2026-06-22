@@ -33,7 +33,7 @@ describe('cron manager page contract', () => {
     expect(cronPageSource).toContain('Profile')
   })
 
-  it('surfaces recent run output and failure state outside the chat thread', () => {
+  it('surfaces recent run output and failure state outside the chat conversation', () => {
     expect(cronPageSource).toContain('getCronJobRuns')
     expect(cronPageSource).toContain('Recent run output')
     expect(cronPageSource).toContain('last_error')

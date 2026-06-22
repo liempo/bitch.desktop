@@ -43,7 +43,7 @@ import type {
   DashboardSessionPort as HermesDashboardSessionPort,
   SessionResumePort as HermesSessionResumePort
 } from '$lib/hermes/sessions'
-import * as hermesThreadsContract from '$lib/hermes/threads'
+import * as hermesThreadsContract from '$lib/hermes/conversations'
 import * as layoutContract from '$lib/layout'
 import * as monitoringContract from '$lib/monitoring'
 import * as monitoringApplicationContract from '@/lib/monitoring/application/get-monitoring-metrics'
@@ -59,7 +59,7 @@ import * as typesContract from '$lib/types'
 import * as uiContract from '$lib/ui'
 
 const legacyCompatibilitySources = import.meta.glob(
-  './{api,composer,files,gateway,messages,session,thread}/**/*.{ts,svelte}',
+  './{api,composer,files,gateway,messages,session,conversation}/**/*.{ts,svelte}',
   { eager: true, import: 'default', query: '?raw' }
 )
 const legacyHermesStoreSources = import.meta.glob('./stores/**/*.{ts,svelte}', {
@@ -133,13 +133,13 @@ describe('module contract barrels', () => {
     expect(hermesContract.shouldShowSessionSidebarLoader).toBe(hermesSessionsContract.shouldShowSessionSidebarLoader)
   })
 
-  it('exposes Hermes thread ViewModel and message normalization through the threads feature entrypoint', () => {
+  it('exposes Hermes conversation ViewModel and message normalization through the conversations feature entrypoint', () => {
     expect(hermesThreadsContract.extractCanvasReferences).toBeTypeOf('function')
     expect(hermesThreadsContract.previewFromRemoteFilePath).toBeTypeOf('function')
     expect(hermesThreadsContract.coerceGatewayText).toBeTypeOf('function')
     expect(hermesThreadsContract.attachmentFromMediaSource).toBeTypeOf('function')
     expect(hermesThreadsContract.messageState.sessions).toBeTypeOf('object')
-    expect(hermesThreadsContract.threadForSession).toBeTypeOf('function')
+    expect(hermesThreadsContract.conversationForSession).toBeTypeOf('function')
     expect(hermesContract.coerceGatewayText).toBe(hermesThreadsContract.coerceGatewayText)
   })
 

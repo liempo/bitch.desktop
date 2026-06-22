@@ -3,12 +3,12 @@
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
   import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/hermes/files'
-  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/hermes/threads'
+  import { previewFromRemoteFilePath, type ConversationPreview } from '$lib/hermes/conversations'
   import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/hermes/files'
   import './markdown.css'
 
   interface Props {
-    onOpenPreview?: (preview: ThreadPreview) => void
+    onOpenPreview?: (preview: ConversationPreview) => void
     profile?: null | string
     streaming?: boolean
     text: string

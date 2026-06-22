@@ -6,13 +6,13 @@
   import Tool from './Tool.svelte'
   import { cardClass } from '@/app/components/ui/styles'
   import { profileForSession } from '$lib/hermes/sessions'
-  import type { ThreadMessage } from '$lib/hermes/threads'
-  import type { ThreadPreview } from '$lib/hermes/threads'
+  import type { ConversationMessage } from '$lib/hermes/conversations'
+  import type { ConversationPreview } from '$lib/hermes/conversations'
 
   interface Props {
     isLast?: boolean
-    message: ThreadMessage
-    onOpenPreview?: (preview: ThreadPreview) => void
+    message: ConversationMessage
+    onOpenPreview?: (preview: ConversationPreview) => void
     sessionId?: null | string
   }
 

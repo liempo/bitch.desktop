@@ -36,9 +36,9 @@ import {
   appendUserMessage,
   handleGatewayEvent,
   messageState,
-  setThreadBusy,
-  threadForSession
-} from '$lib/hermes/threads'
+  setConversationBusy,
+  conversationForSession
+} from '$lib/hermes/conversations'
 import { rememberRuntimeSession, sessionState, beginResumeSession } from '$lib/hermes/sessions'
 import type { SessionMessage } from '$lib/types/hermes'
 
@@ -75,10 +75,10 @@ describe('resumeAndHydrateStoredSession', () => {
     sessionState.workingSessionIds = []
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
-    sessionState.sessionLineageIdsByThreadId = {}
+    sessionState.sessionLineageIdsByRootId = {}
     sessionState.sessionProfilesById = {}
     sessionState.sessionStartedAtById = {}
-    sessionState.sessionThreadIdsById = {}
+    sessionState.sessionLineageIdsById = {}
     sessionState.storedSessionIdsByRuntimeId = {}
   })
 
@@ -87,7 +87,7 @@ describe('resumeAndHydrateStoredSession', () => {
     mockGetSessionMessages.mockReturnValueOnce(pendingSnapshot.promise)
 
     const pending = resumeAndHydrateStoredSession('stored-loading')
-    expect(threadForSession('stored-loading')?.loading).toBe(true)
+    expect(conversationForSession('stored-loading')?.loading).toBe(true)
     expect(sessionState.resumingSessionId).toBe('stored-loading')
 
     pendingSnapshot.resolve({
@@ -103,7 +103,7 @@ describe('resumeAndHydrateStoredSession', () => {
     })
 
     await expect(pending).resolves.toBe(true)
-    expect(threadForSession('stored-loading')?.loading).toBe(false)
+    expect(conversationForSession('stored-loading')?.loading).toBe(false)
     expect(sessionState.resumingSessionId).toBeNull()
   })
 
@@ -128,7 +128,7 @@ describe('resumeAndHydrateStoredSession', () => {
     await expect(resumeAndHydrateStoredSession('stored-resume')).resolves.toBe(true)
 
     expect(order).toEqual(['snapshot:stored-resume', 'session.resume:stored-resume'])
-    expect(threadForSession('stored-resume')?.messages.map(message => message.text)).toEqual(['stored snapshot'])
+    expect(conversationForSession('stored-resume')?.messages.map(message => message.text)).toEqual(['stored snapshot'])
     expect(sessionState.activeSessionId).toBe('live-resume')
     expect(sessionState.storedSessionId).toBe('stored-resume')
   })
@@ -145,11 +145,11 @@ describe('resumeAndHydrateStoredSession', () => {
 
     await expect(resumeAndHydrateStoredSession('stored-empty')).resolves.toBe(true)
 
-    expect(threadForSession('stored-empty')?.messages.map(message => message.text)).toEqual(['gateway fallback'])
+    expect(conversationForSession('stored-empty')?.messages.map(message => message.text)).toEqual(['gateway fallback'])
   })
 
   it('hydrates compressed session history from every known lineage segment', async () => {
-    sessionState.sessionLineageIdsByThreadId = {
+    sessionState.sessionLineageIdsByRootId = {
       'stored-root': ['stored-root', 'stored-middle', 'stored-tip']
     }
     sessionState.sessionProfilesById = {
@@ -157,7 +157,7 @@ describe('resumeAndHydrateStoredSession', () => {
       'stored-middle': 'default',
       'stored-tip': 'default'
     }
-    sessionState.sessionThreadIdsById = {
+    sessionState.sessionLineageIdsById = {
       'stored-root': 'stored-root',
       'stored-middle': 'stored-root',
       'stored-tip': 'stored-root'
@@ -182,7 +182,7 @@ describe('resumeAndHydrateStoredSession', () => {
       'stored-middle',
       'stored-tip'
     ])
-    expect(threadForSession('stored-tip')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-tip')?.messages.map(message => message.text)).toEqual([
       'stored-root message',
       'stored-middle message',
       'stored-tip message'
@@ -199,14 +199,14 @@ describe('resumeAndHydrateStoredSession', () => {
 
     await expect(pending).resolves.toBe(false)
     expect(mockRequestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
-    expect(threadForSession('stored-A')).toBeNull()
+    expect(conversationForSession('stored-A')).toBeNull()
     expect(sessionState.storedSessionId).toBe('stored-B')
   })
 
-  it('preserves an in-progress live thread when the stored snapshot is shorter', async () => {
+  it('preserves an in-progress live conversation when the stored snapshot is shorter', async () => {
     rememberRuntimeSession('stored-live', 'live-resume')
     appendUserMessage('stored-live', 'in-flight user')
-    setThreadBusy('stored-live', true)
+    setConversationBusy('stored-live', true)
     handleGatewayEvent({
       session_id: 'live-resume',
       type: 'message.start',
@@ -232,15 +232,15 @@ describe('resumeAndHydrateStoredSession', () => {
 
     await expect(resumeAndHydrateStoredSession('stored-live')).resolves.toBe(true)
 
-    const thread = threadForSession('stored-live')
-    expect(thread?.messages.map(message => message.text)).toEqual(['in-flight user', 'partial assistant'])
-    expect(thread?.busy).toBe(true)
-    expect(thread?.messages.some(message => message.pending)).toBe(true)
+    const conversation = conversationForSession('stored-live')
+    expect(conversation?.messages.map(message => message.text)).toEqual(['in-flight user', 'partial assistant'])
+    expect(conversation?.busy).toBe(true)
+    expect(conversation?.messages.some(message => message.pending)).toBe(true)
   })
 
-  it('refreshes from the stored snapshot when the thread is idle and not ahead of history', async () => {
+  it('refreshes from the stored snapshot when the conversation is idle and not ahead of history', async () => {
     appendUserMessage('stored-idle', 'old local copy')
-    setThreadBusy('stored-idle', false)
+    setConversationBusy('stored-idle', false)
 
     mockGetSessionMessages.mockResolvedValueOnce({
       session_id: 'stored-idle',
@@ -256,17 +256,17 @@ describe('resumeAndHydrateStoredSession', () => {
 
     await expect(resumeAndHydrateStoredSession('stored-idle')).resolves.toBe(true)
 
-    expect(threadForSession('stored-idle')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-idle')?.messages.map(message => message.text)).toEqual([
       'stored only',
       'newer stored turn'
     ])
-    expect(threadForSession('stored-idle')?.busy).toBe(false)
+    expect(conversationForSession('stored-idle')?.busy).toBe(false)
   })
 
   it('preserves an optimistic first message when resume returns an empty projection', async () => {
     rememberRuntimeSession('stored-fresh', 'live-fresh')
     appendUserMessage('stored-fresh', 'first message')
-    setThreadBusy('stored-fresh', true)
+    setConversationBusy('stored-fresh', true)
 
     mockGetSessionMessages.mockResolvedValueOnce({ session_id: 'stored-fresh', messages: [] })
     mockRequestGateway.mockResolvedValueOnce({
@@ -279,10 +279,10 @@ describe('resumeAndHydrateStoredSession', () => {
 
     await expect(resumeAndHydrateStoredSession('stored-fresh')).resolves.toBe(true)
 
-    expect(threadForSession('stored-fresh')?.messages.map(message => message.text)).toEqual(['first message'])
+    expect(conversationForSession('stored-fresh')?.messages.map(message => message.text)).toEqual(['first message'])
   })
 
-  it('marks a resume failure when no stored snapshot can paint the thread', async () => {
+  it('marks a resume failure when no stored snapshot can paint the conversation', async () => {
     mockGetSessionMessages.mockResolvedValueOnce({ session_id: 'stored-empty-fail', messages: [] })
     mockRequestGateway.mockRejectedValueOnce(new Error('gateway restarting'))
 
@@ -290,7 +290,7 @@ describe('resumeAndHydrateStoredSession', () => {
 
     expect(sessionState.resumeFailedSessionId).toBe('stored-empty-fail')
     expect(sessionState.resumingSessionId).toBeNull()
-    expect(threadForSession('stored-empty-fail')?.loading).not.toBe(true)
+    expect(conversationForSession('stored-empty-fail')?.loading).not.toBe(true)
   })
 
   it('does not mark resume failure when stored history was painted', async () => {
@@ -303,7 +303,7 @@ describe('resumeAndHydrateStoredSession', () => {
     await expect(resumeAndHydrateStoredSession('stored-history-fail')).resolves.toBe(false)
 
     expect(sessionState.resumeFailedSessionId).toBeNull()
-    expect(threadForSession('stored-history-fail')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-history-fail')?.messages.map(message => message.text)).toEqual([
       'stored history survives'
     ])
   })
@@ -327,7 +327,7 @@ describe('resumeAndHydrateStoredSession', () => {
 
   it('syncs local busy state from session.resume info even when snapshot hydration is skipped', async () => {
     appendUserMessage('stored-running', 'still streaming')
-    setThreadBusy('stored-running', false)
+    setConversationBusy('stored-running', false)
     handleGatewayEvent({
       session_id: 'live-running',
       type: 'message.start',
@@ -348,6 +348,6 @@ describe('resumeAndHydrateStoredSession', () => {
 
     await expect(resumeAndHydrateStoredSession('stored-running')).resolves.toBe(true)
 
-    expect(threadForSession('stored-running')?.busy).toBe(true)
+    expect(conversationForSession('stored-running')?.busy).toBe(true)
   })
 })

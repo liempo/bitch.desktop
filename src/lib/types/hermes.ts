@@ -114,6 +114,13 @@ export interface PaginatedSessions {
   errors?: Array<{ profile: string; error: string }>
 }
 
+export interface SessionCreateRuntimeOptions {
+  fast?: boolean
+  model?: string
+  provider?: string
+  reasoning_effort?: string
+}
+
 export interface SessionCreateResponse {
   info?: SessionRuntimeInfo
   message_count?: number

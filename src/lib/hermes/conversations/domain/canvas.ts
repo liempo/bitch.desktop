@@ -1,6 +1,6 @@
 import { filePathFromRemoteSource, isAbsoluteRemoteFilePath, remoteFileLabel } from '$lib/hermes/files'
 
-export interface ThreadCanvas {
+export interface ConversationCanvas {
   error?: string
   label: string
   path?: string
@@ -9,9 +9,9 @@ export interface ThreadCanvas {
 }
 
 export interface CanvasExtractionResult {
-  canvases: ThreadCanvas[]
+  canvases: ConversationCanvas[]
   cleanedText: string
-  latestCanvas: null | ThreadCanvas
+  latestCanvas: null | ConversationCanvas
 }
 
 const CANVAS_LINE_RE = /(^|\n)[\t ]*[`"']?CANVAS:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|[^\n]+)[`"']?[\t ]*(\n|$)/gi
@@ -44,13 +44,13 @@ function canvasPath(source: string): string | undefined {
   return path || undefined
 }
 
-export function canvasFromSource(rawSource: string): ThreadCanvas | null {
+export function canvasFromSource(rawSource: string): ConversationCanvas | null {
   const source = unquoteCanvasRef(rawSource)
   if (!source) return null
 
   const path = canvasPath(source)
   const url = remoteCanvasUrl(source)
-  const canvas: ThreadCanvas = {
+  const canvas: ConversationCanvas = {
     label: remoteFileLabel(source) || 'canvas.html',
     source,
     url
@@ -66,7 +66,7 @@ export function canvasFromSource(rawSource: string): ThreadCanvas | null {
 }
 
 export function extractCanvasReferences(text: string): CanvasExtractionResult {
-  const canvases: ThreadCanvas[] = []
+  const canvases: ConversationCanvas[] = []
   const rememberCanvas = (rawSource: string): void => {
     const canvas = canvasFromSource(rawSource)
     if (canvas) canvases.push(canvas)

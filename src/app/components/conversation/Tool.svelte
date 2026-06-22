@@ -3,10 +3,10 @@
   import Loader from '@/app/components/ui/Loader.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import type { ThreadTool, ThreadToolStatus } from '$lib/hermes/threads'
+  import type { ConversationTool, ConversationToolStatus } from '$lib/hermes/conversations'
 
   interface Props {
-    tool: ThreadTool
+    tool: ConversationTool
   }
 
   let { tool }: Props = $props()
@@ -74,7 +74,7 @@
 
   function toolStatusLabel(
     name: string,
-    status: ThreadToolStatus,
+    status: ConversationToolStatus,
     error: boolean,
     hasContext: boolean
   ): string {

@@ -7,13 +7,13 @@
   import Composer from '../components/composer/Composer.svelte'
   import SecretModal from '../components/prompts/SecretModal.svelte'
   import SudoModal from '../components/prompts/SudoModal.svelte'
-  import Thread from '../components/thread/Thread.svelte'
+  import Conversation from '../components/conversation/Conversation.svelte'
   import { routerState } from './router.svelte'
   import { gatewayState } from '$lib/hermes/gateway'
   import { layoutState, toggleSidebar } from '$lib/layout'
   import { getProfileScope, profileState } from '$lib/hermes/profiles'
-  import { threadForSession } from '$lib/hermes/threads'
-  import { previewFromCanvas, type ThreadPreview } from '$lib/hermes/threads'
+  import { conversationForSession } from '$lib/hermes/conversations'
+  import { previewFromCanvas, type ConversationPreview } from '$lib/hermes/conversations'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import {
     clampPanelWidth,
@@ -41,7 +41,7 @@
   let lastResumedSessionId: string | null = null
   let lastFreshSessionRequest = profileState.freshSessionRequest
   let lastLoadedScope: string | null = null
-  let selectedPreview = $state<ThreadPreview | null>(null)
+  let selectedPreview = $state<ConversationPreview | null>(null)
   let sessionSelectorOpen = $state(false)
   let previewSessionId = $state<string | null>(null)
   let dismissedCanvasSource = $state<string | null>(null)
@@ -51,8 +51,8 @@
   const activeGatewayProfile = $derived(gatewayState.activeProfile)
   const sidebarOpen = $derived(layoutState.sidebarOpen)
   const selectedSessionId = $derived(routerState.route === 'session' ? routerState.sessionId : null)
-  const selectedThread = $derived(threadForSession(selectedSessionId))
-  const activeCanvas = $derived(selectedThread?.canvas ?? null)
+  const selectedConversation = $derived(conversationForSession(selectedSessionId))
+  const activeCanvas = $derived(selectedConversation?.canvas ?? null)
   const canvasPreview = $derived(activeCanvas ? previewFromCanvas(activeCanvas) : null)
   const activePreview = $derived(
     selectedPreview ?? (canvasPreview && canvasPreview.source !== dismissedCanvasSource ? canvasPreview : null)
@@ -106,7 +106,7 @@
     }
   })
 
-  function openPreview(preview: ThreadPreview): void {
+  function openPreview(preview: ConversationPreview): void {
     selectedPreview = preview
     previewSessionId = selectedSessionId
     if (preview.kind === 'canvas') {
@@ -398,7 +398,7 @@
       </div>
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <Thread responsiveCompact sessionId={selectedSessionId} onOpenPreview={openPreview} />
+        <Conversation responsiveCompact sessionId={selectedSessionId} onOpenPreview={openPreview} />
       </div>
 
       <Composer
@@ -449,7 +449,7 @@
         <span class="min-w-0">
           <span class="block truncate text-[11px] font-semibold uppercase tracking-wider">New session</span>
           <span class="mt-1 block truncate text-[10px] uppercase tracking-[0.12em] text-ink-muted/80">
-            start with an empty AGENT thread
+            start with an empty AGENT conversation
           </span>
         </span>
         <span class="text-[10px] uppercase tracking-[0.12em] text-ink-muted">blank</span>

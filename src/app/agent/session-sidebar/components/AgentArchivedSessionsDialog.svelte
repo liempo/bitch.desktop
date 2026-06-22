@@ -11,7 +11,7 @@
     loadMoreArchivedSessions,
     restoreArchivedSession,
     sessionState,
-    sessionThreadId
+    sessionLineageId
   } from '$lib/hermes/sessions'
   import type { SessionInfo } from '$lib/types/hermes'
 
@@ -97,7 +97,7 @@
         {#each sessionState.archivedSessions as session (session.id)}
           {@const title = formatTitle(session)}
           {@const preview = formatPreview(session)}
-          {@const mutating = isSessionMutating(session.id) || isSessionMutating(sessionThreadId(session))}
+          {@const mutating = isSessionMutating(session.id) || isSessionMutating(sessionLineageId(session))}
           <article class="grid min-w-0 grid-cols-[1fr_auto] items-center gap-2 border border-transparent px-2 py-2 hover:border-line hover:bg-primary/5">
             <div class="min-w-0">
               <h3 class="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-bright" title={title}>{title}</h3>

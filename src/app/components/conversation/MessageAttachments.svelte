@@ -1,9 +1,9 @@
 <script lang="ts">
   import { readRemoteFileDataUrl } from '$lib/hermes/files'
-  import type { ThreadAttachment, ThreadAttachmentKind } from '$lib/hermes/threads'
+  import type { ConversationAttachment, ConversationAttachmentKind } from '$lib/hermes/conversations'
 
   interface Props {
-    attachments?: ThreadAttachment[]
+    attachments?: ConversationAttachment[]
     profile?: null | string
   }
 
@@ -11,13 +11,13 @@
 
   let resolvedSources = $state<Record<string, string>>({})
   let failedSources = $state<Record<string, string>>({})
-  let activeAttachment = $state<ThreadAttachment | null>(null)
+  let activeAttachment = $state<ConversationAttachment | null>(null)
 
-  function keyFor(attachment: ThreadAttachment, activeProfile: null | string): string {
+  function keyFor(attachment: ConversationAttachment, activeProfile: null | string): string {
     return `${attachment.id}:${activeProfile ?? 'default'}:${attachment.path ?? ''}`
   }
 
-  function imageSource(attachment: ThreadAttachment): string {
+  function imageSource(attachment: ConversationAttachment): string {
     if (attachment.previewUrl) return attachment.previewUrl
     if (attachment.dataUrl) return attachment.dataUrl
     if (attachment.url) return attachment.url
@@ -26,7 +26,7 @@
     return ''
   }
 
-  function attachmentHref(attachment: ThreadAttachment): string {
+  function attachmentHref(attachment: ConversationAttachment): string {
     if (attachment.dataUrl) return attachment.dataUrl
     if (attachment.url) return attachment.url
     if (attachment.path) return resolvedSources[keyFor(attachment, profile)] ?? ''
@@ -34,11 +34,11 @@
     return ''
   }
 
-  function attachmentSource(attachment: ThreadAttachment): string {
+  function attachmentSource(attachment: ConversationAttachment): string {
     return attachment.kind === 'image' ? imageSource(attachment) : attachmentHref(attachment)
   }
 
-  function detailFor(attachment: ThreadAttachment): string {
+  function detailFor(attachment: ConversationAttachment): string {
     if (attachment.detail) return attachment.detail
     if (attachment.mediaType) return attachment.mediaType
 
@@ -56,7 +56,7 @@
     }
   }
 
-  function badgeFor(kind: ThreadAttachmentKind): string {
+  function badgeFor(kind: ConversationAttachmentKind): string {
     switch (kind) {
       case 'audio':
         return 'AUD'
@@ -71,11 +71,11 @@
     }
   }
 
-  function loadingLabel(kind: ThreadAttachmentKind): string {
+  function loadingLabel(kind: ConversationAttachmentKind): string {
     return kind === 'image' ? 'Loading image preview…' : `Loading ${detailFor({ id: '', kind, label: '' }).toLowerCase()} preview…`
   }
 
-  function unavailableLabel(kind: ThreadAttachmentKind): string {
+  function unavailableLabel(kind: ConversationAttachmentKind): string {
     switch (kind) {
       case 'audio':
         return 'Audio preview unavailable'
@@ -90,12 +90,12 @@
     }
   }
 
-  function downloadName(attachment: ThreadAttachment): string {
+  function downloadName(attachment: ConversationAttachment): string {
     const fallback = attachment.path?.split('/').filter(Boolean).pop() ?? 'attachment'
     return (attachment.label || fallback).replace(/[\\/]/g, '-')
   }
 
-  function openAttachment(attachment: ThreadAttachment): void {
+  function openAttachment(attachment: ConversationAttachment): void {
     if (!attachmentSource(attachment)) return
     activeAttachment = attachment
   }
@@ -112,7 +112,7 @@
     if (event.key === 'Escape') closeAttachmentViewer()
   }
 
-  async function hydratePath(attachment: ThreadAttachment, activeProfile: null | string): Promise<void> {
+  async function hydratePath(attachment: ConversationAttachment, activeProfile: null | string): Promise<void> {
     if (!attachment.path) return
 
     const key = keyFor(attachment, activeProfile)

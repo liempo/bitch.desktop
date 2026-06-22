@@ -1,4 +1,4 @@
-import type { ThreadCanvas } from './canvas'
+import type { ConversationCanvas } from './canvas'
 import {
   isDeniedRemoteFilePath,
   parseHermesFileRef,
@@ -7,11 +7,11 @@ import {
   type RemoteFileViewerKind
 } from '$lib/hermes/files'
 
-type ThreadPreviewKind = 'canvas' | 'file' | 'image'
+type ConversationPreviewKind = 'canvas' | 'file' | 'image'
 
-export interface ThreadPreview {
+export interface ConversationPreview {
   error?: string
-  kind: ThreadPreviewKind
+  kind: ConversationPreviewKind
   label: string
   path?: string
   profile?: null | string
@@ -20,16 +20,20 @@ export interface ThreadPreview {
   viewerKind?: RemoteFileViewerKind
 }
 
-function previewKindForViewer(viewerKind: RemoteFileViewerKind): Exclude<ThreadPreviewKind, 'canvas'> {
+function previewKindForViewer(viewerKind: RemoteFileViewerKind): Exclude<ConversationPreviewKind, 'canvas'> {
   return viewerKind === 'image' ? 'image' : 'file'
 }
 
-export function previewFromRemoteFilePath(path: string, source = path, profile?: null | string): ThreadPreview | null {
+export function previewFromRemoteFilePath(
+  path: string,
+  source = path,
+  profile?: null | string
+): ConversationPreview | null {
   const remotePath = path.trim()
   if (!remotePath) return null
 
   const viewerKind = viewerKindForRemoteFile(remotePath)
-  const preview: ThreadPreview = {
+  const preview: ConversationPreview = {
     kind: previewKindForViewer(viewerKind),
     label: remoteFileLabel(remotePath),
     path: remotePath,
@@ -47,14 +51,14 @@ export function previewFromRemoteFilePath(path: string, source = path, profile?:
   return preview
 }
 
-export function previewFromFileRef(rawSource: string, profile?: null | string): ThreadPreview | null {
+export function previewFromFileRef(rawSource: string, profile?: null | string): ConversationPreview | null {
   const ref = parseHermesFileRef(rawSource)
   if (!ref) return null
   return previewFromRemoteFilePath(ref.path, rawSource.trim(), profile)
 }
 
-export function previewFromCanvas(canvas: ThreadCanvas): ThreadPreview {
-  const preview: ThreadPreview = {
+export function previewFromCanvas(canvas: ConversationCanvas): ConversationPreview {
+  const preview: ConversationPreview = {
     error: canvas.error,
     kind: 'canvas',
     label: canvas.label,

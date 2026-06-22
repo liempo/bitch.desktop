@@ -84,19 +84,19 @@ describe('main dashboard helpers', () => {
     ).toMatchObject({ detail: 'Awaiting gateway probe', label: 'Idle', target: 'Not resolved yet', tone: 'muted' })
   })
 
-  it('normalizes the recent session list to active threads with readable timestamps', () => {
+  it('normalizes the recent session list to active conversations with readable timestamps', () => {
     const sessions = recentDashboardSessions(
       [
-        session({ id: 'old', is_active: false, last_active: 10, title: 'old thread' }),
-        session({ id: 'active', is_active: true, last_active: 30, title: 'active thread' }),
+        session({ id: 'old', is_active: false, last_active: 10, title: 'old conversation' }),
+        session({ id: 'active', is_active: true, last_active: 30, title: 'active conversation' }),
         session({ id: 'untitled', is_active: false, last_active: 20, preview: 'preview fallback' }),
-        session({ id: 'archived', archived: true, is_active: true, last_active: 40, title: 'archived thread' })
+        session({ id: 'archived', archived: true, is_active: true, last_active: 40, title: 'archived conversation' })
       ],
       2
     )
 
     expect(sessions).toEqual([
-      expect.objectContaining({ href: '#/agent/active', id: 'active', status: 'active', title: 'active thread' }),
+      expect.objectContaining({ href: '#/agent/active', id: 'active', status: 'active', title: 'active conversation' }),
       expect.objectContaining({ href: '#/agent/untitled', id: 'untitled', status: 'idle', title: 'preview fallback' })
     ])
   })

@@ -1,17 +1,17 @@
-import { threadForSession } from '$lib/hermes/threads'
+import { conversationForSession } from '$lib/hermes/conversations'
 import { isSessionWorking, sessionState } from '$lib/hermes/sessions'
 
 export function sessionMessagesLoaded(sessionId: null | string | undefined): boolean {
-  return threadForSession(sessionId)?.hydrated === true
+  return conversationForSession(sessionId)?.hydrated === true
 }
 
 export function shouldShowSessionSidebarLoader(sessionId: null | string | undefined): boolean {
   const id = sessionId?.trim()
   if (!id) return false
 
-  const thread = threadForSession(id)
-  const busy = thread?.busy === true || isSessionWorking(id)
-  const resumingUnloadedSession = sessionState.resumingSessionId === id && thread?.hydrated !== true
+  const conversation = conversationForSession(id)
+  const busy = conversation?.busy === true || isSessionWorking(id)
+  const resumingUnloadedSession = sessionState.resumingSessionId === id && conversation?.hydrated !== true
 
   return busy || resumingUnloadedSession
 }

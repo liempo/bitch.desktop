@@ -24,6 +24,9 @@ function resetComposerModelState(): void {
   composerState.model.loading = false
   composerState.model.switching = false
   composerState.model.reasoningSwitching = false
+  composerState.newSessionFastSelection = null
+  composerState.newSessionModelSelection = null
+  composerState.newSessionReasoningSelection = null
 }
 
 vi.mock('$lib/hermes/dashboard', () => ({
@@ -48,7 +51,9 @@ vi.mock('@/app/agent/router.svelte', () => ({
 
 import {
   composerState,
+  currentFastModeForSession,
   currentModelLabel,
+  currentReasoningEffortForSession,
   executeSlashCommand,
   groupedModelOptions,
   selectComposerFastMode,
@@ -60,7 +65,7 @@ import {
   type ComposerAttachment
 } from '$lib/hermes/composer'
 import { clearQueuedPrompts, getQueuedPrompts } from '$lib/hermes/composer'
-import { messageState, setThreadBusy, threadForSession } from '$lib/hermes/threads'
+import { messageState, setConversationBusy, conversationForSession } from '$lib/hermes/conversations'
 import { profileState } from '$lib/hermes/profiles'
 import { rememberRuntimeSession, sessionState } from '$lib/hermes/sessions'
 
@@ -111,9 +116,9 @@ describe('composer runtime targeting', () => {
     mockRouterState.route = 'session'
     mockRouterState.sessionId = 'other-stored'
     composerState.sessions = {}
-    composerState.threadFastSelections = {}
-    composerState.threadModelSelections = {}
-    composerState.threadReasoningSelections = {}
+    composerState.lineageFastSelections = {}
+    composerState.lineageModelSelections = {}
+    composerState.lineageReasoningSelections = {}
     resetComposerModelState()
     messageState.sessions = {}
     sessionState.activeSessionId = 'other-live'
@@ -123,7 +128,7 @@ describe('composer runtime targeting', () => {
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
     sessionState.sessionProfilesById = {}
-    sessionState.sessionThreadIdsById = {}
+    sessionState.sessionLineageIdsById = {}
     profileState.activeGatewayProfile = 'default'
     profileState.newChatProfile = null
     profileState.profiles = []
@@ -140,7 +145,7 @@ describe('composer runtime targeting', () => {
       session_id: 'live-A',
       text: 'hello cached runtime'
     })
-    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual(['hello cached runtime'])
+    expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual(['hello cached runtime'])
     expect(messageState.sessions['live-A']).toBeUndefined()
   })
 
@@ -168,8 +173,8 @@ describe('composer runtime targeting', () => {
     await Promise.resolve()
 
     const draftWhileGatewayPreparing = composerState.sessions['stored-A']?.draft
-    const busyWhileGatewayPreparing = threadForSession('stored-A')?.busy
-    const messagesWhileGatewayPreparing = threadForSession('stored-A')?.messages.map(message => message.text)
+    const busyWhileGatewayPreparing = conversationForSession('stored-A')?.busy
+    const messagesWhileGatewayPreparing = conversationForSession('stored-A')?.messages.map(message => message.text)
     const submitCallWhilePreparing = mockRequestGateway.mock.calls.some(([method]) => method === 'prompt.submit')
 
     releaseGateway()
@@ -199,8 +204,8 @@ describe('composer runtime targeting', () => {
 
     expect(composerState.sessions['stored-A']?.submitting).toBe(false)
     expect(composerState.sessions['stored-A']?.error).toBe('profile gateway unavailable')
-    expect(threadForSession('stored-A')?.busy).toBe(false)
-    expect(threadForSession('stored-A')?.messages.map(message => message.role)).toEqual(['user', 'assistant'])
+    expect(conversationForSession('stored-A')?.busy).toBe(false)
+    expect(conversationForSession('stored-A')?.messages.map(message => message.role)).toEqual(['user', 'assistant'])
     expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
   })
 
@@ -241,7 +246,7 @@ describe('composer runtime targeting', () => {
     const submitCall = mockRequestGateway.mock.calls.findIndex(([method]) => method === 'prompt.submit')
     expect(attachCall).toBeGreaterThanOrEqual(0)
     expect(submitCall).toBeGreaterThan(attachCall)
-    expect(threadForSession('stored-A')?.messages.at(-1)?.attachments?.[0]).toMatchObject({
+    expect(conversationForSession('stored-A')?.messages.at(-1)?.attachments?.[0]).toMatchObject({
       kind: 'image',
       label: 'screen.png',
       previewUrl: 'data:image/png;base64,aW1hZ2U='
@@ -282,7 +287,7 @@ describe('composer runtime targeting', () => {
       session_id: 'live-A',
       text: '@file:.hermes/desktop-attachments/brief.pdf'
     })
-    expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe(
+    expect(conversationForSession('stored-A')?.messages.at(-1)?.text).toBe(
       'Please review the attached PDF.\n\nAttached files:\n- brief.pdf (PDF · 8 B)'
     )
   })
@@ -395,7 +400,134 @@ describe('composer runtime targeting', () => {
       text: 'first message'
     })
     expect(mockNavigate).toHaveBeenCalledWith('/stored-new')
-    expect(threadForSession('stored-new')?.messages.map(message => message.text)).toEqual(['first message'])
+    expect(conversationForSession('stored-new')?.messages.map(message => message.text)).toEqual(['first message'])
+  })
+
+  it('passes new-chat picker params to session.create on first submit without replaying slash commands', async () => {
+    mockRouterState.route = 'new'
+    mockRouterState.sessionId = null
+    sessionState.activeSessionId = null
+    sessionState.storedSessionId = null
+    composerState.model.options = {
+      model: 'default-model',
+      provider: 'default-provider',
+      providers: [
+        {
+          capabilities: {
+            'gpt-5.5': { fast: true, reasoning: true }
+          },
+          models: ['gpt-5.5'],
+          name: 'OpenAI',
+          slug: 'openai'
+        }
+      ]
+    }
+
+    await expect(selectComposerModel(null, 'openai\u0000gpt-5.5')).resolves.toBe(true)
+    await expect(selectComposerReasoningEffort(null, 'high')).resolves.toBe(true)
+    await expect(selectComposerFastMode(null, true)).resolves.toBe(true)
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'session.create') {
+        return Promise.resolve({
+          session_id: 'live-picked',
+          stored_session_id: 'stored-picked',
+          message_count: 0,
+          messages: [],
+          info: { model: 'gpt-5.5', provider: 'openai', reasoning_effort: 'high', fast: true }
+        })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt(null, { text: 'first picked message' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', {
+      cols: 96,
+      fast: true,
+      model: 'gpt-5.5',
+      profile: 'default',
+      provider: 'openai',
+      reasoning_effort: 'high'
+    })
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+    expect(mockRequestGateway).toHaveBeenCalledWith('prompt.submit', {
+      profile: 'default',
+      session_id: 'live-picked',
+      text: 'first picked message'
+    })
+    expect(conversationForSession('stored-picked')).toMatchObject({
+      fast: true,
+      model: 'gpt-5.5',
+      provider: 'openai',
+      reasoningEffort: 'high'
+    })
+  })
+
+  it('clamps new-chat reasoning off when the selected model does not support reasoning', async () => {
+    mockRouterState.route = 'new'
+    mockRouterState.sessionId = null
+    sessionState.activeSessionId = null
+    sessionState.storedSessionId = null
+    composerState.model.options = {
+      model: 'reasoning-default',
+      provider: 'nous',
+      providers: [
+        {
+          capabilities: {
+            tiny: { fast: false, reasoning: false }
+          },
+          models: ['tiny'],
+          name: 'Nous',
+          slug: 'nous'
+        }
+      ]
+    }
+
+    await expect(selectComposerModel(null, 'nous\u0000tiny')).resolves.toBe(true)
+    await expect(selectComposerReasoningEffort(null, 'high')).resolves.toBe(true)
+
+    expect(currentReasoningEffortForSession(null)).toBe('none')
+
+    mockRequestGateway.mockImplementation((method: string) => {
+      if (method === 'session.create') {
+        return Promise.resolve({
+          session_id: 'live-no-reasoning',
+          stored_session_id: 'stored-no-reasoning',
+          message_count: 0,
+          messages: [],
+          info: { model: 'tiny', provider: 'nous', reasoning_effort: 'none' }
+        })
+      }
+      if (method === 'prompt.submit') return Promise.resolve({ ok: true })
+      return Promise.resolve({})
+    })
+
+    await expect(submitPrompt(null, { text: 'no thinking' })).resolves.toBe(true)
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', {
+      cols: 96,
+      fast: false,
+      model: 'tiny',
+      profile: 'default',
+      provider: 'nous',
+      reasoning_effort: 'none'
+    })
+  })
+
+  it('stores new-chat reasoning and fast picker selections without creating a session', async () => {
+    mockRouterState.route = 'new'
+    mockRouterState.sessionId = null
+    sessionState.activeSessionId = null
+    sessionState.storedSessionId = null
+
+    await expect(selectComposerReasoningEffort(null, 'xhigh')).resolves.toBe(true)
+    await expect(selectComposerFastMode(null, true)).resolves.toBe(true)
+
+    expect(mockRequestGateway).not.toHaveBeenCalled()
+    expect(currentReasoningEffortForSession(null)).toBe('xhigh')
+    expect(currentFastModeForSession(null)).toBe(true)
   })
 
   it('can create and submit a new embedded session without navigating to the agent route', async () => {
@@ -427,7 +559,9 @@ describe('composer runtime targeting', () => {
       text: 'dashboard message'
     })
     expect(mockNavigate).not.toHaveBeenCalled()
-    expect(threadForSession('stored-dashboard')?.messages.map(message => message.text)).toEqual(['dashboard message'])
+    expect(conversationForSession('stored-dashboard')?.messages.map(message => message.text)).toEqual([
+      'dashboard message'
+    ])
   })
 
   it('can reset the embedded composer session without navigating', async () => {
@@ -449,7 +583,7 @@ describe('composer runtime targeting', () => {
     await expect(executeSlashCommand('stored-A', '/profile')).resolves.toBe(true)
 
     expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
-    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/profile\nprofile: crypto'
     ])
   })
@@ -490,45 +624,21 @@ describe('composer runtime targeting', () => {
     ])
   })
 
-  it('creates a session when switching models from the new-chat route', async () => {
+  it('stores a new-chat model picker selection without creating a session', async () => {
     mockRouterState.route = 'new'
     mockRouterState.sessionId = null
     sessionState.activeSessionId = null
     sessionState.storedSessionId = null
 
-    mockRequestGateway.mockImplementation((method: string) => {
-      if (method === 'session.create') {
-        return Promise.resolve({
-          session_id: 'live-new',
-          stored_session_id: 'stored-new',
-          message_count: 0,
-          messages: [],
-          info: { model: 'test-model' }
-        })
-      }
-      if (method === 'slash.exec') return Promise.resolve({ output: 'model switched' })
-      return Promise.resolve({})
-    })
-
     await expect(selectComposerModel(null, 'openai\u0000gpt-5.5')).resolves.toBe(true)
 
-    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', {
-      cols: 96,
-      profile: 'default'
-    })
-    expect(mockRequestGateway).toHaveBeenCalledWith('slash.exec', {
-      command: '/model gpt-5.5 --provider openai',
-      profile: 'default',
-      session_id: 'live-new'
-    })
-    expect(mockNavigate).toHaveBeenCalledWith('/stored-new')
-    expect(threadForSession('stored-new')?.messages.at(-1)?.text).toBe(
-      'slash:/model gpt-5.5 --provider openai\nmodel switched'
-    )
+    expect(mockRequestGateway).not.toHaveBeenCalled()
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(currentModelLabel(null)).toBe('openai / gpt-5.5')
   })
 
   it('keeps a selected model attached to the lineage when a continuation gets a new stored id', async () => {
-    sessionState.sessionThreadIdsById = {
+    sessionState.sessionLineageIdsById = {
       'stored-root': 'stored-root',
       'stored-tip': 'stored-root'
     }
@@ -542,12 +652,12 @@ describe('composer runtime targeting', () => {
   })
 
   it('reapplies the lineage-selected model before submitting through a renewed continuation runtime', async () => {
-    sessionState.sessionThreadIdsById = {
+    sessionState.sessionLineageIdsById = {
       'stored-root': 'stored-root',
       'stored-tip': 'stored-root'
     }
     rememberRuntimeSession('stored-tip', 'live-tip')
-    composerState.threadModelSelections = {
+    composerState.lineageModelSelections = {
       'stored-root': { model: 'anthropic/claude-opus-4.1', provider: 'openrouter' }
     }
     mockRequestGateway.mockImplementation((method: string) => {
@@ -556,7 +666,7 @@ describe('composer runtime targeting', () => {
       return Promise.resolve({})
     })
 
-    await expect(submitPrompt('stored-tip', { text: 'continue same thread' })).resolves.toBe(true)
+    await expect(submitPrompt('stored-tip', { text: 'continue same lineage' })).resolves.toBe(true)
 
     expect(mockRequestGateway).toHaveBeenNthCalledWith(1, 'slash.exec', {
       command: '/model anthropic/claude-opus-4.1 --provider openrouter',
@@ -566,7 +676,7 @@ describe('composer runtime targeting', () => {
     expect(mockRequestGateway).toHaveBeenNthCalledWith(2, 'prompt.submit', {
       profile: 'default',
       session_id: 'live-tip',
-      text: 'continue same thread'
+      text: 'continue same lineage'
     })
   })
 
@@ -581,8 +691,10 @@ describe('composer runtime targeting', () => {
       profile: 'default',
       session_id: 'live-A'
     })
-    expect(threadForSession('stored-A')?.reasoningEffort).toBe('high')
-    expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe('slash:/reasoning high\nreasoning set to high')
+    expect(conversationForSession('stored-A')?.reasoningEffort).toBe('high')
+    expect(conversationForSession('stored-A')?.messages.at(-1)?.text).toBe(
+      'slash:/reasoning high\nreasoning set to high'
+    )
   })
 
   it('uses xhigh, not max, for the max reasoning option', async () => {
@@ -596,8 +708,10 @@ describe('composer runtime targeting', () => {
       profile: 'default',
       session_id: 'live-A'
     })
-    expect(threadForSession('stored-A')?.reasoningEffort).toBe('xhigh')
-    expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe('slash:/reasoning xhigh\nreasoning set to xhigh')
+    expect(conversationForSession('stored-A')?.reasoningEffort).toBe('xhigh')
+    expect(conversationForSession('stored-A')?.messages.at(-1)?.text).toBe(
+      'slash:/reasoning xhigh\nreasoning set to xhigh'
+    )
   })
 
   it('uses /fast to update the current session fast mode', async () => {
@@ -611,8 +725,8 @@ describe('composer runtime targeting', () => {
       profile: 'default',
       session_id: 'live-A'
     })
-    expect(threadForSession('stored-A')?.fast).toBe(true)
-    expect(threadForSession('stored-A')?.messages.at(-1)?.text).toBe('slash:/fast on\nfast mode on')
+    expect(conversationForSession('stored-A')?.fast).toBe(true)
+    expect(conversationForSession('stored-A')?.messages.at(-1)?.text).toBe('slash:/fast on\nfast mode on')
   })
 
   it('uses /profile <name> to target future new chats without backend slash.exec', async () => {
@@ -636,7 +750,7 @@ describe('composer runtime targeting', () => {
     expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
     expect(profileState.newChatProfile).toBe('crypto')
     expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
-    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/profile crypto\nnew chat profile: crypto'
     ])
   })
@@ -670,7 +784,7 @@ describe('composer runtime targeting', () => {
       session_id: 'live-A'
     })
     expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
-    expect(threadForSession('stored-A')?.messages.at(-1)?.error).toBe('Command not found: /not-real')
+    expect(conversationForSession('stored-A')?.messages.at(-1)?.error).toBe('Command not found: /not-real')
   })
 
   it('falls back to command.dispatch for /goal status when slash.exec rejects pending-input commands', async () => {
@@ -701,7 +815,7 @@ describe('composer runtime targeting', () => {
       session_id: 'live-A'
     })
     expect(mockRequestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything())
-    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/goal status\nNo active goal'
     ])
   })
@@ -738,7 +852,7 @@ describe('composer runtime targeting', () => {
       session_id: 'live-A',
       text: 'build a rocket'
     })
-    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/goal build a rocket\nGoal set. 20-turn budget.',
       'build a rocket'
     ])
@@ -749,7 +863,7 @@ describe('composer runtime targeting', () => {
     sessionState.storedSessionId = 'stored-A'
     rememberRuntimeSession('stored-A', 'live-A')
     clearQueuedPrompts('stored-A')
-    setThreadBusy('stored-A', true)
+    setConversationBusy('stored-A', true)
     mockRequestGateway.mockImplementation((method: string) => {
       if (method === 'slash.exec') {
         return Promise.reject(new Error('pending-input command: use command.dispatch for /goal'))
@@ -774,7 +888,7 @@ describe('composer runtime targeting', () => {
     })
     expect(getQueuedPrompts('stored-A')).toEqual([])
     expect(composerState.sessions['stored-A']?.error).toBe('session busy')
-    expect(threadForSession('stored-A')?.messages.map(message => message.text)).toEqual([
+    expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual([
       'slash:/goal build a rocket\nGoal set. 20-turn budget.'
     ])
   })
@@ -784,9 +898,9 @@ describe('composer session busy recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     composerState.sessions = {}
-    composerState.threadFastSelections = {}
-    composerState.threadModelSelections = {}
-    composerState.threadReasoningSelections = {}
+    composerState.lineageFastSelections = {}
+    composerState.lineageModelSelections = {}
+    composerState.lineageReasoningSelections = {}
     resetComposerModelState()
     messageState.sessions = {}
     clearQueuedPrompts('stored-A')
@@ -796,7 +910,7 @@ describe('composer session busy recovery', () => {
     sessionState.needsInputSessionIds = []
     sessionState.runtimeIdsByStoredSessionId = {}
     sessionState.storedSessionIdsByRuntimeId = {}
-    sessionState.sessionThreadIdsById = {}
+    sessionState.sessionLineageIdsById = {}
     rememberRuntimeSession('stored-A', 'live-A')
   })
 
@@ -805,8 +919,8 @@ describe('composer session busy recovery', () => {
 
     await expect(submitPrompt('stored-A', { text: 'retry me later' })).resolves.toBe(true)
 
-    expect(threadForSession('stored-A')?.busy).toBe(true)
-    expect(threadForSession('stored-A')?.messages).toHaveLength(0)
+    expect(conversationForSession('stored-A')?.busy).toBe(true)
+    expect(conversationForSession('stored-A')?.messages).toHaveLength(0)
     expect(getQueuedPrompts('stored-A')).toEqual([expect.objectContaining({ text: 'retry me later' })])
     expect(composerState.sessions['stored-A']?.error).toBeNull()
   })

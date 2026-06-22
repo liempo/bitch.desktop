@@ -138,7 +138,7 @@ describe('Main dashboard source contract', () => {
     )
   })
 
-  it('keeps the embedded AGENT thread/composer on desktop while mobile uses an AGENT link', () => {
+  it('keeps the embedded AGENT conversation/composer on desktop while mobile uses an AGENT link', () => {
     expect(mainPageSource).toContain("import { agentRoute, cronRoute, kanbanRoute } from '../router.svelte'")
     expect(mainPageSource).toContain("import MainAgentPanel from './MainAgentPanel.svelte'")
     expect(mainPageSource).toContain('const agentHref')
@@ -150,7 +150,7 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).toContain('Open AGENT')
     expect(mainPageSource).toContain('Main stays telemetry-first on mobile')
     expect(mainAgentPanelSource).toContain("import Composer from '../components/composer/Composer.svelte'")
-    expect(mainAgentPanelSource).toContain("import Thread from '../components/thread/Thread.svelte'")
+    expect(mainAgentPanelSource).toContain("import Conversation from '../components/conversation/Conversation.svelte'")
     expect(mainAgentPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
     expect(mainAgentPanelSource).toContain("import Dialog from '@/app/components/ui/Dialog.svelte'")
     expect(mainAgentPanelSource).toContain("import { agentRoute } from '../router.svelte'")

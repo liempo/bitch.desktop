@@ -1,4 +1,4 @@
-# Live thread preservation and busy sync
+# Live conversation preservation and busy sync
 
 **Goal:** Preserve in-progress transcript state when switching away from and back to a running session, while keeping local busy state aligned with the Hermes gateway.
 
@@ -9,7 +9,7 @@ The desktop client has two transcript sources:
 1. **Stored HTTP snapshots** from `getSessionMessages(sessionId)`.
 2. **Live WebSocket events** from the runtime session (`message.start`, `message.delta`, tools, `message.complete`).
 
-Stored snapshots can lag the live stream. If a route re-select blindly hydrates from the snapshot, the client can replace an in-memory streaming thread with older stored history. That also clears `currentAssistantId`, pending assistant state, and `thread.busy`, so the composer may show **Send** even while the gateway still reports the session as running.
+Stored snapshots can lag the live stream. If a route re-select blindly hydrates from the snapshot, the client can replace an in-memory streaming conversation with older stored history. That also clears `currentAssistantId`, pending assistant state, and `conversation.busy`, so the composer may show **Send** even while the gateway still reports the session as running.
 
 The visible symptoms are:
 
@@ -18,7 +18,7 @@ The visible symptoms are:
 
 ## Invariants
 
-- Visible thread state is keyed by the persistent stored session id.
+- Visible conversation state is keyed by the persistent stored session id.
 - Live RPCs still target the short runtime `session_id` through the stored→runtime cache.
 - HTTP snapshots refresh idle history; they do not overwrite live in-memory turns.
 - Gateway `info.running` is authoritative for busy state after resume.
@@ -28,21 +28,21 @@ The visible symptoms are:
 
 `resumeAndHydrateStoredSession(sessionId)` coordinates route resume in [`src/lib/hermes/sessions/application/resume.ts`](../../src/lib/hermes/sessions/application/resume.ts):
 
-1. Begin a resume request and mark the thread loading.
+1. Begin a resume request and mark the conversation loading.
 2. Fetch the stored HTTP snapshot.
-3. Hydrate the snapshot only when `shouldPreserveLiveThread(sessionId, snapshot.length)` is false.
+3. Hydrate the snapshot only when `shouldPreserveLiveConversation(sessionId, snapshot.length)` is false.
 4. Resume the runtime session through `resumeSession(sessionId, requestId)` so `activeSessionId` and the stored→runtime mapping are restored.
 5. Apply `SessionResumeResponse.info.running` with `syncRunningFromResume(...)`.
-6. If no stored snapshot exists, use the resume projection messages only when no live thread should be preserved.
+6. If no stored snapshot exists, use the resume projection messages only when no live conversation should be preserved.
 
-The preservation helper in [`src/lib/hermes/threads/view-models/messages.svelte.ts`](../../src/lib/hermes/threads/view-models/messages.svelte.ts) keeps the existing thread when it is hydrated and any of these are true:
+The preservation helper in [`src/lib/hermes/conversations/view-models/messages.svelte.ts`](../../src/lib/hermes/conversations/view-models/messages.svelte.ts) keeps the existing conversation when it is hydrated and any of these are true:
 
-- `thread.busy` is true.
-- `thread.currentAssistantId` is set.
+- `conversation.busy` is true.
+- `conversation.currentAssistantId` is set.
 - Any message is still `pending`.
 - The in-memory message count is ahead of the snapshot length.
 
-When the thread is idle and not ahead of the snapshot, re-select refreshes from the HTTP snapshot as usual.
+When the conversation is idle and not ahead of the snapshot, re-select refreshes from the HTTP snapshot as usual.
 
 ## Cached runtime resume
 
@@ -50,11 +50,11 @@ If a stored session already has a cached runtime id, `resumeSession(...)` can sk
 
 ## Composer busy handling
 
-The normal queue path lives in `src/lib/hermes/composer/view-models/composer.svelte.ts`: if the selected thread is already busy, `submitPrompt(...)` enqueues the draft instead of calling `prompt.submit`.
+The normal queue path lives in `src/lib/hermes/composer/view-models/composer.svelte.ts`: if the selected conversation is already busy, `submitPrompt(...)` enqueues the draft instead of calling `prompt.submit`.
 
 The desync safety net catches `prompt.submit` errors whose message matches `/session busy/i`:
 
-1. Re-set the visible thread busy with `setThreadBusy(displayKey, true)`.
+1. Re-set the visible conversation busy with `setConversationBusy(displayKey, true)`.
 2. Remove the optimistic user message that was appended for the failed submit.
 3. Enqueue the attempted payload under the stored session key.
 4. Clear composer error state and return success, because the prompt is preserved for later drain.
@@ -75,8 +75,8 @@ This keeps a normal server busy rejection from rendering as an assistant error o
 Coverage is split across focused store tests:
 
 - [`src/lib/hermes/sessions/application/resume.test.ts`](../../src/lib/hermes/sessions/application/resume.test.ts)
-  - preserves live in-memory threads when snapshots are shorter or stale
-  - refreshes idle threads from stored snapshots
+  - preserves live in-memory conversations when snapshots are shorter or stale
+  - refreshes idle conversations from stored snapshots
   - uses resume projection messages for first visits without stored history
   - syncs local busy from resume `info.running`
 - `src/lib/hermes/composer/view-models/composer.svelte.test.ts`

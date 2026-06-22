@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import agentShellSource from '../AgentShell.svelte?raw'
-import markdownSource from '../../components/thread/Markdown.svelte?raw'
+import markdownSource from '../../components/conversation/Markdown.svelte?raw'
 import previewSidebarSource from './AgentPreviewSidebar.svelte?raw'
 
 describe('AgentPreviewSidebar source contract', () => {

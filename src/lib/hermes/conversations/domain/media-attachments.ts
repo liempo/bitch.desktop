@@ -1,13 +1,13 @@
 import { remoteFileLabel, viewerKindForRemoteFile } from '$lib/hermes/files'
 import { extractEmbeddedImages } from './message-normalization'
 
-export type ThreadAttachmentKind = 'audio' | 'file' | 'image' | 'pdf' | 'video'
+export type ConversationAttachmentKind = 'audio' | 'file' | 'image' | 'pdf' | 'video'
 
-export interface ThreadAttachment {
+export interface ConversationAttachment {
   dataUrl?: string
   detail?: string
   id: string
-  kind: ThreadAttachmentKind
+  kind: ConversationAttachmentKind
   label: string
   mediaType?: string
   path?: string
@@ -16,11 +16,11 @@ export interface ThreadAttachment {
   url?: string
 }
 
-export interface ThreadAttachmentInput {
+export interface ConversationAttachmentInput {
   dataUrl?: string
   detail?: string
   id?: string
-  kind: ThreadAttachmentKind
+  kind: ConversationAttachmentKind
   label: string
   mediaType?: string
   path?: string
@@ -36,7 +36,7 @@ interface AttachmentKindOptions {
 }
 
 const IMAGE_DIRECTIVE_RE = /@image:(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)/g
-const DATA_URL_KIND_PREFIXES: Array<[RegExp, ThreadAttachmentKind]> = [
+const DATA_URL_KIND_PREFIXES: Array<[RegExp, ConversationAttachmentKind]> = [
   [/^image\//i, 'image'],
   [/^application\/pdf$/i, 'pdf'],
   [/^audio\//i, 'audio'],
@@ -52,7 +52,7 @@ function unquoteRefValue(raw: string): string {
   return (quoted ? trimmed.slice(1, -1) : trimmed).replace(/[,.;!?]+$/, '').trim()
 }
 
-function defaultLabelForKind(kind: ThreadAttachmentKind): string {
+function defaultLabelForKind(kind: ConversationAttachmentKind): string {
   switch (kind) {
     case 'audio':
       return 'audio'
@@ -67,7 +67,7 @@ function defaultLabelForKind(kind: ThreadAttachmentKind): string {
   }
 }
 
-export function mediaLabelFromSource(source: string, kind: ThreadAttachmentKind = 'image'): string {
+export function mediaLabelFromSource(source: string, kind: ConversationAttachmentKind = 'image'): string {
   if (source.startsWith('data:')) return defaultLabelForKind(kind)
   return remoteFileLabel(source)
 }
@@ -76,7 +76,7 @@ export function mimeTypeFromDataUrl(source: string): string | undefined {
   return source.match(/^data:([^;,]+)[;,]/i)?.[1]
 }
 
-function attachmentKindFromDataUrl(source: string, allowFileFallback: boolean): ThreadAttachmentKind | null {
+function attachmentKindFromDataUrl(source: string, allowFileFallback: boolean): ConversationAttachmentKind | null {
   const mime = mimeTypeFromDataUrl(source)?.trim()
   if (!mime) return allowFileFallback ? 'file' : null
 
@@ -90,7 +90,7 @@ function attachmentKindFromDataUrl(source: string, allowFileFallback: boolean): 
 export function attachmentKindFromMediaSource(
   source: string,
   options: AttachmentKindOptions = {}
-): ThreadAttachmentKind | null {
+): ConversationAttachmentKind | null {
   const allowFileFallback = options.allowFileFallback ?? true
 
   if (/^data:/i.test(source)) return attachmentKindFromDataUrl(source, allowFileFallback)
@@ -108,14 +108,14 @@ export function attachmentFromMediaSource(
   prefix: string,
   createAttachmentId: AttachmentIdFactory,
   options: AttachmentKindOptions = {}
-): ThreadAttachment | null {
+): ConversationAttachment | null {
   const value = source.trim()
   if (!value) return null
 
   const kind = attachmentKindFromMediaSource(value, options)
   if (!kind) return null
 
-  const attachment: ThreadAttachment = {
+  const attachment: ConversationAttachment = {
     id: createAttachmentId(prefix),
     kind,
     label: mediaLabelFromSource(value, kind)
@@ -133,10 +133,10 @@ export function attachmentFromMediaSource(
   return attachment
 }
 
-export function cloneThreadAttachment(
-  attachment: ThreadAttachmentInput,
+export function cloneConversationAttachment(
+  attachment: ConversationAttachmentInput,
   createAttachmentId: AttachmentIdFactory
-): ThreadAttachment {
+): ConversationAttachment {
   return {
     dataUrl: attachment.dataUrl,
     detail: attachment.detail,
@@ -151,7 +151,7 @@ export function cloneThreadAttachment(
   }
 }
 
-export function attachmentDisplayLabel(attachment: ThreadAttachmentInput): string {
+export function attachmentDisplayLabel(attachment: ConversationAttachmentInput): string {
   const detail = attachment.detail?.trim()
   if (detail) return `${attachment.label} (${detail})`
   if (typeof attachment.size === 'number') return `${attachment.label} (${formatBytes(attachment.size)})`

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import agentShellSource from './AgentShell.svelte?raw'
 import previewSidebarSource from './preview/AgentPreviewSidebar.svelte?raw'
 import composerSource from '../components/composer/Composer.svelte?raw'
-import threadSource from '../components/thread/Thread.svelte?raw'
+import conversationSource from '../components/conversation/Conversation.svelte?raw'
 import sidebarSource from './session-sidebar/AgentSessionSidebar.svelte?raw'
 
 function countOccurrences(source: string, needle: string): number {
@@ -47,18 +47,18 @@ describe('AgentShell resizable panel source contract', () => {
     expect(previewSidebarSource).toContain('md:block md:w-(--agent-preview-width)')
   })
 
-  it('uses a mobile session picker dialog and responsive compact thread/composer chrome', () => {
+  it('uses a mobile session picker dialog and responsive compact conversation/composer chrome', () => {
     expect(agentShellSource).toContain('md:hidden')
     expect(agentShellSource).toContain('openSessionSelector')
     expect(agentShellSource).toContain('title="Select AGENT Session"')
     expect(agentShellSource).toContain('selectSession')
-    expect(agentShellSource).toContain('<Thread responsiveCompact')
+    expect(agentShellSource).toContain('<Conversation responsiveCompact')
     expect(agentShellSource).toContain('<Composer')
     expect(agentShellSource).toContain('responsiveCompact')
     expect(composerSource).toContain('responsiveCompact?: boolean')
     expect(composerSource).toContain('md:bg-transparent md:p-3')
     expect(composerSource).toContain('hidden h-5 w-5 items-center')
-    expect(threadSource).toContain('responsiveCompact?: boolean')
-    expect(threadSource).toContain('md:bg-chat-scroll/40')
+    expect(conversationSource).toContain('responsiveCompact?: boolean')
+    expect(conversationSource).toContain('md:bg-chat-scroll/40')
   })
 })

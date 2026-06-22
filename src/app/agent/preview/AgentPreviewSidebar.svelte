@@ -1,12 +1,12 @@
 <script lang="ts">
   import Panel from '@/app/components/ui/Panel.svelte'
   import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
-  import type { ThreadPreview } from '$lib/hermes/threads'
+  import type { ConversationPreview } from '$lib/hermes/conversations'
   import { readRemoteFileDataUrl, readRemoteFileText, viewerKindForRemoteFile, type RemoteFileViewerKind } from '$lib/hermes/files'
 
   interface Props {
     onClose?: () => void
-    preview: ThreadPreview
+    preview: ConversationPreview
     profile?: null | string
     width?: number
   }
@@ -40,13 +40,13 @@
     loadError = ''
   }
 
-  function viewerKindForPreview(activePreview: ThreadPreview): RemoteFileViewerKind {
+  function viewerKindForPreview(activePreview: ConversationPreview): RemoteFileViewerKind {
     if (activePreview.viewerKind && activePreview.viewerKind !== 'download') return activePreview.viewerKind
     if (activePreview.path) return viewerKindForRemoteFile(activePreview.path)
     return activePreview.kind === 'image' ? 'image' : 'text'
   }
 
-  async function loadPreview(activePreview: ThreadPreview, activeProfile: null | string): Promise<void> {
+  async function loadPreview(activePreview: ConversationPreview, activeProfile: null | string): Promise<void> {
     const sequence = (loadSequence += 1)
     resetLoadedState()
 

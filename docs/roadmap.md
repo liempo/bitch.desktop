@@ -40,12 +40,12 @@ need consolidation and polish before paused feature work is reintroduced.
     - preserve the remote-only contract: no local Hermes bootstrap controls and
       no public file-server fallbacks
 
-- [ ] **Agent thread, composer, and prompt refinement**
+- [ ] **Agent conversation, composer, and prompt refinement**
   - Description: Tighten the existing AGENT workflow before adding branch/fork,
     voice, or delegated-progress feature surfaces.
   - Scope:
     - refine streaming message, reasoning, tool-row, attachment, and completion
-      states in the shared thread components
+      states in the shared conversation components
     - harden composer behavior for busy sessions, queued prompts, model picker,
       slash commands, attachments, and `/reload-mcp`
     - keep clarify, approval, sudo, and secret prompts profile/session scoped
@@ -59,7 +59,7 @@ need consolidation and polish before paused feature work is reintroduced.
     - keep ASSETS mounted at the authenticated remote filesystem root `/`
     - preserve explicit `@file:` preview and `MEDIA:` inline rendering through
       Hermes dashboard filesystem APIs
-    - keep image/video/PDF overlays and audio controls consistent across thread
+    - keep image/video/PDF overlays and audio controls consistent across conversation
       and preview surfaces
     - make unknown-file text fallback, binary-looking paths, loading states, and
       copy/download affordances clear
@@ -127,7 +127,7 @@ again.
 - **Web and Tool Output Preview Rail**
   - Description: Extend the existing right preview sidebar beyond delivered
     file/canvas/media previews so URLs, rendered web content, and selected tool
-    outputs can be inspected alongside the thread.
+    outputs can be inspected alongside the conversation.
   - References:
     - upstream `right-rail/preview-pane.tsx`
     - upstream `use-preview-routing.ts`
@@ -190,7 +190,7 @@ Delivered items are historical context. They are not Kanban task sources.
   - Description: List, search, create, switch, rename, archive, delete, and pin
     Hermes sessions from the remote dashboard history.
 
-- [x] **Message thread**
+- [x] **Message conversation**
   - Description: Render streaming assistant turns with reasoning blocks, tool
     rows, markdown, media attachments, and completion/error state.
 
@@ -210,7 +210,7 @@ Delivered items are historical context. They are not Kanban task sources.
   - Description: Support profile rail selection, profile-scoped session history,
     per-profile REST routing, and one WebSocket proxy per selected live profile.
 
-- [x] **Live thread preservation**
+- [x] **Live conversation preservation**
   - Description: Preserve in-memory streaming output, pending tool rows, queued
     prompt state, and local busy state when users switch away from and back to a
     running session.
@@ -227,7 +227,7 @@ Delivered items are historical context. They are not Kanban task sources.
 
 - [x] **Inline media overlay**
   - Description: Open inline `MEDIA:` image, video, and PDF previews through a
-    single overlay contract from the thread markdown renderer.
+    single overlay contract from the conversation markdown renderer.
 
 ## Deferred / out of scope
 
@@ -266,10 +266,10 @@ feature checklist.
 - [HTTP bridge](hermes/http-bridge.md)
 - [Remote profile support](hermes/remote-profile-support.md)
 - [Session sidebar](hermes/session-sidebar.md)
-- [Message thread](hermes/message-thread.md)
+- [Message conversation](hermes/message-conversation.md)
 - [Rich composer](hermes/rich-composer.md)
 - [Interactive prompts](hermes/interactive-prompts.md)
-- [Live thread preservation](hermes/live-thread-preservation.md)
+- [Live conversation preservation](hermes/live-conversation-preservation.md)
 - [Hermes remote files](hermes/remote-files.md)
 - [Monitoring / Beszel](monitoring/beszel.md)
 - [Platform native bridge](platform/native-bridge.md)

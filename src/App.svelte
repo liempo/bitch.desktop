@@ -4,7 +4,7 @@
   import { openExternalUrl } from '$lib/platform'
   import { installCustomScrollbars } from '$lib/ui/custom-scrollbars'
   import { connectGateway, disconnectGateway } from '$lib/hermes/gateway'
-  import { startMessageStream, stopMessageStream } from '$lib/hermes/threads'
+  import { startMessageStream, stopMessageStream } from '$lib/hermes/conversations'
   import { refreshActiveProfile } from '$lib/hermes/profiles'
 
   onMount(() => {

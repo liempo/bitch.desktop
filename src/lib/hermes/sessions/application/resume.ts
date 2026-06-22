@@ -2,10 +2,10 @@ import { getSessionMessages } from '$lib/hermes/dashboard'
 import { messageForError } from '$lib/errors'
 import {
   hydrateSessionMessagesFromGateway,
-  setThreadLoading,
-  shouldPreserveLiveThread,
+  setConversationLoading,
+  shouldPreserveLiveConversation,
   syncRunningFromResume
-} from '$lib/hermes/threads'
+} from '$lib/hermes/conversations'
 import {
   beginResumeSession,
   isCurrentResumeRequest,
@@ -21,10 +21,10 @@ function isStoredSessionNotFound(error: unknown): boolean {
   return /session not found/i.test(message) || (/404/i.test(message) && /not found/i.test(message))
 }
 
-function releaseStaleThreadLoading(sessionId: string, requestId: number): void {
+function releaseStaleConversationLoading(sessionId: string, requestId: number): void {
   if (isCurrentResumeRequest(sessionId, requestId)) return
   if (sessionState.resumingSessionId === sessionId) return
-  setThreadLoading(sessionId, false)
+  setConversationLoading(sessionId, false)
 }
 
 async function loadStoredSnapshot(sessionId: string, requestId: number): Promise<SessionMessage[] | null> {
@@ -70,22 +70,22 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
   const requestId = beginResumeSession(sessionId)
 
   if (previousResumingSessionId && previousResumingSessionId !== sessionId) {
-    setThreadLoading(previousResumingSessionId, false)
+    setConversationLoading(previousResumingSessionId, false)
   }
 
-  setThreadLoading(sessionId, true)
+  setConversationLoading(sessionId, true)
 
   try {
     const storedSnapshot = await loadStoredSnapshot(sessionId, requestId)
 
     if (storedSnapshot === null || !isCurrentResumeRequest(sessionId, requestId)) {
-      releaseStaleThreadLoading(sessionId, requestId)
+      releaseStaleConversationLoading(sessionId, requestId)
       return false
     }
 
     const hasStoredSnapshot = storedSnapshot.length > 0
 
-    if (hasStoredSnapshot && !shouldPreserveLiveThread(sessionId, storedSnapshot.length)) {
+    if (hasStoredSnapshot && !shouldPreserveLiveConversation(sessionId, storedSnapshot.length)) {
       hydrateSessionMessagesFromGateway(sessionId, storedSnapshot)
     }
 
@@ -95,7 +95,7 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
       if (!response && isCurrentResumeRequest(sessionId, requestId) && !hasStoredSnapshot) {
         sessionState.resumeFailedSessionId = sessionId
       }
-      releaseStaleThreadLoading(sessionId, requestId)
+      releaseStaleConversationLoading(sessionId, requestId)
       return false
     }
 
@@ -107,16 +107,16 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
     syncRunningFromResume(sessionId, response.info)
 
     const resumeMessages = response.messages ?? []
-    if (!hasStoredSnapshot && !shouldPreserveLiveThread(sessionId, resumeMessages.length)) {
+    if (!hasStoredSnapshot && !shouldPreserveLiveConversation(sessionId, resumeMessages.length)) {
       hydrateSessionMessagesFromGateway(sessionId, resumeMessages)
     }
 
     return true
   } finally {
     if (isCurrentResumeRequest(sessionId, requestId)) {
-      setThreadLoading(sessionId, false)
+      setConversationLoading(sessionId, false)
     } else {
-      releaseStaleThreadLoading(sessionId, requestId)
+      releaseStaleConversationLoading(sessionId, requestId)
     }
   }
 }

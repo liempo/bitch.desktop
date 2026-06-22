@@ -35,7 +35,7 @@ describe('monitoring lane boundaries', () => {
       /from ['"]\$lib\/gateway(?:\/|['"])/,
       /from ['"]\$lib\/files(?:\/|['"])/,
       /from ['"]\$lib\/session(?:\/|['"])/,
-      /from ['"]\$lib\/thread(?:\/|['"])/,
+      /from ['"]\$lib\/conversation(?:\/|['"])/,
       /dashboard_request/,
       /HERMES_DASHBOARD/
     ]

@@ -6,7 +6,7 @@ silently stalls until its timeout.
 
 | Event                                               | RPC response                            | UI                                                     |
 | --------------------------------------------------- | --------------------------------------- | ------------------------------------------------------ |
-| `clarify.request` `{request_id, question, choices}` | `clarify.respond {request_id, answer}`  | inline card in the thread                              |
+| `clarify.request` `{request_id, question, choices}` | `clarify.respond {request_id, answer}`  | inline card in the conversation                        |
 | `approval.request` `{command, description}`         | `approval.respond {choice, session_id}` | sticky approval bar (`once`/`session`/`always`/`deny`) |
 | `sudo.request` `{request_id}`                       | `sudo.respond {request_id, password}`   | modal (masked input)                                   |
 | `secret.request` `{request_id, env_var, prompt}`    | `secret.respond {request_id, value}`    | modal (masked input)                                   |

@@ -4,7 +4,7 @@ import {
   sendMacosNotification
 } from '$lib/notifications/macos'
 import { configureGatewayRegistry } from '$lib/hermes/gateway'
-import { extractCanvasReferences, type ThreadCanvas } from '../domain/canvas'
+import { extractCanvasReferences, type ConversationCanvas } from '../domain/canvas'
 import {
   loadSessions,
   noteSessionActivity,
@@ -31,64 +31,64 @@ import {
 import {
   attachmentDisplayLabel,
   attachmentFromMediaSource,
-  cloneThreadAttachment,
+  cloneConversationAttachment,
   extractImageDirectiveSources,
   extractMediaDirectiveSources,
   imageSourcesFromContent,
-  type ThreadAttachment,
-  type ThreadAttachmentInput
+  type ConversationAttachment,
+  type ConversationAttachmentInput
 } from '../domain/media-attachments'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
-type ThreadMessageRole = 'assistant' | 'system' | 'tool' | 'user'
-export type ThreadToolStatus = 'complete' | 'running'
+type ConversationMessageRole = 'assistant' | 'system' | 'tool' | 'user'
+export type ConversationToolStatus = 'complete' | 'running'
 
-export interface ThreadTool {
+export interface ConversationTool {
   context?: string
   error?: string
   id: string
   input?: string
   name: string
   output?: string
-  status: ThreadToolStatus
+  status: ConversationToolStatus
   summary: string
 }
 
-type ThreadMessagePart =
+type ConversationMessagePart =
   | { type: 'reasoning'; text: string }
   | { type: 'text'; text: string }
-  | { type: 'tool'; tool: ThreadTool }
+  | { type: 'tool'; tool: ConversationTool }
 
-export interface ThreadMessage {
-  attachments?: ThreadAttachment[]
-  canvas?: ThreadCanvas
+export interface ConversationMessage {
+  attachments?: ConversationAttachment[]
+  canvas?: ConversationCanvas
   error?: string
   id: string
   /** Chronological render order for assistant content. When present, the UI
    *  renders from this array instead of the legacy reasoning/tools/text buckets. */
-  parts?: ThreadMessagePart[]
+  parts?: ConversationMessagePart[]
   pending?: boolean
   /** Discrete reasoning/thinking blocks. Each block renders as its own
    *  collapsible disclosure so long reasoning stays scannable. */
   reasoning?: string[]
-  role: ThreadMessageRole
+  role: ConversationMessageRole
   text: string
   timestamp?: number
-  tools: ThreadTool[]
+  tools: ConversationTool[]
   usage?: Partial<UsageStats>
 }
 
-export interface ThreadSessionState {
+export interface ConversationSessionState {
   branch?: string
   busy: boolean
-  canvas?: ThreadCanvas
+  canvas?: ConversationCanvas
   cwd?: string
   currentAssistantId: string | null
   error: string | null
   fast?: boolean
   hydrated: boolean
   loading: boolean
-  messages: ThreadMessage[]
+  messages: ConversationMessage[]
   model?: string
   needsInput: boolean
   provider?: string
@@ -97,7 +97,7 @@ export interface ThreadSessionState {
 }
 
 interface MessageStoreState {
-  sessions: Record<string, ThreadSessionState>
+  sessions: Record<string, ConversationSessionState>
 }
 
 type GatewayPayload = Record<string, unknown>
@@ -117,7 +117,7 @@ let nextMessageId = 0
 let nextToolId = 0
 const lastReasoningAt = new Map<string, number>()
 
-function createThreadSession(): ThreadSessionState {
+function createConversationSession(): ConversationSessionState {
   return {
     busy: false,
     currentAssistantId: null,
@@ -133,8 +133,8 @@ function displaySessionId(sessionId: string): string {
   return displaySessionIdFor(sessionId)
 }
 
-function ensureThreadSession(sessionId: string): ThreadSessionState {
-  messageState.sessions[sessionId] ??= createThreadSession()
+function ensureConversationSession(sessionId: string): ConversationSessionState {
+  messageState.sessions[sessionId] ??= createConversationSession()
   return messageState.sessions[sessionId]
 }
 
@@ -243,14 +243,14 @@ function inputNeededNotificationText(eventType: GatewayEvent['type'], payload: G
 }
 
 function setBusy(sessionId: string, busy: boolean): void {
-  const thread = ensureThreadSession(sessionId)
-  thread.busy = busy
+  const conversation = ensureConversationSession(sessionId)
+  conversation.busy = busy
   setSessionWorking(sessionId, busy)
 }
 
 function setNeedsInput(sessionId: string, needsInput: boolean): void {
-  const thread = ensureThreadSession(sessionId)
-  thread.needsInput = needsInput
+  const conversation = ensureConversationSession(sessionId)
+  conversation.needsInput = needsInput
   setSessionNeedsInput(sessionId, needsInput)
 }
 
@@ -271,8 +271,8 @@ function newAttachmentId(prefix: string): string {
 
 function displayForMessage(
   message: SessionMessage,
-  role: ThreadMessageRole
-): { attachments: ThreadAttachment[]; canvas: null | ThreadCanvas; text: string } {
+  role: ConversationMessageRole
+): { attachments: ConversationAttachment[]; canvas: null | ConversationCanvas; text: string } {
   const rawText = firstText(message.text, message.content)
   const embedded = extractEmbeddedImages(rawText)
   const canvasDirectives =
@@ -290,7 +290,7 @@ function displayForMessage(
     ...mediaDirectives.sources.map(source => ({ allowFileFallback: true, source }))
   ]
   const seen = new Set<string>()
-  const attachments: ThreadAttachment[] = []
+  const attachments: ConversationAttachment[] = []
 
   for (const { allowFileFallback, source } of sources) {
     const key = source.trim()
@@ -304,13 +304,13 @@ function displayForMessage(
   return { attachments, canvas: canvasDirectives.latestCanvas, text: imageDirectives.cleanedText }
 }
 
-function ensureParts(message: ThreadMessage): ThreadMessagePart[] {
+function ensureParts(message: ConversationMessage): ConversationMessagePart[] {
   message.parts ??= []
   return message.parts
 }
 
-function buildAssistantPartsFromBuckets(reasoning: string[], text: string): ThreadMessagePart[] {
-  const parts: ThreadMessagePart[] = []
+function buildAssistantPartsFromBuckets(reasoning: string[], text: string): ConversationMessagePart[] {
+  const parts: ConversationMessagePart[] = []
 
   for (const block of reasoning) {
     if (block.trim()) {
@@ -325,7 +325,7 @@ function buildAssistantPartsFromBuckets(reasoning: string[], text: string): Thre
   return parts
 }
 
-function storedToolFromMessage(sessionId: string, message: SessionMessage, index: number): ThreadTool {
+function storedToolFromMessage(sessionId: string, message: SessionMessage, index: number): ConversationTool {
   const text = firstText(message.text, message.content)
   const name = message.tool_name || message.name || 'tool'
 
@@ -339,8 +339,8 @@ function storedToolFromMessage(sessionId: string, message: SessionMessage, index
   }
 }
 
-function normalizeStoredMessage(sessionId: string, message: SessionMessage, index: number): ThreadMessage {
-  const role: ThreadMessageRole =
+function normalizeStoredMessage(sessionId: string, message: SessionMessage, index: number): ConversationMessage {
+  const role: ConversationMessageRole =
     message.role === 'assistant' || message.role === 'system' || message.role === 'tool' || message.role === 'user'
       ? message.role
       : 'assistant'
@@ -378,14 +378,14 @@ function normalizeStoredMessage(sessionId: string, message: SessionMessage, inde
 }
 
 function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): void {
-  const threadId = displaySessionId(sessionId)
-  const thread = ensureThreadSession(threadId)
-  const result: ThreadMessage[] = []
-  let lastAssistant: ThreadMessage | null = null
-  let latestCanvas: ThreadCanvas | undefined
+  const conversationId = displaySessionId(sessionId)
+  const conversation = ensureConversationSession(conversationId)
+  const result: ConversationMessage[] = []
+  let lastAssistant: ConversationMessage | null = null
+  let latestCanvas: ConversationCanvas | undefined
 
   for (let index = 0; index < messages.length; index += 1) {
-    const normalized = normalizeStoredMessage(threadId, messages[index], index)
+    const normalized = normalizeStoredMessage(conversationId, messages[index], index)
 
     if (normalized.role === 'tool') {
       const tool = normalized.tools[0]
@@ -415,29 +415,31 @@ function replaceStoredMessages(sessionId: string, messages: SessionMessage[]): v
     result.push(normalized)
   }
 
-  thread.messages = result
-  thread.canvas = latestCanvas
-  thread.currentAssistantId = null
-  thread.error = null
-  thread.hydrated = true
-  thread.loading = false
-  thread.busy = false
-  thread.needsInput = false
-  setSessionWorking(threadId, false)
-  setSessionNeedsInput(threadId, false)
+  conversation.messages = result
+  conversation.canvas = latestCanvas
+  conversation.currentAssistantId = null
+  conversation.error = null
+  conversation.hydrated = true
+  conversation.loading = false
+  conversation.busy = false
+  conversation.needsInput = false
+  setSessionWorking(conversationId, false)
+  setSessionNeedsInput(conversationId, false)
 }
 
-function ensureAssistantMessage(sessionId: string): ThreadMessage {
-  const thread = ensureThreadSession(sessionId)
-  const current = thread.currentAssistantId
-    ? thread.messages.find(message => message.id === thread.currentAssistantId && message.role === 'assistant')
+function ensureAssistantMessage(sessionId: string): ConversationMessage {
+  const conversation = ensureConversationSession(sessionId)
+  const current = conversation.currentAssistantId
+    ? conversation.messages.find(
+        message => message.id === conversation.currentAssistantId && message.role === 'assistant'
+      )
     : null
 
   if (current) {
     return current
   }
 
-  const message: ThreadMessage = {
+  const message: ConversationMessage = {
     id: newMessageId('assistant-stream'),
     parts: [],
     pending: true,
@@ -447,20 +449,20 @@ function ensureAssistantMessage(sessionId: string): ThreadMessage {
     tools: []
   }
 
-  thread.currentAssistantId = message.id
-  thread.messages.push(message)
+  conversation.currentAssistantId = message.id
+  conversation.messages.push(message)
 
   return message
 }
 
 function beginAssistantMessage(sessionId: string): void {
-  const thread = ensureThreadSession(sessionId)
-  const existing = thread.currentAssistantId
-    ? thread.messages.find(message => message.id === thread.currentAssistantId && message.pending)
+  const conversation = ensureConversationSession(sessionId)
+  const existing = conversation.currentAssistantId
+    ? conversation.messages.find(message => message.id === conversation.currentAssistantId && message.pending)
     : null
 
   if (!existing) {
-    const message: ThreadMessage = {
+    const message: ConversationMessage = {
       id: newMessageId('assistant-stream'),
       parts: [],
       pending: true,
@@ -470,11 +472,11 @@ function beginAssistantMessage(sessionId: string): void {
       tools: []
     }
 
-    thread.currentAssistantId = message.id
-    thread.messages.push(message)
+    conversation.currentAssistantId = message.id
+    conversation.messages.push(message)
   }
 
-  thread.error = null
+  conversation.error = null
   setBusy(sessionId, true)
   setNeedsInput(sessionId, false)
 }
@@ -549,7 +551,7 @@ function toolMatchValues(payload: GatewayPayload): string[] {
   return [...new Set(values.map(value => value.trim().toLowerCase()).filter(Boolean))]
 }
 
-function toolStoredMatchValues(tool: ThreadTool): string[] {
+function toolStoredMatchValues(tool: ConversationTool): string[] {
   const values = [tool.context ?? '', tool.input ?? '']
 
   return [...new Set(values.map(value => value.trim().toLowerCase()).filter(Boolean))]
@@ -566,10 +568,10 @@ function hasToolMatchOverlap(left: string[], right: string[]): boolean {
 }
 
 function pickPendingTool(
-  pending: ThreadTool[],
-  status: ThreadToolStatus,
+  pending: ConversationTool[],
+  status: ConversationToolStatus,
   matchValues: string[]
-): ThreadTool | undefined {
+): ConversationTool | undefined {
   if (pending.length === 0) {
     return undefined
   }
@@ -592,34 +594,34 @@ function pickPendingTool(
 function commitMessage(
   sessionId: string,
   messageId: string,
-  transform: (message: ThreadMessage) => ThreadMessage
+  transform: (message: ConversationMessage) => ConversationMessage
 ): void {
-  const thread = ensureThreadSession(sessionId)
-  const index = thread.messages.findIndex(message => message.id === messageId)
+  const conversation = ensureConversationSession(sessionId)
+  const index = conversation.messages.findIndex(message => message.id === messageId)
 
   if (index < 0) {
     return
   }
 
-  thread.messages[index] = transform(thread.messages[index])
-  thread.messages = [...thread.messages]
+  conversation.messages[index] = transform(conversation.messages[index])
+  conversation.messages = [...conversation.messages]
 }
 
-function findToolInThread(
+function findToolInConversation(
   sessionId: string,
   payload: GatewayPayload,
-  status: ThreadToolStatus
-): { message: ThreadMessage; tool: ThreadTool } | undefined {
+  status: ConversationToolStatus
+): { message: ConversationMessage; tool: ConversationTool } | undefined {
   const stableId = toolStableId(payload)
   const payloadName = firstText(payload.name, payload.tool_name, payload.tool)
   const name = payloadName || 'tool'
   const matchValues = toolMatchValues(payload)
-  const thread = ensureThreadSession(sessionId)
-  const orderedMessages: ThreadMessage[] = []
+  const conversation = ensureConversationSession(sessionId)
+  const orderedMessages: ConversationMessage[] = []
 
-  if (thread.currentAssistantId) {
-    const current = thread.messages.find(
-      message => message.id === thread.currentAssistantId && message.role === 'assistant'
+  if (conversation.currentAssistantId) {
+    const current = conversation.messages.find(
+      message => message.id === conversation.currentAssistantId && message.role === 'assistant'
     )
 
     if (current) {
@@ -627,8 +629,8 @@ function findToolInThread(
     }
   }
 
-  for (let index = thread.messages.length - 1; index >= 0; index -= 1) {
-    const message = thread.messages[index]
+  for (let index = conversation.messages.length - 1; index >= 0; index -= 1) {
+    const message = conversation.messages[index]
 
     if (message.role !== 'assistant') continue
     if (orderedMessages.some(item => item.id === message.id)) continue
@@ -658,7 +660,7 @@ function findToolInThread(
   return undefined
 }
 
-function toolStatusFromEvent(eventType: GatewayEvent['type'], payload: GatewayPayload): ThreadToolStatus {
+function toolStatusFromEvent(eventType: GatewayEvent['type'], payload: GatewayPayload): ConversationToolStatus {
   if (eventType === 'tool.complete') {
     return 'complete'
   }
@@ -688,10 +690,10 @@ function toolContext(payload: GatewayPayload): string {
   return firstText(payload.context, payload.args_text, payload.command, payload.query, payload.url, payload.path)
 }
 
-function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadToolStatus): void {
+function upsertTool(sessionId: string, payload: GatewayPayload, status: ConversationToolStatus): void {
   const payloadName = firstText(payload.name, payload.tool_name, payload.tool)
   const name = payloadName || 'tool'
-  const match = findToolInThread(sessionId, payload, status)
+  const match = findToolInConversation(sessionId, payload, status)
 
   const context = toolContext(payload)
   const summary = toolSummary(payload)
@@ -701,7 +703,7 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
 
   if (match) {
     const { message, tool: existing } = match
-    const updated: ThreadTool = {
+    const updated: ConversationTool = {
       ...existing,
       context: context || existing.context,
       error: error || existing.error,
@@ -723,7 +725,7 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
   } else {
     const message = ensureAssistantMessage(sessionId)
     const id = toolStableId(payload) || newToolId(name)
-    const tool: ThreadTool = {
+    const tool: ConversationTool = {
       context: context || undefined,
       error: error || undefined,
       id,
@@ -748,12 +750,12 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: ThreadTo
 }
 
 function completeAssistantMessage(sessionId: string, text: string, usage?: Partial<UsageStats>): void {
-  const thread = ensureThreadSession(sessionId)
+  const conversation = ensureConversationSession(sessionId)
   const display = displayForMessage({ content: text, role: 'assistant', text } as SessionMessage, 'assistant')
   const finalText = display.text.trim()
   const completionError = completionErrorText(finalText)
   const message =
-    thread.currentAssistantId && thread.messages.some(item => item.id === thread.currentAssistantId)
+    conversation.currentAssistantId && conversation.messages.some(item => item.id === conversation.currentAssistantId)
       ? ensureAssistantMessage(sessionId)
       : finalText || completionError || display.attachments.length > 0 || display.canvas
         ? ensureAssistantMessage(sessionId)
@@ -768,7 +770,7 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
       message.attachments = display.attachments.length > 0 ? display.attachments : message.attachments
       message.canvas = display.canvas ?? message.canvas
       if (display.canvas) {
-        thread.canvas = display.canvas
+        conversation.canvas = display.canvas
       }
 
       if (finalText) {
@@ -779,7 +781,7 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
           message.text = finalText
 
           const parts = ensureParts(message)
-          let lastTextPart: Extract<ThreadMessagePart, { type: 'text' }> | null = null
+          let lastTextPart: Extract<ConversationMessagePart, { type: 'text' }> | null = null
 
           for (let index = parts.length - 1; index >= 0; index -= 1) {
             const part = parts[index]
@@ -804,11 +806,11 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
   }
 
   if (usage) {
-    thread.usage = { ...(thread.usage ?? {}), ...usage }
+    conversation.usage = { ...(conversation.usage ?? {}), ...usage }
   }
 
-  thread.currentAssistantId = null
-  thread.error = null
+  conversation.currentAssistantId = null
+  conversation.error = null
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
   queueMacosNotification(buildAssistantCompleteNotification({ error: completionError, text: finalText }))
@@ -816,13 +818,13 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
 }
 
 function failAssistantMessage(sessionId: string, errorMessage: string): void {
-  const thread = ensureThreadSession(sessionId)
+  const conversation = ensureConversationSession(sessionId)
   const message = ensureAssistantMessage(sessionId)
 
   message.error = errorMessage.trim() || 'Hermes reported an error'
   message.pending = false
-  thread.currentAssistantId = null
-  thread.error = message.error
+  conversation.currentAssistantId = null
+  conversation.error = message.error
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
   queueMacosNotification(buildAssistantCompleteNotification({ error: message.error }))
@@ -835,36 +837,36 @@ function usageFrom(payload: GatewayPayload): Partial<UsageStats> | undefined {
 }
 
 function applyRuntimeInfo(sessionId: string, payload: GatewayPayload): void {
-  const thread = ensureThreadSession(sessionId)
+  const conversation = ensureConversationSession(sessionId)
 
   if (typeof payload.model === 'string') {
-    thread.model = payload.model
+    conversation.model = payload.model
   }
 
   if (typeof payload.provider === 'string') {
-    thread.provider = payload.provider
+    conversation.provider = payload.provider
   }
 
   if (typeof payload.reasoning_effort === 'string') {
-    thread.reasoningEffort = payload.reasoning_effort
+    conversation.reasoningEffort = payload.reasoning_effort
   }
 
   if (typeof payload.fast === 'boolean') {
-    thread.fast = payload.fast
+    conversation.fast = payload.fast
   }
 
   if (typeof payload.cwd === 'string') {
-    thread.cwd = payload.cwd
+    conversation.cwd = payload.cwd
   }
 
   if (typeof payload.branch === 'string') {
-    thread.branch = payload.branch
+    conversation.branch = payload.branch
   }
 
   const usage = usageFrom(payload)
 
   if (usage) {
-    thread.usage = { ...(thread.usage ?? {}), ...usage }
+    conversation.usage = { ...(conversation.usage ?? {}), ...usage }
   }
 
   if (typeof payload.running === 'boolean') {
@@ -877,58 +879,58 @@ function sessionIdForEvent(event: GatewayEvent): string | null {
   return sessionId ? displaySessionId(sessionId) : null
 }
 
-export function threadForSession(sessionId: string | null | undefined): ThreadSessionState | null {
+export function conversationForSession(sessionId: string | null | undefined): ConversationSessionState | null {
   return sessionId ? (messageState.sessions[displaySessionId(sessionId)] ?? null) : null
 }
 
-export function shouldPreserveLiveThread(sessionId: string, snapshotLength: number): boolean {
-  const thread = threadForSession(sessionId)
-  if (!thread?.hydrated) return false
+export function shouldPreserveLiveConversation(sessionId: string, snapshotLength: number): boolean {
+  const conversation = conversationForSession(sessionId)
+  if (!conversation?.hydrated) return false
 
-  if (thread.busy || thread.currentAssistantId) return true
-  if (thread.messages.some(message => message.pending)) return true
-  if (thread.messages.length > snapshotLength) return true
+  if (conversation.busy || conversation.currentAssistantId) return true
+  if (conversation.messages.some(message => message.pending)) return true
+  if (conversation.messages.length > snapshotLength) return true
 
   return false
 }
 
 export function syncRunningFromResume(sessionId: string, info?: { running?: boolean }): void {
   if (typeof info?.running === 'boolean') {
-    setThreadBusy(sessionId, info.running)
+    setConversationBusy(sessionId, info.running)
   }
 }
 
-export function setThreadBusy(sessionId: string, busy: boolean): void {
+export function setConversationBusy(sessionId: string, busy: boolean): void {
   setBusy(displaySessionId(sessionId), busy)
 }
 
-export function setThreadLoading(sessionId: string, loading: boolean): void {
-  const threadId = displaySessionId(sessionId)
-  const thread = ensureThreadSession(threadId)
-  thread.loading = loading
+export function setConversationLoading(sessionId: string, loading: boolean): void {
+  const conversationId = displaySessionId(sessionId)
+  const conversation = ensureConversationSession(conversationId)
+  conversation.loading = loading
 
   if (loading) {
-    thread.error = null
+    conversation.error = null
     return
   }
 
-  if (thread.messages.length === 0 && !thread.hydrated && !thread.busy) {
-    delete messageState.sessions[threadId]
+  if (conversation.messages.length === 0 && !conversation.hydrated && !conversation.busy) {
+    delete messageState.sessions[conversationId]
   }
 }
 
 export function appendUserMessage(
   sessionId: string,
   text: string,
-  attachmentInputs: ThreadAttachmentInput[] = []
+  attachmentInputs: ConversationAttachmentInput[] = []
 ): void {
-  const threadId = displaySessionId(sessionId)
-  const thread = ensureThreadSession(threadId)
-  const attachments = attachmentInputs.map(attachment => cloneThreadAttachment(attachment, newAttachmentId))
+  const conversationId = displaySessionId(sessionId)
+  const conversation = ensureConversationSession(conversationId)
+  const attachments = attachmentInputs.map(attachment => cloneConversationAttachment(attachment, newAttachmentId))
   const attachmentLines = attachments.map(attachment => `- ${attachmentDisplayLabel(attachment)}`).join('\n')
   const attachmentBlock = attachmentLines ? `\n\nAttached files:\n${attachmentLines}` : ''
 
-  thread.messages.push({
+  conversation.messages.push({
     attachments: attachments.length > 0 ? attachments : undefined,
     id: newMessageId('user'),
     role: 'user',
@@ -936,35 +938,35 @@ export function appendUserMessage(
     timestamp: Date.now(),
     tools: []
   })
-  thread.error = null
-  thread.hydrated = true
+  conversation.error = null
+  conversation.hydrated = true
 }
 
 export function appendSystemMessage(sessionId: string, text: string): void {
   const message = text.trim()
   if (!message) return
 
-  const thread = ensureThreadSession(displaySessionId(sessionId))
-  thread.messages.push({
+  const conversation = ensureConversationSession(displaySessionId(sessionId))
+  conversation.messages.push({
     id: newMessageId('system'),
     role: 'system',
     text: message,
     timestamp: Date.now(),
     tools: []
   })
-  thread.hydrated = true
+  conversation.hydrated = true
 }
 
 export function appendAssistantErrorMessage(sessionId: string, text: string): void {
-  const threadId = displaySessionId(sessionId)
-  const message = ensureAssistantMessage(threadId)
+  const conversationId = displaySessionId(sessionId)
+  const message = ensureAssistantMessage(conversationId)
 
   message.error = text.trim() || 'Hermes reported an error'
   message.pending = false
   message.text = message.text || ''
-  ensureThreadSession(threadId).currentAssistantId = null
-  setBusy(threadId, false)
-  setNeedsInput(threadId, false)
+  ensureConversationSession(conversationId).currentAssistantId = null
+  setBusy(conversationId, false)
+  setNeedsInput(conversationId, false)
 }
 
 export function hydrateSessionMessagesFromGateway(sessionId: string, messages: SessionMessage[] = []): void {

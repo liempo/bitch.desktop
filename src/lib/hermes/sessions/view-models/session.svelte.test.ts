@@ -50,8 +50,8 @@ vi.mock('$lib/hermes/dashboard', () => ({
 
 import {
   archiveSession,
-  collapseArchivedSessionsToThreads,
-  collapseSessionsToThreads,
+  collapseArchivedSessionsToLineages,
+  collapseSessionsToLineages,
   createSession,
   deleteSession,
   getRecentlySettledSessionIds,
@@ -68,7 +68,7 @@ import {
   setSearchQuery,
   setSessionWorking,
   sessionState as rawSessionState,
-  sessionThreadId,
+  sessionLineageId,
   startNewSession,
   storedSessionIdForRuntime
 } from '$lib/hermes/sessions'
@@ -120,7 +120,7 @@ describe('createSession', () => {
     rawSessionState.sessionsTotal = 0
     rawSessionState.sessionProfileTotals = {}
     rawSessionState.sessionProfilesById = {}
-    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessionLineageIdsById = {}
     profileState.activeGatewayProfile = 'default'
     profileState.newChatProfile = null
   })
@@ -175,6 +175,39 @@ describe('createSession', () => {
     expect(rawSessionState.sessions[0]).toMatchObject({
       id: 'stored-preview',
       preview: 'first user request'
+    })
+  })
+
+  it('forwards runtime overrides into session.create and seeds the optimistic model fallback', async () => {
+    mockRequestGateway.mockResolvedValueOnce({
+      session_id: 'runtime-live',
+      stored_session_id: 'runtime-stored',
+      message_count: 0,
+      messages: [],
+      info: {}
+    })
+
+    await expect(
+      createSession(' first request ', {
+        fast: false,
+        model: 'gpt-5.5',
+        provider: 'openai',
+        reasoning_effort: 'high'
+      })
+    ).resolves.toBe('runtime-live')
+
+    expect(mockRequestGateway).toHaveBeenCalledWith('session.create', {
+      cols: 96,
+      fast: false,
+      model: 'gpt-5.5',
+      profile: 'default',
+      provider: 'openai',
+      reasoning_effort: 'high'
+    })
+    expect(rawSessionState.sessions[0]).toMatchObject({
+      id: 'runtime-stored',
+      model: 'gpt-5.5',
+      preview: 'first request'
     })
   })
 
@@ -603,7 +636,7 @@ describe('archived sessions', () => {
     rawSessionState.error = null
     rawSessionState.mutatingSessionIds = []
     rawSessionState.sessionProfilesById = {}
-    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessionLineageIdsById = {}
     rawSessionState.sessions = []
     mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
     mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
@@ -647,7 +680,7 @@ describe('archived sessions', () => {
     rawSessionState.archivedSessionsTotal = 1
     rawSessionState.archivedSessionProfileTotals = { 'crypto/profile': 1 }
     rawSessionState.sessionProfilesById = { 'archived-A': 'crypto/profile' }
-    rawSessionState.sessionThreadIdsById = { 'archived-A': 'archived-A' }
+    rawSessionState.sessionLineageIdsById = { 'archived-A': 'archived-A' }
     mockApiSetSessionArchived.mockResolvedValueOnce({ ok: true })
 
     await expect(restoreArchivedSession(archived)).resolves.toBe(true)
@@ -658,19 +691,19 @@ describe('archived sessions', () => {
     expect(mockApiListAllProfileSessions).toHaveBeenCalledWith(40, 0, 0, 'include', 'recent', 'all')
   })
 
-  it('collapses archived lineage rows into one restorable thread row', () => {
-    const rows = collapseArchivedSessionsToThreads([
+  it('collapses archived lineage rows into one restorable lineage row', () => {
+    const rows = collapseArchivedSessionsToLineages([
       session({
         archived: true,
-        id: 'thread-root',
+        id: 'lineage-root',
         last_active: 10,
         message_count: 2,
         title: 'Root title'
       }),
       session({
-        _lineage_root_id: 'thread-root',
+        _lineage_root_id: 'lineage-root',
         archived: true,
-        id: 'thread-tip',
+        id: 'lineage-tip',
         last_active: 20,
         message_count: 4,
         title: 'Tip title'
@@ -679,9 +712,9 @@ describe('archived sessions', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
-      _lineage_root_id: 'thread-root',
+      _lineage_root_id: 'lineage-root',
       archived: true,
-      id: 'thread-tip',
+      id: 'lineage-tip',
       message_count: 6,
       title: 'Tip title'
     })
@@ -697,7 +730,7 @@ describe('session search', () => {
     rawSessionState.searchResults = []
     rawSessionState.searching = false
     rawSessionState.sessionProfilesById = {}
-    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessionLineageIdsById = {}
     rawSessionState.sessions = [
       session({
         id: 'stored-A',
@@ -773,7 +806,7 @@ describe('session lineage mutations', () => {
       'stored-root': 'crypto/profile',
       'stored-tip': 'crypto/profile'
     }
-    rawSessionState.sessionThreadIdsById = {
+    rawSessionState.sessionLineageIdsById = {
       'stored-root': 'stored-root',
       'stored-tip': 'stored-root'
     }
@@ -843,54 +876,54 @@ describe('profile-scoped pagination', () => {
   })
 })
 
-describe('session lineage threads', () => {
+describe('session lineages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     gatewayState.connectionState = 'open'
     profileState.showAllProfiles = true
-    rawSessionState.sessionLineageIdsByThreadId = {}
+    rawSessionState.sessionLineageIdsByRootId = {}
     rawSessionState.sessionProfilesById = {}
     rawSessionState.sessionStartedAtById = {}
-    rawSessionState.sessionThreadIdsById = {}
+    rawSessionState.sessionLineageIdsById = {}
     rawSessionState.workingSessionIds = []
     rawSessionState.sessions = []
     mockApiListAllProfileSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
     mockApiListSessions.mockResolvedValue({ sessions: [], total: 0, limit: 40, offset: 0 })
   })
 
-  it('uses the lineage root as the stable thread id', () => {
-    expect(sessionThreadId({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })).toBe('BITCH')
-    expect(sessionThreadId({ id: 'BITCH-3', lineage_root: 'BITCH' })).toBe('BITCH')
-    expect(sessionThreadId({ id: 'solo', _lineage_root_id: null })).toBe('solo')
+  it('uses the lineage root as the stable lineage id', () => {
+    expect(sessionLineageId({ id: 'BITCH-3', _lineage_root_id: 'BITCH' })).toBe('BITCH')
+    expect(sessionLineageId({ id: 'BITCH-3', lineage_root: 'BITCH' })).toBe('BITCH')
+    expect(sessionLineageId({ id: 'solo', _lineage_root_id: null })).toBe('solo')
   })
 
-  it('strips generated lineage suffixes from sidebar titles when a thread advances', () => {
-    const threads = collapseSessionsToThreads([
+  it('strips generated lineage suffixes from sidebar titles when a lineage advances', () => {
+    const lineages = collapseSessionsToLineages([
       session({
-        id: 'thread-root',
+        id: 'lineage-root',
         last_active: 10,
         started_at: 10,
         title: 'Deploy plan'
       }),
       session({
-        _lineage_root_id: 'thread-root',
-        id: 'thread-tip',
+        _lineage_root_id: 'lineage-root',
+        id: 'lineage-tip',
         last_active: 20,
         started_at: 20,
         title: 'Deploy plan #2'
       })
     ])
 
-    expect(threads).toHaveLength(1)
-    expect(threads[0]).toMatchObject({
-      _lineage_root_id: 'thread-root',
-      id: 'thread-tip',
+    expect(lineages).toHaveLength(1)
+    expect(lineages[0]).toMatchObject({
+      _lineage_root_id: 'lineage-root',
+      id: 'lineage-tip',
       title: 'Deploy plan'
     })
   })
 
   it('preserves hash-number titles for standalone sessions', () => {
-    const threads = collapseSessionsToThreads([
+    const lineages = collapseSessionsToLineages([
       session({
         id: 'solo',
         last_active: 10,
@@ -899,7 +932,7 @@ describe('session lineage threads', () => {
       })
     ])
 
-    expect(threads[0]).toMatchObject({ id: 'solo', title: 'Plan #2' })
+    expect(lineages[0]).toMatchObject({ id: 'solo', title: 'Plan #2' })
   })
 
   it('preserves recently settled sessions while the backend list catches up', async () => {
@@ -923,7 +956,7 @@ describe('session lineage threads', () => {
     expect(rawSessionState.sessions.map(item => item.id)).toEqual(['fresh-background-chat'])
   })
 
-  it('records lineage members in chronological order for compressed threads loaded from the gateway', async () => {
+  it('records lineage members in chronological order for compressed lineages loaded from the gateway', async () => {
     mockApiListAllProfileSessions.mockResolvedValueOnce({
       sessions: [
         session({
@@ -964,7 +997,7 @@ describe('session lineage threads', () => {
   })
 
   it('collapses archived compression predecessors behind the latest visible continuation tip without masking its title', () => {
-    const threads = collapseSessionsToThreads([
+    const lineages = collapseSessionsToLineages([
       {
         _lineage_root_id: null,
         archived: true,
@@ -1024,8 +1057,8 @@ describe('session lineage threads', () => {
       }
     ])
 
-    expect(threads).toHaveLength(1)
-    expect(threads[0]).toMatchObject({
+    expect(lineages).toHaveLength(1)
+    expect(lineages[0]).toMatchObject({
       _lineage_root_id: 'BITCH',
       archived: false,
       id: 'BITCH-3',
@@ -1039,7 +1072,7 @@ describe('session lineage threads', () => {
   })
 
   it('does not resurrect explicitly archived sessions that have no visible continuation tip', () => {
-    const threads = collapseSessionsToThreads([
+    const lineages = collapseSessionsToLineages([
       {
         archived: true,
         cwd: null,
@@ -1060,11 +1093,11 @@ describe('session lineage threads', () => {
       }
     ])
 
-    expect(threads).toEqual([])
+    expect(lineages).toEqual([])
   })
 
   it('keeps an archived continuation tip hidden instead of restoring an older ancestor', () => {
-    const threads = collapseSessionsToThreads([
+    const lineages = collapseSessionsToLineages([
       {
         _lineage_root_id: null,
         archived: false,
@@ -1105,6 +1138,6 @@ describe('session lineage threads', () => {
       }
     ])
 
-    expect(threads).toEqual([])
+    expect(lineages).toEqual([])
   })
 })

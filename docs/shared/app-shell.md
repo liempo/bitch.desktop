@@ -1,7 +1,7 @@
 # 02 — App shell and routing
 
 **Goal:** Replace the single-page debug UI with a chat-first shell: a left
-session sidebar, a center thread, and a sticky composer, with hash-based routing
+session sidebar, a center conversation, and a sticky composer, with hash-based routing
 between sessions.
 
 ## Files
@@ -35,11 +35,11 @@ gateway.
   Bits UI primitives + Tailwind.
 - **Session re-select:** returning to a session runs
   [`resumeAndHydrateStoredSession`](../../src/lib/hermes/sessions/application/resume.ts). When the
-  thread is idle and not ahead of the HTTP snapshot, history refreshes from the
+  conversation is idle and not ahead of the HTTP snapshot, history refreshes from the
   stored snapshot. When a turn is still in progress (busy, pending assistant,
-  or more in-memory messages than the snapshot), the live in-memory thread is
+  or more in-memory messages than the snapshot), the live in-memory conversation is
   preserved instead of replacing it.
-- **Busy sync:** after `session.resume`, local `thread.busy` is aligned with
+- **Busy sync:** after `session.resume`, local `conversation.busy` is aligned with
   `info.running` from the gateway so the composer shows **Queue** while the
   server still has an active turn. Queued sends drain automatically when the
   turn settles.
@@ -59,5 +59,5 @@ gateway.
 ## Acceptance
 
 App launches into the chat shell, connects, and shows connection status. The
-sidebar and thread regions render (empty is fine until later plans). Navigating
+sidebar and conversation regions render (empty is fine until later plans). Navigating
 the hash updates the active session id.

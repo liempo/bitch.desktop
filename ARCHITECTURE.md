@@ -91,7 +91,7 @@ src/lib/hermes/
   kanban/        Hermes dashboard Kanban plugin helpers
   gateway/       JSON-RPC client, Tauri WebSocket shim, runtime ports/ViewModel
   sessions/      session resume, sidebar loading, lifecycle ports/ViewModel
-  threads/       message ViewModel, normalization, previews, canvas and media extraction
+  conversations/       message ViewModel, normalization, previews, canvas and media extraction
   files/         remote filesystem preview, media, attachment ports/adapters
   profiles/      profile selection and profile-scoped routing ViewModel
   composer/      slash commands, queueing, attachment relay, prompt submission
@@ -107,7 +107,7 @@ or attach dashboard auth headers directly.
 Legacy top-level feature barrels and stores were removed after call sites migrated.
 New code must import `$lib/hermes/...` public entrypoints directly rather than
 reintroducing `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`,
-`$lib/thread`, `$lib/messages`, `$lib/composer`, or `$lib/stores/*` shims.
+`$lib/conversation`, `$lib/messages`, `$lib/composer`, or `$lib/stores/*` shims.
 
 ## Monitoring renderer lane: `src/lib/monitoring/*`
 

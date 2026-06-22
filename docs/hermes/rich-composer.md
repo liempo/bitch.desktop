@@ -23,7 +23,7 @@ attachments.
   `prompt.submit` still returns `session busy` because local state fell behind the
   gateway, the composer reasserts busy, removes the optimistic user row, and
   enqueues the attempted payload instead of surfacing a false assistant error.
-  See [`live-thread-preservation.md`](live-thread-preservation.md).
+  See [`live-conversation-preservation.md`](live-conversation-preservation.md).
 - **Slash:** load `commands.catalog { session_id }` on session open; a `/`
   prefix opens a completion popover and dispatches via `slash.exec`.
 - **Model switch:** read `getModelOptions()` / `getGlobalModelInfo()`; switching

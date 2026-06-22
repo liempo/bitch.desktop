@@ -104,7 +104,7 @@ opens or reuses the socket for that profile, marks the selected gateway active,
 and exposes `$gatewaySwapTarget` state for the app-shell swap overlay.
 
 The registry fans gateway events from every open profile socket into
-`src/lib/hermes/threads/view-models/messages.svelte.ts`, so background profile turns, tool progress, and blocking
+`src/lib/hermes/conversations/view-models/messages.svelte.ts`, so background profile turns, tool progress, and blocking
 prompt requests continue to render under their stored session keys while another
 profile is active.
 
@@ -120,7 +120,7 @@ profile-aware for list, hydration, and mutations:
 - Existing `/api/sessions` remains as a fallback for older backends.
 - Create, select, resume, rename, archive, delete, and history hydration resolve
   the session's owning profile before touching REST or live RPC.
-- `src/lib/hermes/threads/view-models/messages.svelte.ts` and `src/lib/hermes/sessions/application/resume.ts` pass profile through stored message
+- `src/lib/hermes/conversations/view-models/messages.svelte.ts` and `src/lib/hermes/sessions/application/resume.ts` pass profile through stored message
   hydration so history reads hit the right dashboard host.
 
 ### Composer and prompt responses

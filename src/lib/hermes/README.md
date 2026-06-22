@@ -1,6 +1,6 @@
 # Hermes lane
 
-`src/lib/hermes` is the renderer-side Hermes dashboard/runtime lane. It owns Hermes dashboard calls, runtime gateway traffic, remote files, sessions, threads, composer orchestration, prompts, profiles, Cron, and Kanban helpers behind explicit feature entrypoints.
+`src/lib/hermes` is the renderer-side Hermes dashboard/runtime lane. It owns Hermes dashboard calls, runtime gateway traffic, remote files, sessions, conversations, composer orchestration, prompts, profiles, Cron, and Kanban helpers behind explicit feature entrypoints.
 
 ## Boundary
 
@@ -24,6 +24,6 @@ The lane must not absorb Beszel/monitoring telemetry or generic native helpers. 
 - `src/lib/hermes/profiles` owns profile selection and profile-scoped gateway/API routing helpers.
 - `src/lib/hermes/prompts` owns clarify/approval/sudo/secret prompt request state and response orchestration.
 - `src/lib/hermes/sessions` owns session lifecycle, resume, sidebar, and session ViewModel exports.
-- `src/lib/hermes/threads` owns the message ViewModel plus canvas, preview, media attachment, and message normalization helpers.
+- `src/lib/hermes/conversations` owns the message ViewModel plus canvas, preview, media attachment, and message normalization helpers.
 
-Legacy top-level compatibility imports such as `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and `$lib/stores/*` were removed after call sites migrated. Do not add new re-export shims for those paths.
+Legacy top-level compatibility imports such as `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`, `$lib/conversation`, `$lib/messages`, `$lib/composer`, and `$lib/stores/*` were removed after call sites migrated. Do not add new re-export shims for those paths.

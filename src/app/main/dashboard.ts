@@ -61,7 +61,7 @@ function clean(value: null | string | undefined): string {
 export function dashboardQuickLinks(currentSessionId?: null | string): DashboardUtilityLink[] {
   return [
     {
-      description: 'Open the agent thread workspace for the selected or next Hermes session.',
+      description: 'Open the agent conversation workspace for the selected or next Hermes session.',
       href: `#${agentRoute(currentSessionId)}`,
       id: 'agent',
       label: 'Agent',

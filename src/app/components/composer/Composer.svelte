@@ -35,7 +35,7 @@
     subscribeQueuedPrompts,
     type QueuedPromptEntry
   } from '$lib/hermes/composer'
-  import { threadForSession } from '$lib/hermes/threads'
+  import { conversationForSession } from '$lib/hermes/conversations'
   import {
     normalizeProfileKey,
     profileState,
@@ -100,11 +100,11 @@
 
   const composerKey = $derived(sessionId?.trim() || '__new__')
   const composer = $derived(composerState.sessions[composerKey] ?? EMPTY_COMPOSER_SESSION)
-  const thread = $derived(threadForSession(sessionId))
+  const conversation = $derived(conversationForSession(sessionId))
   const selectedSessionInfo = $derived(
     sessionId ? (sessionState.sessions.find(session => session.id === sessionId) ?? null) : null
   )
-  const busy = $derived(Boolean(thread?.busy))
+  const busy = $derived(Boolean(conversation?.busy))
   // Composer UI state, drafts, and queueing key by the selected stored route id.
   // The live sid is only for RPC calls and is derived inside composer store helpers.
   const liveSid = $derived(sessionState.activeSessionId)
@@ -124,7 +124,7 @@
   const activeProfileName = $derived(normalizeProfileKey(profileName))
   const profileLabel = $derived(activeProfileName)
   const sessionHasMessages = $derived(
-    Boolean(sessionId && ((selectedSessionInfo?.message_count ?? 0) > 0 || (thread?.messages.length ?? 0) > 0))
+    Boolean(sessionId && ((selectedSessionInfo?.message_count ?? 0) > 0 || (conversation?.messages.length ?? 0) > 0))
   )
   const canChangeProfile = $derived(connected && !sessionId && !composer.submitting)
   const profileMenuChoices = $derived(profileChoicesFor(profileState.profiles, activeProfileName))
