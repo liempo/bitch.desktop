@@ -131,7 +131,9 @@ export function installCustomScrollbars(): () => void {
       return
     }
 
+    const elementStyle = window.getComputedStyle(element)
     const trackWidth = pixelValue(window.getComputedStyle(track).width, DEFAULT_SCROLLBAR_WIDTH)
+    const trackOffsetX = pixelValue(elementStyle.getPropertyValue('--custom-scrollbar-offset-x'), 0)
     const minThumbHeight = pixelValue(window.getComputedStyle(thumb).minHeight, DEFAULT_MIN_THUMB_HEIGHT)
     const thumbHeight = Math.max(
       minThumbHeight,
@@ -144,7 +146,7 @@ export function installCustomScrollbars(): () => void {
     state.thumbTop = thumbTop
     track.hidden = false
     track.dataset.visible = state.active ? 'true' : 'false'
-    track.style.left = `${Math.floor(rect.right - trackWidth)}px`
+    track.style.left = `${Math.floor(rect.right - trackWidth + trackOffsetX)}px`
     track.style.top = `${Math.floor(rect.top)}px`
     track.style.height = `${Math.floor(rect.height)}px`
     thumb.style.height = `${thumbHeight}px`

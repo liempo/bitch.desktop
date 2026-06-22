@@ -43,7 +43,6 @@
   let profileRefreshStarted = false
   let monitoringMetrics = $state<MonitoringMetrics>(EMPTY_MONITORING_METRICS)
   let monitoringError = $state('')
-  let monitoringUpdatedAt = $state<null | number>(null)
 
   const monitoring = monitoringConfig()
 
@@ -121,7 +120,6 @@
   async function refreshMonitoring(): Promise<void> {
     try {
       monitoringMetrics = await fetchMonitoringMetrics(monitoring)
-      monitoringUpdatedAt = Date.now()
       monitoringError = ''
     } catch (error) {
       monitoringError = error instanceof Error ? error.message : 'Monitoring unavailable'
@@ -132,12 +130,6 @@
     return `width: ${Math.max(0, Math.min(100, percent))}%`
   }
 
-  function updatedLabel(): string {
-    if (!monitoringUpdatedAt) return 'awaiting first sample'
-    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(
-      new Date(monitoringUpdatedAt)
-    )
-  }
 
   function findThermalZone(pattern: RegExp): ThermalZone | null {
     return monitoringMetrics.thermal.find(zone => pattern.test(zone.label)) ?? null
@@ -161,26 +153,22 @@
           <MainRenderPanel metrics={monitoringMetrics} />
         </div>
 
-        <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
+        <section class="border-t border-line pt-2" aria-label="System information">
           <div class="mb-2 flex items-center justify-between gap-3 text-[0.68rem] uppercase tracking-widest text-ink-muted">
             <span>SYSTEM</span>
             <span class="truncate text-ink-bright" title={monitoringMetrics.systemName}>{monitoringMetrics.systemName}</span>
           </div>
-          <dl class="grid grid-cols-2 gap-2 text-[0.68rem] uppercase tracking-widest">
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-[0.68rem] uppercase tracking-widest">
             {#each monitoringSystemStats as stat (stat.label)}
-              <div class="min-w-0 border border-line bg-canvas/45 p-2">
+              <div class="grid min-w-0 gap-1 border-b border-line/60 pb-1">
                 <dt class="text-ink-muted">{stat.label}</dt>
-                <dd class="mt-1 truncate text-ink-bright" title={stat.value}>{stat.value}</dd>
+                <dd class="truncate text-ink-bright" title={stat.value}>{stat.value}</dd>
               </div>
             {/each}
           </dl>
-        </Panel>
+        </section>
 
-        <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-          <div class="mb-2 flex items-center justify-between text-[0.68rem] uppercase tracking-widest text-ink-muted">
-            <span>USAGE</span>
-            <span>{updatedLabel()}</span>
-          </div>
+        <section class="border-t border-line pt-2" aria-label="Resource usage">
           <div class="grid gap-2 text-[0.68rem] uppercase tracking-widest">
             {#each monitoringUsageRows as row (row.label)}
               <div>
@@ -188,13 +176,13 @@
                   <span class="text-ink-muted">{row.label}</span>
                   <span class="min-w-fit text-right text-ink-bright">{row.value} - {row.detail}</span>
                 </div>
-                <div class="h-2 overflow-hidden rounded-full border border-line bg-input">
+                <div class="h-1.5 overflow-hidden rounded-full bg-input">
                   <div class="h-full bg-ink-bright/70 transition-[width]" style={barStyle(row.percent)}></div>
                 </div>
               </div>
             {/each}
           </div>
-        </Panel>
+        </section>
 
         {#if monitoringError}
           <div class="shrink-0 border border-danger/40 bg-danger/10 p-2 text-[0.68rem] text-danger">
