@@ -11,10 +11,10 @@
   import { routerState } from './router.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
-  import { getProfileScope, profileState } from '$lib/stores/profile.svelte'
+  import { getProfileScope, profileState } from '$lib/hermes/profiles'
   import { threadForSession } from '$lib/stores/messages.svelte'
-  import { previewFromCanvas, type ThreadPreview } from '$lib/thread/preview'
-  import { resumeAndHydrateStoredSession } from '$lib/session/resume'
+  import { previewFromCanvas, type ThreadPreview } from '$lib/hermes/threads'
+  import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import {
     clampPanelWidth,
     PREVIEW_PANEL_WIDTH,

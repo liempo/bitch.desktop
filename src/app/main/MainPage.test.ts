@@ -6,7 +6,8 @@ import mainAgentPanelSource from './MainAgentPanel.svelte?raw'
 import mainPageSource from './MainPage.svelte?raw'
 import mainRenderPanelSource from './MainRenderPanel.svelte?raw'
 import mainRenderSceneSource from './MainRenderScene.svelte?raw'
-import hostMonitorSource from '$lib/monitoring/index.ts?raw'
+import hostMonitorAdapterSource from '$lib/monitoring/adapters/beszel-monitoring-adapter.ts?raw'
+import hostMetricsApplicationSource from '$lib/monitoring/application/get-host-metrics.ts?raw'
 
 describe('Main dashboard source contract', () => {
   it('renders hardware, process, desktop AGENT panel, and mobile AGENT link without dashboard header/footer chrome', () => {
@@ -102,10 +103,12 @@ describe('Main dashboard source contract', () => {
   })
 
   it('loads Beszel monitoring endpoint config from MONITORING_URL', () => {
-    expect(hostMonitorSource).toContain('__MONITORING_SYSTEM_ID__')
-    expect(hostMonitorSource).toContain('__MONITORING_URL__')
-    expect(hostMonitorSource).toContain('host_monitor_request')
-    expect(hostMonitorSource).toContain('http://homestation:8090')
+    const hostMonitorSource = `${hostMonitorAdapterSource}\n${hostMetricsApplicationSource}`
+
+    expect(hostMonitorAdapterSource).toContain('__MONITORING_SYSTEM_ID__')
+    expect(hostMonitorAdapterSource).toContain('__MONITORING_URL__')
+    expect(hostMonitorAdapterSource).toContain('host_monitor_request')
+    expect(hostMonitorAdapterSource).toContain('http://homestation:8090')
     expect(hostMonitorSource).toContain('/api/collections')
     expect(hostMonitorSource).toContain('BESZEL_COLLECTIONS')
     expect(hostMonitorSource).toContain("systemStats: 'system_stats'")

@@ -1,6 +1,6 @@
 <script lang="ts">
   import CredentialModal from './CredentialModal.svelte'
-  import { promptsState, respondToSudo } from '$lib/stores/prompts.svelte'
+  import { promptsState, respondToSudo } from '$lib/hermes/prompts'
 
   let password = $state('')
   const request = $derived(promptsState.sudoRequest)

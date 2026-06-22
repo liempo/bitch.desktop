@@ -27,21 +27,21 @@
     submitPrompt,
     type ComposerSessionState,
     type ReasoningEffort
-  } from '$lib/stores/composer.svelte'
+  } from '$lib/hermes/composer'
   import {
     getQueuedPromptState,
     removeQueuedPrompt,
     shouldAutoDrainOnSettle,
     subscribeQueuedPrompts,
     type QueuedPromptEntry
-  } from '$lib/stores/composer-queue'
+  } from '$lib/hermes/composer'
   import { threadForSession } from '$lib/stores/messages.svelte'
   import {
     normalizeProfileKey,
     profileState,
     selectNewSessionProfile,
     sortByProfileOrder
-  } from '$lib/stores/profile.svelte'
+  } from '$lib/hermes/profiles'
   import { sessionState } from '$lib/stores/session.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'

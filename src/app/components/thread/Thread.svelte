@@ -9,8 +9,8 @@
   import Message from './Message.svelte'
   import { messageState } from '$lib/stores/messages.svelte'
   import { sessionState } from '$lib/stores/session.svelte'
-  import { resumeAndHydrateStoredSession } from '$lib/session/resume'
-  import type { ThreadPreview } from '$lib/thread/preview'
+  import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
+  import type { ThreadPreview } from '$lib/hermes/threads'
 
   interface Props {
     compact?: boolean

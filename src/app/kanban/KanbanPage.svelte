@@ -16,9 +16,9 @@
     type KanbanStatus,
     type KanbanTask,
     type KanbanTaskDetailResponse
-  } from '$lib/api/kanban'
+  } from '$lib/hermes/kanban'
   import { messageForError } from '$lib/errors'
-  import { ensureGatewayProfile, profileState } from '$lib/stores/profile.svelte'
+  import { ensureGatewayProfile, profileState } from '$lib/hermes/profiles'
 
   const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'blocked', 'done', 'archived'])
   const COLUMN_LABELS: Record<string, string> = {

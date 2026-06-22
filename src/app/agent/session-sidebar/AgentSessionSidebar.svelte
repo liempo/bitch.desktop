@@ -32,8 +32,8 @@
     normalizeProfileKey,
     profileState,
     selectMainNewSessionProfile
-  } from '$lib/stores/profile.svelte'
-  import { shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
+  } from '$lib/hermes/profiles'
+  import { shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
   import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage/namespace'
   import { panelWidthStyle, SESSION_SIDEBAR_WIDTH } from '$lib/layout/panel-resize'
   import type { SessionInfo } from '$lib/types/hermes'

@@ -2,9 +2,9 @@
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
-  import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/files/media'
-  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/thread/preview'
-  import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/files/remote'
+  import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/hermes/files'
+  import { previewFromRemoteFilePath, type ThreadPreview } from '$lib/hermes/threads'
+  import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/hermes/files'
   import './markdown.css'
 
   interface Props {

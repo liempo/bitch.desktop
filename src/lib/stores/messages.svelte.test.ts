@@ -17,7 +17,7 @@ vi.mock('$lib/notifications/macos', () => ({
   sendMacosNotification: mockSendMacosNotification
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   getSessionMessages: mockGetSessionMessages
 }))
 
@@ -33,14 +33,14 @@ import {
   setThreadBusy,
   threadForSession
 } from '$lib/stores/messages.svelte'
-import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/session/sidebar-loader'
+import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
 import {
   promptsState,
   setApprovalRequest,
   setClarifyRequest,
   setSecretRequest,
   setSudoRequest
-} from '$lib/stores/prompts.svelte'
+} from '$lib/hermes/prompts'
 import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
 import type { SessionMessage } from '$lib/types/hermes'
 

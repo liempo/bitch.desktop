@@ -8,8 +8,10 @@
     readRemoteFileText,
     type RemoteFileEntry,
     type RemoteFileListing
-  } from '$lib/files/remote'
-  import { filePresentation, type FileAccent } from '$lib/files/preview'
+  } from '$lib/hermes/files'
+  import { filePresentation } from '$lib/hermes/files'
+
+  type FileAccent = ReturnType<typeof filePresentation>['accent']
 
   interface TreeRow {
     depth: number

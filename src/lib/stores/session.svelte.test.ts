@@ -38,7 +38,7 @@ vi.mock('@/app/agent/router.svelte', () => ({
   routerState: {}
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/dashboard', () => ({
   deleteSession: mockApiDeleteSession,
   listAllProfileSessions: mockApiListAllProfileSessions,
   listSessions: mockApiListSessions,
@@ -72,7 +72,7 @@ import {
   startNewSession,
   storedSessionIdForRuntime
 } from '$lib/stores/session.svelte'
-import { profileState } from '$lib/stores/profile.svelte'
+import { profileState } from '$lib/hermes/profiles'
 import { gatewayState } from '$lib/stores/gateway.svelte'
 import type { SessionInfo } from '$lib/types/hermes'
 

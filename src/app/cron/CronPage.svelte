@@ -22,9 +22,9 @@
     type CronDeliveryTarget,
     type CronJob,
     type CronJobPayloadInput
-  } from '$lib/api/cron'
+  } from '$lib/hermes/cron'
   import { messageForError } from '$lib/errors'
-  import { ensureGatewayProfile, profileState, refreshActiveProfile } from '$lib/stores/profile.svelte'
+  import { ensureGatewayProfile, profileState, refreshActiveProfile } from '$lib/hermes/profiles'
   import type { SessionInfo } from '$lib/types/hermes'
   import { agentRoute } from '../router.svelte'
 

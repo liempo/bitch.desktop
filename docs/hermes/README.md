@@ -1,0 +1,61 @@
+# Hermes documentation
+
+The Hermes lane owns dashboard/runtime behavior only. It includes the Svelte
+renderer facades under `src/lib/hermes/*` and the privileged Rust backend helpers
+under `src-tauri/src/hermes/*`.
+
+## Boundary contract
+
+Hermes owns:
+
+- dashboard `/api/*` requests through the Tauri `dashboard_request` command;
+- authenticated remote filesystem, preview, attachment, and inline media routes;
+- JSON-RPC runtime traffic through the Tauri WebSocket shim;
+- profile-scoped sessions, profiles, prompts, composer behavior, Cron, Kanban,
+  and other Hermes dashboard/plugin APIs.
+
+Hermes must not own Beszel/monitoring or generic native platform helpers.
+`dashboard_request` is path-validated for Hermes `/api/*` routes and must not be
+expanded into a generic proxy for monitoring, CalDAV, or future services.
+
+## Renderer structure
+
+```text
+src/lib/hermes/
+  shared/adapters/dashboard-api-client.ts
+  dashboard/
+  cron/
+  kanban/
+  gateway/
+  sessions/
+  threads/
+  files/
+  profiles/
+  composer/
+  prompts/
+```
+
+New callers should import from `$lib/hermes/...` public entrypoints. Transitional
+compatibility exports remain under older `$lib/api`, `$lib/files`, `$lib/gateway`,
+`$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and selected
+`$lib/stores/*` paths while migration completes.
+
+## Feature docs
+
+- [`http-bridge.md`](http-bridge.md) — Hermes dashboard HTTP bridge and
+  dashboard REST client.
+- [`remote-files.md`](remote-files.md) — remote filesystem, preview, media, and
+  attachment behavior.
+- [`remote-profile-support.md`](remote-profile-support.md) — profile-scoped
+  dashboard and gateway routing.
+- [`session-sidebar.md`](session-sidebar.md) — session sidebar and switching.
+- [`message-thread.md`](message-thread.md) — message/thread normalization and
+  rendering.
+- [`rich-composer.md`](rich-composer.md) — composer orchestration, queueing,
+  slash commands, and model controls.
+- [`interactive-prompts.md`](interactive-prompts.md) — prompt response state and
+  UI behavior.
+- [`live-thread-preservation.md`](live-thread-preservation.md) — running-session
+  resume and busy synchronization.
+
+See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the complete lane model.

@@ -4,7 +4,7 @@ const { mockDashboardRequest } = vi.hoisted(() => ({
   mockDashboardRequest: vi.fn()
 }))
 
-vi.mock('$lib/api/dashboard', () => ({
+vi.mock('$lib/hermes/shared/adapters/dashboard-api-client', () => ({
   dashboardRequest: mockDashboardRequest
 }))
 

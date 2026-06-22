@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { readRemoteFileDataUrl } from '$lib/files/remote'
+  import { readRemoteFileDataUrl } from '$lib/hermes/files'
   import type { ThreadAttachment, ThreadAttachmentKind } from '$lib/stores/messages.svelte'
 
   interface Props {

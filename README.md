@@ -2,6 +2,8 @@
 
 Remote-only Tauri + Svelte client for the Hermes dashboard gateway.
 
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the backend lane model and [`docs/README.md`](docs/README.md) for feature-organized documentation.
+
 This repo is remote-only: it does not bootstrap or run a local Hermes server. The renderer uses the upstream Hermes JSON-RPC transport through a Tauri WebSocket shim, while the Rust backend owns gateway auth and native WebSocket connection setup.
 
 ## Stack

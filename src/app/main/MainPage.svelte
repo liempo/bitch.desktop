@@ -3,7 +3,7 @@
 
   import Panel from '@/app/components/ui/Panel.svelte'
   import { gatewayState } from '$lib/stores/gateway.svelte'
-  import { getProfileScope, refreshActiveProfile } from '$lib/stores/profile.svelte'
+  import { getProfileScope, refreshActiveProfile } from '$lib/hermes/profiles'
   import { initializeSessions, loadSessions, sessionState } from '$lib/stores/session.svelte'
   import {
     EMPTY_HOST_METRICS,

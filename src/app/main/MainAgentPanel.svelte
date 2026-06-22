@@ -6,10 +6,10 @@
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass } from '@/app/components/ui/styles'
   import { agentRoute } from '../router.svelte'
-  import { resumeAndHydrateStoredSession } from '$lib/session/resume'
+  import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import { gatewayState } from '$lib/stores/gateway.svelte'
   import { threadForSession } from '$lib/stores/messages.svelte'
-  import { profileState } from '$lib/stores/profile.svelte'
+  import { profileState } from '$lib/hermes/profiles'
   import { sessionState, startNewSession } from '$lib/stores/session.svelte'
   import type { SessionInfo } from '$lib/types/hermes'
 

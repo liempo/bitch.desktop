@@ -1,6 +1,6 @@
 <script lang="ts">
   import CredentialModal from './CredentialModal.svelte'
-  import { promptsState, respondToSecret } from '$lib/stores/prompts.svelte'
+  import { promptsState, respondToSecret } from '$lib/hermes/prompts'
 
   let value = $state('')
   const request = $derived(promptsState.secretRequest)
