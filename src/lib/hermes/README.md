@@ -1,6 +1,6 @@
 # Hermes lane
 
-`src/lib/hermes` is the compatibility facade for renderer-side Hermes dashboard/runtime contracts. It establishes the target lane before internals are moved so consumers can migrate imports without changing behavior.
+`src/lib/hermes` is the renderer-side Hermes dashboard/runtime lane. It owns Hermes dashboard calls, runtime gateway traffic, remote files, sessions, threads, composer orchestration, prompts, profiles, Cron, and Kanban helpers behind explicit feature entrypoints.
 
 ## Boundary
 
@@ -13,19 +13,17 @@ The Hermes lane owns only Hermes dashboard and runtime concerns:
 
 The lane must not absorb Beszel/host telemetry or generic native helpers. Monitoring belongs in `src/lib/monitoring`; native capabilities belong in `src/lib/platform`. Future non-Hermes services get their own lane.
 
-## Compatibility contract
+## Public entrypoints
 
-The subfeature entrypoints here are the preferred Hermes-lane imports. Some legacy top-level folders now re-export them during the migration:
+- `src/lib/hermes/dashboard` exposes the shared dashboard REST client.
+- `src/lib/hermes/cron` owns Hermes dashboard Cron plugin helpers.
+- `src/lib/hermes/composer` owns slash commands, composer queueing, attachment relay, runtime selection, and prompt submission orchestration.
+- `src/lib/hermes/files` owns authenticated remote-file helpers.
+- `src/lib/hermes/gateway` owns JSON-RPC gateway transport, the Tauri WebSocket shim, gateway runtime ports, and gateway registry ViewModel.
+- `src/lib/hermes/kanban` owns Hermes dashboard Kanban plugin helpers.
+- `src/lib/hermes/profiles` owns profile selection and profile-scoped gateway/API routing helpers.
+- `src/lib/hermes/prompts` owns clarify/approval/sudo/secret prompt request state and response orchestration.
+- `src/lib/hermes/sessions` owns session lifecycle, resume, sidebar, and session ViewModel exports.
+- `src/lib/hermes/threads` owns the message ViewModel plus canvas, preview, media attachment, and message normalization helpers.
 
-- `src/lib/hermes/dashboard` exposes the shared dashboard REST client and compatibility plugin re-exports
-- `src/lib/hermes/cron` owns Hermes dashboard Cron plugin helpers
-- `src/lib/hermes/composer` owns slash commands, composer queueing, attachment relay, runtime selection, and prompt submission orchestration
-- `src/lib/hermes/files` owns authenticated remote-file helpers
-- `src/lib/hermes/gateway` owns JSON-RPC gateway transport, the Tauri WebSocket shim, and runtime ports
-- `src/lib/hermes/kanban` owns Hermes dashboard Kanban plugin helpers
-- `src/lib/hermes/profiles` owns profile selection and profile-scoped gateway/API routing helpers
-- `src/lib/hermes/prompts` owns clarify/approval/sudo/secret prompt request state and response orchestration
-- `src/lib/hermes/sessions` owns session lifecycle, resume, sidebar, and transitional session ViewModel exports
-- `src/lib/hermes/threads` owns canvas, preview, media attachment, and message normalization helpers
-
-Existing imports from `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and Hermes-backed `$lib/stores/{composer,prompts,profile}.svelte` remain valid during the migration. New Hermes-lane work should prefer `$lib/hermes/...` once a slice owns that call site.
+Legacy top-level compatibility imports such as `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and `$lib/stores/*` were removed after call sites migrated. Do not add new re-export shims for those paths.

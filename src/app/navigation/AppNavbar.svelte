@@ -1,7 +1,7 @@
 <script lang="ts">
   import bitchLogoUrl from '$lib/assets/bitch-logo.png'
   import { agentRoute, appRouterState, assetsRoute, calendarRoute, cronRoute, kanbanRoute, mainRoute, type AppPage } from '../router.svelte'
-  import { sessionState } from '$lib/stores/session.svelte'
+  import { sessionState } from '$lib/hermes/sessions'
 
   interface NavItem {
     href: string

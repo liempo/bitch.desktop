@@ -34,7 +34,7 @@ vi.mock('$lib/hermes/dashboard', () => ({
   setApiRequestProfile: vi.fn()
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   gatewayState: { connectionState: 'closed' },
   ensureGatewayForProfile: mockEnsureGatewayForProfile,
   requestGateway: mockRequestGateway
@@ -60,9 +60,9 @@ import {
   type ComposerAttachment
 } from '$lib/hermes/composer'
 import { clearQueuedPrompts, getQueuedPrompts } from '$lib/hermes/composer'
-import { messageState, setThreadBusy, threadForSession } from '$lib/stores/messages.svelte'
+import { messageState, setThreadBusy, threadForSession } from '$lib/hermes/threads'
 import { profileState } from '$lib/hermes/profiles'
-import { rememberRuntimeSession, sessionState } from '$lib/stores/session.svelte'
+import { rememberRuntimeSession, sessionState } from '$lib/hermes/sessions'
 
 describe('composer slash dispatch policy', () => {
   beforeEach(() => {

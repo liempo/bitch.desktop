@@ -9,10 +9,10 @@
   import SudoModal from '../components/prompts/SudoModal.svelte'
   import Thread from '../components/thread/Thread.svelte'
   import { routerState } from './router.svelte'
-  import { gatewayState } from '$lib/stores/gateway.svelte'
-  import { layoutState, toggleSidebar } from '$lib/stores/layout.svelte'
+  import { gatewayState } from '$lib/hermes/gateway'
+  import { layoutState, toggleSidebar } from '$lib/layout'
   import { getProfileScope, profileState } from '$lib/hermes/profiles'
-  import { threadForSession } from '$lib/stores/messages.svelte'
+  import { threadForSession } from '$lib/hermes/threads'
   import { previewFromCanvas, type ThreadPreview } from '$lib/hermes/threads'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import {
@@ -22,7 +22,7 @@
     SESSION_SIDEBAR_WIDTH,
     writePanelWidth
   } from '$lib/layout/panel-resize'
-  import { initializeSessions, loadSessions, selectSession, sessionState, setActiveSession, startNewSession } from '$lib/stores/session.svelte'
+  import { initializeSessions, loadSessions, selectSession, sessionState, setActiveSession, startNewSession } from '$lib/hermes/sessions'
   import { cardClass } from '@/app/components/ui/styles'
   import type { SessionInfo } from '$lib/types/hermes'
 

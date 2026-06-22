@@ -1,7 +1,7 @@
 import { getActiveProfile, getProfiles, setApiRequestProfile } from '$lib/hermes/dashboard'
 import { messageForError } from '$lib/errors'
 import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage/namespace'
-import { ensureGatewayForProfile } from '$lib/stores/gateway.svelte'
+import { ensureGatewayForProfile } from '$lib/hermes/gateway'
 import type { ProfileInfo } from '$lib/types/hermes'
 
 export const ALL_PROFILES = '__all__'

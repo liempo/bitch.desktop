@@ -1,6 +1,6 @@
 # Hermes files subfeature
 
-This subfeature is the public renderer contract for authenticated Hermes dashboard filesystem and media helpers. Import `$lib/hermes/files` from renderer code; `$lib/files` remains a transitional re-export surface for older call sites and tests.
+This subfeature is the public renderer contract for authenticated Hermes dashboard filesystem and media helpers. Import `$lib/hermes/files` from renderer code.
 
 ## Ownership
 

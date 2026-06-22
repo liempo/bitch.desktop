@@ -21,10 +21,7 @@ src/lib/monitoring/       Standalone Beszel/PocketBase host telemetry lane
 src/lib/platform/         Renderer adapter boundary for native Tauri helpers
 src/lib/{errors,layout,
   notifications,storage,
-  types,ui}/              Shared renderer utilities, no feature-lane imports
-src/lib/{api,files,
-  gateway,messages,
-  session,stores,thread}/ Transitional compatibility exports
+  types,ui}/              Shared renderer utilities and layout state, no feature-lane imports
 src-tauri/src/hermes/     Rust Hermes dashboard, auth, files, and gateway lane
 src-tauri/src/monitoring/ Rust monitoring/Beszel lane
 src-tauri/src/platform/   Rust native desktop helpers
@@ -89,12 +86,12 @@ src/lib/hermes/
   index.ts
   README.md
   shared/adapters/dashboard-api-client.ts
-  dashboard/     shared dashboard REST client and compatibility plugin exports
+  dashboard/     shared dashboard REST client and plugin exports
   cron/          Hermes dashboard Cron plugin helpers
   kanban/        Hermes dashboard Kanban plugin helpers
-  gateway/       JSON-RPC client, Tauri WebSocket shim, runtime ports
+  gateway/       JSON-RPC client, Tauri WebSocket shim, runtime ports/ViewModel
   sessions/      session resume, sidebar loading, lifecycle ports/ViewModel
-  threads/       message normalization, previews, canvas and media extraction
+  threads/       message ViewModel, normalization, previews, canvas and media extraction
   files/         remote filesystem preview, media, attachment ports/adapters
   profiles/      profile selection and profile-scoped routing ViewModel
   composer/      slash commands, queueing, attachment relay, prompt submission
@@ -107,11 +104,10 @@ through monitoring commands. Token-sensitive Hermes work stays behind Tauri: the
 renderer does not read `HERMES_DASHBOARD_SESSION_TOKEN`, mint WebSocket tickets,
 or attach dashboard auth headers directly.
 
-Transitional exports under `$lib/api`, `$lib/files`, `$lib/gateway`,
-`$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and selected
-`$lib/stores/*` paths remain source-compatible while callers migrate. New code
-should prefer `$lib/hermes/...` public entrypoints when the feature lane already
-owns the behavior.
+Legacy top-level feature barrels and stores were removed after call sites migrated.
+New code must import `$lib/hermes/...` public entrypoints directly rather than
+reintroducing `$lib/api`, `$lib/files`, `$lib/gateway`, `$lib/session`,
+`$lib/thread`, `$lib/messages`, `$lib/composer`, or `$lib/stores/*` shims.
 
 ## Monitoring renderer lane: `src/lib/monitoring/*`
 
@@ -235,15 +231,17 @@ Decision rule:
 
 ## Source-compatible migration contract
 
-The branch keeps compatibility shims while internals move. During migrations:
+Legacy compatibility shims were removed once source search proved call sites had
+migrated. During future hierarchy migrations:
 
 1. Add the new lane entrypoint first.
 2. Move internals behind the entrypoint.
-3. Preserve old imports as re-export shims until all consumers migrate.
-4. Update docs and architecture-boundary tests in the same change that changes
+3. Prefer same-PR call-site migration over long-lived re-export shims.
+4. If a temporary shim is unavoidable, document its removal condition in the PR.
+5. Update docs and architecture-boundary tests in the same change that changes
    hierarchy.
-5. Remove shims only after source search proves no internal or public consumer
-   still relies on them.
+6. Remove temporary shims once source search proves no internal or public
+   consumer still relies on them.
 
 The only tracked upstream mirror is
 `src/lib/hermes/gateway/json-rpc-gateway.ts`, copied from

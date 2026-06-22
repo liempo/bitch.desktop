@@ -11,7 +11,7 @@ vi.mock('$lib/hermes/dashboard', () => ({
   setApiRequestProfile: mockSetApiRequestProfile
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   ensureGatewayForProfile: mockEnsureGatewayForProfile
 }))
 

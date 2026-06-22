@@ -1,5 +1,5 @@
 # Hermes Kanban subfeature
 
-Kanban helpers are Hermes dashboard plugin calls served under `/api/plugins/kanban/*` through the Tauri `dashboard_request` bridge. Renderer code should import `$lib/hermes/kanban`; `$lib/api/kanban` is a compatibility shim.
+Kanban helpers are Hermes dashboard plugin calls served under `/api/plugins/kanban/*` through the Tauri `dashboard_request` bridge. Renderer code should import `$lib/hermes/kanban`.
 
 Do not route Jira, CalDAV, Beszel, or other non-Hermes services through this module.

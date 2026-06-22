@@ -5,8 +5,8 @@
   import System from './System.svelte'
   import Tool from './Tool.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import { profileForSession } from '$lib/stores/session.svelte'
-  import type { ThreadMessage } from '$lib/stores/messages.svelte'
+  import { profileForSession } from '$lib/hermes/sessions'
+  import type { ThreadMessage } from '$lib/hermes/threads'
   import type { ThreadPreview } from '$lib/hermes/threads'
 
   interface Props {

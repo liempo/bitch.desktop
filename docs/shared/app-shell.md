@@ -13,7 +13,7 @@ src/
     router.svelte.ts       # hash router: '/', '/:sessionId'
   lib/hermes/gateway/    # HermesGateway and Tauri socket transport
   lib/hermes/sessions/   # route resume and session ViewModel exports
-  lib/stores/            # transitional app state re-exports
+  lib/layout/            # layout helpers and layout.svelte state
     layout.svelte.ts     # sidebar open + pins (localStorage)
 ```
 

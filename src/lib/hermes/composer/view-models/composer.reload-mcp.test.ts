@@ -48,11 +48,11 @@ vi.mock('$lib/hermes/dashboard', () => ({
   getProfiles: mockGetProfiles
 }))
 
-vi.mock('$lib/stores/gateway.svelte', () => ({
+vi.mock('$lib/hermes/gateway', () => ({
   requestGateway: mockRequestGateway
 }))
 
-vi.mock('$lib/stores/messages.svelte', () => ({
+vi.mock('$lib/hermes/threads', () => ({
   appendAssistantErrorMessage: mockAppendAssistantErrorMessage,
   appendSystemMessage: mockAppendSystemMessage,
   appendUserMessage: vi.fn(),
@@ -66,7 +66,7 @@ vi.mock('$lib/hermes/profiles', () => ({
   profileState: mockProfileState
 }))
 
-vi.mock('$lib/stores/session.svelte', () => ({
+vi.mock('$lib/hermes/sessions', () => ({
   createSession: mockCreateSession,
   displaySessionIdFor: (id: string) => id,
   loadSessions: mockLoadSessions,

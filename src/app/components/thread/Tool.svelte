@@ -3,7 +3,7 @@
   import Loader from '@/app/components/ui/Loader.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import type { ThreadTool, ThreadToolStatus } from '$lib/stores/messages.svelte'
+  import type { ThreadTool, ThreadToolStatus } from '$lib/hermes/threads'
 
   interface Props {
     tool: ThreadTool

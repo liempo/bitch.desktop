@@ -35,10 +35,9 @@ src/lib/hermes/
   prompts/
 ```
 
-New callers should import from `$lib/hermes/...` public entrypoints. Transitional
-compatibility exports remain under older `$lib/api`, `$lib/files`, `$lib/gateway`,
-`$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and selected
-`$lib/stores/*` paths while migration completes.
+Callers should import from `$lib/hermes/...` public entrypoints. Legacy
+top-level Hermes compatibility folders and `$lib/stores/*` shims were removed
+after call sites migrated; do not recreate them for new work.
 
 ## Feature docs
 

@@ -31,7 +31,7 @@ remote dashboard's HTTP API without ever holding `HERMES_DASHBOARD_SESSION_TOKEN
   [hermes.ts](https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/src/hermes.ts):
   `listSessions`, `searchSessions`, `getSessionMessages`, `renameSession`,
   `setSessionArchived`, `deleteSession`, `getGlobalModelInfo`,
-  `getModelOptions`. Legacy `$lib/api/dashboard` re-exports this Hermes-lane adapter during migration.
+  `getModelOptions`. `$lib/hermes/dashboard` is the public Hermes-lane facade for these helpers.
 
 ## Upstream files
 

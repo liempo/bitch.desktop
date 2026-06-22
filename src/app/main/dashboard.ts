@@ -1,5 +1,5 @@
 import { agentRoute, assetsRoute, calendarRoute, cronRoute, kanbanRoute } from '../router.svelte'
-import type { ConnectionState } from '$lib/stores/gateway.svelte'
+import type { ConnectionState } from '$lib/hermes/gateway'
 import type { SessionInfo } from '$lib/types/hermes'
 
 type DashboardUtilityId = 'agent' | 'assets' | 'calendar' | 'cron' | 'kanban'

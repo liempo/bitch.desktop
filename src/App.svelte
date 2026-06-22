@@ -3,8 +3,8 @@
   import AppShell from './app/AppShell.svelte'
   import { openExternalUrl } from '$lib/platform'
   import { installCustomScrollbars } from '$lib/ui/custom-scrollbars'
-  import { connectGateway, disconnectGateway } from '$lib/stores/gateway.svelte'
-  import { startMessageStream, stopMessageStream } from '$lib/stores/messages.svelte'
+  import { connectGateway, disconnectGateway } from '$lib/hermes/gateway'
+  import { startMessageStream, stopMessageStream } from '$lib/hermes/threads'
   import { refreshActiveProfile } from '$lib/hermes/profiles'
 
   onMount(() => {

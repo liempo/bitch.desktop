@@ -35,14 +35,14 @@
     subscribeQueuedPrompts,
     type QueuedPromptEntry
   } from '$lib/hermes/composer'
-  import { threadForSession } from '$lib/stores/messages.svelte'
+  import { threadForSession } from '$lib/hermes/threads'
   import {
     normalizeProfileKey,
     profileState,
     selectNewSessionProfile,
     sortByProfileOrder
   } from '$lib/hermes/profiles'
-  import { sessionState } from '$lib/stores/session.svelte'
+  import { sessionState } from '$lib/hermes/sessions'
   import Button from '@/app/components/ui/Button.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'

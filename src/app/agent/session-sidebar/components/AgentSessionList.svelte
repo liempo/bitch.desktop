@@ -1,7 +1,7 @@
 <script lang="ts">
   import AgentSessionRow from './AgentSessionRow.svelte'
   import { shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
-  import { isSessionMutating, sessionNeedsInput, sessionState } from '$lib/stores/session.svelte'
+  import { isSessionMutating, sessionNeedsInput, sessionState } from '$lib/hermes/sessions'
   import type { SessionInfo } from '$lib/types/hermes'
 
   interface Props {

@@ -97,7 +97,7 @@ parts in `Message.svelte` are keyed on `tool.id:tool.status`.
 
 ## Store and Hermes thread domain
 
-The transitional message ViewModel remains at [`src/lib/stores/messages.svelte.ts`](../../src/lib/stores/messages.svelte.ts). Hermes-owned thread domain helpers live under [`src/lib/hermes/threads`](../../src/lib/hermes/threads/index.ts), including message normalization, previews, canvas extraction, and media attachments.
+The message ViewModel lives at [`src/lib/hermes/threads/view-models/messages.svelte.ts`](../../src/lib/hermes/threads/view-models/messages.svelte.ts). Hermes-owned thread domain helpers live under [`src/lib/hermes/threads`](../../src/lib/hermes/threads/index.ts), including message normalization, previews, canvas extraction, and media attachments.
 
 ## UI
 
@@ -133,7 +133,7 @@ inline.
 
 ## Tests
 
-Coverage in [`messages.svelte.test.ts`](../../src/lib/stores/messages.svelte.test.ts) and Hermes thread-domain tests:
+Coverage in [`messages.svelte.test.ts`](../../src/lib/hermes/threads/view-models/messages.svelte.test.ts) and Hermes thread-domain tests:
 
 - Live streaming builds ordered `parts` (`reasoning` → `tool` → `text`).
 - Rehydration merges stored tool messages into the preceding assistant.

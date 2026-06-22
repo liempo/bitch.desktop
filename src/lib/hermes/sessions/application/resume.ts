@@ -5,7 +5,7 @@ import {
   setThreadLoading,
   shouldPreserveLiveThread,
   syncRunningFromResume
-} from '$lib/stores/messages.svelte'
+} from '$lib/hermes/threads'
 import {
   beginResumeSession,
   isCurrentResumeRequest,
@@ -13,7 +13,7 @@ import {
   profileForSession,
   resumeSession,
   sessionState
-} from '$lib/stores/session.svelte'
+} from '$lib/hermes/sessions'
 import type { SessionMessage } from '$lib/types/hermes'
 
 function isStoredSessionNotFound(error: unknown): boolean {

@@ -64,12 +64,12 @@ Use this sequence when moving or adding a feature:
 2. Write or update a source-contract test that describes the boundary.
 3. Move internals into `domain`, `application`, `ports`, `adapters`, or
    `view-models` as appropriate.
-4. Preserve old imports as re-export shims if existing consumers depend on them.
-5. Migrate app and feature callers to the public entrypoint.
+4. Migrate app and feature callers to the public entrypoint in the same PR when practical.
+5. If a temporary re-export shim is unavoidable, document its removal condition and keep it narrow.
 6. Update `ARCHITECTURE.md`, the relevant doc under `docs/`, and `AGENTS.md` if
    the rule should guide future workers.
 7. Run focused tests plus the standard validation stack.
-8. Remove transitional shims only after source search proves they are unused.
+8. Remove temporary shims after source search proves they are unused.
 
 ## Future lane template
 

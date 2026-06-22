@@ -7,10 +7,10 @@
   import { cardClass } from '@/app/components/ui/styles'
   import { agentRoute } from '../router.svelte'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
-  import { gatewayState } from '$lib/stores/gateway.svelte'
-  import { threadForSession } from '$lib/stores/messages.svelte'
+  import { gatewayState } from '$lib/hermes/gateway'
+  import { threadForSession } from '$lib/hermes/threads'
   import { profileState } from '$lib/hermes/profiles'
-  import { sessionState, startNewSession } from '$lib/stores/session.svelte'
+  import { sessionState, startNewSession } from '$lib/hermes/sessions'
   import type { SessionInfo } from '$lib/types/hermes'
 
   interface Props {

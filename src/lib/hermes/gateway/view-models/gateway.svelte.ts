@@ -1,9 +1,7 @@
-import { HermesGateway } from '$lib/hermes/gateway'
-import type { GatewayEvent } from '$lib/hermes/gateway'
-import { consumeLastTauriGatewaySocketError } from '$lib/hermes/gateway'
+import { HermesGateway } from '../hermes'
+import type { ConnectionState, GatewayEvent } from '../json-rpc-gateway'
+import { consumeLastTauriGatewaySocketError } from '../tauri-gateway-socket'
 import { invokeTauriCommand } from '$lib/platform'
-
-export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
 interface ResolvedConnection {
   authMode?: string
