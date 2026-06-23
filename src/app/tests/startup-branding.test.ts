@@ -46,7 +46,7 @@ describe('startup branding shell', () => {
     expect(styleSource).toContain('@media (prefers-reduced-motion: reduce)')
     expect(appShellSource).toContain("import StartupSplash from './components/StartupSplash.svelte'")
     expect(appShellSource).toContain('<StartupSplash />')
-    expect(startupSplashSource).toContain("import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'")
+    expect(startupSplashSource).toContain("import('@/app/components/GlyphCanvas.svelte')")
     expect(SPLASH_MIN_DURATION_MS).toBe(2600)
     expect(SPLASH_REMOVE_AFTER_MS).toBe(3200)
     expect(startupSplashSource).toContain('STARTUP_SPLASH_COMPLETE_EVENT')

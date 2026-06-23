@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, type Component } from 'svelte'
 
-  import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'
   import { SPLASH_MIN_DURATION_MS, SPLASH_REMOVE_AFTER_MS, STARTUP_SPLASH_COMPLETE_EVENT } from '$lib/layout'
+
+  type GlyphCanvasModule = { default: Component<{ class?: string }> }
+
+  const glyphCanvasComponentPromise: Promise<GlyphCanvasModule> = import('@/app/components/GlyphCanvas.svelte')
 
   let visible = $state(true)
   let mounted = $state(true)
@@ -30,6 +33,11 @@
     aria-label="Loading BITCH"
     data-startup-splash="true"
   >
-    <GlyphCanvas class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-black" />
+    {#await glyphCanvasComponentPromise}
+      <div class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-black" aria-hidden="true"></div>
+    {:then module}
+      {@const GlyphCanvas = module.default}
+      <GlyphCanvas class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-black" />
+    {/await}
   </div>
 {/if}
