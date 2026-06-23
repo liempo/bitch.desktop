@@ -3,7 +3,7 @@ export type SourceFile = {
   source: string
 }
 
-export type ArchitectureBoundaryRule =
+type ArchitectureBoundaryRule =
   | 'app-deep-feature-import'
   | 'direct-tauri-core-import'
   | 'monitoring-to-hermes-import'

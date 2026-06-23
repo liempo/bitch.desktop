@@ -66,6 +66,9 @@
     ],
     "ignoreDependencies": [
       "@tauri-apps/cli"
+    ],
+    "ignoreBinaries": [
+      "sips"
     ]
   }
 }
