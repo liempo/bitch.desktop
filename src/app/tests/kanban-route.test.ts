@@ -10,9 +10,9 @@ describe('Kanban top-level route', () => {
   })
 
   it('mounts the Kanban page from the app shell', () => {
-    expect(appShellSource).toContain("import KanbanPage from './kanban/KanbanPage.svelte'")
-    expect(appShellSource).toContain("appRouterState.page === 'kanban'")
-    expect(appShellSource).toContain('<KanbanPage />')
+    expect(appShellSource).toContain("kanban: () => import('./kanban/KanbanPage.svelte')")
+    expect(appShellSource).toContain('loadPageComponent(appRouterState.page)')
+    expect(appShellSource).toContain('<PageComponent />')
   })
 
   it('adds KANBAN to the primary nav without losing CMD session routing', () => {
