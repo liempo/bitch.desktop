@@ -14,17 +14,19 @@
     monitoringConfig,
     type MonitoringMetrics
   } from '$lib/monitoring'
-  import MainGlyphPanel from './MainGlyphPanel.svelte'
-  import MainAgentPanel from './MainAgentPanel.svelte'
-  import MainContainersPanel from './MainContainersPanel.svelte'
-  import { agentRoute, cronRoute, kanbanRoute } from '../router.svelte'
+  import MainAgentPanel from './panels/MainAgentPanel.svelte'
+  import MainContainersPanel from './panels/MainContainersPanel.svelte'
+  import MainCronPanel from './panels/MainCronPanel.svelte'
+  import MainGlyphPanel from './panels/MainGlyphPanel.svelte'
+  import MainKanbanPanel from './panels/MainKanbanPanel.svelte'
+  import { agentRoute } from '../router.svelte'
   import { recentDashboardSessions } from './dashboard'
 
   type ThermalZone = MonitoringMetrics['thermal'][number]
 
   const dashboardPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong md:h-full'
+  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong'
   const dashboardPanelTitleClass = 'text-ink-muted'
-  const raisedPanelClass = 'min-h-0 !border-line !bg-surface-raised'
   const placeholderPanels = [
     {
       description: 'Calendar feed will land here once the dashboard endpoint exists.',
@@ -32,11 +34,6 @@
       title: 'CALENDAR',
       toneClass: 'text-primary'
     }
-  ] as const
-  const kanbanStats = [
-    { label: 'Board', toneClass: 'text-primary', value: 'homelab' },
-    { label: 'Cards', toneClass: 'text-secondary', value: '--' },
-    { label: 'Blocked', toneClass: 'text-warning', value: '--' }
   ] as const
 
   let lastLoadedScope: null | string = null
@@ -49,9 +46,18 @@
   const connectionState = $derived(gatewayState.connectionState)
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
   const miniSessionFallbackId = $derived(recentSessions[0]?.id ?? null)
-  const agentHref = $derived(`#${agentRoute(miniSessionFallbackId)}`)
-  const cronHref = $derived(`#${cronRoute()}`)
-  const kanbanHref = $derived(`#${kanbanRoute()}`)
+  const newAgentHref = `#${agentRoute()}`
+  const mobileAgentSession = $derived(recentSessions[0] ?? null)
+  const mobileAgentSessionTitle = $derived(compactSessionText(mobileAgentSession?.title) || 'Start a new session')
+  const mobileAgentStatusLabel = $derived(
+    connectionState === 'open' ? 'online' : connectionState === 'connecting' ? 'syncing' : 'offline'
+  )
+  const mobileAgentStatusClass = $derived(
+    connectionState === 'open' ? 'text-success' : connectionState === 'connecting' ? 'text-warning' : 'text-danger'
+  )
+  const mobileAgentSessionCountLabel = $derived(
+    `${sessionState.sessions.length} ${sessionState.sessions.length === 1 ? 'session' : 'sessions'}`
+  )
   const cpuThermal = $derived(findThermalZone(/cpu|package|pkg|core|tctl|tdie/i) ?? monitoringMetrics.thermal[0] ?? null)
   const monitoringSystemStats = $derived([
     {
@@ -95,9 +101,9 @@
   onMount(() => {
     void refreshActiveProfile()
     void refreshMonitoring()
-    const timer = window.setInterval(() => void refreshMonitoring(), 2500)
+    const monitoringTimer = window.setInterval(() => void refreshMonitoring(), 2500)
 
-    return () => window.clearInterval(timer)
+    return () => window.clearInterval(monitoringTimer)
   })
 
   $effect(() => {
@@ -130,6 +136,9 @@
     return `width: ${Math.max(0, Math.min(100, percent))}%`
   }
 
+  function compactSessionText(value: null | string | undefined): string {
+    return value?.replace(/\s+/g, ' ').trim() ?? ''
+  }
 
   function findThermalZone(pattern: RegExp): ThermalZone | null {
     return monitoringMetrics.thermal.find(zone => pattern.test(zone.label)) ?? null
@@ -141,8 +150,8 @@
 </script>
 
 <section class="h-full min-h-0 overflow-y-auto bg-canvas p-3 font-mono text-[11px] text-ink md:overflow-hidden" aria-label="Main dashboard">
-  <div class="grid min-h-full grid-cols-1 gap-3 md:h-full md:min-h-0 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]">
-    <section class="grid gap-3 md:min-h-0 md:grid-rows-[minmax(0,0.85fr)_minmax(0,0.72fr)_minmax(0,0.55fr)]">
+  <div class="grid min-h-full min-w-0 grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]">
+    <section class="contents min-w-0 md:grid md:min-h-0 md:gap-4 md:grid-rows-[minmax(0,0.85fr)_auto_minmax(0,1fr)]">
       <MainGlyphPanel
         class={`${dashboardPanelClass} min-h-56 md:min-h-0`}
         titleClass={dashboardPanelTitleClass}
@@ -151,9 +160,11 @@
       />
 
       <Panel
+        fullHeight={false}
         title="MONITORING"
-        class={dashboardPanelClass}
-        contentClass="flex h-full min-h-0 flex-col gap-3"
+        padded={false}
+        class={`${dashboardAutoPanelClass} order-5 md:order-0`}
+        contentClass="flex min-h-0 flex-col gap-2.5 p-3 pt-4"
         titleClass={dashboardPanelTitleClass}
       >
         <section aria-label="System information">
@@ -191,37 +202,74 @@
       </Panel>
 
       <MainContainersPanel
-        class={dashboardPanelClass}
+        class={`${dashboardPanelClass} order-6 md:order-0`}
         titleClass={dashboardPanelTitleClass}
         metrics={monitoringMetrics}
         error={monitoringError}
       />
     </section>
 
-    <div class="hidden h-full min-h-0 md:block">
+    <div class="hidden h-full min-h-0 min-w-0 md:block">
       <MainAgentPanel fallbackSessionId={miniSessionFallbackId} />
     </div>
 
-    <section class="grid gap-3 md:min-h-0 md:grid-rows-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
+    <section class="contents min-w-0 md:grid md:min-h-0 md:gap-4 md:grid-rows-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
       <Panel
         fullHeight={false}
         title="AGENT"
-        badge="link"
-        class={`${dashboardPanelClass} md:hidden`}
-        contentClass="grid gap-3 p-3"
+        class={`${dashboardPanelClass} order-2 md:hidden md:order-0`}
+        contentClass="grid gap-4 p-3 pt-4"
         titleClass={dashboardPanelTitleClass}
       >
-        <div class="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-primary">Agent workspace moved to AGENT</div>
-        <div class="text-[0.68rem] leading-4 text-ink-muted">
-          Main stays telemetry-first on mobile. Open the AGENT tab for the live conversation and composer.
+        <div class="grid grid-cols-2 gap-2 uppercase tracking-[0.12em]">
+          <div class="border border-line bg-surface-raised px-2 py-1.5">
+            <div class="text-[0.58rem] text-ink-muted">Gateway</div>
+            <div class={`mt-1 text-[0.68rem] font-bold ${mobileAgentStatusClass}`}>{mobileAgentStatusLabel}</div>
+          </div>
+          <div class="border border-line bg-surface-raised px-2 py-1.5">
+            <div class="text-[0.58rem] text-ink-muted">Index</div>
+            <div class="mt-1 truncate text-[0.68rem] font-bold text-ink-bright">{mobileAgentSessionCountLabel}</div>
+          </div>
         </div>
+
+        {#if mobileAgentSession}
+          <a
+            class="block min-w-0 border border-line bg-surface-raised/60 p-3 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            href={mobileAgentSession.href}
+            aria-label={`Open AGENT session ${mobileAgentSessionTitle}`}
+          >
+            <div class="text-[0.58rem] uppercase tracking-[0.14em] text-ink-muted">Last session</div>
+            <div class="mt-1 truncate text-[0.76rem] font-bold uppercase tracking-widest text-primary" title={mobileAgentSessionTitle}>
+              {mobileAgentSessionTitle}
+            </div>
+            <div class="mt-2 flex items-center justify-between gap-3 text-[0.66rem] leading-4 text-ink-muted">
+              <span class="min-w-0 truncate">Resume thread and composer</span>
+              <span class="shrink-0 text-primary" aria-hidden="true">→</span>
+            </div>
+          </a>
+        {:else}
+          <div class="min-w-0 border border-line bg-surface-raised/60 p-3">
+            <div class="text-[0.58rem] uppercase tracking-[0.14em] text-ink-muted">No active session</div>
+            <div class="mt-1 truncate text-[0.76rem] font-bold uppercase tracking-widest text-primary" title={mobileAgentSessionTitle}>
+              {mobileAgentSessionTitle}
+            </div>
+            <div class="mt-2 text-[0.66rem] leading-4 text-ink-muted">
+              Main stays telemetry-first at this size. Jump into AGENT for the live thread, composer, and session controls.
+            </div>
+          </div>
+        {/if}
+
         <a
-          class="inline-flex w-fit items-center gap-2 rounded-control border border-primary/40 bg-primary/10 px-3 py-2 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-primary transition-colors hover:border-primary hover:bg-primary/15 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
-          href={agentHref}
-          aria-label="Open AGENT tab"
+          class="block min-w-0 border border-line bg-surface-raised/60 p-3 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+          href={newAgentHref}
+          aria-label="Start a new AGENT session"
         >
-          Open AGENT
-          <span aria-hidden="true">→</span>
+          <div class="text-[0.58rem] uppercase tracking-[0.14em] text-ink-muted">New session</div>
+          <div class="mt-1 truncate text-[0.76rem] font-bold uppercase tracking-widest text-primary">Start blank thread</div>
+          <div class="mt-2 flex items-center justify-between gap-3 text-[0.66rem] leading-4 text-ink-muted">
+            <span class="min-w-0 truncate">Open composer in AGENT</span>
+            <span class="shrink-0 text-primary" aria-hidden="true">→</span>
+          </div>
         </a>
       </Panel>
       {#each placeholderPanels as placeholder (placeholder.title)}
@@ -229,7 +277,7 @@
           fullHeight={false}
           title={placeholder.title}
           badge="placeholder"
-          class={dashboardPanelClass}
+          class={`${dashboardPanelClass} hidden md:flex`}
           contentClass="grid h-full content-center gap-2"
           titleClass={dashboardPanelTitleClass}
         >
@@ -240,55 +288,9 @@
         </Panel>
       {/each}
 
-      <Panel
-        fullHeight={false}
-        title="CRON"
-        badge="ready"
-        class={dashboardPanelClass}
-        contentClass="grid h-full content-center gap-2"
-        titleClass={dashboardPanelTitleClass}
-      >
-        <div class="text-[0.78rem] font-bold uppercase tracking-[0.14em] text-secondary">Scheduler surface online</div>
-        <div class="text-[0.68rem] leading-4 text-ink-muted">
-          Cron route manages Hermes jobs through the authenticated dashboard cron API. No local scheduler shim, no fake controls.
-        </div>
-        <a
-          class="w-fit rounded-control border border-secondary/40 px-2 py-1 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-secondary hover:border-secondary/70 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus"
-          href={cronHref}
-          aria-label="Open Cron Job Manager"
-        >
-          Open Cron
-        </a>
-      </Panel>
+      <MainCronPanel class={`${dashboardPanelClass} order-4 md:order-0`} titleClass={dashboardPanelTitleClass} />
 
-      <Panel
-        fullHeight={false}
-        title="KANBAN"
-        badge="ready"
-        class={dashboardPanelClass}
-        contentClass="grid h-full content-center gap-2"
-        titleClass={dashboardPanelTitleClass}
-      >
-        <div class="grid grid-cols-3 gap-2 text-center uppercase tracking-[0.12em]">
-          {#each kanbanStats as stat (stat.label)}
-            <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-              <div class="text-[0.65rem] text-ink-muted">{stat.label}</div>
-              <div class={`mt-1 ${stat.toneClass}`}>{stat.value}</div>
-            </Panel>
-          {/each}
-        </div>
-        <div class="flex flex-wrap items-center gap-2 text-[0.68rem] leading-4 text-ink-muted">
-          <span>Kanban route is wired through the authenticated dashboard plugin API.</span>
-          <a
-            class="rounded-control border border-primary/40 px-2 py-1 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary hover:border-primary/70 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus"
-            href={kanbanHref}
-            aria-label="Open Kanban board"
-          >
-            Open Kanban
-          </a>
-        </div>
-      </Panel>
-
+      <MainKanbanPanel class={`${dashboardPanelClass} order-3 md:order-0`} titleClass={dashboardPanelTitleClass} />
     </section>
   </div>
 </section>

@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest'
 
 import composerSource from '../../components/composer/Composer.svelte?raw'
 import dashboardSource from '../../main/dashboard.ts?raw'
-import mainAgentPanelSource from '../../main/MainAgentPanel.svelte?raw'
-import mainContainersPanelSource from '../../main/MainContainersPanel.svelte?raw'
 import mainPageSource from '../../main/MainPage.svelte?raw'
+import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
+import mainContainersPanelSource from '../../main/panels/MainContainersPanel.svelte?raw'
+import mainCronPanelSource from '../../main/panels/MainCronPanel.svelte?raw'
+import mainKanbanPanelSource from '../../main/panels/MainKanbanPanel.svelte?raw'
+import buttonSource from '../../components/ui/Button.svelte?raw'
 import glyphSource from '../../components/Glyph.svelte?raw'
-import mainGlyphPanelSource from '../../main/MainGlyphPanel.svelte?raw'
+import mainGlyphPanelSource from '../../main/panels/MainGlyphPanel.svelte?raw'
 import monitoringAdapterSource from '$lib/monitoring/adapters/beszel-monitoring-adapter.ts?raw'
 import monitoringMetricsApplicationSource from '$lib/monitoring/application/get-monitoring-metrics.ts?raw'
 
 describe('Main dashboard source contract', () => {
-  it('renders monitoring, containers, desktop AGENT panel, and mobile AGENT link without dashboard header/footer chrome', () => {
+  it('renders monitoring, containers, desktop AGENT panel, and compact mobile AGENT cards without dashboard header/footer chrome', () => {
     expect(mainPageSource).toContain('recentDashboardSessions')
     expect(mainPageSource).toContain('fetchMonitoringMetrics')
     expect(mainPageSource).toContain('monitoringConfig')
@@ -28,15 +31,17 @@ describe('Main dashboard source contract', () => {
     expect(mainContainersPanelSource).toContain('{containerCount} containers')
     expect(mainContainersPanelSource).toContain('Container')
     expect(mainPageSource).toContain('dashboardPanelClass')
-    expect(mainPageSource).toContain('raisedPanelClass')
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain('raisedPanelClass')
     expect(mainPageSource).toContain('{#each monitoringSystemStats as stat')
     expect(mainPageSource).toContain('{#each monitoringUsageRows as row')
     expect(mainPageSource).not.toContain('remoteTemperatureRows')
     expect(mainPageSource).not.toContain('REMOTE TEMP')
     expect(mainPageSource).not.toContain('No remote thermal sensors reported.')
     expect(mainPageSource).toContain('{#each placeholderPanels as placeholder')
-    expect(mainPageSource).toContain('{#each kanbanStats as stat')
-    expect(mainPageSource).toContain('<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}')
+    expect(mainKanbanPanelSource).toContain('{#each kanbanStats as stat')
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain(
+      '<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}'
+    )
     expect(mainPageSource).not.toContain('border border-line bg-surface-raised p-2')
     expect(mainContainersPanelSource).toContain(
       "let containerSortDirection = $state<MonitoringContainerSortDirection>('desc')"
@@ -55,7 +60,7 @@ describe('Main dashboard source contract', () => {
     expect(mainContainersPanelSource).not.toContain("onclick={() => (containerSortKey = 'memory')}")
     expect(mainPageSource).toContain('grid-cols-1')
     expect(mainPageSource).toContain('md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]')
-    expect(mainPageSource).toContain('md:grid-rows-[minmax(0,0.85fr)_minmax(0,0.72fr)_minmax(0,0.55fr)]')
+    expect(mainPageSource).toContain('md:grid-rows-[minmax(0,0.85fr)_auto_minmax(0,1fr)]')
     expect(mainPageSource).toContain('MainGlyphPanel')
     expect(mainPageSource).toContain('min-h-56 md:min-h-0')
     expect(mainGlyphPanelSource).toContain('title="GLYPH"')
@@ -66,9 +71,9 @@ describe('Main dashboard source contract', () => {
       /MainGlyphPanel[\s\S]*title="MONITORING"[\s\S]*MainContainersPanel[\s\S]*MainAgentPanel/
     )
     expect(mainAgentPanelSource).toContain('title="AGENT"')
-    expect(mainPageSource).toContain('class="hidden h-full min-h-0 md:block"')
-    expect(mainPageSource).toContain('class={`${dashboardPanelClass} md:hidden`}')
-    expect(mainPageSource).toContain('badge="link"')
+    expect(mainPageSource).toContain('class="hidden h-full min-h-0 min-w-0 md:block"')
+    expect(mainPageSource).toContain('class={`${dashboardPanelClass} order-2 md:hidden md:order-0`}')
+    expect(mainPageSource).not.toContain('badge="link"')
     expect(mainContainersPanelSource).toContain('aria-label="Containers"')
     expect(mainPageSource).not.toContain('grid-rows-[minmax(0,0.72fr)_minmax(0,1.28fr)]')
     expect(mainPageSource).not.toContain('PROCESS_LIST')
@@ -147,22 +152,26 @@ describe('Main dashboard source contract', () => {
     )
   })
 
-  it('keeps the embedded AGENT conversation/composer on desktop while mobile uses an AGENT link', () => {
-    expect(mainPageSource).toContain("import { agentRoute, cronRoute, kanbanRoute } from '../router.svelte'")
-    expect(mainPageSource).toContain("import MainAgentPanel from './MainAgentPanel.svelte'")
-    expect(mainPageSource).toContain('const agentHref')
+  it('keeps the embedded AGENT conversation/composer on desktop while mobile uses compact AGENT cards', () => {
+    expect(mainPageSource).toContain("import { agentRoute } from '../router.svelte'")
+    expect(mainPageSource).toContain("import MainAgentPanel from './panels/MainAgentPanel.svelte'")
+    expect(mainPageSource).toContain('const newAgentHref')
+    expect(mainPageSource).toContain('mobileAgentSession')
     expect(mainPageSource).toContain('<MainAgentPanel fallbackSessionId={miniSessionFallbackId} />')
-    expect(mainPageSource).toContain('class="hidden h-full min-h-0 md:block"')
-    expect(mainPageSource).toContain('class={`${dashboardPanelClass} md:hidden`}')
-    expect(mainPageSource).toContain('href={agentHref}')
-    expect(mainPageSource).toContain('aria-label="Open AGENT tab"')
-    expect(mainPageSource).toContain('Open AGENT')
-    expect(mainPageSource).toContain('Main stays telemetry-first on mobile')
-    expect(mainAgentPanelSource).toContain("import Composer from '../components/composer/Composer.svelte'")
-    expect(mainAgentPanelSource).toContain("import Conversation from '../components/conversation/Conversation.svelte'")
+    expect(mainPageSource).toContain('class="hidden h-full min-h-0 min-w-0 md:block"')
+    expect(mainPageSource).toContain('class={`${dashboardPanelClass} order-2 md:hidden md:order-0`}')
+    expect(mainPageSource).toContain('href={mobileAgentSession.href}')
+    expect(mainPageSource).toContain('href={newAgentHref}')
+    expect(mainPageSource).toContain('aria-label="Start a new AGENT session"')
+    expect(mainPageSource).toContain('New session')
+    expect(mainPageSource).toContain('Last session')
+    expect(mainAgentPanelSource).toContain("import Composer from '../../components/composer/Composer.svelte'")
+    expect(mainAgentPanelSource).toContain(
+      "import Conversation from '../../components/conversation/Conversation.svelte'"
+    )
     expect(mainAgentPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
     expect(mainAgentPanelSource).toContain("import Dialog from '@/app/components/ui/Dialog.svelte'")
-    expect(mainAgentPanelSource).toContain("import { agentRoute } from '../router.svelte'")
+    expect(mainAgentPanelSource).toContain("import { agentRoute } from '../../router.svelte'")
     expect(mainAgentPanelSource).toContain('resumeAndHydrateStoredSession')
     expect(mainAgentPanelSource).toContain("type MiniSessionMode = 'active' | 'new'")
     expect(mainAgentPanelSource).toContain('title="AGENT"')
@@ -180,16 +189,70 @@ describe('Main dashboard source contract', () => {
 
   it('renders Calendar placeholder plus wired Cron and Kanban dashboard panels', () => {
     expect(mainPageSource).toContain('CALENDAR')
-    expect(mainPageSource).toContain('CRON')
-    expect(mainPageSource).toContain('KANBAN')
+    expect(mainCronPanelSource).toContain('title="CRON"')
+    expect(mainKanbanPanelSource).toContain('title="KANBAN"')
     expect(mainPageSource).not.toContain('KANBAN_SUMMARY')
     expect(mainPageSource).toContain('placeholder')
-    expect(mainPageSource).toContain('const cronHref')
-    expect(mainPageSource).toContain('href={cronHref}')
-    expect(mainPageSource).toContain('Open Cron')
-    expect(mainPageSource).toContain('badge="ready"')
-    expect(mainPageSource).toContain('href={kanbanHref}')
-    expect(mainPageSource).toContain('Open Kanban')
+    expect(mainPageSource).toContain("import MainAgentPanel from './panels/MainAgentPanel.svelte'")
+    expect(mainPageSource).toContain("import MainContainersPanel from './panels/MainContainersPanel.svelte'")
+    expect(mainPageSource).toContain("import MainCronPanel from './panels/MainCronPanel.svelte'")
+    expect(mainPageSource).toContain("import MainGlyphPanel from './panels/MainGlyphPanel.svelte'")
+    expect(mainPageSource).toContain("import MainKanbanPanel from './panels/MainKanbanPanel.svelte'")
+    expect(mainPageSource).toContain(
+      '<MainCronPanel class={`${dashboardPanelClass} order-4 md:order-0`} titleClass={dashboardPanelTitleClass} />'
+    )
+    expect(mainPageSource).toContain(
+      '<MainKanbanPanel class={`${dashboardPanelClass} order-3 md:order-0`} titleClass={dashboardPanelTitleClass} />'
+    )
+    expect(mainCronPanelSource).toContain("import { cronRoute } from '../../router.svelte'")
+    expect(mainKanbanPanelSource).toContain("import { kanbanRoute } from '../../router.svelte'")
+    expect(mainCronPanelSource).toContain('const cronHref')
+    expect(mainCronPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
+    expect(mainKanbanPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
+    expect(buttonSource).toContain('{#if href}')
+    expect(buttonSource).toContain('<a {href} class={classes} {...anchorRest}>')
+    expect(mainCronPanelSource).toContain('getCronJobs')
+    expect(mainCronPanelSource).toContain('refreshCronJobs')
+    expect(mainCronPanelSource).toContain('cronFocusJobs')
+    expect(mainCronPanelSource).toContain('Run queue')
+    expect(mainCronPanelSource).toContain("{ label: 'Jobs'")
+    expect(mainCronPanelSource).toContain("{ label: 'Paused'")
+    expect(mainCronPanelSource).toContain("{ label: 'Alerts'")
+    expect(mainCronPanelSource).toContain('href={cronHref}')
+    expect(mainCronPanelSource).toContain('<Button size="sm" chrome="ghost" variant="secondary" href={cronHref}')
+    expect(mainCronPanelSource).toContain('Open Cron')
+    expect(mainCronPanelSource).not.toContain('Scheduler surface online')
+    expect(mainCronPanelSource).not.toContain(
+      'Cron route manages Hermes jobs through the authenticated dashboard cron API'
+    )
+    expect(mainCronPanelSource).not.toMatch(/title="CRON"[\s\S]{0,120}badge="ready"/)
+    expect(mainKanbanPanelSource).not.toMatch(/title="KANBAN"[\s\S]{0,120}badge="ready"/)
+    expect(mainKanbanPanelSource).toContain('href={kanbanHref}')
+    expect(mainKanbanPanelSource).toContain('<Button size="sm" chrome="ghost" variant="primary" href={kanbanHref}')
+    expect(mainKanbanPanelSource).toContain('Open Kanban')
+    expect(mainKanbanPanelSource).toContain("import { Popover } from 'bits-ui'")
+    expect(mainKanbanPanelSource).toContain('getKanbanBoard')
+    expect(mainKanbanPanelSource).toContain('listKanbanBoards')
+    expect(mainKanbanPanelSource).toContain('kanbanCurrentBoardLabel')
+    expect(mainKanbanPanelSource).toContain('BOARD::{kanbanCurrentBoardLabel}')
+    expect(mainKanbanPanelSource).toContain(
+      '<Button {...props} size="sm" chrome="ghost" variant="primary">BOARD::{kanbanCurrentBoardLabel}</Button>'
+    )
+    expect(mainKanbanPanelSource).toContain('available boards')
+    expect(mainKanbanPanelSource).toContain('selectKanbanBoard')
+    expect(mainKanbanPanelSource).toContain('onclick={() => void selectKanbanBoard(board)}')
+    expect(mainKanbanPanelSource).toContain("variant={board.slug === kanbanCurrentBoardSlug ? 'primary' : 'default'}")
+    expect(mainKanbanPanelSource).toContain('resolveKanbanBoardSlug')
+    expect(mainKanbanPanelSource).toContain('Focus queue')
+    expect(mainKanbanPanelSource).toContain('kanbanFocusTasks')
+    expect(mainKanbanPanelSource).toContain("{ label: 'Active'")
+    expect(mainKanbanPanelSource).toContain("{ label: 'Running'")
+    expect(mainKanbanPanelSource).toContain("{ label: 'Ready'")
+    expect(mainKanbanPanelSource).toContain("{ label: 'Blocked'")
+    expect(mainKanbanPanelSource).not.toContain("{ label: 'Board'")
+    expect(mainKanbanPanelSource).not.toContain('kanbanBoardTriggerClass')
+    expect(mainKanbanPanelSource).not.toContain('kanbanBoardItemClass')
+    expect(mainKanbanPanelSource).not.toContain('Kanban route is wired through the authenticated dashboard plugin API.')
     expect(dashboardSource).toContain("id: 'calendar'")
     expect(dashboardSource).toContain('href: `#${calendarRoute()}`')
     expect(dashboardSource).toContain("id: 'cron'")

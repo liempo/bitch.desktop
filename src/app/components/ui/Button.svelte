@@ -6,7 +6,7 @@
 
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import type { HTMLButtonAttributes } from 'svelte/elements'
+  import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements'
 
   interface Props extends Omit<HTMLButtonAttributes, 'class' | 'children'> {
     chrome?: ButtonChrome
@@ -14,12 +14,15 @@
     size?: ButtonSize
     class?: string
     children: Snippet
+    href?: string
+    [key: string]: unknown
   }
 
   let {
     chrome = 'control',
     variant = 'default',
     size = 'md',
+    href,
     type = 'button',
     class: className = '',
     children,
@@ -73,8 +76,16 @@
           chrome === 'control' ? `${CONTROL_CHROME} ${BORDER_CLASSES[variant]}` : GHOST_CHROME
         } ${className}`
   )
+  const anchorRest = $derived(rest as HTMLAnchorAttributes)
+  const buttonRest = $derived(rest as HTMLButtonAttributes)
 </script>
 
-<button {type} class={classes} {...rest}>
-  {@render children()}
-</button>
+{#if href}
+  <a {href} class={classes} {...anchorRest}>
+    {@render children()}
+  </a>
+{:else}
+  <button {type} class={classes} {...buttonRest}>
+    {@render children()}
+  </button>
+{/if}

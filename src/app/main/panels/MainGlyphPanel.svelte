@@ -28,7 +28,7 @@
   })
 </script>
 
-<div bind:this={themeElement} class="h-full min-h-0">
+<div bind:this={themeElement} class="h-full min-h-0 min-w-0">
   <Panel title="GLYPH" padded={false} class={className} contentClass="relative h-full min-h-0 overflow-hidden p-0" {titleClass}>
     <div class="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] truncate text-[0.68rem] uppercase tracking-[0.16em] text-ink-muted" title={hostname}>
       // {hostname || 'UNKNOWN'}
