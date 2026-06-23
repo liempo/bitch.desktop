@@ -3,6 +3,9 @@ import {
   GLYPH_SCHEMA_VERSION,
   GLYPH_TARGET_SCENE_BOX,
   type GlyphArtifact,
+  type GlyphGenerationResult,
+  type GlyphListItem,
+  type GlyphListResult,
   type GlyphManifest,
   type GlyphSceneSpec,
   type RawGlyphArtifactResponse
@@ -27,7 +30,21 @@ function dataUrl(value: unknown): string | undefined {
   return /^data:image\/(?:avif|bmp|gif|jpeg|jpg|png|svg\+xml|webp);base64,/i.test(trimmed) ? trimmed : undefined
 }
 
-export function normalizeGlyphManifest(value: unknown, scene?: GlyphSceneSpec): GlyphManifest | null {
+function glyphId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return /^[a-z0-9][a-z0-9_.-]{0,95}$/i.test(trimmed) ? trimmed : undefined
+}
+
+function booleanValue(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+export function normalizeGlyphManifest(
+  value: unknown,
+  scene?: GlyphSceneSpec,
+  fallbackId?: string
+): GlyphManifest | null {
   const record = asRecord(value) ?? {}
   const schemaVersion = record.schemaVersion ?? record.schema_version ?? GLYPH_SCHEMA_VERSION
   const kind = stringValue(record.kind, 'bitch.glyph')
@@ -37,6 +54,7 @@ export function normalizeGlyphManifest(value: unknown, scene?: GlyphSceneSpec): 
   return {
     canonicalSizePx: numberValue(record.canonicalSizePx ?? record.canonical_size_px, GLYPH_CANONICAL_SIZE_PX),
     createdAt: stringValue(record.createdAt ?? record.created_at) || undefined,
+    id: glyphId(record.id ?? record.glyphId ?? record.glyph_id) ?? fallbackId,
     kind: 'bitch.glyph',
     name: stringValue(record.name, 'Personal glyph'),
     preview: stringValue(record.preview, 'preview.png'),
@@ -58,12 +76,13 @@ export function normalizeGlyphArtifact(value: unknown): GlyphArtifact | null {
   const scene = normalizeGlyphScene(sceneCandidate(record))
   if (!scene) return null
 
-  const manifest = normalizeGlyphManifest(record.manifest ?? record, scene)
+  const raw = record as RawGlyphArtifactResponse
+  const id = glyphId(raw.id ?? raw.glyphId ?? raw.glyph_id)
+  const manifest = normalizeGlyphManifest(record.manifest ?? record, scene, id)
   if (!manifest) return null
 
-  const raw = record as RawGlyphArtifactResponse
-
   return {
+    id: manifest.id ?? id,
     manifest,
     previewDataUrl: dataUrl(raw.previewDataUrl ?? raw.preview_data_url),
     scene
@@ -82,4 +101,41 @@ export function parseStoredGlyphArtifact(value: null | string): GlyphArtifact | 
 
 export function serializeGlyphArtifact(artifact: GlyphArtifact): string {
   return JSON.stringify(artifact)
+}
+
+export function normalizeGlyphGenerationResult(value: unknown): GlyphGenerationResult | null {
+  const record = asRecord(value)
+  if (!record) return null
+
+  const id = glyphId(record.id ?? record.glyphId ?? record.glyph_id)
+  return id ? { id } : null
+}
+
+export function normalizeGlyphListItem(value: unknown): GlyphListItem | null {
+  const record = asRecord(value)
+  if (!record) return null
+
+  const id = glyphId(record.id ?? record.glyphId ?? record.glyph_id)
+  if (!id) return null
+
+  const manifest = normalizeGlyphManifest(record.manifest ?? record, undefined, id) ?? undefined
+
+  return {
+    createdAt: stringValue(record.createdAt ?? record.created_at ?? manifest?.createdAt) || undefined,
+    hasPreview: booleanValue(record.hasPreview ?? record.has_preview),
+    id,
+    manifest,
+    name: stringValue(record.name ?? manifest?.name, manifest?.name ?? id),
+    prompt: stringValue(record.prompt ?? manifest?.prompt) || undefined
+  }
+}
+
+export function normalizeGlyphListResult(value: unknown): GlyphListResult {
+  const record = asRecord(value) ?? {}
+  const rawItems = Array.isArray(record.glyphs) ? record.glyphs : Array.isArray(record.items) ? record.items : []
+
+  return {
+    currentId: glyphId(record.currentId ?? record.current_id),
+    glyphs: rawItems.map(normalizeGlyphListItem).filter((item): item is GlyphListItem => Boolean(item))
+  }
 }

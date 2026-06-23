@@ -56,6 +56,7 @@ export interface GlyphSceneSpec {
 export interface GlyphManifest {
   canonicalSizePx?: number
   createdAt?: string
+  id?: string
   kind: 'bitch.glyph'
   name: string
   prompt?: string
@@ -66,15 +67,51 @@ export interface GlyphManifest {
 }
 
 export interface GlyphArtifact {
+  id?: string
   manifest: GlyphManifest
   previewDataUrl?: string
   scene: GlyphSceneSpec
 }
 
+export interface GlyphGenerationResult {
+  id: string
+}
+
+export interface GlyphListItem {
+  createdAt?: string
+  hasPreview?: boolean
+  id: string
+  manifest?: GlyphManifest
+  name: string
+  prompt?: string
+}
+
+export interface GlyphListResult {
+  currentId?: string
+  glyphs: GlyphListItem[]
+}
+
 export interface RawGlyphArtifactResponse {
+  glyphId?: unknown
+  glyph_id?: unknown
+  id?: unknown
   manifest?: unknown
   previewDataUrl?: unknown
   preview_data_url?: unknown
   scene?: unknown
   scene_json?: unknown
+}
+
+export interface RawGlyphGenerateResponse {
+  glyphId?: unknown
+  glyph_id?: unknown
+  id?: unknown
+  ok?: unknown
+}
+
+export interface RawGlyphListResponse {
+  currentId?: unknown
+  current_id?: unknown
+  glyphs?: unknown
+  items?: unknown
 }

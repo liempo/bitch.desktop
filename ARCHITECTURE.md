@@ -28,14 +28,14 @@ src-tauri/src/platform/   Rust native desktop helpers
 src-tauri/src/commands/   Stable Tauri command wrappers
 src-tauri/src/{config,
   errors,http}.rs         Shared Rust helpers with no lane-specific routes
-plugin/                   Hermes-side bundled dashboard plugin source for BITCH glyph sync
+plugin/                   Hermes-side bundled dashboard plugin source for BITCH glyph generation/list/sync
 ```
 
 Renderer pages import feature entrypoints and ViewModels; feature code imports
 application/domain/ports/adapters inside its own lane; Rust commands preserve the
 public Tauri command surface while delegating to lane modules. The root `plugin/`
 package is not loaded by the desktop app; it is source for a Hermes-bundled
-dashboard plugin that exposes the remote glyph artifact API.
+dashboard plugin that exposes the remote glyph generation, listing, and artifact sync API.
 
 ## Clean MVVM and Ports & Adapters rules
 
@@ -93,7 +93,7 @@ src/lib/hermes/
   cron/          Hermes dashboard Cron plugin helpers
   kanban/        Hermes dashboard Kanban plugin helpers
   gateway/       JSON-RPC client, Tauri WebSocket shim, runtime ports/ViewModel
-  glyph/         BITCH glyph skill prompt, validated scene artifacts, dashboard plugin sync
+  glyph/         BITCH glyph artifact contract, validated scene artifacts, dashboard plugin generation/list/sync
   sessions/      session resume, sidebar loading, lifecycle ports/ViewModel
   conversations/       message ViewModel, normalization, previews, canvas and media extraction
   files/         remote filesystem preview, media, attachment ports/adapters

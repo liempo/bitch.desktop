@@ -1,7 +1,7 @@
 {
   "name": "bitch",
   "label": "BITCH glyph",
-  "description": "Authenticated dashboard API for BITCH personal glyph artifacts.",
+  "description": "Authenticated dashboard API for BITCH personal glyph generation and artifacts.",
   "icon": "Sparkles",
   "version": "0.1.0",
   "tab": {
