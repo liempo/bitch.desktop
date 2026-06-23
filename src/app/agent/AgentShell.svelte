@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import AgentPreviewSidebar from './preview/AgentPreviewSidebar.svelte'
-  import AgentSessionSidebar from './session-sidebar/AgentSessionSidebar.svelte'
+  import AgentSessionSidebar from './sessions/AgentSessionSidebar.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Composer from '../components/composer/Composer.svelte'

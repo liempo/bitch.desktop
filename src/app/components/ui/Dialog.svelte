@@ -41,7 +41,7 @@
             {title}
           </BitsDialog.Title>
           {#if description}
-            <BitsDialog.Description class={`pt-1 text-[10px] uppercase tracking-[0.1em] text-ink-muted ${descriptionClass}`}>
+            <BitsDialog.Description class={`pt-1 text-[10px] uppercase tracking-widest text-ink-muted ${descriptionClass}`}>
               {description}
             </BitsDialog.Description>
           {/if}

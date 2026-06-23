@@ -149,7 +149,7 @@ to switch to the owning profile before sending `sudo.respond` or `secret.respond
 
 ## UI
 
-[`src/app/agent/session-sidebar/components/AgentProfileFilterDialog.svelte`](../../src/app/agent/session-sidebar/components/AgentProfileFilterDialog.svelte)
+[`src/app/agent/sessions/components/AgentProfileFilterDialog.svelte`](../../src/app/agent/sessions/components/AgentProfileFilterDialog.svelte)
 adds the profile filter at the sidebar header. It is hidden for single-profile
 users and shows:
 
@@ -158,7 +158,7 @@ users and shows:
   profile order.
 - A `group by profile` toggle for all-profile history browsing.
 
-[`AgentSessionSidebar.svelte`](../../src/app/agent/session-sidebar/AgentSessionSidebar.svelte) groups recent sessions
+[`AgentSessionSidebar.svelte`](../../src/app/agent/sessions/AgentSessionSidebar.svelte) groups recent sessions
 by profile when the all-profiles scope is active and keeps normal scoped recents
 unchanged otherwise.
 

@@ -2,7 +2,7 @@ import {
   buildAssistantCompleteNotification,
   buildInputNeededNotification,
   sendMacosNotification
-} from '$lib/notifications/macos'
+} from '$lib/platform/notifications'
 import { configureGatewayRegistry } from '$lib/hermes/gateway'
 import { extractCanvasReferences, type ConversationCanvas } from '../domain/canvas'
 import {

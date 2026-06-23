@@ -20,8 +20,7 @@ src/lib/hermes/           Hermes dashboard/runtime lane
 src/lib/monitoring/       Standalone Beszel/PocketBase monitoring telemetry lane
 src/lib/platform/         Renderer adapter boundary for native Tauri helpers
 src/lib/{errors,layout,
-  notifications,storage,
-  types,ui}/              Shared renderer utilities and layout state, no feature-lane imports
+  storage,types}/         Shared renderer utilities and layout state, no feature-lane imports
 src-tauri/src/hermes/     Rust Hermes dashboard, auth, files, and gateway lane
 src-tauri/src/monitoring/ Rust monitoring/Beszel lane
 src-tauri/src/platform/   Rust native desktop helpers
@@ -126,6 +125,8 @@ src/lib/monitoring/
   ports/monitoring-port.ts
   adapters/beszel-monitoring-adapter.ts
   application/get-monitoring-metrics.ts
+
+src/lib/tests/monitoring/
   lane-boundary.test.ts
 ```
 
@@ -255,10 +256,10 @@ otherwise.
 Architecture rules are executable, not just tasteful wall art. Current boundary
 checks live in:
 
-- `src/lib/architecture-boundaries.ts`
-- `src/lib/architecture-boundaries.test.ts`
-- `src/lib/rust-bridge-lanes.test.ts`
-- `src/lib/monitoring/lane-boundary.test.ts`
+- `src/lib/tests/support/architecture-boundaries.ts`
+- `src/lib/tests/support/architecture-boundaries.test.ts`
+- `src/lib/tests/support/rust-bridge-lanes.test.ts`
+- `src/lib/tests/monitoring/lane-boundary.test.ts`
 
 The tests enforce:
 

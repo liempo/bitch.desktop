@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import AppShell from './app/AppShell.svelte'
+  import { installCustomScrollbars, SPLASH_REMOVE_AFTER_MS, STARTUP_SPLASH_COMPLETE_EVENT } from '$lib/layout'
   import { openExternalUrl } from '$lib/platform'
-  import { installCustomScrollbars } from '$lib/ui/custom-scrollbars'
   import { connectGateway, disconnectGateway } from '$lib/hermes/gateway'
   import { startMessageStream, stopMessageStream } from '$lib/hermes/conversations'
   import { refreshActiveProfile } from '$lib/hermes/profiles'
@@ -28,9 +28,21 @@
       })
     }
 
+    let customScrollbarsInstalled = false
+    let uninstallCustomScrollbars: () => void = () => undefined
+
+    function installScrollbars(): void {
+      if (customScrollbarsInstalled) return
+
+      customScrollbarsInstalled = true
+      uninstallCustomScrollbars = installCustomScrollbars()
+    }
+
+    const scrollbarFallbackTimer = window.setTimeout(installScrollbars, SPLASH_REMOVE_AFTER_MS + 100)
+
     window.addEventListener('contextmenu', handleContextMenu)
     window.addEventListener('click', handleClick)
-    const uninstallCustomScrollbars = installCustomScrollbars()
+    window.addEventListener(STARTUP_SPLASH_COMPLETE_EVENT, installScrollbars, { once: true })
     startMessageStream()
 
     void (async () => {
@@ -39,8 +51,10 @@
     })()
 
     return () => {
+      window.clearTimeout(scrollbarFallbackTimer)
       window.removeEventListener('contextmenu', handleContextMenu)
       window.removeEventListener('click', handleClick)
+      window.removeEventListener(STARTUP_SPLASH_COMPLETE_EVENT, installScrollbars)
       uninstallCustomScrollbars()
       stopMessageStream()
       disconnectGateway()

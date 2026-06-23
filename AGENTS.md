@@ -29,7 +29,7 @@ Keep the Svelte app organized around page folders plus shared app components:
   - Shared chat surfaces are in `src/app/components/composer/` and `src/app/components/thread/`; keep `Composer` (including the model picker) and `Thread` reusable across pages.
   - Shared prompt components live in `src/app/components/prompts/`.
 - Page-only components stay inside their page folder. Name them with the page prefix/title when they are not intended to be shared, for example `MainAgentPanel`, `MainGlyphPanel`, `AgentSessionSidebar`, and `AgentPreviewSidebar`.
-- The session sidebar belongs under the AGENT page at `src/app/agent/session-sidebar/`; do not move it back into shared components unless it becomes genuinely page-agnostic.
+- The session sidebar belongs under the AGENT page at `src/app/agent/sessions/`; do not move it back into shared components unless it becomes genuinely page-agnostic.
 - Canonical user-facing tabs/routes are `AGENT` (`/agent`), `ASSETS` (`/assets`), and `CALENDAR` (`/calendar`). Legacy `/cmd` and `/files` parsing may remain only for backward compatibility; do not surface `CMD` or `Files` as tab/page branding.
 - Avoid reintroducing `Geo` in local app component names or app-owned identifiers. Use render/shape wording such as `MainGlyphPanel`, `Glyph`, `cpuShape`, and `memoryShape`; external library API names such as Three.js geometry classes are fine when required.
 
@@ -52,7 +52,7 @@ The backend revamp uses explicit Clean MVVM / Ports & Adapters lanes. Prefer pub
 - Hermes dashboard/runtime work goes through `$lib/hermes/...` facades. Legacy top-level compatibility paths such as `$lib/api`, `$lib/gateway`, `$lib/files`, `$lib/session`, `$lib/thread`, `$lib/messages`, `$lib/composer`, and `$lib/stores/*` have been removed; do not reintroduce them.
 - Beszel/host telemetry goes through `$lib/monitoring` and must not import Hermes dashboard, gateway, files, sessions, or plugin helpers. Monitoring credentials and token refresh must stay behind Tauri.
 - Native app utilities go through `$lib/platform`; renderer components and feature modules must not import `@tauri-apps/api/core` directly. Direct Tauri API imports are approved only inside platform adapter boundaries.
-- Shared renderer utilities under `src/lib/{errors,layout,notifications,platform,storage,types,ui}` must not import feature lanes.
+- Shared renderer utilities under `src/lib/{errors,layout,platform,storage,types}` must not import feature lanes.
 - Future non-Hermes services such as CalDAV should get their own lane instead of tunneling through `dashboard_request`.
 
 ## Creating or extending backend-backed features
@@ -70,7 +70,7 @@ When adding or moving a feature:
 - Add or update the public `index.ts` entrypoint first.
 - Prefer same-PR call-site migration over re-export shims; if a temporary shim is unavoidable, remove it once source search proves consumers are gone.
 - Put UI state in ViewModels, orchestration in `application`, pure rules in `domain`, external contracts in `ports`, and Tauri/Hermes/Beszel calls in `adapters`.
-- Add or update source-contract tests such as `src/lib/architecture-boundaries.test.ts`, `src/lib/rust-bridge-lanes.test.ts`, or a lane-local boundary test when the import rules change.
+- Add or update source-contract tests such as `src/lib/tests/support/architecture-boundaries.test.ts`, `src/lib/tests/support/rust-bridge-lanes.test.ts`, or a lane-local boundary test under `src/lib/tests/<lane>/` when the import rules change.
 - Update the relevant feature doc under `docs/` and the root `ARCHITECTURE.md` in the same PR as hierarchy changes. Stale architecture docs are just ruins with nicer typography.
 
 ## Current upstream copy
@@ -138,6 +138,7 @@ Write tests when they materially improve stability — especially for gateway wi
 - Add or extend tests alongside behavior changes; do not land features or fixes without coverage when a reasonable automated check exists.
 - Prefer focused unit tests on pure TypeScript/Rust helpers; use integration-style checks only where they catch real cross-layer failures.
 - Keep tests runnable in CI: document the command in the PR if a new script is added (for example `npm test` or `bash scripts/rust-wrapper.sh cargo test --manifest-path src-tauri/Cargo.toml`).
+- Keep renderer tests out of runtime folders: app/UI tests belong under `src/app/tests/` using the same subtree as `src/app/`, and library tests belong under `src/lib/tests/` using the same subtree as `src/lib/`. Test-only support helpers belong under `src/lib/tests/support/`.
 - Do not add test frameworks or debug-only harnesses unless the tests they enable are maintained and run as part of normal validation.
 
 ## Repo-local Rust setup

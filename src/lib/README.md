@@ -2,6 +2,7 @@
 
 Shared renderer code is grouped by boundary instead of parked at the root. Prefer stable folder `index.ts` barrels when they exist so internals can move behind explicit contracts without reviving obsolete compatibility paths.
 
+- `assets/` — generated static source assets used by tooling, not a renderer import lane.
 - `errors/` — shared error normalization helpers.
 - `hermes/` — Hermes lane facades for dashboard REST/plugin routes, remote files, gateway runtime contracts, composer orchestration, prompts, profiles, sessions, and conversation normalization.
   - `hermes/cron/` — Hermes dashboard Cron plugin helpers.
@@ -15,10 +16,9 @@ Shared renderer code is grouped by boundary instead of parked at the root. Prefe
   - `hermes/conversations/` — message ViewModel, canvas, preview, media attachment, and gateway message normalization helpers.
 - `layout/` — shared layout helpers plus layout rune state for sidebar visibility and pinned sessions.
 - `monitoring/` — standalone Beszel monitoring configuration, fetch, normalization, and formatting helpers.
-- `notifications/` — native/user notification helpers.
-- `platform/` — renderer adapter boundary for native Tauri commands/events and OS utilities.
+- `platform/` — renderer adapter boundary for native Tauri commands/events, desktop notifications, and OS utilities.
 - `storage/` — namespaced localStorage helpers.
+- `tests/` — library and source-contract tests mirroring the `src/lib/` subtree; not an app runtime lane.
 - `types/` — shared Hermes dashboard and gateway DTOs.
-- `ui/` — shared renderer UI utilities.
 
 Legacy top-level Hermes compatibility folders (`api/`, `files/`, `gateway/`, `messages/`, `session/`, `conversation/`, `composer/`, and `stores/`) have been removed. New code must import the lane-owned modules above instead of recreating source shims. The Vite renderer should never hold `HERMES_DASHBOARD_SESSION_TOKEN` directly. Monitoring must not call Hermes `dashboard_request`; platform helpers must not know Hermes or Beszel route details.

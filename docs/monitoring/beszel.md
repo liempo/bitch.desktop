@@ -16,6 +16,8 @@ src/lib/monitoring/
   ports/monitoring-port.ts
   adapters/beszel-monitoring-adapter.ts
   application/get-monitoring-metrics.ts
+
+src/lib/tests/monitoring/
   lane-boundary.test.ts
 ```
 
@@ -59,10 +61,10 @@ Rust instead of leaking secrets into the renderer.
 
 ## Tests and source contracts
 
-- `src/lib/monitoring/lane-boundary.test.ts` guards renderer isolation.
-- `src/lib/architecture-boundaries.test.ts` guards monitoring-to-Hermes imports
+- `src/lib/tests/monitoring/lane-boundary.test.ts` guards renderer isolation.
+- `src/lib/tests/support/architecture-boundaries.test.ts` guards monitoring-to-Hermes imports
   and environment variable leaks.
-- `src/lib/rust-bridge-lanes.test.ts` guards the Rust monitoring lane and command
+- `src/lib/tests/support/rust-bridge-lanes.test.ts` guards the Rust monitoring lane and command
   wrappers.
 
 A future telemetry source that is not Beszel should either replace this lane's

@@ -2,9 +2,7 @@
   import { onMount } from 'svelte'
 
   import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'
-
-  const SPLASH_MIN_DURATION_MS = 2600
-  const SPLASH_REMOVE_AFTER_MS = 3200
+  import { SPLASH_MIN_DURATION_MS, SPLASH_REMOVE_AFTER_MS, STARTUP_SPLASH_COMPLETE_EVENT } from '$lib/layout'
 
   let visible = $state(true)
   let mounted = $state(true)
@@ -15,6 +13,7 @@
     }, SPLASH_MIN_DURATION_MS)
     const removeTimer = window.setTimeout(() => {
       mounted = false
+      window.dispatchEvent(new Event(STARTUP_SPLASH_COMPLETE_EVENT))
     }, SPLASH_REMOVE_AFTER_MS)
 
     return () => {
@@ -26,9 +25,10 @@
 
 {#if mounted}
   <div
-    class={`fixed inset-0 z-[2147483647] grid place-items-center bg-canvas transition-[opacity,visibility] duration-[420ms] ease-in ${visible ? 'opacity-100 visible' : 'pointer-events-none invisible opacity-0'}`}
+    class={`fixed inset-0 z-2147483647 grid place-items-center bg-canvas transition-[opacity,visibility] duration-420 ease-in ${visible ? 'opacity-100 visible' : 'pointer-events-none invisible opacity-0'}`}
     role="status"
     aria-label="Loading BITCH"
+    data-startup-splash="true"
   >
     <GlyphCanvas class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-black" />
   </div>

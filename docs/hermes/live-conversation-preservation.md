@@ -74,12 +74,12 @@ This keeps a normal server busy rejection from rendering as an assistant error o
 
 Coverage is split across focused store tests:
 
-- [`src/lib/hermes/sessions/application/resume.test.ts`](../../src/lib/hermes/sessions/application/resume.test.ts)
+- [`src/lib/tests/hermes/sessions/application/resume.test.ts`](../../src/lib/tests/hermes/sessions/application/resume.test.ts)
   - preserves live in-memory conversations when snapshots are shorter or stale
   - refreshes idle conversations from stored snapshots
   - uses resume projection messages for first visits without stored history
   - syncs local busy from resume `info.running`
-- `src/lib/hermes/composer/view-models/composer.svelte.test.ts`
+- `src/lib/tests/hermes/composer/view-models/composer.svelte.test.ts`
   - re-sets busy and queues the draft when `prompt.submit` returns `session busy`
 
 ## Out of scope

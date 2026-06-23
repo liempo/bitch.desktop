@@ -108,10 +108,10 @@ Rules for the new lane:
 
 Architecture rules currently live in:
 
-- `src/lib/architecture-boundaries.ts`
-- `src/lib/architecture-boundaries.test.ts`
-- `src/lib/rust-bridge-lanes.test.ts`
-- `src/lib/monitoring/lane-boundary.test.ts`
+- `src/lib/tests/support/architecture-boundaries.ts`
+- `src/lib/tests/support/architecture-boundaries.test.ts`
+- `src/lib/tests/support/rust-bridge-lanes.test.ts`
+- `src/lib/tests/monitoring/lane-boundary.test.ts`
 
 Update those tests whenever the lane model changes. If a new rule is important
 enough to document, it is important enough to make executable.

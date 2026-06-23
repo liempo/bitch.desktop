@@ -133,7 +133,7 @@ inline.
 
 ## Tests
 
-Coverage in [`messages.svelte.test.ts`](../../src/lib/hermes/conversations/view-models/messages.svelte.test.ts) and Hermes conversation-domain tests:
+Coverage in [`messages.svelte.test.ts`](../../src/lib/tests/hermes/conversations/view-models/messages.svelte.test.ts) and Hermes conversation-domain tests:
 
 - Live streaming builds ordered `parts` (`reasoning` → `tool` → `text`).
 - Rehydration merges stored tool messages into the preceding assistant.
