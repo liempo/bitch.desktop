@@ -150,14 +150,10 @@
         titleClass={dashboardPanelTitleClass}
       >
         <div class="min-h-56 flex-1">
-          <MainRenderPanel metrics={monitoringMetrics} />
+          <MainRenderPanel hostname={monitoringMetrics.systemName} metrics={monitoringMetrics} />
         </div>
 
         <section class="border-t border-line pt-2" aria-label="System information">
-          <div class="mb-2 flex items-center justify-between gap-3 text-[0.68rem] uppercase tracking-widest text-ink-muted">
-            <span>SYSTEM</span>
-            <span class="truncate text-ink-bright" title={monitoringMetrics.systemName}>{monitoringMetrics.systemName}</span>
-          </div>
           <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-[0.68rem] uppercase tracking-widest">
             {#each monitoringSystemStats as stat (stat.label)}
               <div class="grid min-w-0 gap-1 border-b border-line/60 pb-1">
