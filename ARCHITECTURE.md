@@ -90,6 +90,7 @@ src/lib/hermes/
   cron/          Hermes dashboard Cron plugin helpers
   kanban/        Hermes dashboard Kanban plugin helpers
   gateway/       JSON-RPC client, Tauri WebSocket shim, runtime ports/ViewModel
+  glyph/         BITCH glyph skill prompt, validated scene artifacts, dashboard plugin sync
   sessions/      session resume, sidebar loading, lifecycle ports/ViewModel
   conversations/       message ViewModel, normalization, previews, canvas and media extraction
   files/         remote filesystem preview, media, attachment ports/adapters
