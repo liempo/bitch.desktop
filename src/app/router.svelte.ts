@@ -4,7 +4,7 @@ export interface AppRouterState {
   page: AppPage
 }
 
-export const appRouterState = $state<AppRouterState>(parseHash(currentHash()))
+export const appRouterState = $state<AppRouterState>(parseAppHash(currentHash()))
 
 if (typeof window !== 'undefined') {
   window.addEventListener('hashchange', syncRoute)
@@ -15,14 +15,18 @@ function currentHash(): string {
 }
 
 function syncRoute(): void {
-  Object.assign(appRouterState, parseHash(currentHash()))
+  Object.assign(appRouterState, parseAppHash(currentHash()))
 }
 
-function parseHash(hash: string): AppRouterState {
+export function parseAppHash(hash: string): AppRouterState {
   const path = hash || '/'
 
-  if (path === '/main') {
+  if (path === '/' || path === '/main') {
     return { page: 'main' }
+  }
+
+  if (path === '/agent' || path.startsWith('/agent/') || path === '/cmd' || path.startsWith('/cmd/')) {
+    return { page: 'agent' }
   }
 
   if (path === '/assets' || path === '/files') {
@@ -41,7 +45,7 @@ function parseHash(hash: string): AppRouterState {
     return { page: 'kanban' }
   }
 
-  return { page: 'agent' }
+  return { page: 'main' }
 }
 
 export function mainRoute(): string {
