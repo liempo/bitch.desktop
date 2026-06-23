@@ -2,9 +2,9 @@
   import { tick } from 'svelte'
   import Approval from '../prompts/Approval.svelte'
   import ClarifyCard from '../prompts/ClarifyCard.svelte'
+  import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
-  import bitchLogoUrl from '$lib/assets/bitch-logo.png'
   import Panel from '@/app/components/ui/Panel.svelte'
   import Message from './Message.svelte'
   import { messageState } from '$lib/hermes/conversations'
@@ -48,12 +48,12 @@
         ? 'flex min-h-full items-center justify-center px-3 py-6 md:px-6 md:py-16'
         : 'flex min-h-full items-center justify-center px-6 py-16'
   )
-  const logoClass = $derived(
+  const glyphClass = $derived(
     compact
-      ? 'h-16 w-16 rounded-panel bg-black object-contain opacity-90'
+      ? 'h-16 w-16 overflow-hidden rounded-panel bg-black opacity-90'
       : responsiveCompact
-        ? 'h-16 w-16 rounded-panel bg-black object-contain opacity-90 md:h-28 md:w-28'
-        : 'h-28 w-28 rounded-panel bg-black object-contain opacity-90'
+        ? 'h-16 w-16 overflow-hidden rounded-panel bg-black opacity-90 md:h-28 md:w-28'
+        : 'h-28 w-28 overflow-hidden rounded-panel bg-black opacity-90'
   )
   const transcriptClass = $derived(compact ? 'py-2' : responsiveCompact ? 'py-2 md:py-4' : 'py-4')
 
@@ -123,7 +123,7 @@
 >
   {#if !sessionId}
     <div class={emptyStateClass}>
-      <img class={logoClass} src={bitchLogoUrl} alt="BITCH logo" />
+      <GlyphCanvas class={glyphClass} />
     </div>
   {:else if loadingSession}
     <div class={emptyStateClass}>

@@ -28,10 +28,10 @@ Keep the Svelte app organized around page folders plus shared app components:
   - Shared UI primitives are in `src/app/components/ui/` and should be imported with `@/app/components/ui/...`.
   - Shared chat surfaces are in `src/app/components/composer/` and `src/app/components/thread/`; keep `Composer` (including the model picker) and `Thread` reusable across pages.
   - Shared prompt components live in `src/app/components/prompts/`.
-- Page-only components stay inside their page folder. Name them with the page prefix/title when they are not intended to be shared, for example `MainAgentPanel`, `MainRenderPanel`, `AgentSessionSidebar`, and `AgentPreviewSidebar`.
+- Page-only components stay inside their page folder. Name them with the page prefix/title when they are not intended to be shared, for example `MainAgentPanel`, `MainGlyphPanel`, `AgentSessionSidebar`, and `AgentPreviewSidebar`.
 - The session sidebar belongs under the AGENT page at `src/app/agent/session-sidebar/`; do not move it back into shared components unless it becomes genuinely page-agnostic.
 - Canonical user-facing tabs/routes are `AGENT` (`/agent`), `ASSETS` (`/assets`), and `CALENDAR` (`/calendar`). Legacy `/cmd` and `/files` parsing may remain only for backward compatibility; do not surface `CMD` or `Files` as tab/page branding.
-- Avoid reintroducing `Geo` in local app component names or app-owned identifiers. Use render/shape wording such as `MainRenderPanel`, `MainRenderScene`, `cpuShape`, and `memoryShape`; external library API names such as Three.js geometry classes are fine when required.
+- Avoid reintroducing `Geo` in local app component names or app-owned identifiers. Use render/shape wording such as `MainGlyphPanel`, `Glyph`, `cpuShape`, and `memoryShape`; external library API names such as Three.js geometry classes are fine when required.
 
 ## Configuration
 

@@ -2,16 +2,18 @@
   import { onMount } from 'svelte'
   import { Canvas } from '@threlte/core'
 
+  import Glyph from '@/app/components/Glyph.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
-  import MainRenderScene from './MainRenderScene.svelte'
   import type { MonitoringMetrics } from '$lib/monitoring'
 
   interface Props {
+    class?: string
     hostname: string
     metrics: MonitoringMetrics
+    titleClass?: string
   }
 
-  let { hostname, metrics }: Props = $props()
+  let { class: className = '', hostname, metrics, titleClass = '' }: Props = $props()
 
   let themeElement = $state<HTMLDivElement>()
   let foregroundColor = $state('white')
@@ -27,12 +29,7 @@
 </script>
 
 <div bind:this={themeElement} class="h-full min-h-0">
-  <Panel
-    flat
-    padded={false}
-    class="min-h-0 border-line/70! bg-surface-raised!"
-    contentClass="relative h-full min-h-0 overflow-hidden p-0"
-  >
+  <Panel title="GLYPH" padded={false} class={className} contentClass="relative h-full min-h-0 overflow-hidden p-0" {titleClass}>
     <div class="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] truncate text-[0.68rem] uppercase tracking-[0.16em] text-ink-muted" title={hostname}>
       // {hostname || 'UNKNOWN'}
     </div>
@@ -40,7 +37,7 @@
       class="pointer-events-none absolute inset-0 bg-[linear-gradient(var(--color-line)_1px,transparent_1px),linear-gradient(90deg,var(--color-line)_1px,transparent_1px)] bg-size-[24px_24px] opacity-15"
     ></div>
     <Canvas renderMode="always" dpr={[1, 1.5]} colorManagementEnabled={false}>
-      <MainRenderScene
+      <Glyph
         cpuUsagePercent={metrics.cpu.usagePercent}
         memoryUsagePercent={metrics.memory.usedPercent}
         {foregroundColor}

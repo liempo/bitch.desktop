@@ -3,6 +3,7 @@
   import { Color, EdgesGeometry, Group, IcosahedronGeometry, LineBasicMaterial, LineSegments } from 'three'
 
   interface Props {
+    animated?: boolean
     cpuUsagePercent?: number
     memoryUsagePercent?: number
     foregroundColor?: string
@@ -11,6 +12,7 @@
   }
 
   let {
+    animated = true,
     cpuUsagePercent = 0,
     memoryUsagePercent = 0,
     foregroundColor = 'white',
@@ -40,7 +42,7 @@
   })
 
   useTask(delta => {
-    if (!group) return
+    if (!animated || !group) return
     group.rotation.y += delta * (0.22 + cpuLoad * 0.95)
     group.rotation.x += delta * (0.06 + memoryLoad * 0.24)
   })
