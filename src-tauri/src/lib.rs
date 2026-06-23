@@ -26,9 +26,7 @@ pub fn run() {
             commands::gateway::connect_ws,
             commands::gateway::send_ws_message,
             commands::gateway::close_ws,
-            commands::platform::open_external_url,
-            commands::platform::set_dynamic_app_icon,
-            commands::platform::reset_dynamic_app_icon
+            commands::platform::open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
