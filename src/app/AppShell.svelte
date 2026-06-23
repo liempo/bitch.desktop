@@ -4,6 +4,7 @@
   import CalendarPage from './calendar/CalendarPage.svelte'
   import CronPage from './cron/CronPage.svelte'
   import KanbanPage from './kanban/KanbanPage.svelte'
+  import StartupSplash from './components/StartupSplash.svelte'
   import MainPage from './main/MainPage.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState } from './router.svelte'
@@ -28,5 +29,7 @@
         <MainPage />
       {/if}
     </main>
+
+    <StartupSplash />
   </div>
 </div>

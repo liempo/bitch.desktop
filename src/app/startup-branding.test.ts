@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import indexSource from '../../index.html?raw'
+import appShellSource from './AppShell.svelte?raw'
+import glyphCanvasSource from './components/GlyphCanvas.svelte?raw'
+import startupSplashSource from './components/StartupSplash.svelte?raw'
 import icon128Url from '../../src-tauri/icons/128x128.png?url'
 import icon256Url from '../../src-tauri/icons/128x128@2x.png?url'
 import icon32Url from '../../src-tauri/icons/32x32.png?url'
@@ -25,40 +28,37 @@ function cssRule(selector: string): string {
 }
 
 describe('startup branding shell', () => {
-  it('ships an immediate theme-colored animated logo splash before the Svelte bundle mounts', () => {
+  it('keeps the HTML splash as a minimal pre-bundle fallback and uses the real Threlte glyph once Svelte mounts', () => {
     expect(indexSource).toContain('id="bitch-splash"')
     expect(cssRule(':root')).toContain('--bits-canvas: #000000;')
-    expect(cssRule(':root')).toContain('--bits-primary: #8be9fd;')
-    expect(cssRule(':root')).toContain('--bits-warning: #ff79c6;')
     expect(cssRule('body')).toContain('background: var(--bits-canvas);')
     expect(cssRule('#bitch-splash')).toContain('background: var(--bits-canvas);')
-    expect(cssRule('.bitch-splash-logo-stack')).toContain('width: min(34vw, 10rem);')
-    expect(splashMarkup).toContain('class="bitch-splash-logo-stack"')
-    expect(splashMarkup).toContain('<span class="bitch-splash-logo-glitch bitch-splash-logo--primary"></span>')
-    expect(splashMarkup).toContain('<span class="bitch-splash-logo-glitch bitch-splash-logo--warning"></span>')
-    expect(splashMarkup).not.toContain('<span class="bitch-splash-logo"></span>')
+    expect(splashMarkup).toContain('<div id="bitch-splash" role="status" aria-label="Loading BITCH"></div>')
     expect(splashMarkup).not.toContain('<img')
-    expect(splashMarkup).not.toContain('src="/src/lib/assets/bitch-logo.png"')
-    expect(styleSource).toContain("background-image: url('/src/lib/assets/bitch-logo.png');")
-    expect(styleSource).toContain('background-position: center;')
-    expect(styleSource).toContain('background-size: contain;')
-    expect(cssRule('.bitch-splash-logo-glitch')).not.toContain('border')
-    expect(cssRule('.bitch-splash-logo-glitch')).not.toContain('border-radius')
-    expect(styleSource).toContain('background-blend-mode: multiply;')
-    expect(styleSource).toContain('mix-blend-mode: screen;')
-    expect(styleSource).toContain('animation: bitch-splash-glitch-primary 1.4s steps(1, end) infinite;')
-    expect(styleSource).toContain('animation: bitch-splash-glitch-warning 1.4s steps(1, end) infinite;')
-    expect(styleSource).toContain(
-      '0%,\n        12%,\n        100% {\n          opacity: 1;\n          transform: translate(-2px, 0);'
-    )
-    expect(styleSource).toContain(
-      '0%,\n        12%,\n        100% {\n          opacity: 0.42;\n          transform: translate(2px, 0);'
-    )
-    expect(styleSource).toContain('background-color: var(--bits-primary);')
-    expect(styleSource).toContain('background-color: var(--bits-warning);')
-    expect(styleSource).toContain('@keyframes bitch-splash-glitch-primary')
-    expect(styleSource).toContain('@keyframes bitch-splash-glitch-warning')
+    expect(splashMarkup).not.toContain('<span')
+    expect(indexSource).not.toContain('glyph.png')
     expect(styleSource).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(appShellSource).toContain("import StartupSplash from './components/StartupSplash.svelte'")
+    expect(appShellSource).toContain('<StartupSplash />')
+    expect(startupSplashSource).toContain("import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'")
+    expect(startupSplashSource).toContain('SPLASH_MIN_DURATION_MS = 2600')
+    expect(startupSplashSource).toContain('<GlyphCanvas')
+    expect(startupSplashSource).not.toContain('<img')
+    expect(glyphCanvasSource).toContain("import { Canvas } from '@threlte/core'")
+    expect(glyphCanvasSource).toContain("import Glyph from './Glyph.svelte'")
+    expect(glyphCanvasSource).toContain('<Canvas')
+    expect(glyphCanvasSource).toContain('<Glyph')
+    expect(mainSource).toContain("document.getElementById('bitch-splash')")
+    expect(mainSource).toContain('prebundleSplash?.remove()')
+    expect(mainSource).not.toContain('SPLASH_MIN_DURATION_MS')
+    expect(mainSource).not.toContain("document.documentElement.classList.add('bitch-app-ready')")
+    expect(splashMarkup).not.toContain('bitch-splash-logo-stack')
+    expect(splashMarkup).not.toContain('bitch-splash-logo-glitch')
+    expect(styleSource).not.toContain('background-image:')
+    expect(styleSource).not.toContain('background-blend-mode')
+    expect(styleSource).not.toContain('mix-blend-mode')
+    expect(styleSource).not.toContain('animation: bitch-splash-glitch')
+    expect(styleSource).not.toContain('@keyframes bitch-splash-glitch')
     expect(splashMarkup).not.toContain('bitch-splash-title')
     expect(splashMarkup).not.toContain('bitch-splash-status')
     expect(splashMarkup).not.toContain('Remote chrome boot sequence')
@@ -75,9 +75,6 @@ describe('startup branding shell', () => {
     expect(styleSource).not.toContain('sepia(')
     expect(splashMarkup).not.toContain('bitch-splash-logo--cyan')
     expect(splashMarkup).not.toContain('bitch-splash-logo--magenta')
-    expect(mainSource).toContain('SPLASH_MIN_DURATION_MS = 2600')
-    expect(mainSource).toContain("document.getElementById('bitch-splash')")
-    expect(mainSource).toContain("document.documentElement.classList.add('bitch-app-ready')")
   })
 })
 

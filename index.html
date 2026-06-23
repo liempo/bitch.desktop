@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BITCH</title>
-    <link rel="preload" as="image" href="/src/lib/assets/bitch-logo.png" />
     <style>
       :root {
         --bits-canvas: #000000;
@@ -42,118 +41,15 @@
           visibility 420ms ease;
       }
 
-      .bitch-splash-logo-stack {
-        position: relative;
-        width: min(34vw, 10rem);
-        aspect-ratio: 1;
-      }
-
-      .bitch-splash-logo-glitch {
-        position: absolute;
-        inset: 0;
-        display: block;
-        width: 100%;
-        height: 100%;
-        background-image: url('/src/lib/assets/bitch-logo.png');
-        background-position: center;
-        background-size: contain;
-        background-repeat: no-repeat;
-        background-blend-mode: multiply;
-        mix-blend-mode: screen;
-      }
-
-      .bitch-splash-logo--primary {
-        background-color: var(--bits-primary);
-        opacity: 1;
-        transform: translate(-2px, 0);
-        animation: bitch-splash-glitch-primary 1.4s steps(1, end) infinite;
-      }
-
-      .bitch-splash-logo--warning {
-        background-color: var(--bits-warning);
-        opacity: 0.42;
-        transform: translate(2px, 0);
-        animation: bitch-splash-glitch-warning 1.4s steps(1, end) infinite;
-      }
-
-      .bitch-app-ready #bitch-splash {
-        pointer-events: none;
-        opacity: 0;
-        visibility: hidden;
-      }
-
-      @keyframes bitch-splash-glitch-primary {
-        0%,
-        12%,
-        100% {
-          opacity: 1;
-          transform: translate(-2px, 0);
-        }
-        4%,
-        32% {
-          opacity: 0.92;
-          transform: translate(3px, -1px);
-        }
-        8%,
-        58% {
-          opacity: 1;
-          transform: translate(-1px, 1px);
-        }
-        78% {
-          opacity: 0.96;
-          transform: translate(2px, 0);
-        }
-      }
-
-      @keyframes bitch-splash-glitch-warning {
-        0%,
-        12%,
-        100% {
-          opacity: 0.42;
-          transform: translate(2px, 0);
-        }
-        4%,
-        32% {
-          opacity: 0.55;
-          transform: translate(-3px, 1px);
-        }
-        8%,
-        58% {
-          opacity: 0.28;
-          transform: translate(1px, -1px);
-        }
-        78% {
-          opacity: 0.5;
-          transform: translate(-2px, 0);
-        }
-      }
-
       @media (prefers-reduced-motion: reduce) {
-        #bitch-splash,
-        .bitch-splash-logo-glitch {
-          animation: none;
+        #bitch-splash {
           transition: none;
-        }
-
-        .bitch-splash-logo--primary {
-          opacity: 1;
-          transform: translate(0, 0);
-        }
-
-        .bitch-splash-logo--warning {
-          opacity: 0;
-          transform: translate(0, 0);
         }
       }
     </style>
   </head>
   <body>
-    <div id="bitch-splash" role="status" aria-label="Loading BITCH">
-      <div class="bitch-splash-logo-stack" aria-hidden="true">
-        <span class="bitch-splash-logo-glitch bitch-splash-logo--primary"></span>
-        <span class="bitch-splash-logo-glitch bitch-splash-logo--warning"></span>
-      </div>
-    </div>
+    <div id="bitch-splash" role="status" aria-label="Loading BITCH"></div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

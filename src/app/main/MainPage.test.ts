@@ -5,8 +5,11 @@ import dashboardSource from './dashboard.ts?raw'
 import mainAgentPanelSource from './MainAgentPanel.svelte?raw'
 import mainContainersPanelSource from './MainContainersPanel.svelte?raw'
 import mainPageSource from './MainPage.svelte?raw'
-import mainRenderPanelSource from './MainRenderPanel.svelte?raw'
-import mainRenderSceneSource from './MainRenderScene.svelte?raw'
+import generatedGlyphSource from '../components/GeneratedGlyph.svelte?raw'
+import glyphSource from '../components/Glyph.svelte?raw'
+import glyphCanvasSource from '../components/GlyphCanvas.svelte?raw'
+import mainGlyphEditDialogSource from './MainGlyphEditDialog.svelte?raw'
+import mainGlyphPanelSource from './MainGlyphPanel.svelte?raw'
 import monitoringAdapterSource from '$lib/monitoring/adapters/beszel-monitoring-adapter.ts?raw'
 import monitoringMetricsApplicationSource from '$lib/monitoring/application/get-monitoring-metrics.ts?raw'
 
@@ -55,11 +58,16 @@ describe('Main dashboard source contract', () => {
     expect(mainContainersPanelSource).not.toContain("onclick={() => (containerSortKey = 'memory')}")
     expect(mainPageSource).toContain('grid-cols-1')
     expect(mainPageSource).toContain('md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.12fr)_minmax(0,0.86fr)]')
-    expect(mainPageSource).toContain('md:grid-rows-[minmax(0,1.45fr)_minmax(0,0.55fr)]')
-    expect(mainPageSource).toContain('min-h-56 flex-1')
+    expect(mainPageSource).toContain('md:grid-rows-[minmax(0,0.85fr)_minmax(0,0.72fr)_minmax(0,0.55fr)]')
+    expect(mainPageSource).toContain('MainGlyphPanel')
+    expect(mainPageSource).toContain('min-h-56 md:min-h-0')
+    expect(mainGlyphPanelSource).toContain('title="GLYPH"')
+    expect(mainPageSource).not.toContain('min-h-56 flex-1')
     expect(mainPageSource).not.toContain('badge={monitorStatus}')
     expect(mainPageSource).not.toContain('monitorStatus')
-    expect(mainPageSource).toMatch(/title="MONITORING"[\s\S]*MainContainersPanel[\s\S]*MainAgentPanel/)
+    expect(mainPageSource).toMatch(
+      /MainGlyphPanel[\s\S]*title="MONITORING"[\s\S]*MainContainersPanel[\s\S]*MainAgentPanel/
+    )
     expect(mainAgentPanelSource).toContain('title="AGENT"')
     expect(mainPageSource).toContain('class="hidden h-full min-h-0 md:block"')
     expect(mainPageSource).toContain('class={`${dashboardPanelClass} md:hidden`}')
@@ -90,24 +98,44 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('Dashboard page placeholder')
   })
 
-  it('uses Threlte for the render panel and reflects CPU/RAM load in shape scale', () => {
-    expect(mainPageSource).toContain('MainRenderPanel')
-    expect(mainRenderPanelSource).toContain("import { Canvas } from '@threlte/core'")
-    expect(mainRenderPanelSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
-    expect(mainRenderPanelSource).toContain('// RENDER')
-    expect(mainRenderPanelSource).not.toContain('// RENDER_')
-    expect(mainRenderSceneSource).toContain("import { T, useTask } from '@threlte/core'")
-    expect(mainRenderSceneSource).toContain('cpuUsagePercent')
-    expect(mainRenderSceneSource).toContain('memoryUsagePercent')
-    expect(mainRenderSceneSource).toContain('cpuShape')
-    expect(mainRenderSceneSource).toContain('LineSegments')
-    expect(mainRenderPanelSource).toContain('--color-ink-bright')
-    expect(mainRenderPanelSource).toContain('--color-ink-muted')
-    expect(mainRenderPanelSource).toContain('--color-line-strong')
-    expect(mainRenderSceneSource).toContain('foregroundColor')
-    expect(mainRenderSceneSource).toContain('mutedColor')
-    expect(`${mainRenderPanelSource}\n${mainRenderSceneSource}`).not.toMatch(/#8be9fd|#bd93f9|#ff79c6/)
-    expect(mainPageSource).not.toContain('Glyph')
+  it('uses the shared Threlte glyph surface, supports personal glyphs, and reflects CPU/RAM load in shape scale', () => {
+    expect(mainPageSource).toContain('MainGlyphPanel')
+    expect(mainGlyphPanelSource).toContain("import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'")
+    expect(mainGlyphPanelSource).toContain("import MainGlyphEditDialog from './MainGlyphEditDialog.svelte'")
+    expect(mainGlyphPanelSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
+    expect(mainGlyphPanelSource).toContain('title="GLYPH"')
+    expect(mainGlyphPanelSource).toContain('aria-label="Edit glyph"')
+    expect(mainGlyphPanelSource).toContain('<GlyphCanvas')
+    expect(mainGlyphPanelSource).toContain('<MainGlyphEditDialog bind:open={editOpen} />')
+    expect(mainPageSource).toContain('hostname={monitoringMetrics.systemName}')
+    expect(mainGlyphPanelSource).toContain('hostname: string')
+    expect(mainGlyphPanelSource).toContain("// {hostname || 'UNKNOWN'}")
+    expect(mainGlyphPanelSource).not.toContain('// RENDER')
+    expect(mainGlyphPanelSource).not.toContain("import { Canvas } from '@threlte/core'")
+    expect(glyphCanvasSource).toContain("import { Canvas } from '@threlte/core'")
+    expect(glyphCanvasSource).toContain("import { glyphState, initializeGlyphState } from '$lib/hermes/glyph'")
+    expect(glyphCanvasSource).toContain("import GeneratedGlyph from './GeneratedGlyph.svelte'")
+    expect(glyphCanvasSource).toContain("import Glyph from './Glyph.svelte'")
+    expect(glyphCanvasSource).toContain('{#if activeGlyphScene}')
+    expect(generatedGlyphSource).toContain("import { T, useTask } from '@threlte/core'")
+    expect(generatedGlyphSource).toContain('Box3')
+    expect(generatedGlyphSource).toContain('sceneBox')
+    expect(generatedGlyphSource).toContain('telemetryScale')
+    expect(mainGlyphEditDialogSource).toContain('glyph_prompt')
+    expect(mainGlyphEditDialogSource).toContain('/api/plugins/bitch/glyph/current')
+    expect(mainGlyphEditDialogSource).toContain('Send to AGENT')
+    expect(glyphSource).toContain("import { T, useTask } from '@threlte/core'")
+    expect(glyphSource).toContain('animated?: boolean')
+    expect(glyphSource).toContain('cpuUsagePercent')
+    expect(glyphSource).toContain('memoryUsagePercent')
+    expect(glyphSource).toContain('cpuShape')
+    expect(glyphSource).toContain('LineSegments')
+    expect(mainGlyphPanelSource).toContain('--color-ink-bright')
+    expect(mainGlyphPanelSource).toContain('--color-ink-muted')
+    expect(mainGlyphPanelSource).toContain('--color-line-strong')
+    expect(glyphSource).toContain('foregroundColor')
+    expect(glyphSource).toContain('mutedColor')
+    expect(`${mainGlyphPanelSource}\n${glyphSource}\n${generatedGlyphSource}`).not.toMatch(/#8be9fd|#bd93f9|#ff79c6/)
   })
 
   it('loads Beszel monitoring endpoint config from MONITORING_URL', () => {

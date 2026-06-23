@@ -32,6 +32,8 @@ items under its `## Feature checklist` are task sources.
   attachments, slash commands, and model controls.
 - [`hermes/interactive-prompts.md`](hermes/interactive-prompts.md) — clarify,
   approval, sudo, and secret prompt responses.
+- [`hermes/personal-glyphs.md`](hermes/personal-glyphs.md) — BITCH-side
+  personal glyph generation, validated scene artifacts, and plugin sync.
 - [`hermes/live-conversation-preservation.md`](hermes/live-conversation-preservation.md) —
   resume/busy-state invariants for running sessions.
 

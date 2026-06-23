@@ -1,5 +1,4 @@
 <script lang="ts">
-  import bitchLogoUrl from '$lib/assets/bitch-logo.png'
   import { agentRoute, appRouterState, assetsRoute, calendarRoute, cronRoute, kanbanRoute, mainRoute, type AppPage } from '../router.svelte'
   import { sessionState } from '$lib/hermes/sessions'
 
@@ -40,7 +39,6 @@
       href={`#${mainRoute()}`}
       aria-current={appRouterState.page === 'main' ? 'page' : undefined}
     >
-      <img class="h-5 w-5 rounded-sm bg-black" src={bitchLogoUrl} alt="" aria-hidden="true" />
       <span>BITCH</span>
     </a>
   </div>

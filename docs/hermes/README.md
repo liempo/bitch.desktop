@@ -12,7 +12,7 @@ Hermes owns:
 - authenticated remote filesystem, preview, attachment, and inline media routes;
 - JSON-RPC runtime traffic through the Tauri WebSocket shim;
 - profile-scoped sessions, profiles, prompts, composer behavior, Cron, Kanban,
-  and other Hermes dashboard/plugin APIs.
+  BITCH glyph artifacts, and other Hermes dashboard/plugin APIs.
 
 Hermes must not own Beszel/monitoring or generic native platform helpers.
 `dashboard_request` is path-validated for Hermes `/api/*` routes and must not be
@@ -27,6 +27,7 @@ src/lib/hermes/
   cron/
   kanban/
   gateway/
+  glyph/
   sessions/
   conversations/
   files/
@@ -54,6 +55,8 @@ after call sites migrated; do not recreate them for new work.
   slash commands, and model controls.
 - [`interactive-prompts.md`](interactive-prompts.md) — prompt response state and
   UI behavior.
+- [`personal-glyphs.md`](personal-glyphs.md) — BITCH-side glyph generation prompt,
+  validated Threlte scene artifacts, and plugin sync behavior.
 - [`live-conversation-preservation.md`](live-conversation-preservation.md) — running-session
   resume and busy synchronization.
 
