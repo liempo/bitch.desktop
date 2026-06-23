@@ -14,11 +14,11 @@ BITCH can personalize the in-app GLYPH without executing agent-generated rendere
 4. BITCH syncs the current artifact from the authenticated dashboard plugin route:
    - `GET /api/plugins/bitch/glyph/current`
    - The source package for this route lives in repo root `plugin/`.
-5. BITCH validates the scene spec, stores the artifact in local namespaced storage, and updates every `GlyphCanvas` instance.
+5. BITCH validates the scene spec, stores the artifact in local namespaced storage, updates every `GlyphCanvas` instance, and uses `preview.png` to update the macOS app/Dock icon when the preview is present.
 
 ## Artifact contract
 
-`manifest.json` uses `kind: "bitch.glyph"` and `schemaVersion: 1`. The authoritative render contract is `glyph.scene.json`; `preview.png` is optional presentation output from Hermes and is not executed by the renderer.
+`manifest.json` uses `kind: "bitch.glyph"` and `schemaVersion: 1`. The authoritative render contract is `glyph.scene.json`; `preview.png` is optional presentation output from Hermes and is not executed by the renderer. On macOS, BITCH also treats the synced PNG preview as the dynamic app/Dock icon; if the preview is absent, the in-app glyph can still update but the app icon remains unchanged. Transparent PNG previews are accepted because BITCH composites the dynamic app icon onto the standard macOS-style BITCH icon plate before sending it to the native bridge.
 
 Supported scene object types are intentionally limited:
 

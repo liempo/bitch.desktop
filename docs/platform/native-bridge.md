@@ -17,7 +17,8 @@ Current public helpers:
 
 - `invokeTauriCommand` — typed wrapper around Tauri command invocation;
 - `listenTauriEvent` — typed wrapper around Tauri event subscriptions;
-- `openExternalUrl` — native external URL opening use case.
+- `openExternalUrl` — native external URL opening use case;
+- `setDynamicAppIconFromDataUrl` / `resetDynamicAppIcon` — macOS dynamic app/Dock icon updates from trusted PNG data URLs. PNG previews are composited onto the standard BITCH macOS icon plate before crossing the native bridge: transparent 1024×1024 canvas, inset rounded black plate, subtle frame/shadow, and centered/scaled glyph artwork.
 
 Renderer components and feature modules should use platform helpers or
 feature-specific adapters. Direct `@tauri-apps/api/core` imports are reserved for
@@ -32,6 +33,7 @@ src-tauri/src/
   http.rs
   platform/
     mod.rs
+    app_icon.rs
     window.rs
     external_url.rs
   commands/
@@ -42,6 +44,7 @@ src-tauri/src/
 Responsibilities:
 
 - window setup and macOS traffic-light behavior;
+- macOS dynamic app/Dock icon updates;
 - external URL opening;
 - connection configuration storage;
 - generic env/.env configuration helpers;

@@ -12,6 +12,7 @@ import { BITCH_GLYPH_PLUGIN_BASE, getCurrentGlyphArtifact } from './adapters/das
 import { normalizeGlyphArtifact } from './domain/artifact'
 import { normalizeGlyphScene } from './domain/scene'
 import { buildGlyphSkillPrompt } from './domain/skill-prompt'
+import glyphViewModelSource from './view-models/glyph.svelte.ts?raw'
 
 describe('BITCH glyph artifact contract', () => {
   beforeEach(() => {
@@ -99,5 +100,11 @@ describe('BITCH glyph artifact contract', () => {
       path: '/api/plugins/bitch/glyph/current',
       profile: 'ops/profile'
     })
+  })
+
+  it('applies the synced preview PNG to the native dynamic app icon bridge', () => {
+    expect(glyphViewModelSource).toContain('setDynamicAppIconFromDataUrl(artifact.previewDataUrl)')
+    expect(glyphViewModelSource).toContain('resetDynamicAppIcon()')
+    expect(glyphViewModelSource).toContain('updated the macOS app icon')
   })
 })

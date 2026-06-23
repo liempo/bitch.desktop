@@ -148,7 +148,8 @@ Current public helpers include:
 
 - `invokeTauriCommand` for typed Tauri command invocation;
 - `listenTauriEvent` for typed Tauri event subscriptions;
-- `openExternalUrl` for opening external HTTP(S) links through the native bridge.
+- `openExternalUrl` for opening external HTTP(S) links through the native bridge;
+- `setDynamicAppIconFromDataUrl` / `resetDynamicAppIcon` for macOS dynamic app icon updates from trusted in-app data URLs, composited onto the standard BITCH macOS icon plate before crossing the native bridge.
 
 Feature modules and Svelte components should import these helpers or a
 feature-specific adapter instead of importing `@tauri-apps/api/*` directly.
@@ -183,6 +184,7 @@ src-tauri/src/
     beszel.rs        Beszel PocketBase /api/* proxy with auth refresh
   platform/
     mod.rs
+    app_icon.rs
     window.rs
     external_url.rs
   commands/

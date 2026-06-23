@@ -69,9 +69,7 @@ fn resolve_monitoring_config_from(
 mod tests {
     use super::*;
 
-    fn resolve_with_monitoring_values(
-        pairs: &[(&str, &str)],
-    ) -> Result<MonitoringConfig, String> {
+    fn resolve_with_monitoring_values(pairs: &[(&str, &str)]) -> Result<MonitoringConfig, String> {
         resolve_monitoring_config_from(|name| {
             pairs.iter().find_map(|(key, value)| {
                 if *key != name {

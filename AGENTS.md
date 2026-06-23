@@ -150,6 +150,10 @@ The Tauri scripts are wrapped so Rust state stays in `.cargo/` and `.rustup/` in
 
 macOS still needs Xcode Command Line Tools.
 
+## Icon standards
+
+- Static, generated, and dynamic macOS app/Dock icons must follow the macOS app icon treatment used by BITCH: a transparent 1024×1024 canvas, inset rounded black plate, subtle frame/shadow, and centered/scaled glyph artwork. Do not set arbitrary square or rectangular preview PNGs directly as the macOS app icon; compose them onto the standard plate first.
+
 ## Guardrails
 
 - Keep `commitlint.config.cjs` in CommonJS format.

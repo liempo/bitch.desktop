@@ -54,6 +54,7 @@ import * as monitoringNormalizeContract from '$lib/monitoring/domain/normalize'
 import type { MonitoringRequestJson } from '$lib/monitoring/ports/monitoring-port'
 import * as notificationsContract from '$lib/notifications'
 import * as platformContract from '$lib/platform'
+import platformTauriSource from '$lib/platform/tauri.ts?raw'
 import * as storageContract from '$lib/storage'
 import * as typesContract from '$lib/types'
 import * as uiContract from '$lib/ui'
@@ -214,6 +215,17 @@ describe('module contract barrels', () => {
     expect(platformContract.invokeTauriCommand).toBeTypeOf('function')
     expect(platformContract.listenTauriEvent).toBeTypeOf('function')
     expect(platformContract.openExternalUrl).toBeTypeOf('function')
+    expect(platformContract.resetDynamicAppIcon).toBeTypeOf('function')
+    expect(platformContract.setDynamicAppIconFromDataUrl).toBeTypeOf('function')
+  })
+
+  it('keeps dynamic app icons on the macOS-standard BITCH icon plate', () => {
+    expect(platformTauriSource).toContain('const DYNAMIC_APP_ICON_SIZE = 1024')
+    expect(platformTauriSource).toContain('const MACOS_APP_ICON_PLATE =')
+    expect(platformTauriSource).toContain('drawMacOsAppIconPlate(context)')
+    expect(platformTauriSource).toContain('drawMacOsAppIconArtwork(context, image)')
+    expect(platformTauriSource).toContain('drawMacOsAppIconFrame(context)')
+    expect(platformTauriSource).toContain('macOsAppIconDataUrlToBytes(iconDataUrl)')
   })
 
   it('exposes non-Hermes utility barrels without collapsing their boundaries', () => {

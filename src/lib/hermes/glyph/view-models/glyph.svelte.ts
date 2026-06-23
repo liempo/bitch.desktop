@@ -1,6 +1,7 @@
 import { messageForError } from '$lib/errors'
 import { submitPrompt } from '$lib/hermes/composer'
 import { normalizeProfileKey, profileState } from '$lib/hermes/profiles'
+import { resetDynamicAppIcon, setDynamicAppIconFromDataUrl } from '$lib/platform'
 import {
   readNamespacedStorageItem,
   removeNamespacedStorageItem,
@@ -51,6 +52,15 @@ function setArtifact(artifact: GlyphArtifact | null): void {
   glyphState.scene = artifact?.scene ?? null
 }
 
+async function updateDynamicAppIcon(artifact: GlyphArtifact): Promise<boolean> {
+  return setDynamicAppIconFromDataUrl(artifact.previewDataUrl)
+}
+
+function restoreDynamicAppIcon(artifact: GlyphArtifact): void {
+  if (!artifact.previewDataUrl) return
+  void updateDynamicAppIcon(artifact).catch(() => undefined)
+}
+
 export function initializeGlyphState(): void {
   if (glyphState.initialized) return
 
@@ -59,6 +69,7 @@ export function initializeGlyphState(): void {
 
   if (stored) {
     setArtifact(stored)
+    restoreDynamicAppIcon(stored)
   }
 }
 
@@ -82,6 +93,10 @@ export function clearPersonalGlyph(): void {
   glyphState.error = null
   glyphState.notice = 'Personal glyph reset to the built-in fallback.'
   removeNamespacedStorageItem(GLYPH_ARTIFACT_STORAGE_SUFFIX)
+
+  void resetDynamicAppIcon().catch(error => {
+    glyphState.error = `Personal glyph reset, but the macOS app icon did not reset: ${messageForError(error)}`
+  })
 }
 
 export async function syncRemoteGlyphArtifact(profile?: null | string): Promise<boolean> {
@@ -92,7 +107,17 @@ export async function syncRemoteGlyphArtifact(profile?: null | string): Promise<
   try {
     const targetProfile = normalizeProfileKey(profile ?? profileState.activeGatewayProfile)
     const artifact = applyGlyphArtifact(await getCurrentGlyphArtifact(targetProfile))
-    glyphState.notice = `Synced ${artifact.manifest.name} from Hermes.`
+
+    try {
+      const iconUpdated = await updateDynamicAppIcon(artifact)
+      glyphState.notice = iconUpdated
+        ? `Synced ${artifact.manifest.name} from Hermes and updated the macOS app icon.`
+        : `Synced ${artifact.manifest.name} from Hermes. Add preview.png to update the macOS app icon.`
+    } catch (error) {
+      glyphState.error = `Synced ${artifact.manifest.name}, but the macOS app icon did not update: ${messageForError(error)}`
+      glyphState.notice = `Synced ${artifact.manifest.name} from Hermes.`
+    }
+
     return true
   } catch (error) {
     glyphState.error = messageForError(error)
