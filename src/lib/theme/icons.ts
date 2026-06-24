@@ -1,0 +1,46 @@
+export const nerdIconGlyphs = {
+  add: '󰐕',
+  agent: '󰚩',
+  archive: '󰉉',
+  arrowRight: '󰁔',
+  assets: '󰉋',
+  attach: '󰈙',
+  board: '󰘔',
+  calendar: '󰃭',
+  check: '󰄬',
+  chevronDown: '󰅀',
+  chevronRight: '󰅂',
+  close: '󰅖',
+  cron: '󰥔',
+  download: '󰇚',
+  error: '󰅚',
+  external: '󰌹',
+  file: '󰈔',
+  fileArchive: '󰀼',
+  fileAudio: '󰈣',
+  fileCode: '󰈮',
+  fileHtml: '󰌝',
+  fileImage: '󰈟',
+  filePdf: '󰈦',
+  fileText: '󰈙',
+  fileVideo: '󰈫',
+  filter: '󰈲',
+  folder: '󰉋',
+  home: '󰋜',
+  kanban: '󰘳',
+  menu: '󰍜',
+  search: '󰍉',
+  shieldCheck: '󰒃',
+  sortAscending: '󰒽',
+  sortDescending: '󰒼',
+  stop: '󰓛',
+  sync: '󰑓',
+  theme: '󰔎',
+  warning: '󰀦'
+} as const
+
+export type NerdIconName = keyof typeof nerdIconGlyphs
+
+export function nerdIcon(name: NerdIconName): string {
+  return nerdIconGlyphs[name]
+}

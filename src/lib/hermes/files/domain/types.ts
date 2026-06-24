@@ -1,3 +1,5 @@
+import type { NerdIconName } from '$lib/theme'
+
 export type RemoteFileHrefMode = 'media' | 'preview'
 type RemoteFileEntryKind = 'directory' | 'file'
 export type RemoteFileViewerKind = 'audio' | 'download' | 'html' | 'image' | 'pdf' | 'text' | 'video'
@@ -69,7 +71,7 @@ type FileAccent = 'archive' | 'audio' | 'code' | 'file' | 'html' | 'image' | 'pd
 export interface FilePresentation {
   accent: FileAccent
   extension: string
-  glyph: string
+  icon: NerdIconName
   title: string
   viewerKind: RemoteFileViewerKind
 }

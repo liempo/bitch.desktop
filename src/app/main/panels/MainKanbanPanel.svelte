@@ -3,6 +3,7 @@
   import { Popover } from 'bits-ui'
 
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { popoverClass } from '@/app/components/ui/styles'
   import { messageForError } from '$lib/errors'
@@ -294,7 +295,7 @@
     <Popover.Root bind:open={kanbanBoardMenuOpen}>
       <Popover.Trigger title={`BOARD::${kanbanCurrentBoardLabel}`} aria-label={`View available Kanban boards. Current board: ${kanbanCurrentBoardLabel}`}>
         {#snippet child({ props })}
-          <Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!">BOARD::{kanbanCurrentBoardLabel}</Button>
+          <Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!"><Icon name="board" class="text-[0.85rem]" /><span>BOARD::{kanbanCurrentBoardLabel}</span></Button>
         {/snippet}
       </Popover.Trigger>
 
@@ -326,7 +327,7 @@
                     <span class="mt-0.5 block truncate text-[10px] text-ink-muted/80">{kanbanBoardMetaLabel(board)}</span>
                   </span>
                   {#if board.slug === kanbanCurrentBoardSlug}
-                    <span class="shrink-0 text-primary">current</span>
+                    <Icon name="check" label="Current board" decorative={false} class="text-primary" />
                   {/if}
                 </span>
               </Button>
@@ -354,16 +355,19 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
       {#if kanbanBoardsError && kanbanFocusTasks.length === 0}
-        <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
-          Kanban unavailable: {kanbanBoardsError}
+        <div class="flex items-center gap-2 rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
+          <Icon name="error" label="Kanban error" decorative={false} />
+          <span>Kanban unavailable: {kanbanBoardsError}</span>
         </div>
       {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
-        <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
-          Syncing current board…
+        <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+          <Icon name="sync" class="text-primary" />
+          <span>Syncing current board…</span>
         </div>
       {:else if kanbanFocusTasks.length === 0}
-        <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
-          {kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}
+        <div class="flex items-center gap-2 rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
+          <Icon name="kanban" class="text-ink-muted" />
+          <span>{kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}</span>
         </div>
       {:else}
         <div class="grid content-start gap-1.5">
@@ -408,7 +412,8 @@
       profile={kanbanBoardProfile} · cards={formatDashboardCount(kanbanTotalCards)}
     </span>
     <Button size="sm" chrome="ghost" variant="primary" class="rounded-none!" href={kanbanHref} aria-label="Open Kanban board">
-      Open Kanban
+      <Icon name="external" class="text-[0.85rem]" />
+      <span>Open Kanban</span>
     </Button>
   </div>
 </Panel>

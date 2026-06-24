@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import {
     fetchRemoteFileListing,
@@ -10,6 +11,7 @@
     type RemoteFileListing
   } from '$lib/hermes/files'
   import { filePresentation } from '$lib/hermes/files'
+  import type { NerdIconName } from '$lib/theme'
 
   type FileAccent = ReturnType<typeof filePresentation>['accent']
 
@@ -195,9 +197,9 @@
     }
   }
 
-  function treeIconFor(entry: RemoteFileEntry): string {
-    if (entry.kind === 'directory') return '▣'
-    return filePresentation(entry.name).glyph
+  function treeIconFor(entry: RemoteFileEntry): NerdIconName {
+    if (entry.kind === 'directory') return 'folder'
+    return filePresentation(entry.name).icon
   }
 
   function thumbnailClass(accent: FileAccent): string {
@@ -280,8 +282,8 @@
             onclick={() => selectTreeRow(row)}
             ondblclick={() => toggleTreeRow(row)}
           >
-            <span class="w-3 text-center text-[0.6rem] text-line-strong">{row.expanded ? '▾' : '▸'}</span>
-            <span class="text-secondary">▣</span>
+            <Icon name={row.expanded ? 'chevronDown' : 'chevronRight'} class="w-3 text-center text-[0.6rem] text-line-strong" />
+            <Icon name="folder" class="text-secondary" />
             <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
             {#if row.loading}
               <span class="text-[0.58rem] uppercase tracking-[0.12em] text-primary">sync</span>
@@ -297,7 +299,7 @@
             onclick={() => selectTreeRow(row)}
           >
             <span class="w-3 text-center text-[0.6rem] text-line-strong"></span>
-            <span class="w-8 text-warning">{treeIconFor(row.entry)}</span>
+            <Icon name={treeIconFor(row.entry)} class="w-8 text-warning" />
             <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
           </button>
         {/if}
@@ -316,7 +318,7 @@
           {#if selectedViewerKind === 'image' && dataPreviewUrl}
             <img src={dataPreviewUrl} alt="" class="h-full w-full object-cover" />
           {:else}
-            <span>{selectedFilePresentation.glyph}</span>
+            <Icon name={selectedFilePresentation.icon} label={selectedFilePresentation.title} decorative={false} />
           {/if}
         </span>
         <div class="min-w-0 flex-1">
@@ -350,7 +352,7 @@
           </div>
         {:else if selectedViewerKind === 'audio' && dataPreviewUrl}
           <div class="flex h-full flex-col items-center justify-center gap-4 p-6 text-center text-sm text-ink-muted">
-            <span class="font-hud text-4xl text-success">AUD</span>
+            <Icon name="fileAudio" label="Audio" decorative={false} class="text-4xl text-success" />
             <audio controls src={dataPreviewUrl} class="w-full"></audio>
           </div>
         {:else if selectedViewerKind === 'html' && dataPreviewUrl}

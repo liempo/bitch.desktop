@@ -1,20 +1,22 @@
 <script lang="ts">
+  import Icon from '@/app/components/ui/Icon.svelte'
   import { agentRoute, appRouterState, assetsRoute, calendarRoute, cronRoute, kanbanRoute, mainRoute, type AppPage } from '../router.svelte'
   import { sessionState } from '$lib/hermes/sessions'
-  import { selectTheme, themeOptions, themeState } from '$lib/theme'
+  import { selectTheme, themeOptions, themeState, type NerdIconName } from '$lib/theme'
 
   interface NavItem {
     href: string
+    icon: NerdIconName
     label: string
     page: AppPage
   }
 
   const navItems = $derived<NavItem[]>([
-    { href: `#${agentRoute(sessionState.storedSessionId)}`, label: 'AGENT', page: 'agent' },
-    { href: `#${assetsRoute()}`, label: 'ASSETS', page: 'assets' },
-    { href: `#${calendarRoute()}`, label: 'CALENDAR', page: 'calendar' },
-    { href: `#${cronRoute()}`, label: 'CRON', page: 'cron' },
-    { href: `#${kanbanRoute()}`, label: 'KANBAN', page: 'kanban' }
+    { href: `#${agentRoute(sessionState.storedSessionId)}`, icon: 'agent', label: 'AGENT', page: 'agent' },
+    { href: `#${assetsRoute()}`, icon: 'assets', label: 'ASSETS', page: 'assets' },
+    { href: `#${calendarRoute()}`, icon: 'calendar', label: 'CALENDAR', page: 'calendar' },
+    { href: `#${cronRoute()}`, icon: 'cron', label: 'CRON', page: 'cron' },
+    { href: `#${kanbanRoute()}`, icon: 'kanban', label: 'KANBAN', page: 'kanban' }
   ])
 
   function linkClass(page: AppPage): string {
@@ -47,6 +49,7 @@
       href={`#${mainRoute()}`}
       aria-current={appRouterState.page === 'main' ? 'page' : undefined}
     >
+      <Icon name="home" class="text-[0.95em]" />
       <span>BITCH</span>
     </a>
   </div>
@@ -55,8 +58,13 @@
 
   <div class="flex items-center gap-6 pr-2">
     {#each navItems as item (item.page)}
-      <a class={linkClass(item.page)} href={item.href} aria-current={appRouterState.page === item.page ? 'page' : undefined}>
-        {item.label}
+      <a
+        class={`${linkClass(item.page)} inline-flex items-center gap-1.5`}
+        href={item.href}
+        aria-current={appRouterState.page === item.page ? 'page' : undefined}
+      >
+        <Icon name={item.icon} class="text-[0.95em]" />
+        <span>{item.label}</span>
       </a>
     {/each}
 
