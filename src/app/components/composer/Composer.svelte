@@ -144,16 +144,15 @@
   const attachmentCardClass = `${cardClass} flex items-center gap-2 p-1.5 pr-2 text-xs text-ink`
   const composerShellClass = $derived(
     compact
-      ? 'shrink-0 bg-surface-raised/35 p-2'
+      ? 'shrink-0 p-2'
       : responsiveCompact
-        ? 'shrink-0 bg-surface-raised/35 p-2 md:bg-transparent md:py-3 md:pr-3 md:pl-1'
+        ? 'shrink-0 p-2 md:py-3 md:pr-3 md:pl-1'
         : 'p-3'
   )
   const composerInnerClass = $derived(
     compact ? 'w-full' : responsiveCompact ? 'w-full 2xl:mx-auto 2xl:max-w-5xl' : 'mx-auto max-w-5xl'
   )
   const composerFrameClass = $derived(compact ? 'mt-0' : responsiveCompact ? 'mt-0 md:mt-3' : 'mt-3')
-  const composerPanelClass = $derived(compact ? 'border-line bg-input' : responsiveCompact ? 'border-line bg-input md:bg-surface' : '')
   const composerTextareaClass = $derived(
     `${textareaClass} border-0 !bg-transparent text-ink-bright placeholder:text-ink-muted/70 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 ${
       compact
@@ -444,7 +443,7 @@
     {/if}
 
     <div class={composerFrameClass}>
-      <Panel title={panelTitle} padded={false} class={composerPanelClass}>
+      <Panel title={panelTitle} padded={false} class="!bg-transparent">
         {#snippet leading()}
           {#if onToggleSidebar}
             <Button
