@@ -645,7 +645,7 @@
     {@const selectedKey = jobKey(selectedJob)}
     {@const selectedRuns = runsByJob[selectedKey] ?? []}
     <aside class="hidden min-h-0 md:block" aria-label="Cron job details panel">
-      <Panel title="DETAILS" padded={false} contentClass="min-h-0 overflow-auto p-3" class="min-h-128 md:min-h-0">
+      <Panel title="DETAILS" padded={false} contentClass="min-h-0 overflow-hidden p-3" class="min-h-128 md:min-h-0">
         {#snippet actions()}
           <Button
             variant="unstyled"
@@ -695,7 +695,7 @@
     class="w-[min(38rem,calc(100vw-2rem))] md:hidden"
     contentClass="flex max-h-[min(38rem,calc(100vh-7rem))] flex-col overflow-hidden"
   >
-    <div class="min-h-0 flex-1 overflow-y-auto p-3">
+    <div class="min-h-0 flex-1 overflow-hidden p-3">
       <CronJobDetailsPanel
         job={selectedJob}
         runs={selectedRuns}

@@ -55,7 +55,7 @@ describe('cron manager page contract', () => {
     expect(cronJobsPanelSource).toContain('md:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]')
     expect(cronJobsPanelSource).toContain('aria-label="Cron job details panel"')
     expect(cronJobsPanelSource).toContain('aria-label="Close job details"')
-    expect(cronJobsPanelSource).toContain('contentClass="min-h-0 overflow-auto p-3"')
+    expect(cronJobsPanelSource).toContain('contentClass="min-h-0 overflow-hidden p-3"')
     expect(cronJobsPanelSource).toContain('bind:open={detailDialogOpen}')
     expect(cronJobsPanelSource).toContain(
       'if (selectedJob && !detailDialogOpen && !isDesktopViewport()) selectedJobKey = null'
@@ -69,7 +69,9 @@ describe('cron manager page contract', () => {
     expect(cronJobsPanelSource).toContain('showIdentity={false}')
     expect(cronJobsPanelSource).toContain('aria-label="Job detail actions"')
     expect(cronJobsPanelSource).toContain('class="w-[min(38rem,calc(100vw-2rem))] md:hidden"')
+    expect(cronJobsPanelSource).toContain('class="min-h-0 flex-1 overflow-hidden p-3"')
     expect(cronFeatureSource).toContain('CronJobDetailsPanel')
+    expect(cronJobDetailsPanelSource).toContain('class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto"')
     expect(cronJobDetailsPanelSource).toContain('Job ID')
     expect(cronJobDetailsPanelSource).toContain('Prompt')
     expect(cronJobDetailsPanelSource).toContain('Recent run output')

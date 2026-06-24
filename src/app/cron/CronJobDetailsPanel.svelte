@@ -128,7 +128,7 @@
   }
 </script>
 
-<div class="flex min-h-0 flex-col gap-3">
+<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
   {#if showHeader}
     <header class="min-w-0 border-b border-line/60 pb-3">
       {#if showIdentity}
