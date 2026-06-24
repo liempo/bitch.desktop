@@ -219,7 +219,7 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).toContain("{ label: 'Paused'")
     expect(mainCronPanelSource).toContain("{ label: 'Alerts'")
     expect(mainCronPanelSource).toContain('href={cronHref}')
-    expect(mainCronPanelSource).toContain('<Button size="sm" chrome="ghost" variant="secondary" href={cronHref}')
+    expect(mainCronPanelSource).toContain('aria-label="Open Cron Job Manager"')
     expect(mainCronPanelSource).toContain('Open Cron')
     expect(mainCronPanelSource).not.toContain('Scheduler surface online')
     expect(mainCronPanelSource).not.toContain(
@@ -228,7 +228,7 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).not.toMatch(/title="CRON"[\s\S]{0,120}badge="ready"/)
     expect(mainKanbanPanelSource).not.toMatch(/title="KANBAN"[\s\S]{0,120}badge="ready"/)
     expect(mainKanbanPanelSource).toContain('href={kanbanHref}')
-    expect(mainKanbanPanelSource).toContain('<Button size="sm" chrome="ghost" variant="primary" href={kanbanHref}')
+    expect(mainKanbanPanelSource).toContain('aria-label="Open Kanban board"')
     expect(mainKanbanPanelSource).toContain('Open Kanban')
     expect(mainKanbanPanelSource).toContain("import { Popover } from 'bits-ui'")
     expect(mainKanbanPanelSource).toContain('getKanbanBoard')
@@ -236,7 +236,7 @@ describe('Main dashboard source contract', () => {
     expect(mainKanbanPanelSource).toContain('kanbanCurrentBoardLabel')
     expect(mainKanbanPanelSource).toContain('BOARD::{kanbanCurrentBoardLabel}')
     expect(mainKanbanPanelSource).toContain(
-      '<Button {...props} size="sm" chrome="ghost" variant="primary">BOARD::{kanbanCurrentBoardLabel}</Button>'
+      '<Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!">'
     )
     expect(mainKanbanPanelSource).toContain('available boards')
     expect(mainKanbanPanelSource).toContain('selectKanbanBoard')
