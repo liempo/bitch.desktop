@@ -21,7 +21,7 @@
 
   let { class: className = '', titleClass = '' }: Props = $props()
 
-  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-canvas'
+  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
 
   let cronJobs = $state<CronJob[]>([])
   let cronError = $state('')
@@ -90,7 +90,6 @@
       if (seen.has(key)) continue
       seen.add(key)
       jobs.push(job)
-      if (jobs.length >= 3) break
     }
 
     return jobs
@@ -207,7 +206,7 @@
     {/each}
   </div>
 
-  <section class="grid min-h-0 flex-1 gap-2" aria-label="Cron run queue">
+  <section class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-2" aria-label="Cron run queue">
     <div class="flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.14em]">
       <span class="text-ink-muted">Run queue</span>
       <span class={cronError ? 'text-warning' : 'text-ink-faint'}>{cronPanelMeta}</span>
@@ -218,7 +217,7 @@
         Cron unavailable: {cronError}
       </div>
     {:else if cronLoading && cronFocusJobs.length === 0}
-      <div class="rounded-none border border-line bg-canvas p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+      <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
         Syncing scheduler jobs…
       </div>
     {:else if cronFocusJobs.length === 0}
@@ -226,11 +225,11 @@
         {cronJobs.length ? 'No upcoming scheduler runs.' : 'No cron jobs visible across profiles.'}
       </div>
     {:else}
-      <div class="grid min-h-0 gap-1.5 overflow-hidden">
+      <div class="grid min-h-0 gap-1.5 overflow-y-auto overscroll-contain pr-1">
         {#each cronFocusJobs as job (cronJobDashboardKey(job))}
           {@const problem = isCronJobProblem(job)}
           <a
-            class="min-w-0 rounded-none border border-line bg-canvas p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
             href={cronHref}
             aria-label={`Open cron job ${cronJobTitle(job)}`}
           >

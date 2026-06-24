@@ -184,7 +184,7 @@ describe('Main dashboard source contract', () => {
     expect(mainAgentPanelSource).toContain('startNewSession({ commitRoute: false })')
     expect(mainAgentPanelSource).toContain('compact')
     expect(mainAgentPanelSource).toContain('commitRoute={false}')
-    expect(composerSource).toContain("? 'shrink-0 bg-surface-raised/35 p-2'")
+    expect(composerSource).toContain("? 'shrink-0 p-2'")
   })
 
   it('renders Calendar placeholder plus wired Cron and Kanban dashboard panels', () => {
@@ -260,5 +260,28 @@ describe('Main dashboard source contract', () => {
     expect(dashboardSource).toContain("id: 'kanban'")
     expect(dashboardSource).toContain('href: `#${kanbanRoute()}`')
     expect(dashboardSource).not.toContain("state: 'planned'")
+  })
+
+  it('keeps the Main Kanban focus queue scrollable instead of silently capped', () => {
+    const collectFocusTasksSource =
+      mainKanbanPanelSource.match(/function collectKanbanFocusTasks\(\): KanbanTask\[] \{[\s\S]*?\n {2}\}/)?.[0] ?? ''
+
+    expect(mainKanbanPanelSource).toContain('aria-label="Kanban focus queue"')
+    expect(mainKanbanPanelSource).toContain('overflow-y-auto')
+    expect(mainKanbanPanelSource).toContain('overscroll-contain')
+    expect(collectFocusTasksSource).toContain('.sort((a, b) => {')
+    expect(collectFocusTasksSource).toContain('kanbanTaskStatusRank(a) - kanbanTaskStatusRank(b)')
+    expect(collectFocusTasksSource).toContain('warningDelta')
+    expect(collectFocusTasksSource).toContain('(b.priority ?? 0) - (a.priority ?? 0)')
+    expect(collectFocusTasksSource).not.toMatch(/\.slice\(\s*0\s*,\s*3\s*\)/)
+  })
+
+  it('keeps the Cron run queue scrollable instead of silently capping it to three jobs', () => {
+    expect(mainCronPanelSource).toContain('aria-label="Cron run queue"')
+    expect(mainCronPanelSource).toContain('cronProblemJobs, ...cronUpcomingJobs')
+    expect(mainCronPanelSource).toContain('grid-rows-[auto_minmax(0,1fr)]')
+    expect(mainCronPanelSource).toContain('overflow-y-auto')
+    expect(mainCronPanelSource).toContain('overscroll-contain')
+    expect(mainCronPanelSource).not.toMatch(/jobs\.length\s*>=\s*3/)
   })
 })
