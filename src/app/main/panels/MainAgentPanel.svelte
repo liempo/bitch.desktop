@@ -46,7 +46,7 @@
   const selectorTitle = $derived(`AGENT: ${sessionTitle}`)
   const agentHref = $derived(`#${agentRoute(selectedSessionId)}`)
 
-  const emptyNoticeClass = `${cardClass} rounded-control !bg-surface-raised/40 p-3 text-xs text-ink-muted`
+  const emptyNoticeClass = `${cardClass} rounded-control !bg-canvas p-3 text-xs text-ink-muted`
   const optionBaseClass = [
     'grid w-full min-w-0 grid-cols-[1fr_auto] items-start gap-2 rounded-control border px-2 py-2 text-left font-mono',
     'hover:border-line-strong hover:bg-primary/10 focus-visible:border-line-strong focus-visible:bg-primary/10 focus-visible:outline-none'
@@ -159,7 +159,7 @@
 
 <Panel
   title="AGENT"
-  class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
+  class="min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong"
   contentClass="flex h-full min-h-0 flex-col p-0"
   titleClass="text-ink-muted"
 >

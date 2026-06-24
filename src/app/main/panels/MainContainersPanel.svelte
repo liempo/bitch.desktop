@@ -59,7 +59,7 @@
 </script>
 
 <Panel title="CONTAINERS" class={className} contentClass="flex h-full min-h-0 flex-col gap-2" titleClass={titleClass}>
-  <div class="flex shrink-0 items-center justify-between border border-line bg-surface-raised px-2 py-1 text-[0.66rem] uppercase tracking-[0.12em] text-ink-muted">
+  <div class="flex shrink-0 items-center justify-between border border-line bg-canvas px-2 py-1 text-[0.66rem] uppercase tracking-[0.12em] text-ink-muted">
     <span>{containerCount} containers</span>
     <span>sort: {containerSortKey}/{containerSortDirection}</span>
   </div>
@@ -90,7 +90,7 @@
     {#if containerRows.length}
       <div class="grid gap-1">
         {#each containerRows as container (container.id ?? `${container.name}:${container.image}`)}
-          <div class="grid grid-cols-[minmax(0,1fr)_3.6rem_5.6rem] gap-2 border border-line bg-surface-raised px-2 py-1.5">
+          <div class="grid grid-cols-[minmax(0,1fr)_3.6rem_5.6rem] gap-2 border border-line bg-canvas px-2 py-1.5">
             <div class="min-w-0">
               <div class="truncate text-ink-bright">{container.name}</div>
               <div class="truncate text-[0.62rem] text-ink-muted" title={containerDetailLabel(container)}>

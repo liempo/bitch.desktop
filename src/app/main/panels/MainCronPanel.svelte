@@ -21,7 +21,7 @@
 
   let { class: className = '', titleClass = '' }: Props = $props()
 
-  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
+  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-canvas'
 
   let cronJobs = $state<CronJob[]>([])
   let cronError = $state('')
@@ -218,7 +218,7 @@
         Cron unavailable: {cronError}
       </div>
     {:else if cronLoading && cronFocusJobs.length === 0}
-      <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+      <div class="rounded-none border border-line bg-canvas p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
         Syncing scheduler jobs…
       </div>
     {:else if cronFocusJobs.length === 0}
@@ -230,7 +230,7 @@
         {#each cronFocusJobs as job (cronJobDashboardKey(job))}
           {@const problem = isCronJobProblem(job)}
           <a
-            class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            class="min-w-0 rounded-none border border-line bg-canvas p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
             href={cronHref}
             aria-label={`Open cron job ${cronJobTitle(job)}`}
           >

@@ -44,7 +44,7 @@
   }
   const KANBAN_ACTIVE_STATUSES = ['triage', 'todo', 'scheduled', 'ready', 'running', 'blocked']
   const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono rounded-none!`
-  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
+  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-canvas'
 
   let kanbanBoardMenuOpen = $state(false)
   let kanbanBoards = $state<KanbanBoardMeta[]>([])
@@ -358,7 +358,7 @@
         Kanban unavailable: {kanbanBoardsError}
       </div>
     {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
-      <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+      <div class="rounded-none border border-line bg-canvas p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
         Syncing current board…
       </div>
     {:else if kanbanFocusTasks.length === 0}
@@ -370,7 +370,7 @@
         {#each kanbanFocusTasks as task (task.id)}
           {@const marker = kanbanTaskMarker(task)}
           <a
-            class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            class="min-w-0 rounded-none border border-line bg-canvas p-2 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
             href={kanbanHref}
             aria-label={`Open Kanban card ${task.title}`}
           >
