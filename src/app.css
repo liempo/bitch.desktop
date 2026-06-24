@@ -43,11 +43,8 @@
   --bits-scrollbar-thumb-min-height: 24px;
   --bits-scrollbar-width: 2px;
   color-scheme: dark;
-}
 
-:root,
-[data-theme='default'],
-[data-theme='cyberpunk'] {
+  /* First-paint fallback. Runtime themes are VS Code-style sources in $lib/theme. */
   --bits-canvas: #000000;
   --bits-surface: #000000;
   --bits-surface-raised: #050505;
@@ -71,28 +68,10 @@
   --bits-tool-bg: rgba(0, 0, 0, 0.4);
 }
 
-[data-theme='terminal-green'] {
-  --bits-canvas: #010400;
-  --bits-surface: #020700;
-  --bits-surface-raised: #061006;
-  --bits-overlay: rgba(1, 4, 0, 0.88);
-
-  --bits-ink: #d8ffd8;
-  --bits-ink-muted: #5b8f67;
-  --bits-ink-bright: #f4fff4;
-
-  --bits-primary: #7cff7c;
-  --bits-secondary: #7dffbf;
-  --bits-success: #aaff80;
-  --bits-warning: #f4ff75;
-  --bits-danger: #ff6f6f;
-
-  --bits-line: #1d3d24;
-  --bits-line-strong: #3e7a4a;
-  --bits-focus: #7cff7c;
-  --bits-input: #030b03;
-  --bits-chat-scroll: rgba(1, 8, 1, 0.2);
-  --bits-tool-bg: rgba(3, 14, 3, 0.58);
+[data-theme-type='light'],
+[data-theme-type='hcLight'],
+[data-theme-type='vs'] {
+  color-scheme: light;
 }
 
 @layer base {

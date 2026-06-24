@@ -1,6 +1,7 @@
 <script lang="ts">
   import { agentRoute, appRouterState, assetsRoute, calendarRoute, cronRoute, kanbanRoute, mainRoute, type AppPage } from '../router.svelte'
   import { sessionState } from '$lib/hermes/sessions'
+  import { selectTheme, themeOptions, themeState } from '$lib/theme'
 
   interface NavItem {
     href: string
@@ -25,6 +26,13 @@
     }
 
     return `${base} text-ink-muted hover:text-ink-bright`
+  }
+
+  function handleThemeChange(event: Event): void {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLSelectElement)) return
+
+    selectTheme(target.value)
   }
 </script>
 
@@ -51,5 +59,16 @@
         {item.label}
       </a>
     {/each}
+
+    <select
+      aria-label="Theme"
+      bind:value={themeState.selectedThemeId}
+      class="rounded-control border border-line bg-input px-2 py-1 font-hud text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted outline-none hover:border-line-strong hover:text-ink-bright focus:border-focus focus:outline-2 focus:outline-focus focus:outline-offset-0"
+      onchange={handleThemeChange}
+    >
+      {#each themeOptions as theme (theme.id)}
+        <option value={theme.id}>{theme.source.name}</option>
+      {/each}
+    </select>
   </div>
 </nav>
