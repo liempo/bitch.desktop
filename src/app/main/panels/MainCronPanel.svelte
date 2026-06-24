@@ -90,7 +90,6 @@
       if (seen.has(key)) continue
       seen.add(key)
       jobs.push(job)
-      if (jobs.length >= 3) break
     }
 
     return jobs
@@ -207,7 +206,7 @@
     {/each}
   </div>
 
-  <section class="grid min-h-0 flex-1 gap-2" aria-label="Cron run queue">
+  <section class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-2" aria-label="Cron run queue">
     <div class="flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.14em]">
       <span class="text-ink-muted">Run queue</span>
       <span class={cronError ? 'text-warning' : 'text-ink-faint'}>{cronPanelMeta}</span>
@@ -226,7 +225,7 @@
         {cronJobs.length ? 'No upcoming scheduler runs.' : 'No cron jobs visible across profiles.'}
       </div>
     {:else}
-      <div class="grid min-h-0 gap-1.5 overflow-hidden">
+      <div class="grid min-h-0 gap-1.5 overflow-y-auto overscroll-contain pr-1">
         {#each cronFocusJobs as job (cronJobDashboardKey(job))}
           {@const problem = isCronJobProblem(job)}
           <a

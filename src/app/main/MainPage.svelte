@@ -24,8 +24,8 @@
 
   type ThermalZone = MonitoringMetrics['thermal'][number]
 
-  const dashboardPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong md:h-full'
-  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong'
+  const dashboardPanelClass = 'h-auto min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong md:h-full'
+  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong'
   const dashboardPanelTitleClass = 'text-ink-muted'
   const placeholderPanels = [
     {
@@ -222,11 +222,11 @@
         titleClass={dashboardPanelTitleClass}
       >
         <div class="grid grid-cols-2 gap-2 uppercase tracking-[0.12em]">
-          <div class="border border-line bg-surface-raised px-2 py-1.5">
+          <div class="border border-line bg-canvas px-2 py-1.5">
             <div class="text-[0.58rem] text-ink-muted">Gateway</div>
             <div class={`mt-1 text-[0.68rem] font-bold ${mobileAgentStatusClass}`}>{mobileAgentStatusLabel}</div>
           </div>
-          <div class="border border-line bg-surface-raised px-2 py-1.5">
+          <div class="border border-line bg-canvas px-2 py-1.5">
             <div class="text-[0.58rem] text-ink-muted">Index</div>
             <div class="mt-1 truncate text-[0.68rem] font-bold text-ink-bright">{mobileAgentSessionCountLabel}</div>
           </div>
@@ -234,7 +234,7 @@
 
         {#if mobileAgentSession}
           <a
-            class="block min-w-0 border border-line bg-surface-raised/60 p-3 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            class="block min-w-0 border border-line bg-canvas p-3 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
             href={mobileAgentSession.href}
             aria-label={`Open AGENT session ${mobileAgentSessionTitle}`}
           >
@@ -248,7 +248,7 @@
             </div>
           </a>
         {:else}
-          <div class="min-w-0 border border-line bg-surface-raised/60 p-3">
+          <div class="min-w-0 border border-line bg-canvas p-3">
             <div class="text-[0.58rem] uppercase tracking-[0.14em] text-ink-muted">No active session</div>
             <div class="mt-1 truncate text-[0.76rem] font-bold uppercase tracking-widest text-primary" title={mobileAgentSessionTitle}>
               {mobileAgentSessionTitle}
@@ -260,7 +260,7 @@
         {/if}
 
         <a
-          class="block min-w-0 border border-line bg-surface-raised/60 p-3 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+          class="block min-w-0 border border-line bg-canvas p-3 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
           href={newAgentHref}
           aria-label="Start a new AGENT session"
         >

@@ -4,6 +4,7 @@
   import StartupSplash from './components/StartupSplash.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState, type AppPage } from './router.svelte'
+  import { currentThemeStyleAttribute, initializeThemeSelection, themeState } from '$lib/theme'
 
   type PageModule = { default: Component }
 
@@ -31,9 +32,18 @@
   function routeLoadErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
   }
+
+  if (typeof window !== 'undefined') {
+    initializeThemeSelection()
+  }
 </script>
 
-<div class="h-full" data-theme="cyberpunk">
+<div
+  class="h-full"
+  data-theme={themeState.selectedThemeId}
+  data-theme-type={themeState.selectedTheme.source.type}
+  style={currentThemeStyleAttribute()}
+>
   <div class="relative isolate flex h-full w-full flex-col overflow-hidden bg-chat-scroll">
     <AppNavbar />
 
