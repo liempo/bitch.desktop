@@ -692,20 +692,7 @@
   }
 </script>
 
-<section
-  class="grid h-full min-h-0 grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)] gap-3 bg-chat-scroll/40 p-4"
-  aria-label="Remote assets browser"
->
-  <Panel title="Tree" padded={false} contentClass="flex min-h-0 flex-col p-2" class="min-w-0">
-    <input
-      bind:this={fileInputElement}
-      class="hidden"
-      type="file"
-      multiple
-      onchange={(event) => void handleFileInput(event)}
-      aria-label="Upload remote files"
-    />
-
+{#snippet treePanelContent()}
     {#if pinnedFolderEntries.length > 0}
       <div class="mb-2 grid gap-1 rounded-control border border-line/70 bg-surface-muted/30 p-2" aria-label="Pinned folders">
         <p class="font-hud text-[0.58rem] uppercase tracking-[0.16em] text-ink-faint">Pinned</p>
@@ -862,9 +849,29 @@
         </ContextMenu.Root>
       {/each}
     </div>
-  </Panel>
 
-  <Panel title="Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0">
+{/snippet}
+
+<section
+  class="flex h-full min-h-0 flex-col gap-3 bg-chat-scroll/40 p-3 md:grid md:grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)] md:p-4"
+  aria-label="Remote assets browser"
+>
+  <input
+    bind:this={fileInputElement}
+    class="hidden"
+    type="file"
+    multiple
+    onchange={(event) => void handleFileInput(event)}
+    aria-label="Upload remote files"
+  />
+
+  <aside id="assets-tree-panel" class="hidden min-h-0 min-w-0 md:block" aria-label="Assets tree panel">
+    <Panel title="Tree" padded={false} contentClass="flex min-h-0 flex-col p-2" class="h-full min-w-0">
+      {@render treePanelContent()}
+    </Panel>
+  </aside>
+
+  <Panel title="Viewer" padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-w-0 flex-1">
     <form class="mb-3 border-b border-line pt-2 pb-3" onsubmit={applyLocationDraft}>
       <div class="flex items-center gap-2">
         <input

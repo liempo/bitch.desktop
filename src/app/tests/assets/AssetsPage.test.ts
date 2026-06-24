@@ -111,6 +111,23 @@ describe('Assets page remote file action UX contract', () => {
     expect(assetsPageSource).not.toContain('Asset Viewer')
   })
 
+  it('hides the tree entirely on mobile without a drawer or toggle', () => {
+    expectAll(assetsPageSource, [
+      '{#snippet treePanelContent()}',
+      '{@render treePanelContent()}',
+      'id="assets-tree-panel"',
+      'class="hidden min-h-0 min-w-0 md:block"',
+      'md:grid md:grid-cols-[minmax(15rem,21rem)_minmax(0,1fr)]'
+    ])
+
+    expect(assetsPageSource).not.toContain('treePanelOpen')
+    expect(assetsPageSource).not.toContain('toggleTreePanel')
+    expect(assetsPageSource).not.toContain('treeDrawerDialogClass')
+    expect(assetsPageSource).not.toContain('assets-tree-drawer')
+    expect(assetsPageSource).not.toContain('aria-controls="assets-tree-drawer"')
+    expect(assetsPageSource).not.toContain('treeBackdropClass')
+  })
+
   it('adds location history, parent navigation, and file download arrow controls', () => {
     expectAll(assetsPageSource, [
       'locationHistory',
