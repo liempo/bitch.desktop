@@ -6,6 +6,10 @@ import navSource from '../../navigation/AppNavbar.svelte?raw'
 import routerSource from '../../router.svelte.ts?raw'
 import { cronRoute } from '../../router.svelte'
 import cronPageSource from '../../cron/CronPage.svelte?raw'
+import cronJobDialogSource from '../../cron/CronJobDialog.svelte?raw'
+import cronJobManagerPanelSource from '../../cron/CronJobManagerPanel.svelte?raw'
+
+const cronFeatureSource = [cronPageSource, cronJobManagerPanelSource, cronJobDialogSource].join('\n')
 
 describe('cron manager page contract', () => {
   it('adds Cron as a top-level desktop route and nav item', () => {
@@ -22,24 +26,33 @@ describe('cron manager page contract', () => {
   })
 
   it('lists jobs with operational fields and row actions', () => {
-    expect(cronPageSource).toContain('getCronJobs')
-    expect(cronPageSource).toContain('pauseCronJob')
-    expect(cronPageSource).toContain('resumeCronJob')
-    expect(cronPageSource).toContain('runCronJob')
-    expect(cronPageSource).toContain('deleteCronJob')
-    expect(cronPageSource).toContain('Last run')
-    expect(cronPageSource).toContain('Next run')
-    expect(cronPageSource).toContain('Delivery')
-    expect(cronPageSource).toContain('Profile')
+    expect(cronFeatureSource).toContain('CronJobManagerPanel')
+    expect(cronFeatureSource).toContain('getCronJobs')
+    expect(cronFeatureSource).toContain('pauseCronJob')
+    expect(cronFeatureSource).toContain('resumeCronJob')
+    expect(cronFeatureSource).toContain('runCronJob')
+    expect(cronFeatureSource).toContain('deleteCronJob')
+    expect(cronFeatureSource).toContain('cronJobProfile')
+    expect(cronFeatureSource).toContain('cronJobScheduleLabel')
+    expect(cronFeatureSource).toContain('next_run_at')
+    expect(cronFeatureSource).toContain('jobSummary')
+  })
+
+  it('uses the Composer-style profile picker in the job list header', () => {
+    expect(cronJobManagerPanelSource).toContain("import { Popover } from 'bits-ui'")
+    expect(cronJobManagerPanelSource).toContain('profile:{profileLabel}')
+    expect(cronJobManagerPanelSource).toContain('profileChoicesFor')
+    expect(cronJobManagerPanelSource).toContain('sortByProfileOrder')
+    expect(cronJobManagerPanelSource).not.toContain('<select')
   })
 
   it('surfaces recent run output and failure state outside the chat conversation', () => {
-    expect(cronPageSource).toContain('getCronJobRuns')
-    expect(cronPageSource).toContain('Recent run output')
-    expect(cronPageSource).toContain('last_error')
-    expect(cronPageSource).toContain('last_delivery_error')
-    expect(cronPageSource).toContain('runPreview')
-    expect(cronPageSource).toContain('agentRoute(run.id)')
+    expect(cronFeatureSource).toContain('getCronJobRuns')
+    expect(cronFeatureSource).toContain('Recent run output')
+    expect(cronFeatureSource).toContain('last_error')
+    expect(cronFeatureSource).toContain('last_delivery_error')
+    expect(cronFeatureSource).toContain('runPreview')
+    expect(cronFeatureSource).toContain('agentRoute(run.id)')
   })
 
   it('exposes the complete create/edit field set from the roadmap', () => {
@@ -57,18 +70,19 @@ describe('cron manager page contract', () => {
       'Workdir',
       'Profile'
     ]) {
-      expect(cronPageSource).toContain(label)
+      expect(cronFeatureSource).toContain(label)
     }
-    expect(cronPageSource).toContain('getCronDeliveryTargets')
-    expect(cronPageSource).toContain('createCronJob')
-    expect(cronPageSource).toContain('updateCronJob')
+    expect(cronFeatureSource).toContain('CronJobDialog')
+    expect(cronFeatureSource).toContain('getCronDeliveryTargets')
+    expect(cronFeatureSource).toContain('createCronJob')
+    expect(cronFeatureSource).toContain('updateCronJob')
   })
 
   it('stays remote-only through the Tauri dashboard bridge', () => {
-    expect(cronPageSource).toContain('authenticated dashboard cron endpoints')
-    expect(cronPageSource).not.toContain('hermes cron')
-    expect(cronPageSource).not.toContain('child_process')
-    expect(cronPageSource).not.toContain('bitch.plugin')
-    expect(cronPageSource).not.toContain('VITE_BOX_BASE_URL')
+    expect(cronFeatureSource).toContain('$lib/hermes/cron')
+    expect(cronFeatureSource).not.toContain('hermes cron')
+    expect(cronFeatureSource).not.toContain('child_process')
+    expect(cronFeatureSource).not.toContain('bitch.plugin')
+    expect(cronFeatureSource).not.toContain('VITE_BOX_BASE_URL')
   })
 })
