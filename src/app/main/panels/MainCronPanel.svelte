@@ -21,7 +21,7 @@
 
   let { class: className = '', titleClass = '' }: Props = $props()
 
-  const raisedPanelClass = 'min-h-0 !border-line !bg-surface-raised'
+  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
 
   let cronJobs = $state<CronJob[]>([])
   let cronError = $state('')
@@ -127,7 +127,7 @@
 
   function cronStateClass(job: CronJob): string {
     const state = cronJobState(job)
-    const base = 'rounded-control border px-1.5 py-0.5 text-[0.58rem] uppercase'
+    const base = 'rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase'
     if (isCronJobProblem(job)) return `${base} border-danger/40 bg-danger/10 text-danger`
     if (state === 'paused') return `${base} border-warning/40 bg-warning/10 text-warning`
     return `${base} border-success/40 bg-success/10 text-success`
@@ -188,6 +188,7 @@
       size="sm"
       chrome="ghost"
       variant="secondary"
+      class="rounded-none!"
       onclick={() => void refreshCronJobs()}
       disabled={cronLoading}
       title="Refresh cron jobs"
@@ -213,15 +214,15 @@
     </div>
 
     {#if cronError && cronFocusJobs.length === 0}
-      <div class="rounded-panel border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
+      <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
         Cron unavailable: {cronError}
       </div>
     {:else if cronLoading && cronFocusJobs.length === 0}
-      <div class="rounded-panel border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+      <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
         Syncing scheduler jobs…
       </div>
     {:else if cronFocusJobs.length === 0}
-      <div class="rounded-panel border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
+      <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
         {cronJobs.length ? 'No upcoming scheduler runs.' : 'No cron jobs visible across profiles.'}
       </div>
     {:else}
@@ -229,7 +230,7 @@
         {#each cronFocusJobs as job (cronJobDashboardKey(job))}
           {@const problem = isCronJobProblem(job)}
           <a
-            class="min-w-0 rounded-panel border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
             href={cronHref}
             aria-label={`Open cron job ${cronJobTitle(job)}`}
           >
@@ -241,10 +242,10 @@
               {problem ? cronErrorText(job) : cronJobPreview(job)}
             </div>
             <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">next {formatCronRelativeTime(job.next_run_at)}</span>
-              <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobScheduleLabel(job)}</span>
-              <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobProfile(job)}</span>
-              <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobModeLabel(job)}</span>
+              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">next {formatCronRelativeTime(job.next_run_at)}</span>
+              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobScheduleLabel(job)}</span>
+              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobProfile(job)}</span>
+              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobModeLabel(job)}</span>
             </div>
           </a>
         {/each}
@@ -253,7 +254,7 @@
   </section>
 
   {#if cronError && cronFocusJobs.length > 0}
-    <div class="rounded-panel border border-warning/40 bg-warning/10 p-2 text-[0.62rem] leading-4 text-warning">
+    <div class="rounded-none border border-warning/40 bg-warning/10 p-2 text-[0.62rem] leading-4 text-warning">
       Last sync failed: {cronError}
     </div>
   {/if}
@@ -262,7 +263,7 @@
     <span class="min-w-0 truncate text-ink-faint" title={`jobs=${cronJobs.length} · alerts=${cronAlertJobs} · profile=all`}>
       profile=all · jobs={formatDashboardCount(cronJobs.length)}
     </span>
-    <Button size="sm" chrome="ghost" variant="secondary" href={cronHref} aria-label="Open Cron Job Manager">
+    <Button size="sm" chrome="ghost" variant="secondary" class="rounded-none!" href={cronHref} aria-label="Open Cron Job Manager">
       Open Cron
     </Button>
   </div>

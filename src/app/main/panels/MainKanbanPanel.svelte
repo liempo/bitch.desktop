@@ -43,8 +43,8 @@
     triage: 5
   }
   const KANBAN_ACTIVE_STATUSES = ['triage', 'todo', 'scheduled', 'ready', 'running', 'blocked']
-  const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono`
-  const raisedPanelClass = 'min-h-0 !border-line !bg-surface-raised'
+  const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono rounded-none!`
+  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
 
   let kanbanBoardMenuOpen = $state(false)
   let kanbanBoards = $state<KanbanBoardMeta[]>([])
@@ -295,7 +295,7 @@
     <Popover.Root bind:open={kanbanBoardMenuOpen}>
       <Popover.Trigger title={`BOARD::${kanbanCurrentBoardLabel}`} aria-label={`View available Kanban boards. Current board: ${kanbanCurrentBoardLabel}`}>
         {#snippet child({ props })}
-          <Button {...props} size="sm" chrome="ghost" variant="primary">BOARD::{kanbanCurrentBoardLabel}</Button>
+          <Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!">BOARD::{kanbanCurrentBoardLabel}</Button>
         {/snippet}
       </Popover.Trigger>
 
@@ -316,7 +316,7 @@
               <Button
                 size="sm"
                 variant={board.slug === kanbanCurrentBoardSlug ? 'primary' : 'default'}
-                class="w-full"
+                class="w-full rounded-none!"
                 onclick={() => void selectKanbanBoard(board)}
                 aria-current={board.slug === kanbanCurrentBoardSlug ? 'true' : undefined}
                 aria-label={`Switch Kanban board to ${kanbanBoardLabel(board)}`}
@@ -354,15 +354,15 @@
     </div>
 
     {#if kanbanBoardsError && kanbanFocusTasks.length === 0}
-      <div class="rounded-panel border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
+      <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
         Kanban unavailable: {kanbanBoardsError}
       </div>
     {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
-      <div class="rounded-panel border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+      <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
         Syncing current board…
       </div>
     {:else if kanbanFocusTasks.length === 0}
-      <div class="rounded-panel border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
+      <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
         {kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}
       </div>
     {:else}
@@ -370,7 +370,7 @@
         {#each kanbanFocusTasks as task (task.id)}
           {@const marker = kanbanTaskMarker(task)}
           <a
-            class="min-w-0 rounded-panel border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+            class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
             href={kanbanHref}
             aria-label={`Open Kanban card ${task.title}`}
           >
@@ -379,16 +379,16 @@
               <span class="shrink-0 text-[0.58rem] text-ink-faint">{task.id}</span>
             </div>
             <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span class={`rounded-control border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanStatusPillClass(task.status)}`}>
+              <span class={`rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanStatusPillClass(task.status)}`}>
                 {kanbanStatusLabel(task.status)}
               </span>
               {#if marker}
-                <span class={`rounded-control border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanTaskMarkerClass(task)}`}>{marker}</span>
+                <span class={`rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanTaskMarkerClass(task)}`}>{marker}</span>
               {/if}
               {#if task.assignee}
-                <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">@{task.assignee}</span>
+                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">@{task.assignee}</span>
               {/if}
-              <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">p{task.priority ?? 0}</span>
+              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">p{task.priority ?? 0}</span>
             </div>
           </a>
         {/each}
@@ -397,7 +397,7 @@
   </section>
 
   {#if kanbanBoardsError && kanbanFocusTasks.length > 0}
-    <div class="rounded-panel border border-warning/40 bg-warning/10 p-2 text-[0.62rem] leading-4 text-warning">
+    <div class="rounded-none border border-warning/40 bg-warning/10 p-2 text-[0.62rem] leading-4 text-warning">
       Last sync failed: {kanbanBoardsError}
     </div>
   {/if}
@@ -406,7 +406,7 @@
     <span class="min-w-0 truncate text-ink-faint" title={`profile=${kanbanBoardProfile} · board=${kanbanCurrentBoardSlug || '—'} · cards=${kanbanTotalCards}`}>
       profile={kanbanBoardProfile} · cards={formatDashboardCount(kanbanTotalCards)}
     </span>
-    <Button size="sm" chrome="ghost" variant="primary" href={kanbanHref} aria-label="Open Kanban board">
+    <Button size="sm" chrome="ghost" variant="primary" class="rounded-none!" href={kanbanHref} aria-label="Open Kanban board">
       Open Kanban
     </Button>
   </div>
