@@ -54,12 +54,24 @@ describe('cron manager page contract', () => {
     expect(cronJobManagerPanelSource).toContain("window.matchMedia('(min-width: 768px)')")
     expect(cronJobManagerPanelSource).toContain('md:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]')
     expect(cronJobManagerPanelSource).toContain('aria-label="Cron job details panel"')
+    expect(cronJobManagerPanelSource).toContain('aria-label="Close job details"')
+    expect(cronJobManagerPanelSource).toContain('contentClass="min-h-0 overflow-auto p-3"')
     expect(cronJobManagerPanelSource).toContain('bind:open={detailDialogOpen}')
+    expect(cronJobManagerPanelSource).toContain('title={cronJobTitle(selectedJob)}')
+    expect(cronJobManagerPanelSource).toContain('description={selectedJob.id}')
+    expect(cronJobManagerPanelSource).toContain(
+      'contentClass="flex max-h-[min(38rem,calc(100vh-7rem))] flex-col overflow-hidden"'
+    )
+    expect(cronJobManagerPanelSource).toContain('showActions={false}')
+    expect(cronJobManagerPanelSource).toContain('showIdentity={false}')
+    expect(cronJobManagerPanelSource).toContain('aria-label="Job detail actions"')
     expect(cronJobManagerPanelSource).toContain('class="w-[min(38rem,calc(100vw-2rem))] md:hidden"')
     expect(cronFeatureSource).toContain('CronJobDetails')
     expect(cronJobDetailsSource).toContain('Job ID')
     expect(cronJobDetailsSource).toContain('Prompt')
     expect(cronJobDetailsSource).toContain('Recent run output')
+    expect(cronJobDetailsSource).not.toContain('max-h-56 overflow-auto')
+    expect(cronJobDetailsSource).not.toContain('max-h-36 overflow-auto')
   })
 
   it('surfaces recent run output and failure state outside the chat conversation', () => {

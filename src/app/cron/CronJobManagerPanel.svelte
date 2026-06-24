@@ -642,12 +642,22 @@
     {@const selectedRuns = runsByJob[selectedKey] ?? []}
     <aside class="hidden min-h-0 md:block" aria-label="Cron job details panel">
       <Panel title="DETAILS" padded={false} contentClass="min-h-0 overflow-auto p-3" class="min-h-128 md:min-h-0">
+        {#snippet actions()}
+          <Button
+            variant="unstyled"
+            class="flex h-5 w-6 items-center justify-center p-0 text-xs text-ink-muted hover:text-ink-bright"
+            onclick={clearJobDetails}
+            aria-label="Close job details"
+            title="Close job details"
+          >
+            x
+          </Button>
+        {/snippet}
         <CronJobDetails
           job={selectedJob}
           runs={selectedRuns}
           runsLoading={runsLoadingKey === selectedKey}
           actionBusy={actionBusyKey === selectedKey}
-          onClose={clearJobDetails}
           onEdit={() => editJob(selectedJob)}
           onRun={() => trigger(selectedJob)}
           onPauseOrResume={() => pauseOrResume(selectedJob)}
@@ -676,22 +686,36 @@
   {@const selectedRuns = runsByJob[selectedKey] ?? []}
   <Dialog
     bind:open={detailDialogOpen}
-    title="Job Details"
-    description={cronJobTitle(selectedJob)}
+    title={cronJobTitle(selectedJob)}
+    description={selectedJob.id}
     class="w-[min(38rem,calc(100vw-2rem))] md:hidden"
-    contentClass="max-h-[min(38rem,calc(100vh-7rem))] overflow-y-auto p-3"
+    contentClass="flex max-h-[min(38rem,calc(100vh-7rem))] flex-col overflow-hidden"
   >
-    <CronJobDetails
-      job={selectedJob}
-      runs={selectedRuns}
-      runsLoading={runsLoadingKey === selectedKey}
-      actionBusy={actionBusyKey === selectedKey}
-      onClose={() => (detailDialogOpen = false)}
-      onEdit={() => editJob(selectedJob)}
-      onRun={() => trigger(selectedJob)}
-      onPauseOrResume={() => pauseOrResume(selectedJob)}
-      onRemove={() => remove(selectedJob)}
-      onLoadRuns={() => loadRuns(selectedJob)}
-    />
+    <div class="min-h-0 flex-1 overflow-y-auto p-3">
+      <CronJobDetails
+        job={selectedJob}
+        runs={selectedRuns}
+        runsLoading={runsLoadingKey === selectedKey}
+        actionBusy={actionBusyKey === selectedKey}
+        showActions={false}
+        showIdentity={false}
+        onLoadRuns={() => loadRuns(selectedJob)}
+      />
+    </div>
+
+    <footer class="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line bg-canvas p-3" aria-label="Job detail actions">
+      <Button size="sm" chrome="ghost" onclick={() => editJob(selectedJob)}>Edit</Button>
+      <Button size="sm" chrome="ghost" variant="primary" onclick={() => trigger(selectedJob)} disabled={actionBusyKey === selectedKey}>Run</Button>
+      <Button
+        size="sm"
+        chrome="ghost"
+        variant={cronJobState(selectedJob) === 'paused' ? 'success' : 'warning'}
+        onclick={() => pauseOrResume(selectedJob)}
+        disabled={actionBusyKey === selectedKey}
+      >
+        {cronJobState(selectedJob) === 'paused' ? 'Resume' : 'Pause'}
+      </Button>
+      <Button size="sm" chrome="ghost" variant="danger" onclick={() => remove(selectedJob)} disabled={actionBusyKey === selectedKey}>Remove</Button>
+    </footer>
   </Dialog>
 {/if}

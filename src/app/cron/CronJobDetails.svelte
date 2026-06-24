@@ -18,7 +18,6 @@
   interface Props {
     actionBusy?: boolean
     job: CronJob
-    onClose?: () => void
     onEdit?: () => void
     onLoadRuns?: () => void | Promise<void>
     onPauseOrResume?: () => void | Promise<void>
@@ -26,19 +25,22 @@
     onRun?: () => void | Promise<void>
     runs?: SessionInfo[]
     runsLoading?: boolean
+    showActions?: boolean
+    showIdentity?: boolean
   }
 
   let {
     actionBusy = false,
     job,
-    onClose,
     onEdit,
     onLoadRuns,
     onPauseOrResume,
     onRemove,
     onRun,
     runs = [],
-    runsLoading = false
+    runsLoading = false,
+    showActions = true,
+    showIdentity = true
   }: Props = $props()
 
   const fieldLabelClass = 'font-hud text-[0.58rem] font-bold uppercase tracking-[0.14em] text-ink-dim'
@@ -50,6 +52,8 @@
   const promptText = $derived(clean(job.prompt))
   const scriptText = $derived(clean(job.script))
   const hasFailure = $derived(Boolean(job.last_error || job.last_delivery_error))
+  const actionRowClass = $derived(showIdentity ? 'mt-3 flex flex-wrap gap-1.5' : 'flex flex-wrap gap-1.5')
+  const showHeader = $derived(showIdentity || showActions)
 
   function clean(value: null | string | undefined): string {
     return value?.trim() ?? ''
@@ -125,34 +129,35 @@
 </script>
 
 <div class="flex min-h-0 flex-col gap-3">
-  <header class="min-w-0 border-b border-line/60 pb-3">
-    <div class="flex min-w-0 items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h2 class="truncate text-sm font-semibold text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</h2>
-        <p class="mt-1 truncate font-mono text-[0.62rem] uppercase tracking-[0.12em] text-ink-muted" title={job.id}>{job.id}</p>
-      </div>
-      {#if onClose}
-        <Button size="sm" chrome="ghost" onclick={onClose} aria-label="Close job details">Close</Button>
+  {#if showHeader}
+    <header class="min-w-0 border-b border-line/60 pb-3">
+      {#if showIdentity}
+        <div class="min-w-0">
+          <h2 class="truncate text-sm font-semibold text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</h2>
+          <p class="mt-1 truncate font-mono text-[0.62rem] uppercase tracking-[0.12em] text-ink-muted" title={job.id}>{job.id}</p>
+        </div>
       {/if}
-    </div>
 
-    <div class="mt-3 flex flex-wrap gap-1.5">
-      {#if onEdit}
-        <Button size="sm" chrome="ghost" onclick={onEdit}>Edit</Button>
+      {#if showActions}
+        <div class={actionRowClass}>
+          {#if onEdit}
+            <Button size="sm" chrome="ghost" onclick={onEdit}>Edit</Button>
+          {/if}
+          {#if onRun}
+            <Button size="sm" chrome="ghost" variant="primary" onclick={onRun} disabled={actionBusy}>Run</Button>
+          {/if}
+          {#if onPauseOrResume}
+            <Button size="sm" chrome="ghost" variant={paused ? 'success' : 'warning'} onclick={onPauseOrResume} disabled={actionBusy}>
+              {paused ? 'Resume' : 'Pause'}
+            </Button>
+          {/if}
+          {#if onRemove}
+            <Button size="sm" chrome="ghost" variant="danger" onclick={onRemove} disabled={actionBusy}>Remove</Button>
+          {/if}
+        </div>
       {/if}
-      {#if onRun}
-        <Button size="sm" chrome="ghost" variant="primary" onclick={onRun} disabled={actionBusy}>Run</Button>
-      {/if}
-      {#if onPauseOrResume}
-        <Button size="sm" chrome="ghost" variant={paused ? 'success' : 'warning'} onclick={onPauseOrResume} disabled={actionBusy}>
-          {paused ? 'Resume' : 'Pause'}
-        </Button>
-      {/if}
-      {#if onRemove}
-        <Button size="sm" chrome="ghost" variant="danger" onclick={onRemove} disabled={actionBusy}>Remove</Button>
-      {/if}
-    </div>
-  </header>
+    </header>
+  {/if}
 
   {#if hasFailure}
     <section class="border border-danger/40 bg-danger/10 p-2 text-xs leading-5 text-danger" aria-label="Cron job failures">
@@ -173,14 +178,14 @@
   {#if promptText}
     <section class="min-w-0 border border-line bg-canvas p-2" aria-label="Cron job prompt">
       <div class={fieldLabelClass}>Prompt</div>
-      <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap wrap-anywhere text-xs leading-5 text-ink-muted">{promptText}</pre>
+      <pre class="mt-2 whitespace-pre-wrap wrap-anywhere text-xs leading-5 text-ink-muted">{promptText}</pre>
     </section>
   {/if}
 
   {#if scriptText}
     <section class="min-w-0 border border-line bg-canvas p-2" aria-label="Cron job script">
       <div class={fieldLabelClass}>Script</div>
-      <pre class="mt-2 max-h-36 overflow-auto whitespace-pre-wrap wrap-anywhere font-mono text-xs leading-5 text-ink-muted">{scriptText}</pre>
+      <pre class="mt-2 whitespace-pre-wrap wrap-anywhere font-mono text-xs leading-5 text-ink-muted">{scriptText}</pre>
     </section>
   {/if}
 
