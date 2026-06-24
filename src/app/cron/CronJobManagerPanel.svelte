@@ -104,6 +104,10 @@
     if (!selectedJob) detailDialogOpen = false
   })
 
+  $effect(() => {
+    if (selectedJob && !detailDialogOpen && !isDesktopViewport()) selectedJobKey = null
+  })
+
   async function initializeCronPage(): Promise<void> {
     await refreshActiveProfile()
     if (!form.profile || form.profile === 'default') form.profile = profileState.activeGatewayProfile || 'default'

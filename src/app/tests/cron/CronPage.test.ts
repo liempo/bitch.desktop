@@ -57,6 +57,9 @@ describe('cron manager page contract', () => {
     expect(cronJobManagerPanelSource).toContain('aria-label="Close job details"')
     expect(cronJobManagerPanelSource).toContain('contentClass="min-h-0 overflow-auto p-3"')
     expect(cronJobManagerPanelSource).toContain('bind:open={detailDialogOpen}')
+    expect(cronJobManagerPanelSource).toContain(
+      'if (selectedJob && !detailDialogOpen && !isDesktopViewport()) selectedJobKey = null'
+    )
     expect(cronJobManagerPanelSource).toContain('title={cronJobTitle(selectedJob)}')
     expect(cronJobManagerPanelSource).toContain('description={selectedJob.id}')
     expect(cronJobManagerPanelSource).toContain(
