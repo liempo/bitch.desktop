@@ -39,7 +39,12 @@ import {
   setConversationBusy,
   conversationForSession
 } from '$lib/hermes/conversations'
-import { rememberRuntimeSession, sessionState, beginResumeSession } from '$lib/hermes/sessions'
+import {
+  rememberRuntimeSession,
+  runtimeSessionIdForStored,
+  sessionState,
+  beginResumeSession
+} from '$lib/hermes/sessions'
 import type { SessionMessage } from '$lib/types/hermes'
 
 function storedMessage(text: string): SessionMessage {
@@ -269,16 +274,10 @@ describe('resumeAndHydrateStoredSession', () => {
     setConversationBusy('stored-fresh', true)
 
     mockGetSessionMessages.mockResolvedValueOnce({ session_id: 'stored-fresh', messages: [] })
-    mockRequestGateway.mockResolvedValueOnce({
-      session_id: 'live-fresh',
-      resumed: 'stored-fresh',
-      message_count: 0,
-      messages: [],
-      info: { running: false }
-    })
-
     await expect(resumeAndHydrateStoredSession('stored-fresh')).resolves.toBe(true)
 
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('session.info', expect.anything())
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
     expect(conversationForSession('stored-fresh')?.messages.map(message => message.text)).toEqual(['first message'])
   })
 
@@ -306,6 +305,38 @@ describe('resumeAndHydrateStoredSession', () => {
     expect(conversationForSession('stored-history-fail')?.messages.map(message => message.text)).toEqual([
       'stored history survives'
     ])
+  })
+
+  it('does not resume over an optimistic busy fresh session before stored history exists', async () => {
+    rememberRuntimeSession('stored-goal', 'live-goal')
+    appendUserMessage('stored-goal', 'build a rocket')
+    setConversationBusy('stored-goal', true)
+
+    mockGetSessionMessages.mockRejectedValueOnce(
+      new Error('dashboard request returned 404 Not Found: {"detail":"Session not found"}')
+    )
+    await expect(resumeAndHydrateStoredSession('stored-goal')).resolves.toBe(true)
+
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('session.info', expect.anything())
+    expect(mockRequestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
+    expect(runtimeSessionIdForStored('stored-goal')).toBe('live-goal')
+    expect(sessionState.activeSessionId).toBe('live-goal')
+    expect(sessionState.error).toBeNull()
+    expect(conversationForSession('stored-goal')?.busy).toBe(true)
+
+    handleGatewayEvent({
+      session_id: 'live-goal',
+      type: 'message.start',
+      payload: {}
+    })
+    handleGatewayEvent({
+      session_id: 'live-goal',
+      type: 'thinking.delta',
+      payload: { text: 'thinking survives' }
+    })
+
+    expect(conversationForSession('stored-goal')?.messages.at(-1)?.reasoning).toEqual(['thinking survives'])
+    expect(messageState.sessions['live-goal']).toBeUndefined()
   })
 
   it('does not surface a stored-history 404 when the session has not been persisted yet', async () => {

@@ -12,6 +12,7 @@ import {
   lineageMessageSessionIds,
   profileForSession,
   resumeSession,
+  runtimeSessionIdForStored,
   sessionState
 } from '$lib/hermes/sessions'
 import type { SessionMessage } from '$lib/types/hermes'
@@ -25,6 +26,16 @@ function releaseStaleConversationLoading(sessionId: string, requestId: number): 
   if (isCurrentResumeRequest(sessionId, requestId)) return
   if (sessionState.resumingSessionId === sessionId) return
   setConversationLoading(sessionId, false)
+}
+
+function finishCurrentResume(sessionId: string, requestId: number): void {
+  if (isCurrentResumeRequest(sessionId, requestId)) {
+    sessionState.resumingSessionId = null
+  }
+}
+
+function preserveOptimisticLiveConversation(sessionId: string, snapshotLength: number): boolean {
+  return Boolean(runtimeSessionIdForStored(sessionId) && shouldPreserveLiveConversation(sessionId, snapshotLength))
 }
 
 async function loadStoredSnapshot(sessionId: string, requestId: number): Promise<SessionMessage[] | null> {
@@ -87,6 +98,18 @@ export async function resumeAndHydrateStoredSession(sessionId: string): Promise<
 
     if (hasStoredSnapshot && !shouldPreserveLiveConversation(sessionId, storedSnapshot.length)) {
       hydrateSessionMessagesFromGateway(sessionId, storedSnapshot)
+    }
+
+    if (!hasStoredSnapshot && preserveOptimisticLiveConversation(sessionId, storedSnapshot.length)) {
+      // Fresh sessions can route before the dashboard has persisted history.
+      // Keep the cached runtime mapping so live stream events still paint the
+      // current conversation instead of falling through to a stored-session 404.
+      sessionState.resumeFailedSessionId =
+        sessionState.resumeFailedSessionId === sessionId ? null : sessionState.resumeFailedSessionId
+      sessionState.resumeExhaustedSessionId =
+        sessionState.resumeExhaustedSessionId === sessionId ? null : sessionState.resumeExhaustedSessionId
+      finishCurrentResume(sessionId, requestId)
+      return true
     }
 
     const response = await resumeSession(sessionId, requestId)
