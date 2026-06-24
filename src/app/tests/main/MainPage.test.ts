@@ -219,7 +219,9 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).toContain("{ label: 'Paused'")
     expect(mainCronPanelSource).toContain("{ label: 'Alerts'")
     expect(mainCronPanelSource).toContain('href={cronHref}')
-    expect(mainCronPanelSource).toContain('<Button size="sm" chrome="ghost" variant="secondary" href={cronHref}')
+    expect(mainCronPanelSource).toMatch(
+      /<Button[\s\S]{0,180}size="sm"[\s\S]{0,180}chrome="ghost"[\s\S]{0,180}variant="secondary"[\s\S]{0,180}href={cronHref}/
+    )
     expect(mainCronPanelSource).toContain('Open Cron')
     expect(mainCronPanelSource).not.toContain('Scheduler surface online')
     expect(mainCronPanelSource).not.toContain(
@@ -228,15 +230,17 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).not.toMatch(/title="CRON"[\s\S]{0,120}badge="ready"/)
     expect(mainKanbanPanelSource).not.toMatch(/title="KANBAN"[\s\S]{0,120}badge="ready"/)
     expect(mainKanbanPanelSource).toContain('href={kanbanHref}')
-    expect(mainKanbanPanelSource).toContain('<Button size="sm" chrome="ghost" variant="primary" href={kanbanHref}')
+    expect(mainKanbanPanelSource).toMatch(
+      /<Button[\s\S]{0,180}size="sm"[\s\S]{0,180}chrome="ghost"[\s\S]{0,180}variant="primary"[\s\S]{0,180}href={kanbanHref}/
+    )
     expect(mainKanbanPanelSource).toContain('Open Kanban')
     expect(mainKanbanPanelSource).toContain("import { Popover } from 'bits-ui'")
     expect(mainKanbanPanelSource).toContain('getKanbanBoard')
     expect(mainKanbanPanelSource).toContain('listKanbanBoards')
     expect(mainKanbanPanelSource).toContain('kanbanCurrentBoardLabel')
     expect(mainKanbanPanelSource).toContain('BOARD::{kanbanCurrentBoardLabel}')
-    expect(mainKanbanPanelSource).toContain(
-      '<Button {...props} size="sm" chrome="ghost" variant="primary">BOARD::{kanbanCurrentBoardLabel}</Button>'
+    expect(mainKanbanPanelSource).toMatch(
+      /<Button[\s\S]{0,120}{\.\.\.props}[\s\S]{0,120}size="sm"[\s\S]{0,120}chrome="ghost"[\s\S]{0,120}variant="primary"[\s\S]{0,120}>BOARD::{kanbanCurrentBoardLabel}<\/Button>/
     )
     expect(mainKanbanPanelSource).toContain('available boards')
     expect(mainKanbanPanelSource).toContain('selectKanbanBoard')
