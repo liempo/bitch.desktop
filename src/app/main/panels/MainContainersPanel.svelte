@@ -86,7 +86,7 @@
     </button>
   </div>
 
-  <div class="min-h-0 flex-1 overflow-auto" style="--custom-scrollbar-offset-x: 4px" aria-label="Containers">
+  <div class="min-h-0 flex-1 overflow-auto px-3" aria-label="Containers">
     {#if containerRows.length}
       <div class="grid gap-1">
         {#each containerRows as container (container.id ?? `${container.name}:${container.image}`)}
