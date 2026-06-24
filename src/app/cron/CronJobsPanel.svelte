@@ -35,7 +35,7 @@
   } from '$lib/hermes/profiles'
   import type { ProfileInfo, SessionInfo } from '$lib/types/hermes'
   import { agentRoute } from '../router.svelte'
-  import CronJobDetails from './CronJobDetails.svelte'
+  import CronJobDetailsPanel from './CronJobDetailsPanel.svelte'
   import CronJobDialog from './CronJobDialog.svelte'
   import { emptyCronForm, type CronForm } from './cron-form'
 
@@ -657,7 +657,7 @@
             x
           </Button>
         {/snippet}
-        <CronJobDetails
+        <CronJobDetailsPanel
           job={selectedJob}
           runs={selectedRuns}
           runsLoading={runsLoadingKey === selectedKey}
@@ -696,7 +696,7 @@
     contentClass="flex max-h-[min(38rem,calc(100vh-7rem))] flex-col overflow-hidden"
   >
     <div class="min-h-0 flex-1 overflow-y-auto p-3">
-      <CronJobDetails
+      <CronJobDetailsPanel
         job={selectedJob}
         runs={selectedRuns}
         runsLoading={runsLoadingKey === selectedKey}
