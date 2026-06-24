@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Panel from '@/app/components/ui/Panel.svelte'
   import {
     cronJobProfile,
     cronJobScheduleLabel,
@@ -17,7 +18,10 @@
 
   interface Props {
     actionBusy?: boolean
+    class?: string
+    contentClass?: string
     job: CronJob
+    onClose?: () => void
     onEdit?: () => void
     onLoadRuns?: () => void | Promise<void>
     onPauseOrResume?: () => void | Promise<void>
@@ -27,11 +31,15 @@
     runsLoading?: boolean
     showActions?: boolean
     showIdentity?: boolean
+    title?: string
   }
 
   let {
     actionBusy = false,
+    class: className = '',
+    contentClass = 'min-h-0 overflow-hidden p-3',
     job,
+    onClose,
     onEdit,
     onLoadRuns,
     onPauseOrResume,
@@ -40,7 +48,8 @@
     runs = [],
     runsLoading = false,
     showActions = true,
-    showIdentity = true
+    showIdentity = true,
+    title = 'DETAILS'
   }: Props = $props()
 
   const fieldLabelClass = 'font-hud text-[0.58rem] font-bold uppercase tracking-[0.14em] text-ink-dim'
@@ -128,97 +137,114 @@
   }
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto" style="--custom-scrollbar-offset-x: 4px">
-  {#if showHeader}
-    <header class="min-w-0 border-b border-line/60 pb-3">
-      {#if showIdentity}
-        <div class="min-w-0">
-          <h2 class="truncate text-sm font-semibold text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</h2>
-          <p class="mt-1 truncate font-mono text-[0.62rem] uppercase tracking-[0.12em] text-ink-muted" title={job.id}>{job.id}</p>
-        </div>
-      {/if}
+<Panel title={title} padded={false} contentClass={contentClass} class={className} actions={onClose ? closeAction : undefined}>
+  <div
+    class="flex h-[calc(100%+1px)] min-h-0 w-[calc(100%+1px)] flex-col gap-3 overflow-y-auto pb-px pr-px"
+    style="--custom-scrollbar-offset-x: 4px"
+  >
+    {#if showHeader}
+      <header class="min-w-0 border-b border-line/60 pb-3">
+        {#if showIdentity}
+          <div class="min-w-0">
+            <h2 class="truncate text-sm font-semibold text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</h2>
+            <p class="mt-1 truncate font-mono text-[0.62rem] uppercase tracking-[0.12em] text-ink-muted" title={job.id}>{job.id}</p>
+          </div>
+        {/if}
 
-      {#if showActions}
-        <div class={actionRowClass}>
-          {#if onEdit}
-            <Button size="sm" chrome="ghost" onclick={onEdit}>Edit</Button>
-          {/if}
-          {#if onRun}
-            <Button size="sm" chrome="ghost" variant="primary" onclick={onRun} disabled={actionBusy}>Run</Button>
-          {/if}
-          {#if onPauseOrResume}
-            <Button size="sm" chrome="ghost" variant={paused ? 'success' : 'warning'} onclick={onPauseOrResume} disabled={actionBusy}>
-              {paused ? 'Resume' : 'Pause'}
-            </Button>
-          {/if}
-          {#if onRemove}
-            <Button size="sm" chrome="ghost" variant="danger" onclick={onRemove} disabled={actionBusy}>Remove</Button>
-          {/if}
-        </div>
-      {/if}
-    </header>
-  {/if}
-
-  {#if hasFailure}
-    <section class="border border-danger/40 bg-danger/10 p-2 text-xs leading-5 text-danger" aria-label="Cron job failures">
-      {#if job.last_error}<div>Run failure: {job.last_error}</div>{/if}
-      {#if job.last_delivery_error}<div>Delivery failure: {job.last_delivery_error}</div>{/if}
-    </section>
-  {/if}
-
-  <section class="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Cron job metadata">
-    {#each detailRows as row (row.label)}
-      <div class="min-w-0 border border-line bg-canvas px-2 py-1.5">
-        <div class={fieldLabelClass}>{row.label}</div>
-        <div class={monoValueClass} title={row.value}>{row.value}</div>
-      </div>
-    {/each}
-  </section>
-
-  {#if promptText}
-    <section class="min-w-0 border border-line bg-canvas p-2" aria-label="Cron job prompt">
-      <div class={fieldLabelClass}>Prompt</div>
-      <pre class="mt-2 whitespace-pre-wrap wrap-anywhere text-xs leading-5 text-ink-muted">{promptText}</pre>
-    </section>
-  {/if}
-
-  {#if scriptText}
-    <section class="min-w-0 border border-line bg-canvas p-2" aria-label="Cron job script">
-      <div class={fieldLabelClass}>Script</div>
-      <pre class="mt-2 whitespace-pre-wrap wrap-anywhere font-mono text-xs leading-5 text-ink-muted">{scriptText}</pre>
-    </section>
-  {/if}
-
-  <section class="min-w-0 border border-line bg-surface-raised/35 p-2" aria-label="Recent run output">
-    <div class="mb-2 flex items-center justify-between gap-2">
-      <h3 class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-muted">Recent run output</h3>
-      {#if onLoadRuns}
-        <Button size="sm" chrome="ghost" variant="secondary" onclick={onLoadRuns} disabled={runsLoading}>
-          {runsLoading ? 'Loading…' : runs.length ? 'Refresh' : 'Load'}
-        </Button>
-      {/if}
-    </div>
-
-    {#if runsLoading}
-      <div class="py-2 text-xs text-primary">Loading recent run output…</div>
-    {:else if runs.length === 0}
-      <div class="border border-dashed border-line p-2 text-xs text-ink-muted">No recorded run sessions loaded for this job.</div>
-    {:else}
-      <div class="grid gap-1">
-        {#each runs as run (run.id)}
-          <article class="border border-line bg-canvas px-2 py-1.5 text-xs leading-5">
-            <div class="mb-1 flex min-w-0 flex-wrap items-center gap-2">
-              <a class="min-w-0 break-all font-semibold text-primary hover:text-ink-bright" href={`#${agentRoute(run.id)}`}>{runTitle(run)}</a>
-              <span class="inline-block border border-line bg-surface-raised px-1.5 py-0.5 font-mono text-[0.58rem] text-ink-muted">{runStatus(run)}</span>
-              <span class="font-mono text-[0.62rem] text-ink-faint">{formatTime(run.started_at)}</span>
-            </div>
-            <p class="wrap-break-word text-ink-muted">{runPreview(run)}</p>
-            {#if run.model || run.profile}
-              <div class="mt-1 font-mono text-[0.62rem] text-ink-faint">{run.profile || cronJobProfile(job)} · {run.model || 'default model'}</div>
+        {#if showActions}
+          <div class={actionRowClass}>
+            {#if onEdit}
+              <Button size="sm" chrome="ghost" onclick={onEdit}>Edit</Button>
             {/if}
-          </article>
-        {/each}
-      </div>
+            {#if onRun}
+              <Button size="sm" chrome="ghost" variant="primary" onclick={onRun} disabled={actionBusy}>Run</Button>
+            {/if}
+            {#if onPauseOrResume}
+              <Button size="sm" chrome="ghost" variant={paused ? 'success' : 'warning'} onclick={onPauseOrResume} disabled={actionBusy}>
+                {paused ? 'Resume' : 'Pause'}
+              </Button>
+            {/if}
+            {#if onRemove}
+              <Button size="sm" chrome="ghost" variant="danger" onclick={onRemove} disabled={actionBusy}>Remove</Button>
+            {/if}
+          </div>
+        {/if}
+      </header>
     {/if}
-  </section>
-</div>
+
+    {#if hasFailure}
+      <section class="border border-danger/40 bg-danger/10 p-2 text-xs leading-5 text-danger" aria-label="Cron job failures">
+        {#if job.last_error}<div>Run failure: {job.last_error}</div>{/if}
+        {#if job.last_delivery_error}<div>Delivery failure: {job.last_delivery_error}</div>{/if}
+      </section>
+    {/if}
+
+    <section class="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Cron job metadata">
+      {#each detailRows as row (row.label)}
+        <div class="min-w-0 border border-line bg-canvas px-2 py-1.5">
+          <div class={fieldLabelClass}>{row.label}</div>
+          <div class={monoValueClass} title={row.value}>{row.value}</div>
+        </div>
+      {/each}
+    </section>
+
+    {#if promptText}
+      <section class="min-w-0 border border-line bg-canvas p-2" aria-label="Cron job prompt">
+        <div class={fieldLabelClass}>Prompt</div>
+        <pre class="mt-2 whitespace-pre-wrap wrap-anywhere text-xs leading-5 text-ink-muted">{promptText}</pre>
+      </section>
+    {/if}
+
+    {#if scriptText}
+      <section class="min-w-0 border border-line bg-canvas p-2" aria-label="Cron job script">
+        <div class={fieldLabelClass}>Script</div>
+        <pre class="mt-2 whitespace-pre-wrap wrap-anywhere font-mono text-xs leading-5 text-ink-muted">{scriptText}</pre>
+      </section>
+    {/if}
+
+    <section class="min-w-0 border border-line bg-surface-raised/35 p-2" aria-label="Recent run output">
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <h3 class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-muted">Recent run output</h3>
+        {#if onLoadRuns}
+          <Button size="sm" chrome="ghost" variant="secondary" onclick={onLoadRuns} disabled={runsLoading}>
+            {runsLoading ? 'Loading…' : runs.length ? 'Refresh' : 'Load'}
+          </Button>
+        {/if}
+      </div>
+
+      {#if runsLoading}
+        <div class="py-2 text-xs text-primary">Loading recent run output…</div>
+      {:else if runs.length === 0}
+        <div class="border border-dashed border-line p-2 text-xs text-ink-muted">No recorded run sessions loaded for this job.</div>
+      {:else}
+        <div class="grid gap-1">
+          {#each runs as run (run.id)}
+            <article class="border border-line bg-canvas px-2 py-1.5 text-xs leading-5">
+              <div class="mb-1 flex min-w-0 flex-wrap items-center gap-2">
+                <a class="min-w-0 break-all font-semibold text-primary hover:text-ink-bright" href={`#${agentRoute(run.id)}`}>{runTitle(run)}</a>
+                <span class="inline-block border border-line bg-surface-raised px-1.5 py-0.5 font-mono text-[0.58rem] text-ink-muted">{runStatus(run)}</span>
+                <span class="font-mono text-[0.62rem] text-ink-faint">{formatTime(run.started_at)}</span>
+              </div>
+              <p class="wrap-break-word text-ink-muted">{runPreview(run)}</p>
+              {#if run.model || run.profile}
+                <div class="mt-1 font-mono text-[0.62rem] text-ink-faint">{run.profile || cronJobProfile(job)} · {run.model || 'default model'}</div>
+              {/if}
+            </article>
+          {/each}
+        </div>
+      {/if}
+    </section>
+  </div>
+</Panel>
+
+{#snippet closeAction()}
+  <Button
+    variant="unstyled"
+    class="flex h-5 w-6 items-center justify-center p-0 text-xs text-ink-muted hover:text-ink-bright"
+    onclick={() => onClose?.()}
+    aria-label="Close job details"
+    title="Close job details"
+  >
+    x
+  </Button>
+{/snippet}

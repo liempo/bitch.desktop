@@ -645,30 +645,19 @@
     {@const selectedKey = jobKey(selectedJob)}
     {@const selectedRuns = runsByJob[selectedKey] ?? []}
     <aside class="hidden min-h-0 md:block" aria-label="Cron job details panel">
-      <Panel title="DETAILS" padded={false} contentClass="min-h-0 overflow-hidden p-3" class="min-h-128 md:min-h-0">
-        {#snippet actions()}
-          <Button
-            variant="unstyled"
-            class="flex h-5 w-6 items-center justify-center p-0 text-xs text-ink-muted hover:text-ink-bright"
-            onclick={clearJobDetails}
-            aria-label="Close job details"
-            title="Close job details"
-          >
-            x
-          </Button>
-        {/snippet}
-        <CronJobDetailsPanel
-          job={selectedJob}
-          runs={selectedRuns}
-          runsLoading={runsLoadingKey === selectedKey}
-          actionBusy={actionBusyKey === selectedKey}
-          onEdit={() => editJob(selectedJob)}
-          onRun={() => trigger(selectedJob)}
-          onPauseOrResume={() => pauseOrResume(selectedJob)}
-          onRemove={() => remove(selectedJob)}
-          onLoadRuns={() => loadRuns(selectedJob)}
-        />
-      </Panel>
+      <CronJobDetailsPanel
+        class="min-h-128 md:min-h-0"
+        job={selectedJob}
+        runs={selectedRuns}
+        runsLoading={runsLoadingKey === selectedKey}
+        actionBusy={actionBusyKey === selectedKey}
+        onClose={clearJobDetails}
+        onEdit={() => editJob(selectedJob)}
+        onRun={() => trigger(selectedJob)}
+        onPauseOrResume={() => pauseOrResume(selectedJob)}
+        onRemove={() => remove(selectedJob)}
+        onLoadRuns={() => loadRuns(selectedJob)}
+      />
     </aside>
   {/if}
 </div>

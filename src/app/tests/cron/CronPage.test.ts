@@ -54,8 +54,9 @@ describe('cron manager page contract', () => {
     expect(cronJobsPanelSource).toContain("window.matchMedia('(min-width: 768px)')")
     expect(cronJobsPanelSource).toContain('md:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]')
     expect(cronJobsPanelSource).toContain('aria-label="Cron job details panel"')
-    expect(cronJobsPanelSource).toContain('aria-label="Close job details"')
-    expect(cronJobsPanelSource).toContain('contentClass="min-h-0 overflow-hidden p-3"')
+    expect(cronJobsPanelSource).toContain('onClose={clearJobDetails}')
+    expect(cronJobDetailsPanelSource).toContain('aria-label="Close job details"')
+    expect(cronJobDetailsPanelSource).toContain("contentClass = 'min-h-0 overflow-hidden p-3'")
     expect(cronJobsPanelSource).toContain('bind:open={detailDialogOpen}')
     expect(cronJobsPanelSource).toContain(
       'if (selectedJob && !detailDialogOpen && !isDesktopViewport()) selectedJobKey = null'
@@ -74,9 +75,13 @@ describe('cron manager page contract', () => {
       'class="min-h-0 flex-1 overflow-auto p-1" style="--custom-scrollbar-offset-x: 4px"'
     )
     expect(cronFeatureSource).toContain('CronJobDetailsPanel')
+    expect(cronJobDetailsPanelSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
+    expect(cronJobDetailsPanelSource).toContain('<Panel')
+    expect(cronJobDetailsPanelSource).toContain('actions={onClose ? closeAction : undefined}')
     expect(cronJobDetailsPanelSource).toContain(
-      'class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto" style="--custom-scrollbar-offset-x: 4px"'
+      'class="flex h-[calc(100%+1px)] min-h-0 w-[calc(100%+1px)] flex-col gap-3 overflow-y-auto pb-px pr-px"'
     )
+    expect(cronJobDetailsPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
     expect(cronJobDetailsPanelSource).toContain('Job ID')
     expect(cronJobDetailsPanelSource).toContain('Prompt')
     expect(cronJobDetailsPanelSource).toContain('Recent run output')
