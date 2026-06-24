@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Dialog as BitsDialog } from 'bits-ui'
   import type { Snippet } from 'svelte'
+  import { currentThemeStyleAttribute, themeState } from '$lib/theme'
   import { popoverClass } from './styles'
 
   interface Props {
@@ -29,12 +30,23 @@
     `${popoverClass} fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-2rem)] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden font-mono ${className}`
   )
   const bodyClass = $derived(`min-h-0 overflow-hidden ${contentClass}`)
+  const portalThemeStyle = $derived(currentThemeStyleAttribute())
 </script>
 
 <BitsDialog.Root bind:open>
   <BitsDialog.Portal>
-    <BitsDialog.Overlay class="fixed inset-0 z-40 bg-overlay" />
-    <BitsDialog.Content class={dialogClass}>
+    <BitsDialog.Overlay
+      class="fixed inset-0 z-40 bg-overlay"
+      data-theme={themeState.selectedThemeId}
+      data-theme-type={themeState.selectedTheme.source.type}
+      style={portalThemeStyle}
+    />
+    <BitsDialog.Content
+      class={dialogClass}
+      data-theme={themeState.selectedThemeId}
+      data-theme-type={themeState.selectedTheme.source.type}
+      style={portalThemeStyle}
+    >
       <div class="flex shrink-0 items-start justify-between gap-3 border-b border-line px-3 py-2">
         <div class="min-w-0">
           <BitsDialog.Title class={`text-[11px] font-bold uppercase tracking-[0.14em] text-primary ${titleClass}`}>
