@@ -6,10 +6,13 @@ import navSource from '../../navigation/AppNavbar.svelte?raw'
 import routerSource from '../../router.svelte.ts?raw'
 import { cronRoute } from '../../router.svelte'
 import cronPageSource from '../../cron/CronPage.svelte?raw'
+import cronJobDetailsSource from '../../cron/CronJobDetails.svelte?raw'
 import cronJobDialogSource from '../../cron/CronJobDialog.svelte?raw'
 import cronJobManagerPanelSource from '../../cron/CronJobManagerPanel.svelte?raw'
 
-const cronFeatureSource = [cronPageSource, cronJobManagerPanelSource, cronJobDialogSource].join('\n')
+const cronFeatureSource = [cronPageSource, cronJobManagerPanelSource, cronJobDialogSource, cronJobDetailsSource].join(
+  '\n'
+)
 
 describe('cron manager page contract', () => {
   it('adds Cron as a top-level desktop route and nav item', () => {
@@ -44,6 +47,19 @@ describe('cron manager page contract', () => {
     expect(cronJobManagerPanelSource).toContain('profileChoicesFor')
     expect(cronJobManagerPanelSource).toContain('sortByProfileOrder')
     expect(cronJobManagerPanelSource).not.toContain('<select')
+  })
+
+  it('opens job details as a desktop panel and mobile dialog when a job is selected', () => {
+    expect(cronJobManagerPanelSource).toContain('openJobDetails')
+    expect(cronJobManagerPanelSource).toContain("window.matchMedia('(min-width: 768px)')")
+    expect(cronJobManagerPanelSource).toContain('md:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]')
+    expect(cronJobManagerPanelSource).toContain('aria-label="Cron job details panel"')
+    expect(cronJobManagerPanelSource).toContain('bind:open={detailDialogOpen}')
+    expect(cronJobManagerPanelSource).toContain('class="w-[min(38rem,calc(100vw-2rem))] md:hidden"')
+    expect(cronFeatureSource).toContain('CronJobDetails')
+    expect(cronJobDetailsSource).toContain('Job ID')
+    expect(cronJobDetailsSource).toContain('Prompt')
+    expect(cronJobDetailsSource).toContain('Recent run output')
   })
 
   it('surfaces recent run output and failure state outside the chat conversation', () => {

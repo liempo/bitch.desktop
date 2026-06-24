@@ -3,6 +3,7 @@
   import { Popover } from 'bits-ui'
 
   import Button from '@/app/components/ui/Button.svelte'
+  import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
@@ -34,6 +35,7 @@
   } from '$lib/hermes/profiles'
   import type { ProfileInfo, SessionInfo } from '$lib/types/hermes'
   import { agentRoute } from '../router.svelte'
+  import CronJobDetails from './CronJobDetails.svelte'
   import CronJobDialog from './CronJobDialog.svelte'
   import { emptyCronForm, type CronForm } from './cron-form'
 
@@ -70,15 +72,36 @@
   let noticeMessage = $state('')
   let editingJob = $state<CronJob | null>(null)
   let jobDialogOpen = $state(false)
+  let detailDialogOpen = $state(false)
+  let selectedJobKey = $state<null | string>(null)
   let form = $state<CronForm>(emptyCronForm())
 
   const activeProfileName = $derived(selectedProfile === 'all' ? 'all' : normalizeProfileKey(selectedProfile))
   const profileLabel = $derived(activeProfileName)
   const profileMenuChoices = $derived(profileChoicesFor(profileState.profiles, activeProfileName))
   const deliveryTargetNote = $derived.by(() => deliveryTargetDescription(form.deliver))
+  const selectedJob = $derived.by(() => (selectedJobKey ? jobs.find(job => jobKey(job) === selectedJobKey) ?? null : null))
+  const managerShellClass = $derived(
+    selectedJob
+      ? 'grid h-full min-h-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]'
+      : 'grid h-full min-h-0 gap-3'
+  )
 
   onMount(() => {
     void initializeCronPage()
+
+    const mediaQuery = window.matchMedia('(min-width: 768px)')
+    const handleViewportChange = () => {
+      if (mediaQuery.matches) detailDialogOpen = false
+    }
+
+    handleViewportChange()
+    mediaQuery.addEventListener('change', handleViewportChange)
+    return () => mediaQuery.removeEventListener('change', handleViewportChange)
+  })
+
+  $effect(() => {
+    if (!selectedJob) detailDialogOpen = false
   })
 
   async function initializeCronPage(): Promise<void> {
@@ -93,6 +116,25 @@
 
   function jobKey(job: CronJob): string {
     return `${cronJobProfile(job)}:${job.id}`
+  }
+
+  function isDesktopViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  }
+
+  function openJobDetails(job: CronJob): void {
+    selectedJobKey = jobKey(job)
+    if (!isDesktopViewport()) detailDialogOpen = true
+  }
+
+  function clearJobDetails(): void {
+    selectedJobKey = null
+    detailDialogOpen = false
+  }
+
+  function jobCardClass(job: CronJob): string {
+    const base = 'border transition-colors'
+    return selectedJobKey === jobKey(job) ? `${base} border-primary/50 bg-primary/10` : `${base} border-line bg-canvas`
   }
 
   function dateFromCronTime(value?: null | number | string): Date | null {
@@ -266,6 +308,8 @@
 
     selectedProfile = nextProfile
     expandedJobKey = null
+    selectedJobKey = null
+    detailDialogOpen = false
     editingJob = null
     jobDialogOpen = false
     form = emptyCronForm(activeFormProfile())
@@ -358,6 +402,7 @@
 
   function editJob(job: CronJob): void {
     formError = ''
+    detailDialogOpen = false
     editingJob = job
     form = formFromJob(job)
     jobDialogOpen = true
@@ -406,14 +451,8 @@
     await withRowAction(job, 'Remove', () => deleteCronJob(job.id, cronJobProfile(job)))
   }
 
-  async function toggleRuns(job: CronJob): Promise<void> {
+  async function loadRuns(job: CronJob): Promise<void> {
     const key = jobKey(job)
-    if (expandedJobKey === key) {
-      expandedJobKey = null
-      return
-    }
-
-    expandedJobKey = key
     runsLoadingKey = key
     errorMessage = ''
     try {
@@ -426,9 +465,20 @@
       runsLoadingKey = null
     }
   }
+
+  async function toggleRuns(job: CronJob): Promise<void> {
+    const key = jobKey(job)
+    if (expandedJobKey === key) {
+      expandedJobKey = null
+      return
+    }
+
+    expandedJobKey = key
+    await loadRuns(job)
+  }
 </script>
 
-<div class="h-full min-h-0">
+<div class={managerShellClass}>
   <Panel title="JOBS" padded={false} contentClass="flex min-h-0 flex-col gap-2 p-3" class="min-h-128 md:min-h-0">
     {#snippet actions()}
       <Popover.Root bind:open={profileMenuOpen}>
@@ -509,8 +559,14 @@
             {@const key = jobKey(job)}
             {@const runs = runsByJob[key] ?? []}
             {@const schedule = scheduleLabel(job)}
-            <div class="border border-line bg-canvas">
-              <div class="px-2 py-1.5">
+            <div class={jobCardClass(job)}>
+              <button
+                class="block w-full px-2 py-1.5 text-left transition-colors hover:bg-surface-raised/45 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+                type="button"
+                onclick={() => openJobDetails(job)}
+                aria-label={`Show details for ${cronJobTitle(job)}`}
+                aria-pressed={selectedJobKey === key}
+              >
                 <div class="min-w-0">
                   <div class="truncate text-[0.76rem] font-semibold text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</div>
                   <p class="line-clamp-3 text-[0.62rem] leading-4 text-ink-muted wrap-anywhere" title={jobSummary(job)}>{jobSummary(job)}</p>
@@ -522,7 +578,7 @@
                     </div>
                   {/if}
                 </div>
-              </div>
+              </button>
 
               <footer class="grid gap-1.5 border-t border-line/50 bg-surface-raised/25 px-2 py-1.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-2">
                 <div class="flex min-w-0 flex-wrap items-center gap-1">
@@ -580,6 +636,27 @@
       {/if}
     </div>
   </Panel>
+
+  {#if selectedJob}
+    {@const selectedKey = jobKey(selectedJob)}
+    {@const selectedRuns = runsByJob[selectedKey] ?? []}
+    <aside class="hidden min-h-0 md:block" aria-label="Cron job details panel">
+      <Panel title="DETAILS" padded={false} contentClass="min-h-0 overflow-auto p-3" class="min-h-128 md:min-h-0">
+        <CronJobDetails
+          job={selectedJob}
+          runs={selectedRuns}
+          runsLoading={runsLoadingKey === selectedKey}
+          actionBusy={actionBusyKey === selectedKey}
+          onClose={clearJobDetails}
+          onEdit={() => editJob(selectedJob)}
+          onRun={() => trigger(selectedJob)}
+          onPauseOrResume={() => pauseOrResume(selectedJob)}
+          onRemove={() => remove(selectedJob)}
+          onLoadRuns={() => loadRuns(selectedJob)}
+        />
+      </Panel>
+    </aside>
+  {/if}
 </div>
 
 <CronJobDialog
@@ -593,3 +670,28 @@
   onSubmit={saveJob}
   saving={saving}
 />
+
+{#if selectedJob}
+  {@const selectedKey = jobKey(selectedJob)}
+  {@const selectedRuns = runsByJob[selectedKey] ?? []}
+  <Dialog
+    bind:open={detailDialogOpen}
+    title="Job Details"
+    description={cronJobTitle(selectedJob)}
+    class="w-[min(38rem,calc(100vw-2rem))] md:hidden"
+    contentClass="max-h-[min(38rem,calc(100vh-7rem))] overflow-y-auto p-3"
+  >
+    <CronJobDetails
+      job={selectedJob}
+      runs={selectedRuns}
+      runsLoading={runsLoadingKey === selectedKey}
+      actionBusy={actionBusyKey === selectedKey}
+      onClose={() => (detailDialogOpen = false)}
+      onEdit={() => editJob(selectedJob)}
+      onRun={() => trigger(selectedJob)}
+      onPauseOrResume={() => pauseOrResume(selectedJob)}
+      onRemove={() => remove(selectedJob)}
+      onLoadRuns={() => loadRuns(selectedJob)}
+    />
+  </Dialog>
+{/if}
