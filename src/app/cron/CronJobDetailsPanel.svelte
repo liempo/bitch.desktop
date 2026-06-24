@@ -128,7 +128,7 @@
   }
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto px-3">
+<div class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto" style="--custom-scrollbar-offset-x: 4px">
   {#if showHeader}
     <header class="min-w-0 border-b border-line/60 pb-3">
       {#if showIdentity}

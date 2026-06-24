@@ -70,9 +70,13 @@ describe('cron manager page contract', () => {
     expect(cronJobsPanelSource).toContain('aria-label="Job detail actions"')
     expect(cronJobsPanelSource).toContain('class="w-[min(38rem,calc(100vw-2rem))] md:hidden"')
     expect(cronJobsPanelSource).toContain('class="min-h-0 flex-1 overflow-hidden p-3"')
-    expect(cronJobsPanelSource).toContain('class="min-h-0 flex-1 overflow-auto py-1 pl-1 pr-3"')
+    expect(cronJobsPanelSource).toContain(
+      'class="min-h-0 flex-1 overflow-auto p-1" style="--custom-scrollbar-offset-x: 4px"'
+    )
     expect(cronFeatureSource).toContain('CronJobDetailsPanel')
-    expect(cronJobDetailsPanelSource).toContain('class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto px-3"')
+    expect(cronJobDetailsPanelSource).toContain(
+      'class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto" style="--custom-scrollbar-offset-x: 4px"'
+    )
     expect(cronJobDetailsPanelSource).toContain('Job ID')
     expect(cronJobDetailsPanelSource).toContain('Prompt')
     expect(cronJobDetailsPanelSource).toContain('Recent run output')

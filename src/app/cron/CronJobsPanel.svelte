@@ -546,7 +546,7 @@
     {#if errorMessage}
       <div class="shrink-0 rounded-panel border border-danger/40 bg-danger/10 p-3 text-sm leading-6 text-danger" role="alert">{errorMessage}</div>
     {/if}
-    <div class="min-h-0 flex-1 overflow-auto py-1 pl-1 pr-3" data-selectable="true" aria-label="Cron jobs">
+    <div class="min-h-0 flex-1 overflow-auto p-1" style="--custom-scrollbar-offset-x: 4px" data-selectable="true" aria-label="Cron jobs">
       {#if loading}
         <div class="flex h-full items-center justify-center" aria-label="Loading cron jobs">
           <Loader size="xl" label="Loading cron jobs" />
