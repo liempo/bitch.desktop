@@ -146,10 +146,18 @@
     compact
       ? 'shrink-0 bg-surface-raised/35 p-2'
       : responsiveCompact
-        ? 'shrink-0 bg-surface-raised/35 p-2 md:bg-transparent md:p-3'
+        ? 'shrink-0 bg-surface-raised/35 p-2 md:bg-transparent md:py-3 md:pr-3 md:pl-1'
         : 'p-3'
   )
-  const composerInnerClass = $derived(compact ? 'w-full' : responsiveCompact ? 'w-full md:mx-auto md:max-w-5xl' : 'mx-auto max-w-5xl')
+  const composerInnerClass = $derived(
+    compact
+      ? 'w-full'
+      : responsiveCompact
+        ? sidebarOpen
+          ? 'w-full md:max-w-5xl'
+          : 'w-full md:mx-auto md:max-w-5xl'
+        : 'mx-auto max-w-5xl'
+  )
   const composerFrameClass = $derived(compact ? 'mt-0' : responsiveCompact ? 'mt-0 md:mt-3' : 'mt-3')
   const composerPanelClass = $derived(compact ? 'border-line bg-input' : responsiveCompact ? 'border-line bg-input md:bg-surface' : '')
   const composerTextareaClass = $derived(
