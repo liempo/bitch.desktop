@@ -247,16 +247,16 @@ export function filePresentation(name: string): FilePresentation {
   if (viewerKind === 'audio') return { accent: 'audio', extension, icon: 'fileAudio', title: 'Audio', viewerKind }
   if (viewerKind === 'html') return { accent: 'html', extension, icon: 'fileHtml', title: 'HTML', viewerKind }
 
+  if (ARCHIVE_EXTENSIONS.has(extension)) {
+    return { accent: 'archive', extension, icon: 'fileArchive', title: 'Archive', viewerKind }
+  }
+
   if (CODE_EXTENSIONS.has(extension)) {
     return { accent: 'code', extension, icon: iconFor(extension, 'fileCode'), title: 'Code', viewerKind }
   }
 
-  if (TEXT_EXTENSIONS.has(extension) || viewerKind === 'text') {
+  if (TEXT_EXTENSIONS.has(extension)) {
     return { accent: 'text', extension, icon: iconFor(extension, 'fileText'), title: 'Text', viewerKind }
-  }
-
-  if (ARCHIVE_EXTENSIONS.has(extension)) {
-    return { accent: 'archive', extension, icon: 'fileArchive', title: 'Archive', viewerKind }
   }
 
   return { accent: 'file', extension, icon: 'file', title: 'File', viewerKind }

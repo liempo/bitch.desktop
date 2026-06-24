@@ -160,7 +160,7 @@
 
 <Panel
   title="AGENT"
-  class="min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong"
+  class="min-h-0 border-line bg-canvas! transition-colors hover:border-line-strong"
   contentClass="flex h-full min-h-0 flex-col p-0"
   titleClass="text-ink-muted"
 >

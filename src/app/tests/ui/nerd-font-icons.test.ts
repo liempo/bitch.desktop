@@ -19,6 +19,7 @@ import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
 import mainContainersPanelSource from '../../main/panels/MainContainersPanel.svelte?raw'
 import mainCronPanelSource from '../../main/panels/MainCronPanel.svelte?raw'
 import mainKanbanPanelSource from '../../main/panels/MainKanbanPanel.svelte?raw'
+import cronJobsPanelSource from '../../cron/CronJobsPanel.svelte?raw'
 import fileTypesSource from '$lib/hermes/files/domain/types.ts?raw'
 import filePreviewSource from '$lib/hermes/files/domain/preview.ts?raw'
 
@@ -48,10 +49,11 @@ const iconSurfaceSources = [
   mainAgentPanelSource,
   mainContainersPanelSource,
   mainCronPanelSource,
-  mainKanbanPanelSource
+  mainKanbanPanelSource,
+  cronJobsPanelSource
 ]
 
-const oldRawGlyphPattern = /[▣▾▸⇩×→↓↑]/
+const oldRawGlyphPattern = /[▣▾▸⇩×→↓↑←★]/
 
 function sourceName(index: number): string {
   return [
@@ -71,7 +73,8 @@ function sourceName(index: number): string {
     'MainAgentPanel',
     'MainContainersPanel',
     'MainCronPanel',
-    'MainKanbanPanel'
+    'MainKanbanPanel',
+    'CronJobsPanel'
   ][index]
 }
 
@@ -93,6 +96,7 @@ describe('Nerd Font typography and icon source contract', () => {
     expect(iconTokensSource).toContain('fileImage')
     expect(iconTokensSource).toContain('shieldCheck')
     expect(iconTokensSource).toContain('kanban')
+    expect(iconTokensSource).toContain('pin')
     expect(iconComponentSource).toContain("import { nerdIcon, type NerdIconName } from '$lib/theme'")
     expect(iconComponentSource).toContain('font-nerd')
     expect(iconComponentSource).toContain("aria-hidden={decorativeIcon ? 'true' : undefined}")
