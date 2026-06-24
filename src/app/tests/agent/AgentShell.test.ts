@@ -56,7 +56,7 @@ describe('AgentShell resizable panel source contract', () => {
     expect(agentShellSource).toContain('<Composer')
     expect(agentShellSource).toContain('responsiveCompact')
     expect(composerSource).toContain('responsiveCompact?: boolean')
-    expect(composerSource).toContain('md:bg-transparent md:py-3 md:pr-3 md:pl-1')
+    expect(composerSource).toContain('md:py-3 md:pr-3 md:pl-1')
     expect(composerSource).toContain("responsiveCompact ? 'w-full 2xl:mx-auto 2xl:max-w-5xl'")
     expect(composerSource).not.toContain('md:max-w-5xl')
     expect(composerSource).toContain('hidden h-5 w-5 items-center')

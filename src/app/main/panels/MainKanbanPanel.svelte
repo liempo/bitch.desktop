@@ -44,7 +44,7 @@
   }
   const KANBAN_ACTIVE_STATUSES = ['triage', 'todo', 'scheduled', 'ready', 'running', 'blocked']
   const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono rounded-none!`
-  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-canvas'
+  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
 
   let kanbanBoardMenuOpen = $state(false)
   let kanbanBoards = $state<KanbanBoardMeta[]>([])
@@ -204,7 +204,6 @@
 
         return (b.priority ?? 0) - (a.priority ?? 0)
       })
-      .slice(0, 3)
   }
 
   function countKanbanStatuses(statuses: string[]): number {
@@ -347,53 +346,55 @@
     {/each}
   </div>
 
-  <section class="grid min-h-0 flex-1 gap-2" aria-label="Kanban focus queue">
-    <div class="flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.14em]">
+  <section class="flex min-h-0 flex-1 flex-col gap-2" aria-label="Kanban focus queue">
+    <div class="flex shrink-0 items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.14em]">
       <span class="text-ink-muted">Focus queue</span>
       <span class={kanbanBoardsError ? 'text-warning' : 'text-ink-faint'}>{kanbanPanelMeta}</span>
     </div>
 
-    {#if kanbanBoardsError && kanbanFocusTasks.length === 0}
-      <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
-        Kanban unavailable: {kanbanBoardsError}
-      </div>
-    {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
-      <div class="rounded-none border border-line bg-canvas p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
-        Syncing current board…
-      </div>
-    {:else if kanbanFocusTasks.length === 0}
-      <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
-        {kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}
-      </div>
-    {:else}
-      <div class="grid min-h-0 gap-1.5 overflow-hidden">
-        {#each kanbanFocusTasks as task (task.id)}
-          {@const marker = kanbanTaskMarker(task)}
-          <a
-            class="min-w-0 rounded-none border border-line bg-canvas p-2 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
-            href={kanbanHref}
-            aria-label={`Open Kanban card ${task.title}`}
-          >
-            <div class="flex items-start justify-between gap-2">
-              <span class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-ink-bright" title={task.title}>{task.title}</span>
-              <span class="shrink-0 text-[0.58rem] text-ink-faint">{task.id}</span>
-            </div>
-            <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span class={`rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanStatusPillClass(task.status)}`}>
-                {kanbanStatusLabel(task.status)}
-              </span>
-              {#if marker}
-                <span class={`rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanTaskMarkerClass(task)}`}>{marker}</span>
-              {/if}
-              {#if task.assignee}
-                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">@{task.assignee}</span>
-              {/if}
-              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">p{task.priority ?? 0}</span>
-            </div>
-          </a>
-        {/each}
-      </div>
-    {/if}
+    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+      {#if kanbanBoardsError && kanbanFocusTasks.length === 0}
+        <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
+          Kanban unavailable: {kanbanBoardsError}
+        </div>
+      {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
+        <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+          Syncing current board…
+        </div>
+      {:else if kanbanFocusTasks.length === 0}
+        <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
+          {kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}
+        </div>
+      {:else}
+        <div class="grid content-start gap-1.5">
+          {#each kanbanFocusTasks as task (task.id)}
+            {@const marker = kanbanTaskMarker(task)}
+            <a
+              class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+              href={kanbanHref}
+              aria-label={`Open Kanban card ${task.title}`}
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-ink-bright" title={task.title}>{task.title}</span>
+                <span class="shrink-0 text-[0.58rem] text-ink-faint">{task.id}</span>
+              </div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span class={`rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanStatusPillClass(task.status)}`}>
+                  {kanbanStatusLabel(task.status)}
+                </span>
+                {#if marker}
+                  <span class={`rounded-none border px-1.5 py-0.5 text-[0.58rem] uppercase ${kanbanTaskMarkerClass(task)}`}>{marker}</span>
+                {/if}
+                {#if task.assignee}
+                  <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">@{task.assignee}</span>
+                {/if}
+                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">p{task.priority ?? 0}</span>
+              </div>
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </section>
 
   {#if kanbanBoardsError && kanbanFocusTasks.length > 0}
