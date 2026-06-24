@@ -245,17 +245,17 @@ export function filePresentation(name: string): FilePresentation {
   if (viewerKind === 'audio') return { accent: 'audio', extension, glyph: 'AUD', title: 'Audio', viewerKind }
   if (viewerKind === 'html') return { accent: 'html', extension, glyph: 'HTML', title: 'HTML', viewerKind }
 
-  if (CODE_EXTENSIONS.has(extension)) {
-    return { accent: 'code', extension, glyph: glyphFor(extension, 'CODE'), title: 'Code', viewerKind }
-  }
-
-  if (TEXT_EXTENSIONS.has(extension) || viewerKind === 'text') {
-    return { accent: 'text', extension, glyph: glyphFor(extension, 'TXT'), title: 'Text', viewerKind }
-  }
-
   if (ARCHIVE_EXTENSIONS.has(extension)) {
     return { accent: 'archive', extension, glyph: glyphFor(extension, 'ZIP'), title: 'Archive', viewerKind }
   }
 
-  return { accent: 'file', extension, glyph: glyphFor(extension, 'FILE'), title: 'File', viewerKind }
+  if (CODE_EXTENSIONS.has(extension)) {
+    return { accent: 'code', extension, glyph: glyphFor(extension, 'CODE'), title: 'Code', viewerKind }
+  }
+
+  if (TEXT_EXTENSIONS.has(extension)) {
+    return { accent: 'text', extension, glyph: glyphFor(extension, 'TXT'), title: 'Text', viewerKind }
+  }
+
+  return { accent: 'file', extension, glyph: glyphFor(extension, '???'), title: 'File', viewerKind }
 }

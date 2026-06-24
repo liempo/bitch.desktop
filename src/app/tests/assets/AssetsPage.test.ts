@@ -20,42 +20,136 @@ describe('Assets page remote file action UX contract', () => {
     expect(assetsPageSource).not.toMatch(/@tauri-apps\/api\/fs|VITE_BOX_BASE_URL|Dufs|public file-server/i)
   })
 
-  it('shows current directory controls and dense action buttons with busy-disabled states', () => {
+  it('moves file actions into right-click menus and removes header location controls', () => {
     expectAll(assetsPageSource, [
-      'Current directory',
-      'bind:value={pathDraft}',
-      'applyPathDraft',
-      'refreshCurrentDirectory',
-      'Create folder',
-      'Upload',
-      'Download',
-      'Delete',
+      'ContextMenu.Root',
+      'ContextMenu.Trigger',
+      'ContextMenu.Content',
+      'open folder',
+      'pin folder',
+      'unpin folder',
+      'new folder',
+      'upload files',
+      'download',
+      'delete file',
+      'delete folder',
       'actionsDisabled',
       'actionBusy !== null'
     ])
+
+    expect(assetsPageSource).not.toContain('Right-click files or folders for actions')
+    expect(assetsPageSource).not.toContain('Current directory')
+    expect(assetsPageSource).not.toContain('bind:value={pathDraft}')
+    expect(assetsPageSource).not.toContain('applyPathDraft')
+    expect(assetsPageSource).not.toContain('Selected path')
+    expect(assetsPageSource).not.toContain('refreshCurrentDirectory')
+    expect(assetsPageSource).not.toContain('downloadSelectedFile')
+    expect(assetsPageSource).not.toContain('requestDeleteSelectedPath')
   })
 
-  it('supports file picker and drag/drop uploads into the current remote directory', () => {
+  it('toggles folder expansion on single click without a double-click requirement', () => {
+    expect(assetsPageSource).toContain('toggleTreeRow(row)\n      return')
+    expect(assetsPageSource).toContain('onclick={() => selectTreeRow(row)}')
+    expect(assetsPageSource).not.toContain('ondblclick')
+  })
+
+  it('keeps uploads available from context menus without the old drop-upload panel', () => {
     expectAll(assetsPageSource, [
       'bind:this={fileInputElement}',
       'type="file"',
       'multiple',
+      'uploadTargetDirectory',
+      'requestFileUpload(row.entry.path)',
+      'requestFileUpload(entry.path)',
       'handleFileInput',
-      'handleDropUpload',
-      'ondragover={allowUploadDrop}',
-      'ondrop={(event) => void handleDropUpload(event)}',
       'await uploadRemoteFile({'
     ])
+
+    expect(assetsPageSource).not.toContain('Drop files to upload')
+    expect(assetsPageSource).not.toContain('drop files here to upload')
+    expect(assetsPageSource).not.toContain('Drag files into the tree')
   })
 
   it('keeps create, delete, and download flows explicit and refreshes only after remote action success', () => {
     expectAll(assetsPageSource, [
       'await createRemoteDirectory(folderPath)',
-      "await deleteRemotePath(selectedActionPath, { recursive: selectedActionKind === 'directory' })",
-      'const download = await readRemoteManagedFileDataUrl(selectedFile.path)',
+      "await deleteRemotePath(deletedPath, { recursive: deletedKind === 'directory' })",
+      'const download = await readRemoteManagedFileDataUrl(entry.path)',
       'triggerBrowserDownload(download)',
-      'await refreshCurrentDirectory()',
+      'await refreshDirectory(createTargetDirectory)',
+      'await refreshDirectory(directory)',
       'lastActionMessage'
+    ])
+  })
+
+  it('does not render a Tree header action label', () => {
+    expect(assetsPageSource).toContain('Panel title="Tree"')
+    expect(assetsPageSource).not.toContain('actions={treeActions}')
+    expect(assetsPageSource).not.toContain('{#snippet treeActions()}')
+    expect(assetsPageSource).not.toContain('text-ink-faint">remote</span>')
+  })
+
+  it('repurposes the right pane as a folder/file viewer with a location field', () => {
+    expectAll(assetsPageSource, [
+      'Panel title="Viewer"',
+      'bind:value={locationDraft}',
+      'applyLocationDraft',
+      'openLocationPath',
+      'currentFolderEntries',
+      'Folder contents',
+      'This remote folder is empty.',
+      'openViewerEntry(entry)',
+      'viewerEntryKindLabel(entry)'
+    ])
+
+    expect(assetsPageSource).not.toContain('<span>Location</span>')
+    expect(assetsPageSource).not.toContain('viewerEntrySizeLabel')
+    expect(assetsPageSource).not.toContain('role="columnheader" class="text-right">Size</span>')
+    expect(assetsPageSource).not.toContain('grid-cols-[minmax(0,1fr)_7rem_6rem]')
+    expect(assetsPageSource).not.toContain('Remote root')
+    expect(assetsPageSource).not.toContain('>Go</Button>')
+    expect(assetsPageSource).not.toContain('Asset Viewer')
+  })
+
+  it('adds location history, parent navigation, and file download arrow controls', () => {
+    expectAll(assetsPageSource, [
+      'locationHistory',
+      'locationHistoryIndex',
+      'pushLocationHistory',
+      'replaceLocationHistory',
+      'canNavigateBack',
+      'canNavigateForward',
+      'canNavigateUp',
+      'canDownloadCurrentFile',
+      'navigateBack',
+      'navigateForward',
+      'navigateUp',
+      'downloadCurrentFile',
+      'aria-label="Location navigation"',
+      'aria-label="Back"',
+      'aria-label="Forward"',
+      'aria-label="Up one level"',
+      'aria-label="Download selected file"',
+      '←',
+      '→',
+      '↑',
+      '↓'
+    ])
+  })
+
+  it('persists and manages pinned folders', () => {
+    expectAll(assetsPageSource, [
+      'PINNED_FOLDERS_STORAGE_SUFFIX',
+      'readNamespacedStorageItem',
+      'writeNamespacedStorageItem',
+      'removeNamespacedStorageItem',
+      'readPinnedFolders',
+      'setPinnedFolders',
+      'togglePinnedFolder',
+      'removePinnedFolderTree',
+      'Pinned folders',
+      'Unpin ${folder.path}',
+      'isPinnedFolder(entry.path)'
     ])
   })
 
@@ -64,7 +158,7 @@ describe('Assets page remote file action UX contract', () => {
       '<Dialog bind:open={deleteDialogOpen}',
       'Delete remote path',
       'This cannot be undone.',
-      '{selectedActionPath}',
+      '{deleteActionPath}',
       'confirmDeleteSelectedPath'
     ])
   })

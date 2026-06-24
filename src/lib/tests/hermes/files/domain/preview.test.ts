@@ -19,23 +19,40 @@ describe('remote file presentation', () => {
     expect(filePresentation('clip.webm')).toMatchObject({ accent: 'video', glyph: 'VID', viewerKind: 'video' })
     expect(filePresentation('voice.mp3')).toMatchObject({ accent: 'audio', glyph: 'AUD', viewerKind: 'audio' })
     expect(filePresentation('render.html')).toMatchObject({ accent: 'html', glyph: 'HTML', viewerKind: 'html' })
-    expect(filePresentation('archive.zip')).toMatchObject({ accent: 'text', glyph: 'ZIP', viewerKind: 'text' })
+    expect(filePresentation('archive.zip')).toMatchObject({
+      accent: 'archive',
+      glyph: 'ZIP',
+      title: 'Archive',
+      viewerKind: 'text'
+    })
   })
 
-  it('marks text-like and opaque files for fetched inline text previews', () => {
+  it('marks text-like and opaque files for fetched inline text previews without text presentation fallback', () => {
     expect(isTextPreviewFile('README.md')).toBe(true)
     expect(isTextPreviewFile('config.json')).toBe(true)
     expect(isTextPreviewFile('Makefile')).toBe(true)
+    expect(filePresentation('Makefile')).toMatchObject({
+      accent: 'file',
+      glyph: '???',
+      title: 'File',
+      viewerKind: 'text'
+    })
     expect(filePresentation('WORKSPACE.bazel')).toMatchObject({
-      accent: 'text',
+      accent: 'file',
       glyph: 'BAZ',
-      title: 'Text',
+      title: 'File',
+      viewerKind: 'text'
+    })
+    expect(filePresentation('blob.bin')).toMatchObject({
+      accent: 'file',
+      glyph: 'BIN',
+      title: 'File',
       viewerKind: 'text'
     })
     expect(filePresentation('archive.zip')).toMatchObject({
-      accent: 'text',
+      accent: 'archive',
       glyph: 'ZIP',
-      title: 'Text',
+      title: 'Archive',
       viewerKind: 'text'
     })
     expect(isTextPreviewFile('photo.png')).toBe(false)
@@ -51,7 +68,7 @@ describe('remote assets page source contract', () => {
   })
 
   it('mounts the remote filesystem root instead of the backend cwd', () => {
-    expect(assetsPageSource).toContain("await openDirectory('/')")
+    expect(assetsPageSource).toContain("await openDirectory('/', false, false)")
     expect(assetsPageSource).not.toContain('getRemoteDefaultCwd')
   })
 
@@ -61,8 +78,9 @@ describe('remote assets page source contract', () => {
     expect(assetsPageSource).not.toContain('iconActions')
   })
 
-  it('includes a first-class asset viewer panel', () => {
-    expect(assetsPageSource).toContain('Asset Viewer')
+  it('includes a first-class folder/file viewer panel', () => {
+    expect(assetsPageSource).toContain('Panel title="Viewer"')
+    expect(assetsPageSource).toContain('Folder contents')
     expect(assetsPageSource).toContain('selectFile')
   })
 
