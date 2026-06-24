@@ -58,14 +58,33 @@ Path parsing accepts absolute paths, `~`, paths relative to the dashboard proces
 
 `GET /api/media?path=<path>` is not the general file resolver. It is an authenticated image-only data-URL endpoint for Hermes-generated media roots. New remote file preview and inline media should use `/api/fs/read-data-url` unless a narrower generated-image optimization is intentionally added.
 
-### `/api/files/*`: managed file download/upload surface
+### `/api/files/*`: managed file action surface
 
-The managed-files API is useful for downloads and uploads but has a different root policy than `/api/fs/*`:
+The managed-files API is useful for create, upload/write, download/read, and
+delete actions but has a different root policy than `/api/fs/*`:
 
-- `GET /api/files/download?path=<path>` streams an attachment download and caps files at 100 MiB.
-- Only this download route accepts `?token=` because OS-opened links cannot set headers. `BITCH` should avoid leaking that token into the renderer; prefer a Rust/Tauri-authenticated proxy or a short-lived object URL.
-- `POST /api/files/upload` accepts data URLs; `POST /api/files/upload-stream` streams multipart bodies in 1 MiB chunks and avoids base64 inflation.
-- `HERMES_DASHBOARD_FILES_ROOT`, or hosted `/opt/data`, locks the managed root. Without that, local dashboards default to the backend user's home directory and can change path.
+- `POST /api/files/mkdir` creates a directory under the managed file root.
+- `DELETE /api/files` deletes a managed file or directory after the UI confirms
+  the exact remote path.
+- `GET /api/files/read?path=<path>` returns an authenticated data URL for the
+  managed download action.
+- `GET /api/files/download?path=<path>` streams an attachment download and caps
+  files at 100 MiB.
+- Only this download route accepts `?token=` because OS-opened links cannot set
+  headers. `BITCH` should avoid leaking that token into the renderer; prefer the
+  Tauri-authenticated bridge and object URLs.
+- `POST /api/files/upload` accepts data URLs; `POST /api/files/upload-stream`
+  streams multipart bodies in 1 MiB chunks and avoids base64 inflation when the
+  bridge can forward multipart `FormData`.
+- `HERMES_DASHBOARD_FILES_ROOT`, or hosted `/opt/data`, locks the managed root.
+  Without that, local dashboards default to the backend user's home directory and
+  can change path.
+
+The ASSETS page uses `/api/fs/list` for the browsable root `/` and then routes
+action buttons through the managed `/api/files*` helpers. If a dashboard build
+lacks one of those managed routes, the UI must show the backend error/capability
+gap honestly instead of falling back to desktop-local file APIs or public file
+server URLs.
 
 ## Composer attachment pipeline
 
@@ -146,6 +165,9 @@ Run these against a real remote dashboard backend through the same Tauri bridge 
 8. A symlink from an allowed-looking path to a denied secret is blocked by the resolved-path policy.
 9. `$HERMES_HOME/.env`, `~/.ssh/id_rsa`, and similar secret-like paths are blocked for automatic preview.
 10. A file over 16 MiB does not get base64-loaded into the renderer.
+11. ASSETS create-folder, upload, download, and delete controls call the managed
+    `/api/files*` surface through the authenticated bridge and refresh the
+    current remote listing without preserving stale preview state.
 
 Passing these probes is the migration gate. Anything less is just a public file server wearing a nicer badge.
 
