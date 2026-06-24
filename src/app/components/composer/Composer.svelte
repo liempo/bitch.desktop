@@ -150,13 +150,7 @@
         : 'p-3'
   )
   const composerInnerClass = $derived(
-    compact
-      ? 'w-full'
-      : responsiveCompact
-        ? sidebarOpen
-          ? 'w-full md:max-w-5xl'
-          : 'w-full md:mx-auto md:max-w-5xl'
-        : 'mx-auto max-w-5xl'
+    compact ? 'w-full' : responsiveCompact ? 'w-full 2xl:mx-auto 2xl:max-w-5xl' : 'mx-auto max-w-5xl'
   )
   const composerFrameClass = $derived(compact ? 'mt-0' : responsiveCompact ? 'mt-0 md:mt-3' : 'mt-3')
   const composerPanelClass = $derived(compact ? 'border-line bg-input' : responsiveCompact ? 'border-line bg-input md:bg-surface' : '')
