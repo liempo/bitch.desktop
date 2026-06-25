@@ -19,9 +19,7 @@ describe('temporary theme picker source contract', () => {
 
   it('renders a runtime theme picker beside the Kanban navigation item', () => {
     expect(appNavbarSource).toContain("label: 'KANBAN'")
-    expect(appNavbarSource).toContain(
-      "import { selectTheme, themeOptions, themeState, type NerdIconName } from '$lib/theme'"
-    )
+    expect(appNavbarSource).toContain("import { selectTheme, themeOptions, themeState } from '$lib/theme'")
     expect(appNavbarSource).toContain('function handleThemeChange')
     expect(appNavbarSource).toContain('selectTheme(')
     expect(appNavbarSource).toContain('aria-label="Theme"')

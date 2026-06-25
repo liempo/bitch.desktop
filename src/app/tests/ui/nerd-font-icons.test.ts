@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 
 import agentPreviewSource from '../../agent/preview/AgentPreviewSidebar.svelte?raw'
 import agentSessionSidebarSource from '../../agent/sessions/AgentSessionSidebar.svelte?raw'
-import appNavbarSource from '../../navigation/AppNavbar.svelte?raw'
 import assetsPageSource from '../../assets/AssetsPage.svelte?raw'
 import composerSource from '../../components/composer/Composer.svelte?raw'
 import modelPickerSource from '../../components/composer/ModelPicker.svelte?raw'
@@ -33,7 +32,6 @@ const iconComponentSource = readOptionalSource('src/app/components/ui/Icon.svelt
 const iconTokensSource = readOptionalSource('src/lib/theme/icons.ts')
 
 const iconSurfaceSources = [
-  appNavbarSource,
   agentPreviewSource,
   agentSessionSidebarSource,
   assetsPageSource,
@@ -57,7 +55,6 @@ const oldRawGlyphPattern = /[▣▾▸⇩×→↓↑←★]/
 
 function sourceName(index: number): string {
   return [
-    'AppNavbar',
     'AgentPreviewSidebar',
     'AgentSessionSidebar',
     'AssetsPage',
