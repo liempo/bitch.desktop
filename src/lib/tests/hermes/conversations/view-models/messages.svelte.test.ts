@@ -314,6 +314,30 @@ describe('message session id mapping', () => {
     expect(message?.attachments).toBeUndefined()
   })
 
+  it('replaces live streamed assistant text when completion restores newline formatting', () => {
+    sessionState.activeSessionId = liveSid
+    sessionState.storedSessionId = storedKey
+
+    handleGatewayEvent({ session_id: liveSid, type: 'message.start', payload: {} })
+    handleGatewayEvent({
+      session_id: liveSid,
+      type: 'message.delta',
+      payload: { text: 'First line Second line' }
+    })
+    handleGatewayEvent({
+      session_id: liveSid,
+      type: 'message.complete',
+      payload: { text: 'First line\nSecond line' }
+    })
+
+    const message = conversationForSession(storedKey)?.messages[0]
+    expect(message?.text).toBe('First line\nSecond line')
+    expect(message?.parts?.find(part => part.type === 'text')).toMatchObject({
+      text: 'First line\nSecond line',
+      type: 'text'
+    })
+  })
+
   it('extracts stored assistant canvas references into the conversation canvas sidebar state', () => {
     sessionState.activeSessionId = liveSid
     sessionState.storedSessionId = storedKey
