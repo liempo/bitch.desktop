@@ -20,7 +20,14 @@ pub struct CalDavConfigStatus {
     pub configured: bool,
     pub hint: String,
     pub username: Option<String>,
+    pub cached_sources: usize,
+    pub last_sync_error: Option<String>,
+    pub last_synced_at: Option<String>,
+    pub sync_interval_seconds: u64,
+    pub syncing: bool,
 }
+
+pub const DEFAULT_CALDAV_SYNC_INTERVAL_SECONDS: u64 = 30 * 60;
 
 fn configured_caldav_url_from(get_value: &impl Fn(&str) -> Option<String>) -> Option<String> {
     get_value("CALDAV_URL")
@@ -46,6 +53,16 @@ pub fn normalize_caldav_url(raw_url: &str) -> Result<String, String> {
 
 pub fn resolve_caldav_config() -> Result<CalDavConfig, String> {
     resolve_caldav_config_from(config_value)
+}
+
+pub fn resolve_caldav_sync_interval_seconds() -> u64 {
+    resolve_caldav_sync_interval_seconds_from(config_value)
+}
+
+fn resolve_caldav_sync_interval_seconds_from(get_value: impl Fn(&str) -> Option<String>) -> u64 {
+    get_value("CALDAV_SYNC_INTERVAL")
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_CALDAV_SYNC_INTERVAL_SECONDS)
 }
 
 fn resolve_caldav_config_from(
@@ -77,6 +94,11 @@ pub fn caldav_config_status() -> CalDavConfigStatus {
             configured: true,
             hint: String::new(),
             username: Some(config.username),
+            cached_sources: 0,
+            last_sync_error: None,
+            last_synced_at: None,
+            sync_interval_seconds: resolve_caldav_sync_interval_seconds(),
+            syncing: false,
         },
         Err(error) => CalDavConfigStatus {
             calendar_url: config_value("CALDAV_URL")
@@ -84,6 +106,11 @@ pub fn caldav_config_status() -> CalDavConfigStatus {
             configured: false,
             hint: error,
             username: config_value("CALDAV_USERNAME").or_else(|| config_value("CALDAV_USER")),
+            cached_sources: 0,
+            last_sync_error: None,
+            last_synced_at: None,
+            sync_interval_seconds: resolve_caldav_sync_interval_seconds(),
+            syncing: false,
         },
     }
 }
@@ -140,5 +167,22 @@ mod tests {
             ("CALDAV_PASSWORD", "secret"),
         ])
         .is_err());
+    }
+
+    #[test]
+    fn resolves_background_sync_interval_seconds() {
+        assert_eq!(resolve_caldav_sync_interval_seconds_from(|_| None), 1800);
+        assert_eq!(
+            resolve_caldav_sync_interval_seconds_from(|name| {
+                (name == "CALDAV_SYNC_INTERVAL").then(|| "60".to_string())
+            }),
+            60
+        );
+        assert_eq!(
+            resolve_caldav_sync_interval_seconds_from(|name| {
+                (name == "CALDAV_SYNC_INTERVAL").then(|| "0".to_string())
+            }),
+            0
+        );
     }
 }

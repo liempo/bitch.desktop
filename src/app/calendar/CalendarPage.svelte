@@ -9,6 +9,7 @@
     calendarEventCountForDate,
     calendarEventSubtitle,
     createCalendarViewModel,
+    listenCalendarSyncUpdates,
     type CalendarEvent
   } from '$lib/calendar'
 
@@ -39,7 +40,24 @@
   const selectedDateLabel = $derived(formatDateLabel(viewModel.selectedDateKey))
 
   onMount(() => {
+    let disposed = false
+    let unlisten: undefined | (() => void)
+
     void viewModel.refresh()
+    void listenCalendarSyncUpdates(() => {
+      void viewModel.refresh()
+    }).then(stopListening => {
+      if (disposed) {
+        stopListening()
+      } else {
+        unlisten = stopListening
+      }
+    })
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
   })
 
   function dateValueFromKey(key: string): CalendarDate {
@@ -55,7 +73,6 @@
   function handleVisibleMonthChange(value: DateValue): void {
     visibleMonth = value
     viewModel.setVisibleAnchor(value.toString())
-    void viewModel.refresh()
   }
 
   function dayEventCount(date: DateValue): number {
@@ -71,13 +88,13 @@
   }
 
   function formatDateLabel(dateKey: string): string {
-    const date = new Date(`${dateKey}T00:00:00.000Z`)
+    const [year, month, day] = dateKey.split('-').map(part => Number(part))
+    const date = new Date(year || 1970, (month || 1) - 1, day || 1)
     if (Number.isNaN(date.getTime())) return dateKey
 
     return new Intl.DateTimeFormat(undefined, {
       day: '2-digit',
       month: 'long',
-      timeZone: 'UTC',
       weekday: 'long',
       year: 'numeric'
     }).format(date)
@@ -94,7 +111,14 @@
             <div class="mt-1 text-sm text-ink-bright">{viewModel.configStatus?.calendarUrl || 'No calendar collection configured'}</div>
             <div class="mt-1 text-xs text-ink-muted">{viewModel.configStatus?.username || viewModel.configurationHint}</div>
           </div>
-          <Button size="sm" variant="primary" disabled={viewModel.loading} onclick={() => void viewModel.refresh()}>Refresh</Button>
+          <Button size="icon" variant="primary" disabled={viewModel.loading} onclick={() => void viewModel.syncNow()} aria-label="Sync calendar" title="Sync calendar">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 11a8.1 8.1 0 0 0-14.1-4.9L4 8" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v4h4" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 13a8.1 8.1 0 0 0 14.1 4.9L20 16" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 20v-4h-4" />
+            </svg>
+          </Button>
         </div>
 
         <Calendar.Root

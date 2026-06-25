@@ -15,15 +15,28 @@ export interface CalendarEventRange {
   start: string
 }
 
+export interface CalendarSyncStatus {
+  cachedSources: number
+  lastError?: null | string
+  lastSyncedAt?: null | string
+  syncIntervalSeconds: number
+  syncing: boolean
+}
+
 export interface CalendarConfigStatus {
+  cachedSources?: number
   calendarUrl?: string
   configured: boolean
   hint?: string
+  lastSyncError?: null | string
+  lastSyncedAt?: null | string
+  syncIntervalSeconds?: number
+  syncing?: boolean
   username?: string
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
 const DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 
 function clean(value: null | string | undefined): string {
   return value?.trim() ?? ''
@@ -36,27 +49,50 @@ function dateKeyParts(value: string): [number, number, number] | null {
   return [Number(match[1]), Number(match[2]), Number(match[3])]
 }
 
-function isoFromUtcDate(date: Date): string {
+function isoFromLocalDate(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, '.000Z')
 }
 
-function startOfUtcDate(dateKey: string): number {
-  const parts = dateKeyParts(dateKey)
-  if (!parts) return Number.NaN
-  const [year, month, day] = parts
+function localDateKeyFromDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
 
-  return Date.UTC(year, month - 1, day)
+  return `${year}-${month}-${day}`
+}
+
+function localDateStartMs(parts: [number, number, number]): number {
+  const [year, month, day] = parts
+  return new Date(year, month - 1, day).getTime()
+}
+
+function nextLocalDateStartMs(parts: [number, number, number]): number {
+  const [year, month, day] = parts
+  return new Date(year, month - 1, day + 1).getTime()
+}
+
+function startOfLocalDate(dateKey: string): number {
+  const parts = dateKeyParts(dateKey)
+  return parts ? localDateStartMs(parts) : Number.NaN
+}
+
+function endOfLocalDate(dateKey: string): number {
+  const parts = dateKeyParts(dateKey)
+  return parts ? nextLocalDateStartMs(parts) : Number.NaN
 }
 
 export function calendarDateKey(value: Date | string): string {
-  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  if (value instanceof Date) return localDateKeyFromDate(value)
 
   const text = String(value).trim()
-  const directMatch = DATE_KEY_PATTERN.exec(text)
-  if (directMatch) return `${directMatch[1]}-${directMatch[2]}-${directMatch[3]}`
+  const dateOnlyMatch = DATE_ONLY_PATTERN.exec(text)
+  if (dateOnlyMatch) return `${dateOnlyMatch[1]}-${dateOnlyMatch[2]}-${dateOnlyMatch[3]}`
 
   const parsed = new Date(text)
-  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10)
+  if (!Number.isNaN(parsed.getTime())) return localDateKeyFromDate(parsed)
+
+  const directMatch = DATE_KEY_PATTERN.exec(text)
+  return directMatch ? `${directMatch[1]}-${directMatch[2]}-${directMatch[3]}` : ''
 }
 
 export function calendarVisibleRange(anchor: Date | string = new Date()): CalendarEventRange {
@@ -64,40 +100,57 @@ export function calendarVisibleRange(anchor: Date | string = new Date()): Calend
   const parts = dateKeyParts(anchorKey) ?? dateKeyParts(calendarDateKey(new Date()))
   if (!parts) {
     return {
-      end: isoFromUtcDate(new Date(Date.UTC(1970, 1, 1))),
-      start: isoFromUtcDate(new Date(Date.UTC(1970, 0, 1)))
+      end: isoFromLocalDate(new Date(1970, 1, 1)),
+      start: isoFromLocalDate(new Date(1970, 0, 1))
     }
   }
 
   const [year, month] = parts
-  const start = new Date(Date.UTC(year, month - 1, 1))
-  const end = new Date(Date.UTC(year, month, 1))
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 1)
 
   return {
-    end: isoFromUtcDate(end),
-    start: isoFromUtcDate(start)
+    end: isoFromLocalDate(end),
+    start: isoFromLocalDate(start)
   }
 }
 
+function eventAllDayStartMs(value: string): number {
+  const parts = dateKeyParts(value)
+  return parts ? localDateStartMs(parts) : Number.NaN
+}
+
+function eventAllDayEndMs(event: CalendarEvent): number {
+  const start = eventStartMs(event)
+  if (Number.isNaN(start)) return Number.NaN
+
+  const end = eventAllDayStartMs(event.endsAt)
+  if (!Number.isNaN(end) && end > start) return end
+
+  const startParts = dateKeyParts(event.startsAt)
+  return startParts ? nextLocalDateStartMs(startParts) : Number.NaN
+}
+
 function eventStartMs(event: CalendarEvent): number {
-  return Date.parse(event.startsAt)
+  return event.allDay ? eventAllDayStartMs(event.startsAt) : Date.parse(event.startsAt)
 }
 
 function eventEndMs(event: CalendarEvent): number {
+  if (event.allDay) return eventAllDayEndMs(event)
+
   const parsedEnd = Date.parse(event.endsAt)
   if (!Number.isNaN(parsedEnd) && parsedEnd > eventStartMs(event)) return parsedEnd
 
   const start = eventStartMs(event)
   if (Number.isNaN(start)) return Number.NaN
 
-  return start + (event.allDay ? DAY_MS : 1)
+  return start + 1
 }
 
 export function calendarEventOverlapsDate(event: CalendarEvent, dateKey: string): boolean {
-  const dayStart = startOfUtcDate(dateKey)
-  if (Number.isNaN(dayStart)) return false
-
-  const dayEnd = dayStart + DAY_MS
+  const dayStart = startOfLocalDate(dateKey)
+  const dayEnd = endOfLocalDate(dateKey)
+  if (Number.isNaN(dayStart) || Number.isNaN(dayEnd)) return false
   const start = eventStartMs(event)
   const end = eventEndMs(event)
 

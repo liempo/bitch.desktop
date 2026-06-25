@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, time::Duration};
 
-use chrono::{TimeZone, Utc};
+use chrono::{LocalResult, NaiveDate, TimeZone, Utc};
+use chrono_tz::Tz;
 use rrule::RRuleSet;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -30,6 +31,15 @@ pub struct CalendarEvent {
     pub uid: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CachedCalendarSource {
+    pub calendar_name: String,
+    pub etag: Option<String>,
+    pub ical: String,
+    pub source_url: String,
+}
+
 #[derive(Clone, Debug)]
 struct EventTemplate {
     all_day: bool,
@@ -57,6 +67,7 @@ struct EventMoment {
     all_day: bool,
     millis: i64,
     parts: DateTimeParts,
+    timezone: Option<Tz>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -116,19 +127,9 @@ struct RecurrenceRule {
     until_millis: Option<i64>,
 }
 
-pub async fn list_calendar_events_impl(
-    config: CalDavConfig,
-    range: CalendarEventRange,
-) -> Result<Vec<CalendarEvent>, String> {
-    tokio::task::spawn_blocking(move || list_calendar_events_blocking(&config, &range))
-        .await
-        .map_err(|e| format!("CalDAV sync worker failed: {e}"))?
-}
-
-fn list_calendar_events_blocking(
+pub fn sync_calendar_sources_blocking(
     config: &CalDavConfig,
-    range: &CalendarEventRange,
-) -> Result<Vec<CalendarEvent>, String> {
+) -> Result<Vec<CachedCalendarSource>, String> {
     let base_url =
         Url::parse(&config.calendar_url).map_err(|e| format!("Invalid CalDAV URL: {e}"))?;
     let credentials =
@@ -139,19 +140,19 @@ fn list_calendar_events_blocking(
         .build();
 
     let calendars_result = minicaldav::get_calendars(agent.clone(), &credentials, &base_url);
-    let mut events = match calendars_result {
+    let mut sources = match calendars_result {
         Ok(calendars) if !calendars.is_empty() => {
-            let mut events = Vec::new();
+            let mut sources = Vec::new();
             for calendar in calendars {
                 let calendar_name = calendar_display_name(calendar.name(), config.display_name.as_deref());
                 let (calendar_events, _parse_errors) = minicaldav::get_events(agent.clone(), &credentials, &calendar)
                     .map_err(|e| format!("Could not load CalDAV calendar '{}': {e:?}", calendar.name()))?;
-                events.extend(normalize_minicaldav_events(&calendar_name, &calendar_events, range));
+                sources.extend(calendar_events.iter().map(|event| cached_source_from_event(&calendar_name, event)));
             }
-            events
+            sources
         }
-        Ok(_) => load_direct_calendar_events(agent, &credentials, &base_url, config, range)?,
-        Err(discovery_error) => load_direct_calendar_events(agent, &credentials, &base_url, config, range)
+        Ok(_) => load_direct_calendar_sources(agent, &credentials, &base_url, config)?,
+        Err(discovery_error) => load_direct_calendar_sources(agent, &credentials, &base_url, config)
             .map_err(|direct_error| {
                 format!(
                     "Could not discover CalDAV calendars ({discovery_error:?}) or load the configured URL directly ({direct_error})"
@@ -159,36 +160,48 @@ fn list_calendar_events_blocking(
             })?,
     };
 
-    events.sort_by(compare_calendar_events);
-    Ok(events)
+    sources.sort_by(|left, right| {
+        left.calendar_name
+            .cmp(&right.calendar_name)
+            .then_with(|| left.source_url.cmp(&right.source_url))
+    });
+    Ok(sources)
 }
 
-fn load_direct_calendar_events(
+fn load_direct_calendar_sources(
     agent: ureq::Agent,
     credentials: &minicaldav::Credentials,
     base_url: &Url,
     config: &CalDavConfig,
-    range: &CalendarEventRange,
-) -> Result<Vec<CalendarEvent>, String> {
+) -> Result<Vec<CachedCalendarSource>, String> {
     let event_refs = minicaldav::caldav::get_events(agent, credentials, base_url, base_url)
         .map_err(|e| format!("Could not load CalDAV events from configured URL: {e:?}"))?;
-    let mut parsed_events = Vec::new();
-
-    for event_ref in event_refs {
-        let ical = minicaldav::parse_ical(&event_ref.data)
-            .map_err(|e| format!("Could not parse CalDAV event {}: {e:?}", event_ref.url))?;
-        parsed_events.push(minicaldav::Event::new(event_ref.etag, event_ref.url, ical));
-    }
-
     let calendar_name = config
         .display_name
         .clone()
         .unwrap_or_else(|| "Calendar".to_string());
-    Ok(normalize_minicaldav_events(
-        &calendar_name,
-        &parsed_events,
-        range,
-    ))
+    let mut sources = Vec::new();
+
+    for event_ref in event_refs {
+        let ical = minicaldav::parse_ical(&event_ref.data)
+            .map_err(|e| format!("Could not parse CalDAV event {}: {e:?}", event_ref.url))?;
+        let event = minicaldav::Event::new(event_ref.etag, event_ref.url, ical);
+        sources.push(cached_source_from_event(&calendar_name, &event));
+    }
+
+    Ok(sources)
+}
+
+fn cached_source_from_event(
+    calendar_name: &str,
+    event: &minicaldav::Event,
+) -> CachedCalendarSource {
+    CachedCalendarSource {
+        calendar_name: calendar_name.to_string(),
+        etag: event.etag().cloned(),
+        ical: event.ical().serialize(),
+        source_url: event.url().to_string(),
+    }
 }
 
 fn calendar_display_name(calendar_name: &str, fallback: Option<&str>) -> String {
@@ -200,6 +213,28 @@ fn calendar_display_name(calendar_name: &str, fallback: Option<&str>) -> String 
     }
 }
 
+pub fn calendar_events_from_cached_sources(
+    sources: &[CachedCalendarSource],
+    range: &CalendarEventRange,
+) -> Result<Vec<CalendarEvent>, String> {
+    let mut events = Vec::new();
+
+    for source in sources {
+        let Ok(url) = Url::parse(&source.source_url) else {
+            continue;
+        };
+        let Ok(ical) = minicaldav::parse_ical(&source.ical) else {
+            continue;
+        };
+        let event = minicaldav::Event::new(source.etag.clone(), url, ical);
+        events.extend(expand_recurring_event(&event, &source.calendar_name, range));
+    }
+
+    events.sort_by(compare_calendar_events);
+    Ok(events)
+}
+
+#[cfg(test)]
 fn normalize_minicaldav_events(
     calendar_name: &str,
     events: &[minicaldav::Event],
@@ -216,15 +251,16 @@ fn expand_recurring_event(
     calendar_name: &str,
     range: &CalendarEventRange,
 ) -> Vec<CalendarEvent> {
+    let default_timezone = calendar_timezone(event);
     let Some(start_property) = event.property("DTSTART") else {
         return Vec::new();
     };
-    let Some(start) = parse_property_moment(&start_property) else {
+    let Some(start) = parse_property_moment(&start_property, default_timezone) else {
         return Vec::new();
     };
     let end = event
         .property("DTEND")
-        .and_then(|property| parse_property_moment(&property));
+        .and_then(|property| parse_property_moment(&property, default_timezone));
     let duration_millis = end
         .as_ref()
         .map(|end| end.millis - start.millis)
@@ -255,18 +291,24 @@ fn expand_recurring_event(
     };
 
     let rrule = event.get("RRULE").and_then(|value| parse_rrule(value));
-    let exdates = excluded_occurrence_millis(event);
+    let exdates = excluded_occurrence_millis(event, start.timezone.or(default_timezone));
     let mut occurrence_starts = BTreeSet::new();
 
     if let Some(rule) = &rrule {
-        occurrence_starts.extend(
+        let occurrence_candidates = if start.timezone.is_some() {
+            basic_rrule_occurrence_starts(&start, rule, range)
+        } else {
             rrule_crate_occurrence_starts(event, &start, duration_millis, range)
-                .unwrap_or_else(|| basic_rrule_occurrence_starts(&start, rule, range)),
-        );
+                .unwrap_or_else(|| basic_rrule_occurrence_starts(&start, rule, range))
+        };
+        occurrence_starts.extend(occurrence_candidates);
     } else {
         occurrence_starts.insert(start.millis);
     }
-    occurrence_starts.extend(rdate_occurrence_millis(event));
+    occurrence_starts.extend(rdate_occurrence_millis(
+        event,
+        start.timezone.or(default_timezone),
+    ));
 
     occurrence_starts
         .into_iter()
@@ -284,8 +326,9 @@ fn basic_rrule_occurrence_starts(
     let Some(range_end) = iso_millis(&range.end) else {
         return Vec::new();
     };
-    let start_day = start.millis.div_euclid(DAY_MILLIS) * DAY_MILLIS;
-    let final_day = range_end.div_euclid(DAY_MILLIS) * DAY_MILLIS;
+    let start_day =
+        days_from_civil(start.parts.year, start.parts.month, start.parts.day) * DAY_MILLIS;
+    let final_day = range_end.div_euclid(DAY_MILLIS) * DAY_MILLIS + DAY_MILLIS;
     let until_limit = rule.until_millis.unwrap_or(i64::MAX);
     let mut occurrences = Vec::new();
     let mut generated_count = 0usize;
@@ -295,7 +338,10 @@ fn basic_rrule_occurrence_starts(
         let Some(candidate_parts) = parts_at_day_with_time(candidate_day, &start.parts) else {
             break;
         };
-        let candidate_millis = utc_millis(candidate_parts);
+        let Some(candidate_millis) = millis_for_parts(candidate_parts, start.timezone) else {
+            candidate_day += DAY_MILLIS;
+            continue;
+        };
 
         if candidate_millis >= start.millis
             && candidate_millis <= until_limit
@@ -355,7 +401,7 @@ fn rrule_set_source(event: &minicaldav::Event, start: &EventMoment) -> Option<St
             has_recurrence_line = true;
             lines.push(format!(
                 "RDATE:{}",
-                parse_ics_date_list(value)
+                parse_ics_date_value_list(value, None)
                     .into_iter()
                     .map(compact_timestamp)
                     .collect::<Vec<_>>()
@@ -364,7 +410,7 @@ fn rrule_set_source(event: &minicaldav::Event, start: &EventMoment) -> Option<St
         } else if name.eq_ignore_ascii_case("EXDATE") {
             lines.push(format!(
                 "EXDATE:{}",
-                parse_ics_date_list(value)
+                parse_ics_date_value_list(value, None)
                     .into_iter()
                     .map(compact_timestamp)
                     .collect::<Vec<_>>()
@@ -510,55 +556,145 @@ fn parse_rrule_number_list(value: &str, min: u32, max: u32) -> Vec<u32> {
 
 fn parse_rrule_until(value: &str) -> Option<i64> {
     if value.contains('T') {
-        parse_ics_datetime(value, false).map(|moment| moment.millis)
+        parse_ics_datetime(value, false, None).map(|moment| moment.millis)
     } else {
-        parse_ics_datetime(value, true).map(|moment| moment.millis + DAY_MILLIS - 1)
+        parse_ics_datetime(value, true, None).map(|moment| moment.millis + DAY_MILLIS - 1)
     }
 }
 
-fn rdate_occurrence_millis(event: &minicaldav::Event) -> Vec<i64> {
+fn event_datetime_properties(
+    event: &minicaldav::Event,
+    name: &str,
+) -> Vec<minicaldav::ical::Property> {
     event
-        .properties()
+        .ical()
+        .get("VEVENT")
+        .map(|ical| {
+            ical.properties
+                .iter()
+                .filter(|property| property.name.eq_ignore_ascii_case(name))
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn calendar_timezone(event: &minicaldav::Event) -> Option<Tz> {
+    event.ical().properties.iter().find_map(|property| {
+        if property.name.eq_ignore_ascii_case("X-WR-TIMEZONE") {
+            parse_timezone(&property.value)
+        } else {
+            None
+        }
+    })
+}
+
+fn parse_timezone(value: &str) -> Option<Tz> {
+    value.trim().parse::<Tz>().ok()
+}
+
+fn attribute_case_insensitive<'a>(
+    attributes: &'a std::collections::HashMap<String, String>,
+    name: &str,
+) -> Option<&'a String> {
+    attributes
+        .iter()
+        .find_map(|(key, value)| key.eq_ignore_ascii_case(name).then_some(value))
+}
+
+fn attribute_case_insensitive_public<'a>(
+    property: &'a minicaldav::Property,
+    name: &str,
+) -> Option<&'a String> {
+    property
+        .attribute(name)
+        .or_else(|| property.attribute(&name.to_ascii_uppercase()))
+        .or_else(|| property.attribute(&name.to_ascii_lowercase()))
+}
+
+fn value_is_date_only(value: &str) -> bool {
+    !value.contains('T') && value.chars().filter(|ch| ch.is_ascii_digit()).count() == 8
+}
+
+fn property_is_all_day(value: &str, value_attribute: Option<&String>) -> bool {
+    value_attribute.is_some_and(|value| value.eq_ignore_ascii_case("DATE"))
+        || value_is_date_only(value)
+}
+
+fn timezone_from_attributes(attributes: &std::collections::HashMap<String, String>) -> Option<Tz> {
+    attribute_case_insensitive(attributes, "TZID").and_then(|value| parse_timezone(value))
+}
+
+fn timezone_from_public_property(property: &minicaldav::Property) -> Option<Tz> {
+    attribute_case_insensitive_public(property, "TZID").and_then(|value| parse_timezone(value))
+}
+
+fn value_has_utc_marker(value: &str) -> bool {
+    value.trim().to_ascii_uppercase().ends_with('Z')
+}
+
+fn rdate_occurrence_millis(event: &minicaldav::Event, default_timezone: Option<Tz>) -> Vec<i64> {
+    event_datetime_properties(event, "RDATE")
         .into_iter()
-        .filter(|(name, _)| name.eq_ignore_ascii_case("RDATE"))
-        .flat_map(|(_, value)| parse_ics_date_list(value))
+        .flat_map(|property| parse_ics_date_list(&property, default_timezone))
         .collect()
 }
 
-fn excluded_occurrence_millis(event: &minicaldav::Event) -> BTreeSet<i64> {
-    event
-        .properties()
+fn excluded_occurrence_millis(
+    event: &minicaldav::Event,
+    default_timezone: Option<Tz>,
+) -> BTreeSet<i64> {
+    event_datetime_properties(event, "EXDATE")
         .into_iter()
-        .filter(|(name, _)| name.eq_ignore_ascii_case("EXDATE"))
-        .flat_map(|(_, value)| parse_ics_date_list(value))
+        .flat_map(|property| parse_ics_date_list(&property, default_timezone))
         .collect()
 }
 
-fn parse_ics_date_list(value: &str) -> Vec<i64> {
-    value
+fn parse_ics_date_list(
+    property: &minicaldav::ical::Property,
+    default_timezone: Option<Tz>,
+) -> Vec<i64> {
+    let property_timezone = timezone_from_attributes(&property.attributes).or(default_timezone);
+    let all_day = property_is_all_day(
+        &property.value,
+        attribute_case_insensitive(&property.attributes, "VALUE"),
+    );
+
+    property
+        .value
         .split(',')
         .filter_map(|part| {
-            parse_ics_datetime(part.trim(), !part.contains('T')).map(|moment| moment.millis)
+            parse_ics_datetime(
+                part.trim(),
+                all_day || !part.contains('T'),
+                property_timezone,
+            )
         })
+        .map(|moment| moment.millis)
         .collect()
 }
 
-fn parse_property_moment(property: &minicaldav::Property) -> Option<EventMoment> {
-    let all_day = property
-        .attribute("VALUE")
-        .or_else(|| property.attribute("value"))
-        .is_some_and(|value| value.eq_ignore_ascii_case("DATE"))
-        || (!property.value().contains('T')
-            && property
-                .value()
-                .chars()
-                .filter(|ch| ch.is_ascii_digit())
-                .count()
-                == 8);
-    parse_ics_datetime(property.value(), all_day)
+fn parse_ics_date_value_list(value: &str, timezone: Option<Tz>) -> Vec<i64> {
+    value
+        .split(',')
+        .filter_map(|part| parse_ics_datetime(part.trim(), !part.contains('T'), timezone))
+        .map(|moment| moment.millis)
+        .collect()
 }
 
-fn parse_ics_datetime(value: &str, all_day: bool) -> Option<EventMoment> {
+fn parse_property_moment(
+    property: &minicaldav::Property,
+    default_timezone: Option<Tz>,
+) -> Option<EventMoment> {
+    let all_day = property_is_all_day(
+        property.value(),
+        attribute_case_insensitive_public(property, "VALUE"),
+    );
+    let timezone = timezone_from_public_property(property).or(default_timezone);
+    parse_ics_datetime(property.value(), all_day, timezone)
+}
+
+fn parse_ics_datetime(value: &str, all_day: bool, timezone: Option<Tz>) -> Option<EventMoment> {
     let digits: String = value.chars().filter(|ch| ch.is_ascii_digit()).collect();
     if digits.len() < 8 {
         return None;
@@ -589,11 +725,17 @@ fn parse_ics_datetime(value: &str, all_day: bool) -> Option<EventMoment> {
         minute,
         second,
     };
+    let effective_timezone = if all_day || value_has_utc_marker(value) {
+        None
+    } else {
+        timezone
+    };
 
     Some(EventMoment {
         all_day,
-        millis: utc_millis(parts),
+        millis: millis_for_parts(parts, effective_timezone)?,
         parts,
+        timezone: effective_timezone,
     })
 }
 
@@ -662,7 +804,7 @@ fn parts_at_day_with_time(day_millis: i64, time_source: &DateTimeParts) -> Optio
 }
 
 fn iso_millis(value: &str) -> Option<i64> {
-    parse_ics_datetime(value, value.len() == 10).map(|moment| moment.millis)
+    parse_ics_datetime(value, value.len() == 10, None).map(|moment| moment.millis)
 }
 
 fn iso_from_millis(millis: i64) -> String {
@@ -684,6 +826,25 @@ fn compact_timestamp(millis: i64) -> String {
         .map(|(prefix, _)| prefix)
         .unwrap_or(&iso);
     format!("{}Z", prefix.replace(['-', ':'], ""))
+}
+
+fn millis_for_parts(parts: DateTimeParts, timezone: Option<Tz>) -> Option<i64> {
+    let Some(timezone) = timezone else {
+        return Some(utc_millis(parts));
+    };
+    let naive = NaiveDate::from_ymd_opt(parts.year, parts.month, parts.day)?.and_hms_opt(
+        parts.hour,
+        parts.minute,
+        parts.second,
+    )?;
+
+    match timezone.from_local_datetime(&naive) {
+        LocalResult::Single(datetime) => Some(datetime.with_timezone(&Utc).timestamp_millis()),
+        LocalResult::Ambiguous(earliest, _) => {
+            Some(earliest.with_timezone(&Utc).timestamp_millis())
+        }
+        LocalResult::None => None,
+    }
 }
 
 fn utc_millis(parts: DateTimeParts) -> i64 {
@@ -822,6 +983,84 @@ mod tests {
         assert_eq!(
             events[1].source_url.as_deref(),
             Some("https://calendar.example.test/ops-sync.ics")
+        );
+    }
+
+    #[test]
+    fn converts_tzid_wall_time_to_utc_instant_for_renderer_display() {
+        let manila = minicaldav::Event::builder(
+            Url::parse("https://calendar.example.test/manila.ics").unwrap(),
+        )
+        .uid("manila-call".to_string())
+        .summary("Manila call".to_string())
+        .start("20260625T090000".to_string(), vec![("TZID", "Asia/Manila")])
+        .end("20260625T100000".to_string(), vec![("TZID", "Asia/Manila")])
+        .build();
+        let events = normalize_minicaldav_events(
+            "Personal",
+            &[manila],
+            &range("2026-06-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z"),
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].starts_at, "2026-06-25T01:00:00.000Z");
+        assert_eq!(events[0].ends_at, "2026-06-25T02:00:00.000Z");
+    }
+
+    #[test]
+    fn uses_calendar_timezone_for_floating_datetimes() {
+        let ical = minicaldav::parse_ical(
+            r#"BEGIN:VCALENDAR
+VERSION:2.0
+X-WR-TIMEZONE:Asia/Manila
+BEGIN:VEVENT
+UID:floating-call
+SUMMARY:Floating call
+DTSTART:20260625T090000
+DTEND:20260625T100000
+END:VEVENT
+END:VCALENDAR"#,
+        )
+        .unwrap();
+        let floating = minicaldav::Event::new(
+            None,
+            Url::parse("https://calendar.example.test/floating.ics").unwrap(),
+            ical,
+        );
+        let events = normalize_minicaldav_events(
+            "Personal",
+            &[floating],
+            &range("2026-06-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z"),
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].starts_at, "2026-06-25T01:00:00.000Z");
+        assert_eq!(events[0].ends_at, "2026-06-25T02:00:00.000Z");
+    }
+
+    #[test]
+    fn expands_timezone_rrules_at_the_same_local_wall_time() {
+        let recurring = minicaldav::Event::builder(
+            Url::parse("https://calendar.example.test/manila-weekly.ics").unwrap(),
+        )
+        .uid("manila-weekly".to_string())
+        .summary("Manila weekly".to_string())
+        .start("20260601T090000".to_string(), vec![("TZID", "Asia/Manila")])
+        .end("20260601T100000".to_string(), vec![("TZID", "Asia/Manila")])
+        .rrule(Some("FREQ=WEEKLY;COUNT=2;BYDAY=MO".to_string()))
+        .build();
+        let events = normalize_minicaldav_events(
+            "Ops",
+            &[recurring],
+            &range("2026-06-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z"),
+        );
+
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.starts_at.as_str())
+                .collect::<Vec<_>>(),
+            vec!["2026-06-01T01:00:00.000Z", "2026-06-08T01:00:00.000Z"]
         );
     }
 

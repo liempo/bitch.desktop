@@ -10,6 +10,7 @@ import commandsPlatformSource from '../../../../src-tauri/src/commands/platform.
 import calendarCaldavSource from '../../../../src-tauri/src/calendar/caldav.rs?raw'
 import calendarConfigSource from '../../../../src-tauri/src/calendar/config.rs?raw'
 import calendarModSource from '../../../../src-tauri/src/calendar/mod.rs?raw'
+import calendarSyncSource from '../../../../src-tauri/src/calendar/sync.rs?raw'
 import configSource from '../../../../src-tauri/src/config.rs?raw'
 import errorsSource from '../../../../src-tauri/src/errors.rs?raw'
 import hermesAuthSource from '../../../../src-tauri/src/hermes/auth.rs?raw'
@@ -38,6 +39,7 @@ const rustLaneSources = {
   'calendar/mod.rs': calendarModSource,
   'calendar/config.rs': calendarConfigSource,
   'calendar/caldav.rs': calendarCaldavSource,
+  'calendar/sync.rs': calendarSyncSource,
   'hermes/mod.rs': hermesModSource,
   'hermes/config.rs': hermesConfigSource,
   'hermes/auth.rs': hermesAuthSource,
@@ -69,6 +71,7 @@ describe('Rust bridge backend lanes', () => {
       'calendar/mod.rs',
       'calendar/config.rs',
       'calendar/caldav.rs',
+      'calendar/sync.rs',
       'hermes/mod.rs',
       'hermes/config.rs',
       'hermes/auth.rs',
@@ -99,6 +102,7 @@ describe('Rust bridge backend lanes', () => {
     expect(libSource).toContain('commands::config::get_connection_config')
     expect(libSource).toContain('commands::gateway::connect_ws')
     expect(libSource).toContain('commands::calendar::list_calendar_events')
+    expect(libSource).toContain('commands::calendar::sync_calendar_events')
     expect(libSource).toContain('commands::monitoring::monitoring_request')
     expect(libSource).not.toMatch(/fn\s+resolve_gateway_config/)
     expect(libSource).not.toMatch(/fn\s+monitoring_auth_token/)
@@ -113,6 +117,7 @@ describe('Rust bridge backend lanes', () => {
     expect(calendarCaldavSource).toContain('RRULE')
     expect(calendarCaldavSource).toContain('rrule::RRuleSet')
     expect(calendarCaldavSource).not.toContain('calendar_query_body')
+    expect(calendarSyncSource).toContain('CALENDAR_SYNC_EVENT')
   })
 
   it('does not leak Hermes, monitoring, or platform concerns across Rust lanes', () => {
@@ -124,6 +129,7 @@ describe('Rust bridge backend lanes', () => {
     expect(commandsDashboardSource).toContain('crate::hermes::dashboard_http')
     expect(commandsDashboardSource).not.toContain('monitoring')
     expect(commandsCalendarSource).toContain('crate::calendar::caldav')
+    expect(commandsCalendarSource).toContain('crate::calendar::sync')
     expect(commandsCalendarSource).not.toContain('dashboard_http')
     expect(calendarConfigSource).toContain('CALDAV_URL')
     expect(calendarCaldavSource).not.toMatch(/crate::hermes|dashboard_request/)

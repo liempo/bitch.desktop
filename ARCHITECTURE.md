@@ -159,7 +159,7 @@ src/lib/calendar/
 ```
 
 The matching Rust lane lives under `src-tauri/src/calendar` with stable command
-wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri.
+wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri. Whole-calendar CalDAV sync runs in the native background worker and range reads expand the local cache.
 
 ## Platform renderer lane: `src/lib/platform/*`
 
@@ -206,7 +206,8 @@ src-tauri/src/
   calendar/
     mod.rs
     config.rs        CALDAV_* configuration
-    caldav.rs        minicaldav discovery, event loading, and recurrence normalization
+    caldav.rs        minicaldav discovery, event loading, timezone handling, and recurrence normalization
+    sync.rs          whole-calendar background sync, persisted cache, and sync metadata
   platform/
     mod.rs
     window.rs

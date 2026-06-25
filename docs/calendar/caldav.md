@@ -13,18 +13,18 @@ Set these values in the Tauri environment or `.env`:
 - `CALDAV_USERNAME` — CalDAV username. `CALDAV_USER` is accepted as a fallback.
 - `CALDAV_PASSWORD` — CalDAV password or app password.
 - `CALDAV_DISPLAY_NAME` — optional fallback label when a discovered calendar has no display name.
+- `CALDAV_SYNC_INTERVAL` — optional background sync interval in seconds. Defaults to `1800` (30 minutes). Set `0` to sync once on app startup and only again when the Calendar page sync button is clicked.
 
 The bridge uses `minicaldav::get_calendars` to discover all VEVENT-capable calendars from `CALDAV_URL`, then loads each calendar with `minicaldav::get_events`. If discovery yields no calendars, it falls back to treating `CALDAV_URL` as a direct collection URL.
+
+Sync happens as a whole-calendar background job on app startup and then on `CALDAV_SYNC_INTERVAL`. The raw VEVENT cache is persisted under the local app cache directory so Calendar page range reads are fast and do not trigger CalDAV network requests.
 
 ## Command surface
 
 - `get_caldav_config_status` returns whether the bridge has enough non-secret
-  configuration to sync events.
-- `list_calendar_events` accepts `{ start, end }` ISO timestamps, discovers all
-  calendars, performs CalDAV event REPORTs with HTTP Basic auth, and expands
-  RRULE/RDATE/EXDATE recurrences into visible occurrences with the RFC-aware `rrule` crate. It returns normalized
-  event rows with `uid`, `title`, `startsAt`, `endsAt`, `allDay`, optional
-  `location`, `description`, `calendarName`, and `sourceUrl`.
+  configuration to sync events plus cache metadata such as `cachedSources`, `lastSyncedAt`, and `syncing`.
+- `list_calendar_events` accepts `{ start, end }` ISO timestamps and expands the local raw VEVENT cache into visible occurrences with the RFC-aware `rrule` crate. It does not perform CalDAV network requests.
+- `sync_calendar_events` triggers an explicit whole-calendar sync, updates the local cache, and returns sync metadata.
 
 No CalDAV request goes through `dashboard_request`, and the renderer never reads
 `CALDAV_PASSWORD`.
