@@ -54,10 +54,11 @@ describe('Kanban dashboard API client', () => {
       columns: [
         {
           name: 'blocked',
-          tasks: [
-            { id: 't_blocked', status: 'blocked' },
-            { id: 't_review', status: 'blocked' }
-          ]
+          tasks: [{ id: 't_blocked', status: 'blocked' }]
+        },
+        {
+          name: 'review',
+          tasks: [{ id: 't_review', status: 'review' }]
         }
       ]
     })
@@ -72,12 +73,12 @@ describe('Kanban dashboard API client', () => {
     })
   })
 
-  it('collapses review wire status into the blocked desktop lane', () => {
-    expect(kanbanDisplayStatus('review')).toBe('blocked')
+  it('preserves review wire status as its own desktop lane', () => {
+    expect(kanbanDisplayStatus('review')).toBe('review')
     expect(kanbanDisplayStatus('done')).toBe('done')
     expect(
       normalizeKanbanBoardColumns([{ name: 'review', tasks: [{ id: 't_1', status: 'review', title: 'PR waiting' }] }])
-    ).toEqual([{ name: 'blocked', tasks: [{ id: 't_1', status: 'blocked', title: 'PR waiting' }] }])
+    ).toEqual([{ name: 'review', tasks: [{ id: 't_1', status: 'review', title: 'PR waiting' }] }])
   })
 
   it('loads task detail without dropping board, tenant, or profile context', async () => {

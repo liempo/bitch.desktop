@@ -65,6 +65,7 @@ export interface KanbanTask {
   link_counts?: { children: number; parents: number }
   max_runtime_seconds?: null | number
   priority?: number
+  profile?: null | string
   progress?: null | { done: number; total: number }
   result?: null | string
   session_id?: null | string
@@ -158,9 +159,7 @@ export interface KanbanStatusUpdateContext extends KanbanRequestContext {
 }
 
 const KANBAN_PLUGIN_BASE = '/api/plugins/kanban'
-const STATUS_DISPLAY_ALIASES: Record<string, KanbanStatus> = {
-  review: 'blocked'
-}
+const STATUS_DISPLAY_ALIASES: Record<string, KanbanStatus> = {}
 
 export function kanbanDisplayStatus(status: KanbanStatus | (string & {})): KanbanStatus | (string & {}) {
   return STATUS_DISPLAY_ALIASES[status] ?? status
