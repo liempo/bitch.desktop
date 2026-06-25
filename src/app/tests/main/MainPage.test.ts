@@ -7,6 +7,7 @@ import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
 import mainContainersPanelSource from '../../main/panels/MainContainersPanel.svelte?raw'
 import mainCronPanelSource from '../../main/panels/MainCronPanel.svelte?raw'
 import mainKanbanPanelSource from '../../main/panels/MainKanbanPanel.svelte?raw'
+import mainDashboardStatGridSource from '../../main/components/MainDashboardStatGrid.svelte?raw'
 import buttonSource from '../../components/ui/Button.svelte?raw'
 import glyphSource from '../../components/Glyph.svelte?raw'
 import mainGlyphPanelSource from '../../main/panels/MainGlyphPanel.svelte?raw'
@@ -31,17 +32,21 @@ describe('Main dashboard source contract', () => {
     expect(mainContainersPanelSource).toContain('{containerCount} containers')
     expect(mainContainersPanelSource).toContain('Container')
     expect(mainPageSource).toContain('dashboardPanelClass')
-    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain('raisedPanelClass')
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain('MainDashboardStatGrid')
+    expect(mainDashboardStatGridSource).toContain('export interface MainDashboardStat')
+    expect(mainDashboardStatGridSource).toContain('<Panel flat fullHeight={false} padded={false} class={cardClass}')
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain(
+      '<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}'
+    )
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain('raisedPanelClass')
     expect(mainPageSource).toContain('{#each monitoringSystemStats as stat')
     expect(mainPageSource).toContain('{#each monitoringUsageRows as row')
     expect(mainPageSource).not.toContain('remoteTemperatureRows')
     expect(mainPageSource).not.toContain('REMOTE TEMP')
     expect(mainPageSource).not.toContain('No remote thermal sensors reported.')
     expect(mainPageSource).toContain('{#each placeholderPanels as placeholder')
-    expect(mainKanbanPanelSource).toContain('{#each kanbanStats as stat')
-    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain(
-      '<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}'
-    )
+    expect(mainKanbanPanelSource).toContain('const kanbanStats = $derived')
+    expect(mainDashboardStatGridSource).toContain('{#each stats as stat')
     expect(mainPageSource).not.toContain('border border-line bg-surface-raised p-2')
     expect(mainContainersPanelSource).toContain(
       "let containerSortDirection = $state<MonitoringContainerSortDirection>('desc')"
