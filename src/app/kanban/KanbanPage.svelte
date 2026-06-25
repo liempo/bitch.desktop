@@ -356,7 +356,7 @@
       title="Grouped cards"
       badge={loadingBoard ? 'SYNC' : `${visibleTaskCount}`}
       padded={false}
-      class="min-h-[28rem] md:min-h-0"
+      class="min-h-112 md:min-h-0"
       contentClass="overflow-hidden p-3"
     >
       {#if loadingBoard && columns.length === 0}
@@ -440,7 +440,7 @@
     <Panel
       title="Card detail"
       padded={false}
-      class="min-h-[24rem] md:min-h-0"
+      class="min-h-96 md:min-h-0"
       contentClass="flex min-h-0 flex-col overflow-hidden p-3"
       actions={detailActions}
     >

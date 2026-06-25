@@ -443,7 +443,7 @@
     {/if}
 
     <div class={composerFrameClass}>
-      <Panel title={panelTitle} padded={false} class="!bg-transparent">
+      <Panel title={panelTitle} padded={false} class="bg-transparent!">
         {#snippet leading()}
           {#if onToggleSidebar}
             <Button

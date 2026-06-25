@@ -360,7 +360,7 @@
   {/if}
 
   <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(19rem,25rem)_minmax(0,1fr)]">
-    <Panel title={formMode} padded={false} contentClass="min-h-0 overflow-auto p-3" class="min-h-[30rem] xl:min-h-0">
+    <Panel title={formMode} padded={false} contentClass="min-h-0 overflow-auto p-3" class="min-h-120 xl:min-h-0">
       <form class="grid gap-3" onsubmit={saveJob}>
         <label class={labelClass}>
           Profile
@@ -448,7 +448,7 @@
       </form>
     </Panel>
 
-    <Panel title="Scheduled jobs" badge={jobCountLabel} padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-h-[30rem] xl:min-h-0">
+    <Panel title="Scheduled jobs" badge={jobCountLabel} padded={false} contentClass="flex min-h-0 flex-col p-3" class="min-h-120 xl:min-h-0">
       {#if loading}
         <div class="flex flex-1 items-center justify-center font-hud text-[0.72rem] uppercase tracking-[0.18em] text-primary">Loading cron jobs…</div>
       {:else if jobs.length === 0}
