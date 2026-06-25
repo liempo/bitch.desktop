@@ -412,7 +412,6 @@
       profile={kanbanBoardProfile} · cards={formatDashboardCount(kanbanTotalCards)}
     </span>
     <Button size="sm" chrome="ghost" variant="primary" class="rounded-none!" href={kanbanHref} aria-label="Open Kanban board">
-      <Icon name="external" class="text-[0.85rem]" />
       <span>Open Kanban</span>
     </Button>
   </div>

@@ -270,7 +270,6 @@
       profile=all · jobs={formatDashboardCount(cronJobs.length)}
     </span>
     <Button size="sm" chrome="ghost" variant="secondary" class="rounded-none!" href={cronHref} aria-label="Open Cron Job Manager">
-      <Icon name="external" class="text-[0.85rem]" />
       <span>Open Cron</span>
     </Button>
   </div>
