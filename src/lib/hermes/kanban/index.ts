@@ -65,6 +65,7 @@ export interface KanbanTask {
   link_counts?: { children: number; parents: number }
   max_runtime_seconds?: null | number
   priority?: number
+  profile?: null | string
   progress?: null | { done: number; total: number }
   result?: null | string
   session_id?: null | string

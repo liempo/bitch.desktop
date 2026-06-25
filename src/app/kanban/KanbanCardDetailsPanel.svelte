@@ -55,8 +55,6 @@
   const bodyText = $derived(clean(detail?.task.body))
   const summaryText = $derived(clean(detail?.task.latest_summary))
   const resultText = $derived(clean(detail?.task.result))
-  const showPanelActions = $derived(Boolean(onClose))
-
   function clean(value: null | string | undefined): string {
     return value?.trim() ?? ''
   }
@@ -159,7 +157,7 @@
   }
 </script>
 
-<Panel title={title} padded={false} contentClass={contentClass} class={className} actions={showPanelActions ? panelActions : undefined}>
+<Panel title={title} padded={false} contentClass={contentClass} class={className} leading={onClose ? closeAction : undefined}>
   <div
     class="flex h-[calc(100%+1px)] min-h-0 w-[calc(100%+1px)] flex-col gap-3 overflow-y-auto pb-px pr-px"
     style="--custom-scrollbar-offset-x: 4px"
@@ -327,16 +325,14 @@
   </div>
 </Panel>
 
-{#snippet panelActions()}
-  {#if onClose}
-    <Button
-      variant="unstyled"
-      class="flex h-5 w-6 items-center justify-center p-0 text-xs text-ink-muted hover:text-ink-bright"
-      onclick={() => onClose?.()}
-      aria-label="Close card detail"
-      title="Close card detail"
-    >
-      x
-    </Button>
-  {/if}
+{#snippet closeAction()}
+  <Button
+    variant="unstyled"
+    class="flex h-5 w-6 items-center justify-center p-0 text-xs text-ink-muted hover:text-ink-bright"
+    onclick={() => onClose?.()}
+    aria-label="Close card detail"
+    title="Close card detail"
+  >
+    x
+  </Button>
 {/snippet}

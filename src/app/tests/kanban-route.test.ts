@@ -32,6 +32,7 @@ describe('Kanban top-level route', () => {
     expect(kanbanPageSource).toContain('contentClass="flex min-h-0 flex-col overflow-hidden p-1"')
     expect(kanbanPageSource).toContain('aria-label={`${statusLabel(column.name)} grouped cards`}')
     expect(kanbanPageSource).toContain('aria-expanded={columnOpen}')
+    expect(kanbanPageSource).toContain('visibleColumns')
     expect(kanbanPageSource).toContain('taskCardClass(task)')
     expect(kanbanPageSource).not.toContain('title="Kanban Board"')
     expect(kanbanPageSource).not.toContain('overflow-x-auto')
@@ -43,6 +44,7 @@ describe('Kanban top-level route', () => {
     expect(kanbanPageSource).toContain('bind:open={detailDialogOpen}')
     expect(kanbanPageSource).toContain('class="w-[min(38rem,calc(100vw-2rem))] md:hidden"')
     expect(kanbanCardDetailsPanelSource).toContain("title = 'DETAIL'")
+    expect(kanbanCardDetailsPanelSource).toContain('leading={onClose ? closeAction : undefined}')
     expect(kanbanCardDetailsPanelSource).toContain('Linked session')
     expect(kanbanCardDetailsPanelSource).toContain('Activity')
   })
@@ -64,16 +66,32 @@ describe('Kanban top-level route', () => {
     expect(kanbanPageSource).toContain('Current profile: ${selectedProfileLabel}')
     expect(kanbanPageSource).toContain('Current board: ${selectedBoardLabel}')
     expect(kanbanPageSource).toContain('Current tenant: ${selectedTenantLabel}')
-    expect(kanbanPageSource).toContain('PROFILE')
-    expect(kanbanPageSource).toContain('BOARD')
-    expect(kanbanPageSource).toContain('TENANT')
+    expect(kanbanPageSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
+    expect(kanbanPageSource).toContain('<BracketTrigger {...props} label="PROFILE" value={selectedProfileLabel} />')
+    expect(kanbanPageSource).toContain('<BracketTrigger {...props} label="BOARD" value={selectedBoardLabel}')
+    expect(kanbanPageSource).toContain('<BracketTrigger {...props} label="TENANT" value={selectedTenantLabel} />')
     expect(kanbanPageSource).not.toContain('profile:{selectedProfileLabel}')
     expect(kanbanPageSource).not.toContain('board:{selectedBoardLabel}')
     expect(kanbanPageSource).not.toContain('tenant:{selectedTenantLabel}')
     expect(kanbanPageSource).not.toContain('<select')
   })
 
-  it('preserves board, tenant, and profile context for detail and mutations', () => {
+  it('defaults to all profiles and filters loaded cards locally by profile', () => {
+    expect(kanbanPageSource).toContain("let selectedProfile = $state('all')")
+    expect(kanbanPageSource).toContain("selectedProfile = 'all'")
+    expect(kanbanPageSource).toContain("const names = new Set<string>(['all', selectedProfile || 'all'])")
+    expect(kanbanPageSource).toContain('taskProfile(task)')
+    expect(kanbanPageSource).toContain('taskMatchesProfileFilter(task)')
+    expect(kanbanPageSource).toContain(
+      "return selectedProfile === 'all' || taskProfile(task) === normalizeProfileKey(selectedProfile)"
+    )
+    expect(kanbanPageSource).toContain(
+      'columns.map(column => ({ ...column, tasks: column.tasks.filter(task => taskMatchesProfileFilter(task)) }))'
+    )
+    expect(kanbanPageSource).toContain('requestProfile')
+  })
+
+  it('preserves board, tenant, and active gateway profile context for detail and mutations', () => {
     expect(kanbanPageSource).toContain(
       'getKanbanTask(taskId, { board: selectedBoard, profile: profileContext(), tenant: tenantFilter || null })'
     )

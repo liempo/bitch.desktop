@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { Popover } from 'bits-ui'
+  import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
@@ -19,7 +20,7 @@
   } from '$lib/hermes/kanban'
   import KanbanCardDetailsPanel from './KanbanCardDetailsPanel.svelte'
   import { messageForError } from '$lib/errors'
-  import { ensureGatewayProfile, profileState } from '$lib/hermes/profiles'
+  import { ensureGatewayProfile, normalizeProfileKey, profileState } from '$lib/hermes/profiles'
 
   const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'review', 'blocked', 'done', 'archived'])
   const COLUMN_LABELS: Record<string, string> = {
@@ -40,17 +41,10 @@
     'flex w-full items-center justify-between gap-3 border-b border-line bg-transparent px-2 py-2 text-left',
     'transition-colors hover:bg-surface-raised/45 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
   ].join(' ')
-  const headerSelectorTriggerClass = [
-    'inline-block max-w-20 truncate align-middle sm:max-w-28 md:max-w-36',
-    'font-mono text-[10px] font-bold uppercase tracking-[0.05em]',
-    'text-ink-muted hover:text-ink-bright',
-    "before:mr-1 before:text-line-strong before:content-['['] after:ml-1 after:text-line-strong after:content-[']']",
-    'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:text-ink-muted'
-  ].join(' ')
   const filterMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono`
   const filterMenuItemClass = `${menuItemClass} flex w-full items-start justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
 
-  let selectedProfile = $state('default')
+  let selectedProfile = $state('all')
   let boards = $state<KanbanBoardMeta[]>([])
   let selectedBoard = $state('')
   let tenantFilter = $state('')
@@ -74,15 +68,19 @@
   let boardMenuOpen = $state(false)
   let tenantMenuOpen = $state(false)
 
-  const activeProfile = $derived(selectedProfile || profileState.activeGatewayProfile || 'default')
+  const requestProfile = $derived(normalizeProfileKey(profileState.activeGatewayProfile || 'default'))
   const selectedBoardMeta = $derived.by(() => boards.find(board => board.slug === selectedBoard) ?? null)
-  const visibleTaskCount = $derived.by(() => columns.reduce((total, column) => total + column.tasks.length, 0))
+  const visibleColumns = $derived.by(() => columns.map(column => ({ ...column, tasks: column.tasks.filter(task => taskMatchesProfileFilter(task)) })))
+  const visibleTaskCount = $derived.by(() => visibleColumns.reduce((total, column) => total + column.tasks.length, 0))
   const profileOptions = $derived.by(() => {
-    const names = new Set<string>([profileState.activeGatewayProfile || 'default', selectedProfile || 'default'])
-    for (const profile of profileState.profiles) names.add(profile.name)
-    return [...names].filter(Boolean).sort((a, b) => a.localeCompare(b))
+    const names = new Set<string>(['all', selectedProfile || 'all'])
+    for (const profile of profileState.profiles) names.add(normalizeProfileKey(profile.name))
+    for (const column of columns) {
+      for (const task of column.tasks) names.add(taskProfile(task))
+    }
+    return ['all', ...[...names].filter(name => name && name !== 'all').sort((a, b) => a.localeCompare(b))]
   })
-  const selectedProfileLabel = $derived(selectedProfile || 'default')
+  const selectedProfileLabel = $derived(selectedProfile === 'all' ? 'all profiles' : selectedProfile || 'all profiles')
   const selectedBoardLabel = $derived(selectedBoardMeta?.name || selectedBoard || 'no board')
   const selectedTenantLabel = $derived(tenantFilter || 'all tenants')
   const selectedTaskDialogTitle = $derived(selectedTaskDetail?.task.title || selectedTaskId || 'Card detail')
@@ -92,7 +90,7 @@
   )
 
   onMount(() => {
-    selectedProfile = profileState.activeGatewayProfile || 'default'
+    selectedProfile = 'all'
     void loadKanbanBoards()
 
     const mediaQuery = window.matchMedia('(min-width: 768px)')
@@ -179,7 +177,19 @@
   }
 
   function profileContext(): string {
-    return activeProfile || 'default'
+    return requestProfile || 'default'
+  }
+
+  function taskProfile(task: KanbanTask): string {
+    return normalizeProfileKey(task.profile || task.assignee || 'default')
+  }
+
+  function taskMatchesProfileFilter(task: KanbanTask): boolean {
+    return selectedProfile === 'all' || taskProfile(task) === normalizeProfileKey(selectedProfile)
+  }
+
+  function profileOptionLabel(profile: string): string {
+    return profile === 'all' ? 'all profiles' : profile
   }
 
   function isDesktopViewport(): boolean {
@@ -305,11 +315,10 @@
     }
   }
 
-  async function selectProfileOption(profile: string): Promise<void> {
-    selectedProfile = profile || 'default'
+  function selectProfileOption(profile: string): void {
+    selectedProfile = profile === 'all' ? 'all' : normalizeProfileKey(profile)
     profileMenuOpen = false
     clearTaskDetails()
-    await loadKanbanBoards()
   }
 
   async function selectBoardOption(board: KanbanBoardMeta): Promise<void> {
@@ -375,15 +384,17 @@
     >
       {#snippet actions()}
         <Popover.Root bind:open={profileMenuOpen}>
-          <Popover.Trigger class={headerSelectorTriggerClass} aria-label={`Choose Kanban remote profile. Current profile: ${selectedProfileLabel}`}>
-            PROFILE
+          <Popover.Trigger aria-label={`Choose Kanban remote profile. Current profile: ${selectedProfileLabel}`}>
+            {#snippet child({ props })}
+              <BracketTrigger {...props} label="PROFILE" value={selectedProfileLabel} />
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class={filterMenuContentClass} sideOffset={4} align="end">
             <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">remote profiles</div>
             <div class="grid gap-1">
               {#each profileOptions as profile}
-                <button class={filterMenuItemClass} type="button" onclick={() => void selectProfileOption(profile)} aria-pressed={profile === selectedProfile}>
-                  <span class="min-w-0 truncate">profile:{profile}</span>
+                <button class={filterMenuItemClass} type="button" onclick={() => selectProfileOption(profile)} aria-pressed={profile === selectedProfile}>
+                  <span class="min-w-0 truncate">profile:{profileOptionLabel(profile)}</span>
                   {#if profile === selectedProfile}<span class="shrink-0 text-primary">active</span>{/if}
                 </button>
               {/each}
@@ -392,8 +403,10 @@
         </Popover.Root>
 
         <Popover.Root bind:open={boardMenuOpen}>
-          <Popover.Trigger class={headerSelectorTriggerClass} disabled={loadingBoards || boards.length === 0} aria-label={`Choose Kanban board. Current board: ${selectedBoardLabel}`}>
-            BOARD
+          <Popover.Trigger disabled={loadingBoards || boards.length === 0} aria-label={`Choose Kanban board. Current board: ${selectedBoardLabel}`}>
+            {#snippet child({ props })}
+              <BracketTrigger {...props} label="BOARD" value={selectedBoardLabel} disabled={loadingBoards || boards.length === 0} />
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class={filterMenuContentClass} sideOffset={4} align="end">
             <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">available boards</div>
@@ -418,8 +431,10 @@
         </Popover.Root>
 
         <Popover.Root bind:open={tenantMenuOpen}>
-          <Popover.Trigger class={headerSelectorTriggerClass} aria-label={`Choose Kanban tenant. Current tenant: ${selectedTenantLabel}`}>
-            TENANT
+          <Popover.Trigger aria-label={`Choose Kanban tenant. Current tenant: ${selectedTenantLabel}`}>
+            {#snippet child({ props })}
+              <BracketTrigger {...props} label="TENANT" value={selectedTenantLabel} />
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class={filterMenuContentClass} sideOffset={4} align="end">
             <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">tenants</div>
@@ -446,7 +461,7 @@
       {:else}
         <div class="min-h-0 flex-1 overflow-auto p-1" style="--custom-scrollbar-offset-x: 4px" data-selectable="true">
           <div class="grid gap-2">
-            {#each columns as column (column.name)}
+            {#each visibleColumns as column (column.name)}
               {@const columnOpen = isColumnOpen(column.name)}
               <section
                 class="grid gap-1"

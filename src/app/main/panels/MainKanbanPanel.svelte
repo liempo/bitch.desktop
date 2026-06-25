@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { Popover } from 'bits-ui'
 
+  import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
@@ -300,7 +301,7 @@
     <Popover.Root bind:open={kanbanBoardMenuOpen}>
       <Popover.Trigger title={`BOARD: ${kanbanCurrentBoardLabel}`} aria-label={`View available Kanban boards. Current board: ${kanbanCurrentBoardLabel}`}>
         {#snippet child({ props })}
-          <Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!"><span>board: {kanbanCurrentBoardLabel}</span></Button>
+          <BracketTrigger {...props} label="BOARD" value={kanbanCurrentBoardLabel} />
         {/snippet}
       </Popover.Trigger>
 

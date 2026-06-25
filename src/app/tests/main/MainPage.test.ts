@@ -188,6 +188,8 @@ describe('Main dashboard source contract', () => {
     expect(mainAgentPanelSource).toContain('title="Select AGENT Session"')
     expect(mainAgentPanelSource).toContain('New session')
     expect(mainAgentPanelSource).toContain('startNewSession({ commitRoute: false })')
+    expect(composerSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
+    expect(composerSource).toContain('<BracketTrigger {...props} label="PROFILE" value={profileLabel}')
     expect(mainAgentPanelSource).toContain('compact')
     expect(mainAgentPanelSource).toContain('commitRoute={false}')
     expect(composerSource).toContain("? 'shrink-0 p-2'")
@@ -243,10 +245,13 @@ describe('Main dashboard source contract', () => {
     expect(mainKanbanPanelSource).toContain('getKanbanBoard')
     expect(mainKanbanPanelSource).toContain('listKanbanBoards')
     expect(mainKanbanPanelSource).toContain('kanbanCurrentBoardLabel')
-    expect(mainKanbanPanelSource).toContain('board: {kanbanCurrentBoardLabel}')
+    expect(mainKanbanPanelSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
+    expect(mainKanbanPanelSource).toContain(
+      '<BracketTrigger {...props} label="BOARD" value={kanbanCurrentBoardLabel} />'
+    )
     expect(mainKanbanPanelSource).toContain('board: {kanbanBoardLabel(board)}')
     expect(mainKanbanPanelSource).not.toContain('<Icon name="board"')
-    expect(mainKanbanPanelSource).toContain(
+    expect(mainKanbanPanelSource).not.toContain(
       '<Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!">'
     )
     expect(mainKanbanPanelSource).toContain('available boards')

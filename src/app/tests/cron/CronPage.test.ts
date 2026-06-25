@@ -41,9 +41,10 @@ describe('cron manager page contract', () => {
     expect(cronFeatureSource).toContain('jobSummary')
   })
 
-  it('uses the Composer-style profile picker in the job list header', () => {
+  it('uses the shared bracket profile picker in the job list header', () => {
     expect(cronJobsPanelSource).toContain("import { Popover } from 'bits-ui'")
-    expect(cronJobsPanelSource).toContain('profile: {profileLabel}')
+    expect(cronJobsPanelSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
+    expect(cronJobsPanelSource).toContain('<BracketTrigger {...props} label="PROFILE" value={profileLabel}')
     expect(cronJobsPanelSource).toContain('profileChoicesFor')
     expect(cronJobsPanelSource).toContain('sortByProfileOrder')
     expect(cronJobsPanelSource).not.toContain('<select')
@@ -77,7 +78,7 @@ describe('cron manager page contract', () => {
     expect(cronFeatureSource).toContain('CronJobDetailsPanel')
     expect(cronJobDetailsPanelSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
     expect(cronJobDetailsPanelSource).toContain('<Panel')
-    expect(cronJobDetailsPanelSource).toContain('actions={onClose ? closeAction : undefined}')
+    expect(cronJobDetailsPanelSource).toContain('leading={onClose ? closeAction : undefined}')
     expect(cronJobDetailsPanelSource).toContain(
       'class="flex h-[calc(100%+1px)] min-h-0 w-[calc(100%+1px)] flex-col gap-3 overflow-y-auto pb-px pr-px"'
     )

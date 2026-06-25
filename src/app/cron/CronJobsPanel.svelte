@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { Popover } from 'bits-ui'
 
+  import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
@@ -48,13 +49,6 @@
   const pillClass = 'inline-block max-w-full truncate rounded-none border border-line bg-surface-raised px-1.5 py-0.5 font-mono text-[0.58rem] text-ink-muted'
   const profileTagClass = 'inline-block max-w-[7rem] truncate rounded-none border border-line bg-surface-raised px-1.5 py-0.5 font-hud text-[0.58rem] font-bold uppercase tracking-[0.08em] text-ink-muted sm:max-w-[10rem] lg:max-w-[14rem]'
   const scheduleTagClass = 'inline-block max-w-[7rem] truncate rounded-none border border-line/70 bg-canvas px-1.5 py-0.5 font-mono text-[0.58rem] uppercase tracking-[0.08em] text-ink-faint sm:max-w-[16rem] lg:max-w-none'
-  const profileTriggerClass = [
-    'inline-block max-w-[7.5rem] truncate align-middle sm:max-w-[12rem]',
-    'font-mono text-[11px] font-bold uppercase tracking-[0.05em]',
-    'text-ink-muted hover:text-ink-bright',
-    'before:mr-1 before:text-line-strong before:content-[\'[\'] after:ml-1 after:text-line-strong after:content-[\']\']',
-    'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:text-ink-muted'
-  ].join(' ')
   const profileMenuContentClass = `${popoverClass} z-50 w-60 p-1.5 font-mono`
   const profileMenuItemBaseClass = `${menuItemClass} flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
 
@@ -488,12 +482,13 @@
     {#snippet actions()}
       <Popover.Root bind:open={profileMenuOpen}>
         <Popover.Trigger
-          class={profileTriggerClass}
           disabled={loading}
           title="Filter cron jobs by profile"
           aria-label="Filter cron jobs by profile"
         >
-          profile: {profileLabel}
+          {#snippet child({ props })}
+            <BracketTrigger {...props} label="PROFILE" value={profileLabel} disabled={loading} />
+          {/snippet}
         </Popover.Trigger>
 
         <Popover.Content class={profileMenuContentClass} sideOffset={4} align="end">

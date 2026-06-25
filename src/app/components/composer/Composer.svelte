@@ -43,6 +43,7 @@
     sortByProfileOrder
   } from '$lib/hermes/profiles'
   import { sessionState } from '$lib/hermes/sessions'
+  import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
@@ -173,12 +174,6 @@
   const composerErrorClass = $derived(
     compact ? 'max-w-44 truncate text-[0.65rem]' : responsiveCompact ? 'max-w-44 truncate text-[0.65rem] md:max-w-60 md:text-xs' : 'max-w-60 truncate text-xs'
   )
-  const profileTriggerClass = [
-    'font-mono text-[11px] font-bold uppercase tracking-[0.05em]',
-    'text-ink-muted hover:text-ink-bright',
-    'before:mr-1 before:text-line-strong before:content-[\'[\'] after:ml-1 after:text-line-strong after:content-[\']\']',
-    'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:text-ink-muted'
-  ].join(' ')
   const profileMenuContentClass = `${popoverClass} z-50 w-60 p-1.5 font-mono`
   const profileMenuItemBaseClass = `${menuItemClass} flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
 
@@ -460,12 +455,13 @@
         {#snippet actions()}
           <Popover.Root bind:open={profileMenuOpen}>
             <Popover.Trigger
-              class={profileTriggerClass}
               disabled={!canChangeProfile}
               title={profileTriggerTitle}
               aria-label="Choose session profile"
             >
-              profile: {profileLabel}
+              {#snippet child({ props })}
+                <BracketTrigger {...props} label="PROFILE" value={profileLabel} disabled={!canChangeProfile} />
+              {/snippet}
             </Popover.Trigger>
 
             <Popover.Content class={profileMenuContentClass} sideOffset={4} align="end">

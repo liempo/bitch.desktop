@@ -137,7 +137,7 @@
   }
 </script>
 
-<Panel title={title} padded={false} contentClass={contentClass} class={className} actions={onClose ? closeAction : undefined}>
+<Panel title={title} padded={false} contentClass={contentClass} class={className} leading={onClose ? closeAction : undefined}>
   <div
     class="flex h-[calc(100%+1px)] min-h-0 w-[calc(100%+1px)] flex-col gap-3 overflow-y-auto pb-px pr-px"
     style="--custom-scrollbar-offset-x: 4px"
