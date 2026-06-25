@@ -746,7 +746,7 @@
     {/if}
 
     <div
-      class="min-h-0 flex-1 overflow-auto rounded-control border border-transparent p-1 hover:border-primary/25"
+      class="min-h-0 flex-1 overflow-auto rounded-control border border-transparent p-1"
       data-selectable="true"
       aria-label="Remote file tree"
       role="region"
@@ -767,7 +767,7 @@
                 oncontextmenu={() => focusRemoteEntry(row.entry)}
               >
                 <Icon name={row.expanded ? 'chevronDown' : 'chevronRight'} class="w-3 text-center text-[0.6rem] text-line-strong" />
-                <Icon name="folder" class="text-secondary" />
+                <Icon name="folder" class="w-3.5 text-center text-secondary" />
                 <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
                 {#if row.loading}
                   <span class="text-[0.58rem] uppercase tracking-[0.12em] text-primary">sync</span>
@@ -784,7 +784,7 @@
                 oncontextmenu={() => focusRemoteEntry(row.entry)}
               >
                 <span class="w-3 text-center text-[0.6rem] text-line-strong"></span>
-                <Icon name={treeIconFor(row.entry)} class="w-8 text-warning" />
+                <Icon name={treeIconFor(row.entry)} class="w-3.5 text-center text-warning" />
                 <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
               </button>
             {/if}
