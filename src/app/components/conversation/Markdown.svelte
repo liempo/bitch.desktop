@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '@/app/components/ui/Icon.svelte'
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
@@ -340,7 +341,7 @@
             aria-label="Download media"
             title="Download media"
           >
-            ⇩
+            <Icon name="download" class="text-base" />
           </a>
         {/if}
         <button
@@ -349,7 +350,7 @@
           aria-label="Close media viewer"
           onclick={closeMediaOverlay}
         >
-          ×
+          <Icon name="close" class="text-sm" />
         </button>
       </header>
 

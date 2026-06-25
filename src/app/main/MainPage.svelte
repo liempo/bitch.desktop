@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
 
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { gatewayState } from '$lib/hermes/gateway'
   import { getProfileScope, refreshActiveProfile } from '$lib/hermes/profiles'
@@ -244,7 +245,7 @@
             </div>
             <div class="mt-2 flex items-center justify-between gap-3 text-[0.66rem] leading-4 text-ink-muted">
               <span class="min-w-0 truncate">Resume thread and composer</span>
-              <span class="shrink-0 text-primary" aria-hidden="true">→</span>
+              <Icon name="arrowRight" class="shrink-0 text-primary" />
             </div>
           </a>
         {:else}
@@ -268,7 +269,7 @@
           <div class="mt-1 truncate text-[0.76rem] font-bold uppercase tracking-widest text-primary">Start blank thread</div>
           <div class="mt-2 flex items-center justify-between gap-3 text-[0.66rem] leading-4 text-ink-muted">
             <span class="min-w-0 truncate">Open composer in AGENT</span>
-            <span class="shrink-0 text-primary" aria-hidden="true">→</span>
+            <Icon name="arrowRight" class="shrink-0 text-primary" />
           </div>
         </a>
       </Panel>

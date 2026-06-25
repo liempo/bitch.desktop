@@ -2,6 +2,7 @@
   import Composer from '../../components/composer/Composer.svelte'
   import Conversation from '../../components/conversation/Conversation.svelte'
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass } from '@/app/components/ui/styles'
@@ -159,7 +160,7 @@
 
 <Panel
   title="AGENT"
-  class="min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong"
+  class="min-h-0 border-line bg-canvas! transition-colors hover:border-line-strong"
   contentClass="flex h-full min-h-0 flex-col p-0"
   titleClass="text-ink-muted"
 >
@@ -182,9 +183,7 @@
         title="Open current chat in AGENT"
         aria-label="Open current chat in AGENT"
       >
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M9 7h8v8" />
-        </svg>
+        <Icon name="arrowUpRight" class="text-[0.9rem]" />
       </a>
     </div>
   {/snippet}

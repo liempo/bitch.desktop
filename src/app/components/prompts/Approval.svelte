@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
   import { type ApprovalChoice, promptsState, respondToApproval } from '$lib/hermes/prompts'
@@ -31,10 +32,7 @@
       <div class="grid gap-3">
         <div class="min-w-0 px-3 pt-2">
           <div class="flex min-w-0 items-baseline gap-1.5">
-            <svg class="h-3.5 w-3.5 shrink-0 text-warning" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 5 6v5c0 4.5 2.8 8.4 7 10 4.2-1.6 7-5.5 7-10V6l-7-3Z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12 1.7 1.7 3.3-4" />
-            </svg>
+            <Icon name="shieldCheck" class="h-3.5 w-3.5 text-warning" />
             <span class="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-warning">Approval required</span>
             <span class="truncate text-ink-muted">· {description}</span>
           </div>

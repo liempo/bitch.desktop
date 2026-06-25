@@ -2,9 +2,11 @@
   import { onMount } from 'svelte'
   import { Popover } from 'bits-ui'
 
+  import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
-  import { popoverClass } from '@/app/components/ui/styles'
+  import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import MainDashboardStatGrid from '../components/MainDashboardStatGrid.svelte'
   import { messageForError } from '$lib/errors'
   import { gatewayState } from '$lib/hermes/gateway'
@@ -44,7 +46,8 @@
     triage: 5
   }
   const KANBAN_ACTIVE_STATUSES = ['triage', 'todo', 'scheduled', 'ready', 'running', 'blocked']
-  const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono rounded-none!`
+  const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-60 p-1.5 font-mono`
+  const kanbanBoardMenuItemBaseClass = `${menuItemClass} flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
 
   let kanbanBoardMenuOpen = $state(false)
   let kanbanBoards = $state<KanbanBoardMeta[]>([])
@@ -222,6 +225,10 @@
     return compactText(board.name) || board.slug
   }
 
+  function kanbanBoardChoiceClass(board: KanbanBoardMeta): string {
+    return board.slug === kanbanCurrentBoardSlug ? `${kanbanBoardMenuItemBaseClass} border-primary/40 bg-primary/10 text-primary` : kanbanBoardMenuItemBaseClass
+  }
+
   function kanbanBoardMetaLabel(board: KanbanBoardMeta): string {
     const parts = [board.slug, `${formatKanbanBoardCount(board.total)} cards`, board.archived ? 'archived' : ''].filter(Boolean)
     return parts.join(' · ')
@@ -255,11 +262,12 @@
 
   function kanbanTaskMarker(task: KanbanTask): string {
     const displayStatus = kanbanDisplayStatus(task.status)
+
     if (displayStatus === 'running') {
       const stale = typeof task.last_heartbeat_at === 'number' && kanbanBoardNow > 0 && kanbanBoardNow - task.last_heartbeat_at > 60 * 60
-      return stale ? 'stale worker' : 'in progress'
+      if (stale) return 'stale worker'
     }
-    if (displayStatus === 'blocked') return 'blocked'
+
     if (task.warnings?.count) return `${task.warnings.count} diagnostics`
     if (task.progress) return `${task.progress.done}/${task.progress.total} children`
     return ''
@@ -267,9 +275,8 @@
 
   function kanbanTaskMarkerClass(task: KanbanTask): string {
     const marker = kanbanTaskMarker(task)
-    if (marker.includes('stale') || marker === 'blocked') return 'border-danger/40 bg-danger/10 text-danger'
+    if (marker.includes('stale')) return 'border-danger/40 bg-danger/10 text-danger'
     if (marker.includes('diagnostics')) return 'border-warning/40 bg-warning/10 text-warning'
-    if (marker === 'in progress') return 'border-primary/40 bg-primary/10 text-primary'
     return 'border-line bg-canvas text-ink-muted'
   }
 
@@ -292,9 +299,9 @@
 >
   {#snippet actions()}
     <Popover.Root bind:open={kanbanBoardMenuOpen}>
-      <Popover.Trigger title={`BOARD::${kanbanCurrentBoardLabel}`} aria-label={`View available Kanban boards. Current board: ${kanbanCurrentBoardLabel}`}>
+      <Popover.Trigger title={`BOARD: ${kanbanCurrentBoardLabel}`} aria-label={`View available Kanban boards. Current board: ${kanbanCurrentBoardLabel}`}>
         {#snippet child({ props })}
-          <Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!">BOARD::{kanbanCurrentBoardLabel}</Button>
+          <BracketTrigger {...props} label="BOARD" value={kanbanCurrentBoardLabel} />
         {/snippet}
       </Popover.Trigger>
 
@@ -312,24 +319,20 @@
         {:else}
           <div class="grid gap-1">
             {#each kanbanBoards as board (board.slug)}
-              <Button
-                size="sm"
-                variant={board.slug === kanbanCurrentBoardSlug ? 'primary' : 'default'}
-                class="w-full rounded-none!"
+              {@const selected = board.slug === kanbanCurrentBoardSlug}
+              <button
+                class={kanbanBoardChoiceClass(board)}
+                type="button"
                 onclick={() => void selectKanbanBoard(board)}
-                aria-current={board.slug === kanbanCurrentBoardSlug ? 'true' : undefined}
+                aria-current={selected ? 'true' : undefined}
                 aria-label={`Switch Kanban board to ${kanbanBoardLabel(board)}`}
+                title={kanbanBoardMetaLabel(board)}
               >
-                <span class="flex w-full items-start justify-between gap-2 text-left">
-                  <span class="min-w-0">
-                    <span class="block truncate">board:{kanbanBoardLabel(board)}</span>
-                    <span class="mt-0.5 block truncate text-[10px] text-ink-muted/80">{kanbanBoardMetaLabel(board)}</span>
-                  </span>
-                  {#if board.slug === kanbanCurrentBoardSlug}
-                    <span class="shrink-0 text-primary">current</span>
-                  {/if}
-                </span>
-              </Button>
+                <span class="min-w-0 truncate">board: {kanbanBoardLabel(board)}</span>
+                {#if selected}
+                  <span class="shrink-0 text-primary">active</span>
+                {/if}
+              </button>
             {/each}
           </div>
         {/if}
@@ -345,21 +348,24 @@
       <span class={kanbanBoardsError ? 'text-warning' : 'text-ink-faint'}>{kanbanPanelMeta}</span>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+    <div class="min-h-0 flex-1 overflow-auto overscroll-contain p-px" style="--custom-scrollbar-offset-x: 4px">
       {#if kanbanBoardsError && kanbanFocusTasks.length === 0}
-        <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
-          Kanban unavailable: {kanbanBoardsError}
+        <div class="flex items-center gap-2 rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
+          <Icon name="error" label="Kanban error" decorative={false} />
+          <span>Kanban unavailable: {kanbanBoardsError}</span>
         </div>
       {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
-        <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
-          Syncing current board…
+        <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+          <Icon name="sync" class="text-primary" />
+          <span>Syncing current board…</span>
         </div>
       {:else if kanbanFocusTasks.length === 0}
-        <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
-          {kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}
+        <div class="flex items-center gap-2 rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
+          <Icon name="kanban" class="text-ink-muted" />
+          <span>{kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}</span>
         </div>
       {:else}
-        <div class="grid content-start gap-1.5">
+        <div class="grid min-w-0 content-start gap-1.5">
           {#each kanbanFocusTasks as task (task.id)}
             {@const marker = kanbanTaskMarker(task)}
             <a
@@ -401,7 +407,7 @@
       profile={kanbanBoardProfile} · cards={formatDashboardCount(kanbanTotalCards)}
     </span>
     <Button size="sm" chrome="ghost" variant="primary" class="rounded-none!" href={kanbanHref} aria-label="Open Kanban board">
-      Open Kanban
+      <span>Open Kanban</span>
     </Button>
   </div>
 </Panel>
