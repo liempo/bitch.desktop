@@ -6,6 +6,7 @@ export const nerdIconGlyphs = {
   arrowLeft: '󰁍',
   arrowRight: '󰁔',
   arrowUp: '󰁝',
+  arrowUpRight: '󰁟',
   assets: '󰉋',
   attach: '󰈙',
   board: '󰘔',

@@ -195,7 +195,6 @@
       aria-label="Refresh cron jobs"
     >
       <Icon name="sync" class="text-[0.85rem]" />
-      <span>Sync</span>
     </Button>
   {/snippet}
 

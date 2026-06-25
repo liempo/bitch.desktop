@@ -493,7 +493,7 @@
           title="Filter cron jobs by profile"
           aria-label="Filter cron jobs by profile"
         >
-          profile:{profileLabel}
+          profile: {profileLabel}
         </Popover.Trigger>
 
         <Popover.Content class={profileMenuContentClass} sideOffset={4} align="end">
@@ -509,7 +509,7 @@
                 onclick={() => void handleProfileSelect(profile.name)}
                 aria-pressed={selected}
               >
-                <span class="min-w-0 truncate">profile:{profileChoiceLabel(profile)}</span>
+                <span class="min-w-0 truncate">profile: {profileChoiceLabel(profile)}</span>
                 {#if selected}
                   <span class="shrink-0 text-primary">active</span>
                 {/if}

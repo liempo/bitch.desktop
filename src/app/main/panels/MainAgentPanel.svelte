@@ -183,7 +183,7 @@
         title="Open current chat in AGENT"
         aria-label="Open current chat in AGENT"
       >
-        <Icon name="external" class="text-[0.9rem]" />
+        <Icon name="arrowUpRight" class="text-[0.9rem]" />
       </a>
     </div>
   {/snippet}
