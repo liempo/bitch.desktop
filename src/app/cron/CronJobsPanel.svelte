@@ -4,6 +4,7 @@
 
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
@@ -492,7 +493,7 @@
           title="Filter cron jobs by profile"
           aria-label="Filter cron jobs by profile"
         >
-          profile:{profileLabel}
+          profile: {profileLabel}
         </Popover.Trigger>
 
         <Popover.Content class={profileMenuContentClass} sideOffset={4} align="end">
@@ -508,7 +509,7 @@
                 onclick={() => void handleProfileSelect(profile.name)}
                 aria-pressed={selected}
               >
-                <span class="min-w-0 truncate">profile:{profileChoiceLabel(profile)}</span>
+                <span class="min-w-0 truncate">profile: {profileChoiceLabel(profile)}</span>
                 {#if selected}
                   <span class="shrink-0 text-primary">active</span>
                 {/if}
@@ -524,7 +525,7 @@
         aria-label="New cron job"
         title="New cron job"
       >
-        +
+        <Icon name="add" class="text-[0.9rem]" />
       </Button>
       <Button
         variant="unstyled"
@@ -534,9 +535,7 @@
         aria-label="Refresh cron jobs"
         title="Refresh cron jobs"
       >
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.2 6.7L4 9m2 6a7 7 0 0 0 11.8 2.3L20 15" />
-        </svg>
+        <Icon name="sync" class="text-[0.9rem]" />
       </Button>
     {/snippet}
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
@@ -125,34 +126,14 @@
         {#if running}
           <Loader />
         {:else if hasError}
-          <svg
-            class="h-3.5 w-3.5 text-danger"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            aria-label="Error"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
+          <Icon name="error" label="Error" decorative={false} class="h-3.5 w-3.5 text-danger" />
         {/if}
       </span>
     {/if}
 
       {#if hasDetail}
-        <svg
-          class="h-3 w-3 shrink-0 text-ink-muted/70 {expanded ? 'rotate-90' : ''}"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-    {/if}
+        <Icon name="chevronRight" class="h-3 w-3 text-ink-muted/70 {expanded ? 'rotate-90' : ''}" />
+      {/if}
 
     <span class="min-w-0 flex-1">
       <span class="flex min-w-0 items-baseline gap-1.5">

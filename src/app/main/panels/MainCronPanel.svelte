@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
 
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { messageForError } from '$lib/errors'
   import {
@@ -193,7 +194,7 @@
       title="Refresh cron jobs"
       aria-label="Refresh cron jobs"
     >
-      Sync
+      <Icon name="sync" class="text-[0.85rem]" />
     </Button>
   {/snippet}
 
@@ -213,41 +214,46 @@
     </div>
 
     {#if cronError && cronFocusJobs.length === 0}
-      <div class="rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
-        Cron unavailable: {cronError}
+      <div class="flex items-center gap-2 rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
+        <Icon name="error" label="Cron error" decorative={false} />
+        <span>Cron unavailable: {cronError}</span>
       </div>
     {:else if cronLoading && cronFocusJobs.length === 0}
-      <div class="rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
-        Syncing scheduler jobs…
+      <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
+        <Icon name="sync" class="text-primary" />
+        <span>Syncing scheduler jobs…</span>
       </div>
     {:else if cronFocusJobs.length === 0}
-      <div class="rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
-        {cronJobs.length ? 'No upcoming scheduler runs.' : 'No cron jobs visible across profiles.'}
+      <div class="flex items-center gap-2 rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">
+        <Icon name="cron" class="text-ink-muted" />
+        <span>{cronJobs.length ? 'No upcoming scheduler runs.' : 'No cron jobs visible across profiles.'}</span>
       </div>
     {:else}
-      <div class="grid min-h-0 gap-1.5 overflow-y-auto overscroll-contain pr-1">
-        {#each cronFocusJobs as job (cronJobDashboardKey(job))}
-          {@const problem = isCronJobProblem(job)}
-          <a
-            class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
-            href={cronHref}
-            aria-label={`Open cron job ${cronJobTitle(job)}`}
-          >
-            <div class="flex items-start justify-between gap-2">
-              <span class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</span>
-              <span class={cronStateClass(job)}>{problem ? 'alert' : cronJobState(job)}</span>
-            </div>
-            <div class="mt-1 truncate text-[0.62rem] leading-4 text-ink-muted" title={problem ? cronErrorText(job) : cronJobPreview(job)}>
-              {problem ? cronErrorText(job) : cronJobPreview(job)}
-            </div>
-            <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">next {formatCronRelativeTime(job.next_run_at)}</span>
-              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobScheduleLabel(job)}</span>
-              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobProfile(job)}</span>
-              <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobModeLabel(job)}</span>
-            </div>
-          </a>
-        {/each}
+      <div class="min-h-0 overflow-auto overscroll-contain p-px" style="--custom-scrollbar-offset-x: 4px">
+        <div class="grid min-w-0 gap-1.5">
+          {#each cronFocusJobs as job (cronJobDashboardKey(job))}
+            {@const problem = isCronJobProblem(job)}
+            <a
+              class="min-w-0 rounded-none border border-line bg-surface-raised/70 p-2 text-inherit transition-colors hover:border-secondary/50 hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+              href={cronHref}
+              aria-label={`Open cron job ${cronJobTitle(job)}`}
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-ink-bright" title={cronJobTitle(job)}>{cronJobTitle(job)}</span>
+                <span class={cronStateClass(job)}>{problem ? 'alert' : cronJobState(job)}</span>
+              </div>
+              <div class="mt-1 truncate text-[0.62rem] leading-4 text-ink-muted" title={problem ? cronErrorText(job) : cronJobPreview(job)}>
+                {problem ? cronErrorText(job) : cronJobPreview(job)}
+              </div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-secondary">next {formatCronRelativeTime(job.next_run_at)}</span>
+                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobScheduleLabel(job)}</span>
+                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobProfile(job)}</span>
+                <span class="rounded-none border border-line bg-canvas px-1.5 py-0.5 text-[0.58rem] text-ink-muted">{cronJobModeLabel(job)}</span>
+              </div>
+            </a>
+          {/each}
+        </div>
       </div>
     {/if}
   </section>
@@ -263,7 +269,7 @@
       profile=all · jobs={formatDashboardCount(cronJobs.length)}
     </span>
     <Button size="sm" chrome="ghost" variant="secondary" class="rounded-none!" href={cronHref} aria-label="Open Cron Job Manager">
-      Open Cron
+      <span>Open Cron</span>
     </Button>
   </div>
 </Panel>

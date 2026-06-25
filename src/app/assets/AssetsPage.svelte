@@ -3,6 +3,7 @@
   import { ContextMenu } from 'bits-ui'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import {
@@ -23,6 +24,7 @@
     type RemoteManagedFileDataUrlResponse
   } from '$lib/hermes/files'
   import { filePresentation } from '$lib/hermes/files'
+  import type { IconName } from '$lib/theme'
 
   type FileAccent = ReturnType<typeof filePresentation>['accent']
   type ActionBusy = 'create' | 'delete' | 'download' | 'refresh' | 'upload'
@@ -635,9 +637,9 @@
     }
   }
 
-  function treeIconFor(entry: RemoteFileEntry): string {
-    if (entry.kind === 'directory') return '▣'
-    return filePresentation(entry.name).glyph
+  function treeIconFor(entry: RemoteFileEntry): IconName {
+    if (entry.kind === 'directory') return 'folder'
+    return filePresentation(entry.name).icon
   }
 
   function thumbnailClass(accent: FileAccent): string {
@@ -705,7 +707,7 @@
                 title={folder.path}
                 onclick={() => void openDirectory(folder.path)}
               >
-                <span class="text-primary">★</span>
+                <Icon name="pin" class="text-primary" />
                 <span class="min-w-0 flex-1 truncate">{folder.name}</span>
               </button>
               <button
@@ -715,7 +717,7 @@
                 aria-label={`Unpin ${folder.path}`}
                 onclick={() => togglePinnedFolder(folder.path)}
               >
-                ×
+                <Icon name="close" class="text-sm" />
               </button>
             </div>
           {/each}
@@ -744,7 +746,7 @@
     {/if}
 
     <div
-      class="min-h-0 flex-1 overflow-auto rounded-control border border-transparent p-1 hover:border-primary/25"
+      class="min-h-0 flex-1 overflow-auto rounded-control border border-transparent p-1"
       data-selectable="true"
       aria-label="Remote file tree"
       role="region"
@@ -764,8 +766,8 @@
                 onclick={() => selectTreeRow(row)}
                 oncontextmenu={() => focusRemoteEntry(row.entry)}
               >
-                <span class="w-3 text-center text-[0.6rem] text-line-strong">{row.expanded ? '▾' : '▸'}</span>
-                <span class="text-secondary">▣</span>
+                <Icon name={row.expanded ? 'chevronDown' : 'chevronRight'} class="w-3 text-center text-[0.6rem] text-line-strong" />
+                <Icon name="folder" class="w-3.5 text-center text-secondary" />
                 <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
                 {#if row.loading}
                   <span class="text-[0.58rem] uppercase tracking-[0.12em] text-primary">sync</span>
@@ -782,7 +784,7 @@
                 oncontextmenu={() => focusRemoteEntry(row.entry)}
               >
                 <span class="w-3 text-center text-[0.6rem] text-line-strong"></span>
-                <span class="w-8 text-warning">{treeIconFor(row.entry)}</span>
+                <Icon name={treeIconFor(row.entry)} class="w-3.5 text-center text-warning" />
                 <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
               </button>
             {/if}
@@ -804,7 +806,7 @@
               </ContextMenu.Item>
               <ContextMenu.Item class={contextMenuItemClass} onSelect={() => togglePinnedFolder(row.entry.path)} disabled={actionsDisabled}>
                 <span>{isPinnedFolder(row.entry.path) ? 'unpin folder' : 'pin folder'}</span>
-                <span class={contextMenuShortcutClass}>★</span>
+                <Icon name="pin" class={contextMenuShortcutClass} />
               </ContextMenu.Item>
 
               <ContextMenu.Separator class={contextMenuSeparatorClass} />
@@ -892,7 +894,7 @@
             onclick={navigateBack}
             disabled={actionsDisabled || !canNavigateBack}
           >
-            ←
+            <Icon name="arrowLeft" />
           </Button>
           <Button
             type="button"
@@ -903,7 +905,7 @@
             onclick={navigateForward}
             disabled={actionsDisabled || !canNavigateForward}
           >
-            →
+            <Icon name="arrowRight" />
           </Button>
           <Button
             type="button"
@@ -914,7 +916,7 @@
             onclick={navigateUp}
             disabled={actionsDisabled || !canNavigateUp}
           >
-            ↑
+            <Icon name="arrowUp" />
           </Button>
           <Button
             type="button"
@@ -925,7 +927,7 @@
             onclick={downloadCurrentFile}
             disabled={!canDownloadCurrentFile}
           >
-            ↓
+            <Icon name="download" />
           </Button>
         </div>
       </div>
@@ -968,12 +970,12 @@
                     >
                       <span class="flex min-w-0 items-center gap-2">
                         {#if entry.kind === 'directory'}
-                          <span class="w-8 text-secondary">▣</span>
+                          <Icon name="folder" class="w-8 text-secondary" />
                           {#if isPinnedFolder(entry.path)}
-                            <span class="text-primary" aria-label="Pinned folder">★</span>
+                            <Icon name="pin" label="Pinned folder" decorative={false} class="text-primary" />
                           {/if}
                         {:else}
-                          <span class="w-8 text-warning">{treeIconFor(entry)}</span>
+                          <Icon name={treeIconFor(entry)} class="w-8 text-warning" />
                         {/if}
                         <span class="min-w-0 truncate">{entry.name}</span>
                       </span>
@@ -989,7 +991,7 @@
                       </ContextMenu.Item>
                       <ContextMenu.Item class={contextMenuItemClass} onSelect={() => togglePinnedFolder(entry.path)} disabled={actionsDisabled}>
                         <span>{isPinnedFolder(entry.path) ? 'unpin folder' : 'pin folder'}</span>
-                        <span class={contextMenuShortcutClass}>★</span>
+                        <Icon name="pin" class={contextMenuShortcutClass} />
                       </ContextMenu.Item>
                       <ContextMenu.Item class={contextMenuItemClass} onSelect={() => void refreshDirectory(entry.path)} disabled={actionsDisabled}>
                         <span>refresh</span>
@@ -1043,7 +1045,7 @@
           {#if selectedViewerKind === 'image' && dataPreviewUrl}
             <img src={dataPreviewUrl} alt="" class="h-full w-full object-cover" />
           {:else}
-            <span>{selectedFilePresentation.glyph}</span>
+            <Icon name={selectedFilePresentation.icon} label={selectedFilePresentation.title} decorative={false} />
           {/if}
         </span>
         <div class="min-w-0 flex-1">
@@ -1077,7 +1079,7 @@
           </div>
         {:else if selectedViewerKind === 'audio' && dataPreviewUrl}
           <div class="flex h-full flex-col items-center justify-center gap-4 p-6 text-center text-sm text-ink-muted">
-            <span class="font-hud text-4xl text-success">AUD</span>
+            <Icon name="fileAudio" label="Audio" decorative={false} class="text-4xl text-success" />
             <audio controls src={dataPreviewUrl} class="w-full"></audio>
           </div>
         {:else if selectedViewerKind === 'html' && dataPreviewUrl}

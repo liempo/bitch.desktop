@@ -42,11 +42,7 @@
 >
   <div class="flex min-w-0 items-center gap-3 pl-18.5">
     <div class="ml-2 hidden h-4 w-px bg-line-strong/70 md:block" data-tauri-drag-region></div>
-    <a
-      class={`${linkClass('main')} inline-flex items-center gap-2`}
-      href={`#${mainRoute()}`}
-      aria-current={appRouterState.page === 'main' ? 'page' : undefined}
-    >
+    <a class={linkClass('main')} href={`#${mainRoute()}`} aria-current={appRouterState.page === 'main' ? 'page' : undefined}>
       <span>BITCH</span>
     </a>
   </div>
@@ -56,7 +52,7 @@
   <div class="flex items-center gap-6 pr-2">
     {#each navItems as item (item.page)}
       <a class={linkClass(item.page)} href={item.href} aria-current={appRouterState.page === item.page ? 'page' : undefined}>
-        {item.label}
+        <span>{item.label}</span>
       </a>
     {/each}
 

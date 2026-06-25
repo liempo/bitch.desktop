@@ -44,6 +44,7 @@
   } from '$lib/hermes/profiles'
   import { sessionState } from '$lib/hermes/sessions'
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
@@ -407,20 +408,20 @@
             {#if attachment.previewUrl}
               <img class="h-10 w-10 rounded-control object-cover" src={attachment.previewUrl} alt="" />
             {:else if attachment.kind === 'pdf'}
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-danger">
-                PDF
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-danger">
+                <Icon name="filePdf" label="PDF attachment" decorative={false} class="text-lg" />
               </div>
             {:else if attachment.kind === 'audio'}
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-success">
-                AUD
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-success">
+                <Icon name="fileAudio" label="Audio attachment" decorative={false} class="text-lg" />
               </div>
             {:else if attachment.kind === 'video'}
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
-                VID
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-primary">
+                <Icon name="fileVideo" label="Video attachment" decorative={false} class="text-lg" />
               </div>
             {:else}
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-                FILE
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-ink-muted">
+                <Icon name="file" label="File attachment" decorative={false} class="text-lg" />
               </div>
             {/if}
             <div class="min-w-0 max-w-48">
@@ -433,9 +434,7 @@
               onclick={() => removeComposerAttachment(sessionId, attachment.id)}
               aria-label={`Remove ${attachment.label}`}
             >
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
+              <Icon name="close" class="text-[0.9rem]" />
             </Button>
           </div>
         {/each}
@@ -453,9 +452,7 @@
               aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
               title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
             >
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14" />
-              </svg>
+              <Icon name="menu" class="text-[0.9rem]" />
             </Button>
           {/if}
         {/snippet}
@@ -468,7 +465,7 @@
               title={profileTriggerTitle}
               aria-label="Choose session profile"
             >
-              profile:{profileLabel}
+              profile: {profileLabel}
             </Popover.Trigger>
 
             <Popover.Content class={profileMenuContentClass} sideOffset={4} align="end">
@@ -484,7 +481,7 @@
                     onclick={() => handleProfileSelect(profile.name)}
                     aria-pressed={selected}
                   >
-                    <span class="min-w-0 truncate">profile:{profileChoiceLabel(profile)}</span>
+                    <span class="min-w-0 truncate">profile: {profileChoiceLabel(profile)}</span>
                     {#if selected}
                       <span class="shrink-0 text-primary">active</span>
                     {/if}
@@ -527,9 +524,7 @@
                 aria-label="Attach file"
                 title="Attach file"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
-                </svg>
+                <Icon name="attach" class="text-base" />
               </Button>
 
               {#if composer.attachments.length > 0}
@@ -580,7 +575,7 @@
                   aria-label="Stop"
                   title="Stop"
                 >
-                  <span class="h-2.5 w-2.5 rounded-xs bg-current"></span>
+                  <Icon name="stop" class="text-[0.9rem]" />
                 </Button>
               {/if}
 

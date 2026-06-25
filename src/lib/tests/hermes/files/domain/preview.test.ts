@@ -7,21 +7,21 @@ describe('remote file presentation', () => {
     expect(filePresentation('render.PNG')).toMatchObject({
       accent: 'image',
       extension: '.png',
-      glyph: 'IMG',
+      icon: 'fileImage',
       title: 'Image',
       viewerKind: 'image'
     })
   })
 
   it('classifies common file families for remote viewers', () => {
-    expect(filePresentation('report.pdf')).toMatchObject({ accent: 'pdf', glyph: 'PDF', viewerKind: 'pdf' })
-    expect(filePresentation('notes.md')).toMatchObject({ accent: 'text', glyph: 'MD', viewerKind: 'text' })
-    expect(filePresentation('clip.webm')).toMatchObject({ accent: 'video', glyph: 'VID', viewerKind: 'video' })
-    expect(filePresentation('voice.mp3')).toMatchObject({ accent: 'audio', glyph: 'AUD', viewerKind: 'audio' })
-    expect(filePresentation('render.html')).toMatchObject({ accent: 'html', glyph: 'HTML', viewerKind: 'html' })
+    expect(filePresentation('report.pdf')).toMatchObject({ accent: 'pdf', icon: 'filePdf', viewerKind: 'pdf' })
+    expect(filePresentation('notes.md')).toMatchObject({ accent: 'text', icon: 'fileText', viewerKind: 'text' })
+    expect(filePresentation('clip.webm')).toMatchObject({ accent: 'video', icon: 'fileVideo', viewerKind: 'video' })
+    expect(filePresentation('voice.mp3')).toMatchObject({ accent: 'audio', icon: 'fileAudio', viewerKind: 'audio' })
+    expect(filePresentation('render.html')).toMatchObject({ accent: 'html', icon: 'fileHtml', viewerKind: 'html' })
     expect(filePresentation('archive.zip')).toMatchObject({
       accent: 'archive',
-      glyph: 'ZIP',
+      icon: 'fileArchive',
       title: 'Archive',
       viewerKind: 'text'
     })
@@ -33,25 +33,25 @@ describe('remote file presentation', () => {
     expect(isTextPreviewFile('Makefile')).toBe(true)
     expect(filePresentation('Makefile')).toMatchObject({
       accent: 'file',
-      glyph: '???',
+      icon: 'file',
       title: 'File',
       viewerKind: 'text'
     })
     expect(filePresentation('WORKSPACE.bazel')).toMatchObject({
       accent: 'file',
-      glyph: 'BAZ',
+      icon: 'file',
       title: 'File',
       viewerKind: 'text'
     })
     expect(filePresentation('blob.bin')).toMatchObject({
       accent: 'file',
-      glyph: 'BIN',
+      icon: 'file',
       title: 'File',
       viewerKind: 'text'
     })
     expect(filePresentation('archive.zip')).toMatchObject({
       accent: 'archive',
-      glyph: 'ZIP',
+      icon: 'fileArchive',
       title: 'Archive',
       viewerKind: 'text'
     })

@@ -43,7 +43,7 @@ describe('cron manager page contract', () => {
 
   it('uses the Composer-style profile picker in the job list header', () => {
     expect(cronJobsPanelSource).toContain("import { Popover } from 'bits-ui'")
-    expect(cronJobsPanelSource).toContain('profile:{profileLabel}')
+    expect(cronJobsPanelSource).toContain('profile: {profileLabel}')
     expect(cronJobsPanelSource).toContain('profileChoicesFor')
     expect(cronJobsPanelSource).toContain('sortByProfileOrder')
     expect(cronJobsPanelSource).not.toContain('<select')

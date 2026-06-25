@@ -147,10 +147,10 @@ describe('Assets page remote file action UX contract', () => {
       'aria-label="Forward"',
       'aria-label="Up one level"',
       'aria-label="Download selected file"',
-      '←',
-      '→',
-      '↑',
-      '↓'
+      'name="arrowLeft"',
+      'name="arrowRight"',
+      'name="arrowUp"',
+      'name="download"'
     ])
   })
 
