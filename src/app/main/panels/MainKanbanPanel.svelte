@@ -353,7 +353,7 @@
       <span class={kanbanBoardsError ? 'text-warning' : 'text-ink-faint'}>{kanbanPanelMeta}</span>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+    <div class="min-h-0 flex-1 overflow-auto overscroll-contain p-px" style="--custom-scrollbar-offset-x: 4px">
       {#if kanbanBoardsError && kanbanFocusTasks.length === 0}
         <div class="flex items-center gap-2 rounded-none border border-danger/40 bg-danger/10 p-3 text-[0.68rem] leading-4 text-danger">
           <Icon name="error" label="Kanban error" decorative={false} />
@@ -370,7 +370,7 @@
           <span>{kanbanTotalCards ? 'No active focus cards on this board.' : 'No cards reported on this board.'}</span>
         </div>
       {:else}
-        <div class="grid content-start gap-1.5">
+        <div class="grid min-w-0 content-start gap-1.5">
           {#each kanbanFocusTasks as task (task.id)}
             {@const marker = kanbanTaskMarker(task)}
             <a

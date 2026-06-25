@@ -271,8 +271,8 @@ describe('Main dashboard source contract', () => {
       mainKanbanPanelSource.match(/function collectKanbanFocusTasks\(\): KanbanTask\[] \{[\s\S]*?\n {2}\}/)?.[0] ?? ''
 
     expect(mainKanbanPanelSource).toContain('aria-label="Kanban focus queue"')
-    expect(mainKanbanPanelSource).toContain('overflow-y-auto')
-    expect(mainKanbanPanelSource).toContain('overscroll-contain')
+    expect(mainKanbanPanelSource).toContain('class="min-h-0 flex-1 overflow-auto overscroll-contain p-px"')
+    expect(mainKanbanPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
     expect(collectFocusTasksSource).toContain('.sort((a, b) => {')
     expect(collectFocusTasksSource).toContain('kanbanTaskStatusRank(a) - kanbanTaskStatusRank(b)')
     expect(collectFocusTasksSource).toContain('warningDelta')
@@ -284,8 +284,8 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).toContain('aria-label="Cron run queue"')
     expect(mainCronPanelSource).toContain('cronProblemJobs, ...cronUpcomingJobs')
     expect(mainCronPanelSource).toContain('grid-rows-[auto_minmax(0,1fr)]')
-    expect(mainCronPanelSource).toContain('overflow-y-auto')
-    expect(mainCronPanelSource).toContain('overscroll-contain')
+    expect(mainCronPanelSource).toContain('class="min-h-0 overflow-auto overscroll-contain p-px"')
+    expect(mainCronPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
     expect(mainCronPanelSource).not.toMatch(/jobs\.length\s*>=\s*3/)
   })
 })
