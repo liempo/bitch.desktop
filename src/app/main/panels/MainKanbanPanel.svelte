@@ -5,6 +5,7 @@
   import Button from '@/app/components/ui/Button.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { popoverClass } from '@/app/components/ui/styles'
+  import MainDashboardStatGrid from '../components/MainDashboardStatGrid.svelte'
   import { messageForError } from '$lib/errors'
   import { gatewayState } from '$lib/hermes/gateway'
   import {
@@ -44,7 +45,6 @@
   }
   const KANBAN_ACTIVE_STATUSES = ['triage', 'todo', 'scheduled', 'ready', 'running', 'blocked']
   const kanbanBoardMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono rounded-none!`
-  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
 
   let kanbanBoardMenuOpen = $state(false)
   let kanbanBoards = $state<KanbanBoardMeta[]>([])
@@ -337,14 +337,7 @@
     </Popover.Root>
   {/snippet}
 
-  <div class="grid grid-cols-2 gap-2 text-center uppercase tracking-[0.12em] md:grid-cols-4">
-    {#each kanbanStats as stat (stat.label)}
-      <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-        <div class="text-[0.58rem] text-ink-muted">{stat.label}</div>
-        <div class={`mt-1 text-[0.78rem] font-bold ${stat.toneClass}`}>{formatDashboardCount(stat.value)}</div>
-      </Panel>
-    {/each}
-  </div>
+  <MainDashboardStatGrid stats={kanbanStats} formatValue={formatDashboardCount} />
 
   <section class="flex min-h-0 flex-1 flex-col gap-2" aria-label="Kanban focus queue">
     <div class="flex shrink-0 items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.14em]">

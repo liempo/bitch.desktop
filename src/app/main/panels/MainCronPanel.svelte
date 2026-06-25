@@ -3,6 +3,7 @@
 
   import Button from '@/app/components/ui/Button.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
+  import MainDashboardStatGrid from '../components/MainDashboardStatGrid.svelte'
   import { messageForError } from '$lib/errors'
   import {
     cronJobProfile,
@@ -20,8 +21,6 @@
   }
 
   let { class: className = '', titleClass = '' }: Props = $props()
-
-  const raisedPanelClass = 'min-h-0 rounded-none! !border-line !bg-surface-raised'
 
   let cronJobs = $state<CronJob[]>([])
   let cronError = $state('')
@@ -197,14 +196,7 @@
     </Button>
   {/snippet}
 
-  <div class="grid grid-cols-2 gap-2 text-center uppercase tracking-[0.12em] md:grid-cols-4">
-    {#each cronStats as stat (stat.label)}
-      <Panel flat fullHeight={false} padded={false} class={raisedPanelClass} contentClass="p-2">
-        <div class="text-[0.58rem] text-ink-muted">{stat.label}</div>
-        <div class={`mt-1 text-[0.78rem] font-bold ${stat.toneClass}`}>{formatDashboardCount(stat.value)}</div>
-      </Panel>
-    {/each}
-  </div>
+  <MainDashboardStatGrid stats={cronStats} formatValue={formatDashboardCount} />
 
   <section class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-2" aria-label="Cron run queue">
     <div class="flex items-center justify-between gap-3 text-[0.62rem] uppercase tracking-[0.14em]">

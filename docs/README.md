@@ -41,5 +41,7 @@ items under its `## Feature checklist` are task sources.
   behavior for `AGENT`, `ASSETS`, and `CALENDAR`.
 - [`shared/backend-revamp.md`](shared/backend-revamp.md) — backend lane migration
   history plus reusable Clean MVVM / Ports & Adapters rules.
+- [`ui-componentization-audit.md`](ui-componentization-audit.md) — renderer UI
+  componentization scan, Bits UI candidates, and deferred extraction plan.
 - [`platform/native-bridge.md`](platform/native-bridge.md) — Rust bridge lane
   responsibilities and stable Tauri command wrapper policy.
