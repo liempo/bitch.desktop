@@ -68,10 +68,10 @@
     <span>sort: {containerSortKey}/{containerSortDirection}</span>
   </div>
 
-  <div class="grid shrink-0 grid-cols-[minmax(0,1fr)_3.6rem_5.6rem] gap-2 border-b border-line px-2 pb-1 text-[0.64rem] uppercase tracking-[0.12em] text-ink-muted">
-    <span>Container</span>
+  <div class="grid min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_minmax(2.8rem,3.6rem)_minmax(4.2rem,5.6rem)] gap-2 border-b border-line px-2 pb-1 text-[0.64rem] uppercase tracking-[0.12em] text-ink-muted">
+    <span class="min-w-0 truncate">Container</span>
     <button
-      class="justify-self-end rounded-sm border-none bg-transparent p-0 text-right font-mono text-[0.64rem] uppercase tracking-[0.12em] text-primary transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      class="min-w-0 w-full justify-self-end truncate rounded-sm border-none bg-transparent p-0 text-right font-mono text-[0.64rem] uppercase tracking-[0.12em] text-primary transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       type="button"
       aria-pressed={containerSortKey === 'cpu'}
       aria-label={containerSortAriaLabel('cpu', 'CPU')}
@@ -81,7 +81,7 @@
       {#if cpuSortIcon}<Icon name={cpuSortIcon} class="ml-1 inline-flex" />{/if}
     </button>
     <button
-      class="justify-self-end rounded-sm border-none bg-transparent p-0 text-right font-mono text-[0.64rem] uppercase tracking-[0.12em] text-primary transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      class="min-w-0 w-full justify-self-end truncate rounded-sm border-none bg-transparent p-0 text-right font-mono text-[0.64rem] uppercase tracking-[0.12em] text-primary transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       type="button"
       aria-pressed={containerSortKey === 'memory'}
       aria-label={containerSortAriaLabel('memory', 'memory')}
@@ -92,19 +92,19 @@
     </button>
   </div>
 
-  <div class="min-h-0 flex-1 overflow-auto" style="--custom-scrollbar-offset-x: 4px" aria-label="Containers">
+  <div class="min-h-0 flex-1 overflow-auto p-px" style="--custom-scrollbar-offset-x: 4px" aria-label="Containers">
     {#if containerRows.length}
-      <div class="grid gap-1">
+      <div class="grid min-w-0 gap-1">
         {#each containerRows as container (container.id ?? `${container.name}:${container.image}`)}
-          <div class="grid grid-cols-[minmax(0,1fr)_3.6rem_5.6rem] gap-2 border border-line bg-canvas px-2 py-1.5">
+          <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(2.8rem,3.6rem)_minmax(4.2rem,5.6rem)] gap-2 border border-line bg-canvas px-2 py-1.5">
             <div class="min-w-0">
               <div class="truncate text-ink-bright">{container.name}</div>
               <div class="truncate text-[0.62rem] text-ink-muted" title={containerDetailLabel(container)}>
                 {containerDetailLabel(container)}
               </div>
             </div>
-            <div class="self-center text-right text-primary">{formatPercent(container.cpuPercent)}</div>
-            <div class="self-center text-right text-secondary">{containerMemoryLabel(container)}</div>
+            <div class="min-w-0 truncate self-center text-right text-primary">{formatPercent(container.cpuPercent)}</div>
+            <div class="min-w-0 truncate self-center text-right text-secondary">{containerMemoryLabel(container)}</div>
           </div>
         {/each}
       </div>

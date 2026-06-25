@@ -77,7 +77,7 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('badge="link"')
     expect(mainContainersPanelSource).toContain('aria-label="Containers"')
     expect(mainContainersPanelSource).toContain(
-      'class="min-h-0 flex-1 overflow-auto" style="--custom-scrollbar-offset-x: 4px"'
+      'class="min-h-0 flex-1 overflow-auto p-px" style="--custom-scrollbar-offset-x: 4px"'
     )
     expect(mainPageSource).not.toContain('grid-rows-[minmax(0,0.72fr)_minmax(0,1.28fr)]')
     expect(mainPageSource).not.toContain('PROCESS_LIST')
