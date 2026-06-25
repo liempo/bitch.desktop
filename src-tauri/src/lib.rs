@@ -1,3 +1,4 @@
+mod calendar;
 mod commands;
 mod config;
 mod errors;
@@ -22,6 +23,8 @@ pub fn run() {
             commands::config::save_connection_config,
             commands::config::resolve_connection,
             commands::dashboard::dashboard_request,
+            commands::calendar::get_caldav_config_status,
+            commands::calendar::list_calendar_events,
             commands::monitoring::monitoring_request,
             commands::gateway::connect_ws,
             commands::gateway::send_ws_message,

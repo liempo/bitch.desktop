@@ -47,6 +47,7 @@ describe('architecture boundary rules', () => {
           <script lang="ts">
             import { invoke } from '@tauri-apps/api/core'
             import { normalizeMonitoringMetrics } from '$lib/monitoring/domain/normalize'
+            import { calendarDateKey } from '$lib/calendar/domain/events'
           </script>
         `
       },
@@ -114,6 +115,17 @@ describe('architecture boundary rules', () => {
 
     expect(cleanFutureLane).toEqual([])
     expect(tunneledFutureLane.map(violation => violation.rule)).toContain('rust-future-lane-uses-hermes')
+  })
+
+  it('treats Calendar as a feature lane with public entrypoints only', () => {
+    const violations = findArchitectureBoundaryViolations([
+      {
+        path: 'src/app/calendar/BadCalendarPage.svelte',
+        source: `import { calendarDateKey } from '$lib/calendar/domain/events'`
+      }
+    ])
+
+    expect(violations.map(violation => violation.rule)).toEqual(['app-deep-feature-import'])
   })
 
   it('accepts the current renderer and Rust source tree', () => {
