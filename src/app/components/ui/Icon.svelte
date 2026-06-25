@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { iconPath, type IconName } from '$lib/theme'
-  import type { SVGAttributes } from 'svelte/elements'
+  import { iconSvg, type IconName } from '$lib/theme'
+  import type { SvelteHTMLElements } from 'svelte/elements'
 
-  interface Props extends Omit<SVGAttributes<SVGSVGElement>, 'class' | 'children'> {
+  interface Props extends Omit<SvelteHTMLElements['span'], 'class' | 'children'> {
     class?: string
     decorative?: boolean
     label?: string
@@ -11,26 +11,34 @@
 
   let { class: className = '', decorative, label, name, ...rest }: Props = $props()
 
-  const classes = $derived(`inline-block shrink-0 select-none align-[-0.125em] ${className}`)
-  const path = $derived(iconPath(name))
+  const classes = $derived(`prime-icon inline-flex shrink-0 select-none items-center justify-center align-[-0.125em] leading-none ${className}`)
+  const markup = $derived(iconSvg(name))
   const decorativeIcon = $derived(decorative ?? !label)
 </script>
 
-<svg
+<span
   class={classes}
-  width="1em"
-  height="1em"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="1.75"
-  stroke-linecap="round"
-  stroke-linejoin="round"
   aria-hidden={decorativeIcon ? 'true' : undefined}
   aria-label={decorativeIcon ? undefined : label}
   role={decorativeIcon ? undefined : 'img'}
-  focusable="false"
   {...rest}
->
-  <path d={path}></path>
-</svg>
+>{@html markup}</span>
+
+<style>
+  .prime-icon :global(svg) {
+    display: block;
+    width: 1em;
+    height: 1em;
+    color: inherit;
+    fill: currentColor;
+  }
+
+  .prime-icon :global(path),
+  .prime-icon :global(circle),
+  .prime-icon :global(rect),
+  .prime-icon :global(polygon),
+  .prime-icon :global(polyline),
+  .prime-icon :global(line) {
+    fill: currentColor;
+  }
+</style>
