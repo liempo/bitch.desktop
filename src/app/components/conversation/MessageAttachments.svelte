@@ -2,7 +2,7 @@
   import Icon from '@/app/components/ui/Icon.svelte'
   import { readRemoteFileDataUrl } from '$lib/hermes/files'
   import type { ConversationAttachment, ConversationAttachmentKind } from '$lib/hermes/conversations'
-  import type { NerdIconName } from '$lib/theme'
+  import type { IconName } from '$lib/theme'
 
   interface Props {
     attachments?: ConversationAttachment[]
@@ -58,7 +58,7 @@
     }
   }
 
-  function iconFor(kind: ConversationAttachmentKind): NerdIconName {
+  function iconFor(kind: ConversationAttachmentKind): IconName {
     switch (kind) {
       case 'audio':
         return 'fileAudio'

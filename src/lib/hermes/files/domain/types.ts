@@ -1,4 +1,4 @@
-import type { NerdIconName } from '$lib/theme'
+import type { IconName } from '$lib/theme'
 
 export type RemoteFileHrefMode = 'media' | 'preview'
 export type RemoteFileEntryKind = 'directory' | 'file'
@@ -152,7 +152,7 @@ type FileAccent = 'archive' | 'audio' | 'code' | 'file' | 'html' | 'image' | 'pd
 export interface FilePresentation {
   accent: FileAccent
   extension: string
-  icon: NerdIconName
+  icon: IconName
   title: string
   viewerKind: RemoteFileViewerKind
 }

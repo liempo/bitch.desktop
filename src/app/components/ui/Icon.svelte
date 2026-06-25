@@ -1,25 +1,36 @@
 <script lang="ts">
-  import { nerdIcon, type NerdIconName } from '$lib/theme'
-  import type { SvelteHTMLElements } from 'svelte/elements'
+  import { iconPath, type IconName } from '$lib/theme'
+  import type { SVGAttributes } from 'svelte/elements'
 
-  interface Props extends Omit<SvelteHTMLElements['span'], 'class' | 'children'> {
+  interface Props extends Omit<SVGAttributes<SVGSVGElement>, 'class' | 'children'> {
     class?: string
     decorative?: boolean
     label?: string
-    name: NerdIconName
+    name: IconName
   }
 
   let { class: className = '', decorative, label, name, ...rest }: Props = $props()
 
-  const classes = $derived(`inline-flex shrink-0 select-none items-center justify-center font-nerd leading-none ${className}`)
-  const glyph = $derived(nerdIcon(name))
+  const classes = $derived(`inline-block shrink-0 select-none align-[-0.125em] ${className}`)
+  const path = $derived(iconPath(name))
   const decorativeIcon = $derived(decorative ?? !label)
 </script>
 
-<span
+<svg
   class={classes}
+  width="1em"
+  height="1em"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
   aria-hidden={decorativeIcon ? 'true' : undefined}
   aria-label={decorativeIcon ? undefined : label}
   role={decorativeIcon ? undefined : 'img'}
+  focusable="false"
   {...rest}
->{glyph}</span>
+>
+  <path d={path}></path>
+</svg>

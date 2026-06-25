@@ -75,30 +75,36 @@ function sourceName(index: number): string {
   ][index]
 }
 
-describe('Nerd Font typography and icon source contract', () => {
-  it('sets all app typography tokens to a Nerd Font stack with sane fallbacks', () => {
-    expect(appCssSource).toContain('--font-nerd:')
-    expect(appCssSource).toContain('JetBrainsMono Nerd Font')
-    expect(appCssSource).toContain('Symbols Nerd Font')
-    expect(appCssSource).toContain('--font-sans: var(--font-nerd);')
-    expect(appCssSource).toContain('--font-mono: var(--font-nerd);')
-    expect(appCssSource).toContain('--font-hud: var(--font-nerd);')
+describe('SVG icon typography and source contract', () => {
+  it('uses normal app typography without icon font dependencies', () => {
+    const iconFontToken = ['--font', 'nerd'].join('-')
+    const patchedIconFontName = ['Nerd', 'Font'].join(' ')
+    const symbolIconFontName = ['Symbols', 'Nerd', 'Font'].join(' ')
+
+    expect(appCssSource).toContain("--font-mono: 'JetBrains Mono'")
+    expect(appCssSource).toContain('--font-hud: var(--font-mono);')
     expect(appCssSource).toContain('font-family: var(--font-mono);')
+    expect(appCssSource).not.toContain(iconFontToken)
+    expect(appCssSource).not.toContain(patchedIconFontName)
+    expect(appCssSource).not.toContain(symbolIconFontName)
   })
 
-  it('centralizes Nerd Font glyph tokens and accessibility behavior in the shared Icon component', () => {
-    expect(iconTokensSource).toContain('export const nerdIconGlyphs')
-    expect(iconTokensSource).toContain('export type NerdIconName')
-    expect(iconTokensSource).toContain('export function nerdIcon')
+  it('centralizes line SVG icon paths and accessibility behavior in the shared Icon component', () => {
+    expect(iconTokensSource).toContain('export const iconPaths')
+    expect(iconTokensSource).toContain('export type IconName')
+    expect(iconTokensSource).toContain('export function iconPath')
     expect(iconTokensSource).toContain('fileImage')
     expect(iconTokensSource).toContain('shieldCheck')
     expect(iconTokensSource).toContain('kanban')
     expect(iconTokensSource).toContain('pin')
-    expect(iconComponentSource).toContain("import { nerdIcon, type NerdIconName } from '$lib/theme'")
-    expect(iconComponentSource).toContain('font-nerd')
+    expect(iconComponentSource).toContain("import { iconPath, type IconName } from '$lib/theme'")
+    expect(iconComponentSource).toContain('<svg')
+    expect(iconComponentSource).toContain('stroke="currentColor"')
+    expect(iconComponentSource).toContain('viewBox="0 0 24 24"')
     expect(iconComponentSource).toContain("aria-hidden={decorativeIcon ? 'true' : undefined}")
     expect(iconComponentSource).toContain('aria-label={decorativeIcon ? undefined : label}')
     expect(iconComponentSource).toContain("role={decorativeIcon ? undefined : 'img'}")
+    expect(iconComponentSource).not.toContain(['font', 'nerd'].join('-'))
   })
 
   it('renders app icon surfaces through the shared Icon component instead of inline SVG or raw glyphs', () => {
@@ -111,8 +117,8 @@ describe('Nerd Font typography and icon source contract', () => {
   })
 
   it('uses file icon tokens instead of the old remote-file glyph acronym mechanism', () => {
-    expect(fileTypesSource).toContain("import type { NerdIconName } from '$lib/theme'")
-    expect(fileTypesSource).toContain('icon: NerdIconName')
+    expect(fileTypesSource).toContain("import type { IconName } from '$lib/theme'")
+    expect(fileTypesSource).toContain('icon: IconName')
     expect(fileTypesSource).not.toContain('glyph: string')
     expect(filePreviewSource).toContain("icon: 'fileImage'")
     expect(filePreviewSource).toContain('icon: iconFor')

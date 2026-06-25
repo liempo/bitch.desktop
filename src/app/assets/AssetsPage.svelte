@@ -24,7 +24,7 @@
     type RemoteManagedFileDataUrlResponse
   } from '$lib/hermes/files'
   import { filePresentation } from '$lib/hermes/files'
-  import type { NerdIconName } from '$lib/theme'
+  import type { IconName } from '$lib/theme'
 
   type FileAccent = ReturnType<typeof filePresentation>['accent']
   type ActionBusy = 'create' | 'delete' | 'download' | 'refresh' | 'upload'
@@ -637,7 +637,7 @@
     }
   }
 
-  function treeIconFor(entry: RemoteFileEntry): NerdIconName {
+  function treeIconFor(entry: RemoteFileEntry): IconName {
     if (entry.kind === 'directory') return 'folder'
     return filePresentation(entry.name).icon
   }

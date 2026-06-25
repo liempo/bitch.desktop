@@ -1,4 +1,4 @@
-import type { NerdIconName } from '$lib/theme'
+import type { IconName } from '$lib/theme'
 import type {
   FilePresentation,
   HermesFileRef,
@@ -227,7 +227,7 @@ export function isDeniedRemoteFilePath(source: string): boolean {
   return false
 }
 
-function iconFor(extension: string, fallback: NerdIconName): NerdIconName {
+function iconFor(extension: string, fallback: IconName): IconName {
   if (ARCHIVE_EXTENSIONS.has(extension)) return 'fileArchive'
   if (CODE_EXTENSIONS.has(extension)) return 'fileCode'
   return fallback

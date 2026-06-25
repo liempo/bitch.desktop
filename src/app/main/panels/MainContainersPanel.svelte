@@ -10,7 +10,7 @@
     type MonitoringContainerSortKey,
     type MonitoringMetrics
   } from '$lib/monitoring'
-  import type { NerdIconName } from '$lib/theme'
+  import type { IconName } from '$lib/theme'
 
   interface Props {
     class?: string
@@ -42,7 +42,7 @@
     containerSortDirection = 'desc'
   }
 
-  function containerSortIcon(key: MonitoringContainerSortKey): NerdIconName | null {
+  function containerSortIcon(key: MonitoringContainerSortKey): IconName | null {
     if (containerSortKey !== key) return null
     return containerSortDirection === 'desc' ? 'sortDescending' : 'sortAscending'
   }
