@@ -9,10 +9,7 @@ pub fn get_caldav_config_status() -> AppResult<CalDavConfigStatus> {
 }
 
 #[tauri::command]
-pub async fn list_calendar_events(
-    client: tauri::State<'_, reqwest::Client>,
-    range: CalendarEventRange,
-) -> AppResult<Vec<CalendarEvent>> {
+pub async fn list_calendar_events(range: CalendarEventRange) -> AppResult<Vec<CalendarEvent>> {
     let config = resolve_caldav_config()?;
-    caldav::list_calendar_events_impl(&client, &config, range).await
+    caldav::list_calendar_events_impl(config, range).await
 }

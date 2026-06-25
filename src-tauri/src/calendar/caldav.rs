@@ -1,6 +1,13 @@
-use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, time::Duration};
 
-use crate::{calendar::config::CalDavConfig, http::summarize_response_body};
+use chrono::{TimeZone, Utc};
+use rrule::RRuleSet;
+use serde::{Deserialize, Serialize};
+use url::Url;
+
+use crate::calendar::config::CalDavConfig;
+
+const DAY_MILLIS: i64 = 86_400_000;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,88 +30,594 @@ pub struct CalendarEvent {
     pub uid: String,
 }
 
-fn caldav_timestamp(value: &str) -> Result<String, String> {
-    let trimmed = value.trim();
-    let date_digits: String = trimmed.chars().filter(|ch| ch.is_ascii_digit()).collect();
-
-    if date_digits.len() < 8 {
-        return Err(format!("Invalid calendar range timestamp: {value}"));
-    }
-
-    let date = &date_digits[..8];
-    let time = if date_digits.len() >= 14 {
-        &date_digits[8..14]
-    } else {
-        "000000"
-    };
-
-    Ok(format!("{date}T{time}Z"))
+#[derive(Clone, Debug)]
+struct EventTemplate {
+    all_day: bool,
+    calendar_name: Option<String>,
+    description: Option<String>,
+    duration_millis: i64,
+    location: Option<String>,
+    source_url: Option<String>,
+    title: String,
+    uid: String,
 }
 
-fn calendar_query_body(range: &CalendarEventRange) -> Result<String, String> {
-    let start = caldav_timestamp(&range.start)?;
-    let end = caldav_timestamp(&range.end)?;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DateTimeParts {
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+}
 
-    Ok(format!(
-        r#"<?xml version="1.0" encoding="utf-8" ?>
-<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-  <D:prop>
-    <D:getetag />
-    <C:calendar-data />
-  </D:prop>
-  <C:filter>
-    <C:comp-filter name="VCALENDAR">
-      <C:comp-filter name="VEVENT">
-        <C:time-range start="{start}" end="{end}" />
-      </C:comp-filter>
-    </C:comp-filter>
-  </C:filter>
-</C:calendar-query>"#
-    ))
+#[derive(Clone, Debug)]
+struct EventMoment {
+    all_day: bool,
+    millis: i64,
+    parts: DateTimeParts,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Frequency {
+    Daily,
+    Weekly,
+    Monthly,
+    Yearly,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Weekday {
+    Monday,
+    Tuesday,
+    Wednesday,
+    Thursday,
+    Friday,
+    Saturday,
+    Sunday,
+}
+
+impl Weekday {
+    fn from_rrule_token(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_uppercase().as_str() {
+            "MO" => Some(Self::Monday),
+            "TU" => Some(Self::Tuesday),
+            "WE" => Some(Self::Wednesday),
+            "TH" => Some(Self::Thursday),
+            "FR" => Some(Self::Friday),
+            "SA" => Some(Self::Saturday),
+            "SU" => Some(Self::Sunday),
+            _ => None,
+        }
+    }
+
+    fn index(self) -> i64 {
+        match self {
+            Self::Monday => 0,
+            Self::Tuesday => 1,
+            Self::Wednesday => 2,
+            Self::Thursday => 3,
+            Self::Friday => 4,
+            Self::Saturday => 5,
+            Self::Sunday => 6,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RecurrenceRule {
+    byday: Vec<Weekday>,
+    bymonth: Vec<u32>,
+    bymonthday: Vec<u32>,
+    count: Option<usize>,
+    freq: Frequency,
+    interval: u32,
+    until_millis: Option<i64>,
 }
 
 pub async fn list_calendar_events_impl(
-    client: &reqwest::Client,
-    config: &CalDavConfig,
+    config: CalDavConfig,
     range: CalendarEventRange,
 ) -> Result<Vec<CalendarEvent>, String> {
-    let method = reqwest::Method::from_bytes(b"REPORT").map_err(|e| e.to_string())?;
-    let body = calendar_query_body(&range)?;
-    let response = client
-        .request(method, config.calendar_url.clone())
-        .basic_auth(&config.username, Some(&config.password))
-        .header("Accept", "application/xml, text/xml")
-        .header("Content-Type", "application/xml; charset=utf-8")
-        .header("Depth", "1")
-        .body(body)
-        .send()
+    tokio::task::spawn_blocking(move || list_calendar_events_blocking(&config, &range))
         .await
-        .map_err(|e| e.to_string())?;
-    let status = response.status();
-    let text = response.text().await.map_err(|e| e.to_string())?;
+        .map_err(|e| format!("CalDAV sync worker failed: {e}"))?
+}
 
-    if !status.is_success() {
-        return Err(format!(
-            "CalDAV request returned {status}: {}",
-            summarize_response_body(&text)
-        ));
-    }
+fn list_calendar_events_blocking(
+    config: &CalDavConfig,
+    range: &CalendarEventRange,
+) -> Result<Vec<CalendarEvent>, String> {
+    let base_url =
+        Url::parse(&config.calendar_url).map_err(|e| format!("Invalid CalDAV URL: {e}"))?;
+    let credentials =
+        minicaldav::Credentials::Basic(config.username.clone(), config.password.clone());
+    let agent = ureq::AgentBuilder::new()
+        .timeout_read(Duration::from_secs(30))
+        .timeout_write(Duration::from_secs(30))
+        .build();
 
-    let mut events = parse_calendar_events(&text, config.display_name.clone());
-    events.retain(|event| event_overlaps_range(event, &range));
+    let calendars_result = minicaldav::get_calendars(agent.clone(), &credentials, &base_url);
+    let mut events = match calendars_result {
+        Ok(calendars) if !calendars.is_empty() => {
+            let mut events = Vec::new();
+            for calendar in calendars {
+                let calendar_name = calendar_display_name(calendar.name(), config.display_name.as_deref());
+                let (calendar_events, _parse_errors) = minicaldav::get_events(agent.clone(), &credentials, &calendar)
+                    .map_err(|e| format!("Could not load CalDAV calendar '{}': {e:?}", calendar.name()))?;
+                events.extend(normalize_minicaldav_events(&calendar_name, &calendar_events, range));
+            }
+            events
+        }
+        Ok(_) => load_direct_calendar_events(agent, &credentials, &base_url, config, range)?,
+        Err(discovery_error) => load_direct_calendar_events(agent, &credentials, &base_url, config, range)
+            .map_err(|direct_error| {
+                format!(
+                    "Could not discover CalDAV calendars ({discovery_error:?}) or load the configured URL directly ({direct_error})"
+                )
+            })?,
+    };
+
     events.sort_by(compare_calendar_events);
-
     Ok(events)
 }
 
-fn compare_calendar_events(left: &CalendarEvent, right: &CalendarEvent) -> std::cmp::Ordering {
-    left.all_day
-        .cmp(&right.all_day)
-        .reverse()
-        .then_with(|| left.starts_at.cmp(&right.starts_at))
-        .then_with(|| left.ends_at.cmp(&right.ends_at))
-        .then_with(|| left.title.cmp(&right.title))
-        .then_with(|| left.uid.cmp(&right.uid))
+fn load_direct_calendar_events(
+    agent: ureq::Agent,
+    credentials: &minicaldav::Credentials,
+    base_url: &Url,
+    config: &CalDavConfig,
+    range: &CalendarEventRange,
+) -> Result<Vec<CalendarEvent>, String> {
+    let event_refs = minicaldav::caldav::get_events(agent, credentials, base_url, base_url)
+        .map_err(|e| format!("Could not load CalDAV events from configured URL: {e:?}"))?;
+    let mut parsed_events = Vec::new();
+
+    for event_ref in event_refs {
+        let ical = minicaldav::parse_ical(&event_ref.data)
+            .map_err(|e| format!("Could not parse CalDAV event {}: {e:?}", event_ref.url))?;
+        parsed_events.push(minicaldav::Event::new(event_ref.etag, event_ref.url, ical));
+    }
+
+    let calendar_name = config
+        .display_name
+        .clone()
+        .unwrap_or_else(|| "Calendar".to_string());
+    Ok(normalize_minicaldav_events(
+        &calendar_name,
+        &parsed_events,
+        range,
+    ))
+}
+
+fn calendar_display_name(calendar_name: &str, fallback: Option<&str>) -> String {
+    let calendar_name = calendar_name.trim();
+    if calendar_name.is_empty() {
+        fallback.unwrap_or("Calendar").to_string()
+    } else {
+        calendar_name.to_string()
+    }
+}
+
+fn normalize_minicaldav_events(
+    calendar_name: &str,
+    events: &[minicaldav::Event],
+    range: &CalendarEventRange,
+) -> Vec<CalendarEvent> {
+    events
+        .iter()
+        .flat_map(|event| expand_recurring_event(event, calendar_name, range))
+        .collect()
+}
+
+fn expand_recurring_event(
+    event: &minicaldav::Event,
+    calendar_name: &str,
+    range: &CalendarEventRange,
+) -> Vec<CalendarEvent> {
+    let Some(start_property) = event.property("DTSTART") else {
+        return Vec::new();
+    };
+    let Some(start) = parse_property_moment(&start_property) else {
+        return Vec::new();
+    };
+    let end = event
+        .property("DTEND")
+        .and_then(|property| parse_property_moment(&property));
+    let duration_millis = end
+        .as_ref()
+        .map(|end| end.millis - start.millis)
+        .filter(|duration| *duration > 0)
+        .unwrap_or(if start.all_day { DAY_MILLIS } else { 1 });
+    let template = EventTemplate {
+        all_day: start.all_day,
+        calendar_name: Some(calendar_name.to_string()),
+        description: event
+            .get("DESCRIPTION")
+            .map(|value| unescape_ics_text(value)),
+        duration_millis,
+        location: event.get("LOCATION").map(|value| unescape_ics_text(value)),
+        source_url: event
+            .get("URL")
+            .map(|value| unescape_ics_text(value))
+            .or_else(|| Some(event.url().to_string())),
+        title: event
+            .get("SUMMARY")
+            .map(|value| unescape_ics_text(value))
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "Untitled event".to_string()),
+        uid: event
+            .get("UID")
+            .cloned()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| event.url().to_string()),
+    };
+
+    let rrule = event.get("RRULE").and_then(|value| parse_rrule(value));
+    let exdates = excluded_occurrence_millis(event);
+    let mut occurrence_starts = BTreeSet::new();
+
+    if let Some(rule) = &rrule {
+        occurrence_starts.extend(
+            rrule_crate_occurrence_starts(event, &start, duration_millis, range)
+                .unwrap_or_else(|| basic_rrule_occurrence_starts(&start, rule, range)),
+        );
+    } else {
+        occurrence_starts.insert(start.millis);
+    }
+    occurrence_starts.extend(rdate_occurrence_millis(event));
+
+    occurrence_starts
+        .into_iter()
+        .filter(|millis| !exdates.contains(millis))
+        .map(|millis| calendar_event_for_occurrence(&template, millis, rrule.is_some()))
+        .filter(|event| event_overlaps_range(event, range))
+        .collect()
+}
+
+fn basic_rrule_occurrence_starts(
+    start: &EventMoment,
+    rule: &RecurrenceRule,
+    range: &CalendarEventRange,
+) -> Vec<i64> {
+    let Some(range_end) = iso_millis(&range.end) else {
+        return Vec::new();
+    };
+    let start_day = start.millis.div_euclid(DAY_MILLIS) * DAY_MILLIS;
+    let final_day = range_end.div_euclid(DAY_MILLIS) * DAY_MILLIS;
+    let until_limit = rule.until_millis.unwrap_or(i64::MAX);
+    let mut occurrences = Vec::new();
+    let mut generated_count = 0usize;
+    let mut candidate_day = start_day;
+
+    while candidate_day <= final_day {
+        let Some(candidate_parts) = parts_at_day_with_time(candidate_day, &start.parts) else {
+            break;
+        };
+        let candidate_millis = utc_millis(candidate_parts);
+
+        if candidate_millis >= start.millis
+            && candidate_millis <= until_limit
+            && recurrence_matches(rule, &start.parts, candidate_parts)
+        {
+            generated_count += 1;
+            if rule.count.is_some_and(|count| generated_count > count) {
+                break;
+            }
+            if candidate_millis < range_end {
+                occurrences.push(candidate_millis);
+            }
+        }
+
+        if candidate_millis > until_limit
+            || rule.count.is_some_and(|count| generated_count >= count)
+        {
+            break;
+        }
+        candidate_day += DAY_MILLIS;
+    }
+
+    occurrences
+}
+
+fn rrule_crate_occurrence_starts(
+    event: &minicaldav::Event,
+    start: &EventMoment,
+    duration_millis: i64,
+    range: &CalendarEventRange,
+) -> Option<Vec<i64>> {
+    let rrule_set: RRuleSet = rrule_set_source(event, start)?.parse().ok()?;
+    let range_start = iso_millis(&range.start)?;
+    let range_end = iso_millis(&range.end)?;
+    let after = rrule_datetime_from_millis(range_start.saturating_sub(duration_millis.max(1) + 1))?;
+    let before = rrule_datetime_from_millis(range_end)?;
+    let result = rrule_set.after(after).before(before).all(2_000);
+
+    Some(
+        result
+            .dates
+            .into_iter()
+            .map(|occurrence| occurrence.timestamp_millis())
+            .collect(),
+    )
+}
+
+fn rrule_set_source(event: &minicaldav::Event, start: &EventMoment) -> Option<String> {
+    let mut lines = vec![format!("DTSTART:{}", compact_timestamp(start.millis))];
+    let mut has_recurrence_line = false;
+
+    for (name, value) in event.properties() {
+        if name.eq_ignore_ascii_case("RRULE") {
+            has_recurrence_line = true;
+            lines.push(format!("RRULE:{value}"));
+        } else if name.eq_ignore_ascii_case("RDATE") {
+            has_recurrence_line = true;
+            lines.push(format!(
+                "RDATE:{}",
+                parse_ics_date_list(value)
+                    .into_iter()
+                    .map(compact_timestamp)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        } else if name.eq_ignore_ascii_case("EXDATE") {
+            lines.push(format!(
+                "EXDATE:{}",
+                parse_ics_date_list(value)
+                    .into_iter()
+                    .map(compact_timestamp)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
+    }
+
+    if has_recurrence_line {
+        Some(lines.join("\n"))
+    } else {
+        None
+    }
+}
+
+fn rrule_datetime_from_millis(millis: i64) -> Option<chrono::DateTime<rrule::Tz>> {
+    Some(
+        Utc.timestamp_millis_opt(millis)
+            .single()?
+            .with_timezone(&rrule::Tz::UTC),
+    )
+}
+
+fn recurrence_matches(
+    rule: &RecurrenceRule,
+    start: &DateTimeParts,
+    candidate: DateTimeParts,
+) -> bool {
+    if !rule.bymonth.is_empty() && !rule.bymonth.contains(&candidate.month) {
+        return false;
+    }
+    if !rule.bymonthday.is_empty() && !rule.bymonthday.contains(&candidate.day) {
+        return false;
+    }
+    let candidate_weekday = weekday_for_date(candidate.year, candidate.month, candidate.day);
+    if !rule.byday.is_empty() && !rule.byday.contains(&candidate_weekday) {
+        return false;
+    }
+
+    let interval = i64::from(rule.interval.max(1));
+    match rule.freq {
+        Frequency::Daily => {
+            let days = days_from_civil(candidate.year, candidate.month, candidate.day)
+                - days_from_civil(start.year, start.month, start.day);
+            days >= 0 && days % interval == 0
+        }
+        Frequency::Weekly => {
+            let start_week = week_start_day_number(start.year, start.month, start.day);
+            let candidate_week =
+                week_start_day_number(candidate.year, candidate.month, candidate.day);
+            let same_interval = (candidate_week - start_week) >= 0
+                && ((candidate_week - start_week) / 7) % interval == 0;
+            let day_matches = if rule.byday.is_empty() {
+                candidate_weekday == weekday_for_date(start.year, start.month, start.day)
+            } else {
+                true
+            };
+            same_interval && day_matches
+        }
+        Frequency::Monthly => {
+            let months = (candidate.year - start.year) as i64 * 12 + i64::from(candidate.month)
+                - i64::from(start.month);
+            let day_matches = if rule.bymonthday.is_empty() {
+                candidate.day == start.day
+            } else {
+                true
+            };
+            months >= 0 && months % interval == 0 && day_matches
+        }
+        Frequency::Yearly => {
+            let years = candidate.year - start.year;
+            let month_matches = if rule.bymonth.is_empty() {
+                candidate.month == start.month
+            } else {
+                true
+            };
+            let day_matches = if rule.bymonthday.is_empty() {
+                candidate.day == start.day
+            } else {
+                true
+            };
+            years >= 0 && i64::from(years) % interval == 0 && month_matches && day_matches
+        }
+    }
+}
+
+fn parse_rrule(value: &str) -> Option<RecurrenceRule> {
+    let mut freq = None;
+    let mut interval = 1u32;
+    let mut count = None;
+    let mut until_millis = None;
+    let mut byday = Vec::new();
+    let mut bymonth = Vec::new();
+    let mut bymonthday = Vec::new();
+
+    for part in value.split(';') {
+        let Some((key, value)) = part.split_once('=') else {
+            continue;
+        };
+        match key.trim().to_ascii_uppercase().as_str() {
+            "FREQ" => {
+                freq = match value.trim().to_ascii_uppercase().as_str() {
+                    "DAILY" => Some(Frequency::Daily),
+                    "WEEKLY" => Some(Frequency::Weekly),
+                    "MONTHLY" => Some(Frequency::Monthly),
+                    "YEARLY" => Some(Frequency::Yearly),
+                    _ => None,
+                };
+            }
+            "INTERVAL" => interval = value.trim().parse::<u32>().unwrap_or(1).max(1),
+            "COUNT" => count = value.trim().parse::<usize>().ok(),
+            "UNTIL" => until_millis = parse_rrule_until(value.trim()),
+            "BYDAY" => {
+                byday = value
+                    .split(',')
+                    .filter_map(Weekday::from_rrule_token)
+                    .collect();
+            }
+            "BYMONTH" => bymonth = parse_rrule_number_list(value, 1, 12),
+            "BYMONTHDAY" => bymonthday = parse_rrule_number_list(value, 1, 31),
+            _ => {}
+        }
+    }
+
+    freq.map(|freq| RecurrenceRule {
+        byday,
+        bymonth,
+        bymonthday,
+        count,
+        freq,
+        interval,
+        until_millis,
+    })
+}
+
+fn parse_rrule_number_list(value: &str, min: u32, max: u32) -> Vec<u32> {
+    value
+        .split(',')
+        .filter_map(|part| part.trim().parse::<u32>().ok())
+        .filter(|value| (*value >= min) && (*value <= max))
+        .collect()
+}
+
+fn parse_rrule_until(value: &str) -> Option<i64> {
+    if value.contains('T') {
+        parse_ics_datetime(value, false).map(|moment| moment.millis)
+    } else {
+        parse_ics_datetime(value, true).map(|moment| moment.millis + DAY_MILLIS - 1)
+    }
+}
+
+fn rdate_occurrence_millis(event: &minicaldav::Event) -> Vec<i64> {
+    event
+        .properties()
+        .into_iter()
+        .filter(|(name, _)| name.eq_ignore_ascii_case("RDATE"))
+        .flat_map(|(_, value)| parse_ics_date_list(value))
+        .collect()
+}
+
+fn excluded_occurrence_millis(event: &minicaldav::Event) -> BTreeSet<i64> {
+    event
+        .properties()
+        .into_iter()
+        .filter(|(name, _)| name.eq_ignore_ascii_case("EXDATE"))
+        .flat_map(|(_, value)| parse_ics_date_list(value))
+        .collect()
+}
+
+fn parse_ics_date_list(value: &str) -> Vec<i64> {
+    value
+        .split(',')
+        .filter_map(|part| {
+            parse_ics_datetime(part.trim(), !part.contains('T')).map(|moment| moment.millis)
+        })
+        .collect()
+}
+
+fn parse_property_moment(property: &minicaldav::Property) -> Option<EventMoment> {
+    let all_day = property
+        .attribute("VALUE")
+        .or_else(|| property.attribute("value"))
+        .is_some_and(|value| value.eq_ignore_ascii_case("DATE"))
+        || (!property.value().contains('T')
+            && property
+                .value()
+                .chars()
+                .filter(|ch| ch.is_ascii_digit())
+                .count()
+                == 8);
+    parse_ics_datetime(property.value(), all_day)
+}
+
+fn parse_ics_datetime(value: &str, all_day: bool) -> Option<EventMoment> {
+    let digits: String = value.chars().filter(|ch| ch.is_ascii_digit()).collect();
+    if digits.len() < 8 {
+        return None;
+    }
+
+    let year = digits.get(0..4)?.parse::<i32>().ok()?;
+    let month = digits.get(4..6)?.parse::<u32>().ok()?;
+    let day = digits.get(6..8)?.parse::<u32>().ok()?;
+    let (hour, minute, second) = if all_day || digits.len() < 14 {
+        (0, 0, 0)
+    } else {
+        (
+            digits.get(8..10)?.parse::<u32>().ok()?,
+            digits.get(10..12)?.parse::<u32>().ok()?,
+            digits.get(12..14)?.parse::<u32>().ok()?,
+        )
+    };
+
+    if !valid_date_time(year, month, day, hour, minute, second) {
+        return None;
+    }
+
+    let parts = DateTimeParts {
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+    };
+
+    Some(EventMoment {
+        all_day,
+        millis: utc_millis(parts),
+        parts,
+    })
+}
+
+fn calendar_event_for_occurrence(
+    template: &EventTemplate,
+    starts_at_millis: i64,
+    recurring: bool,
+) -> CalendarEvent {
+    let ends_at_millis = starts_at_millis + template.duration_millis.max(1);
+    CalendarEvent {
+        all_day: template.all_day,
+        calendar_name: template.calendar_name.clone(),
+        description: template.description.clone(),
+        ends_at: iso_from_millis(ends_at_millis),
+        location: template.location.clone(),
+        source_url: template.source_url.clone(),
+        starts_at: iso_from_millis(starts_at_millis),
+        title: template.title.clone(),
+        uid: if recurring {
+            format!("{}@{}", template.uid, compact_timestamp(starts_at_millis))
+        } else {
+            template.uid.clone()
+        },
+    }
 }
 
 fn event_overlaps_range(event: &CalendarEvent, range: &CalendarEventRange) -> bool {
@@ -124,47 +637,118 @@ fn event_overlaps_range(event: &CalendarEvent, range: &CalendarEventRange) -> bo
     event_start < range_end && event_end > range_start
 }
 
-fn iso_millis(value: &str) -> Option<i64> {
-    let digits: String = value.chars().filter(|ch| ch.is_ascii_digit()).collect();
-    if digits.len() < 8 {
-        return None;
-    }
-
-    let year = digits.get(0..4)?.parse::<i32>().ok()?;
-    let month = digits.get(4..6)?.parse::<u32>().ok()?;
-    let day = digits.get(6..8)?.parse::<u32>().ok()?;
-    let hour = digits.get(8..10).unwrap_or("00").parse::<u32>().ok()?;
-    let minute = digits.get(10..12).unwrap_or("00").parse::<u32>().ok()?;
-    let second = digits.get(12..14).unwrap_or("00").parse::<u32>().ok()?;
-
-    Some(utc_seconds(year, month, day, hour, minute, second)? * 1000)
+fn compare_calendar_events(left: &CalendarEvent, right: &CalendarEvent) -> std::cmp::Ordering {
+    left.all_day
+        .cmp(&right.all_day)
+        .reverse()
+        .then_with(|| left.starts_at.cmp(&right.starts_at))
+        .then_with(|| left.ends_at.cmp(&right.ends_at))
+        .then_with(|| left.calendar_name.cmp(&right.calendar_name))
+        .then_with(|| left.title.cmp(&right.title))
+        .then_with(|| left.uid.cmp(&right.uid))
 }
 
-fn utc_seconds(
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    minute: u32,
-    second: u32,
-) -> Option<i64> {
-    if !(1..=12).contains(&month) || day < 1 || hour > 23 || minute > 59 || second > 59 {
-        return None;
-    }
-    if day > days_in_month(year, month) {
-        return None;
-    }
+fn parts_at_day_with_time(day_millis: i64, time_source: &DateTimeParts) -> Option<DateTimeParts> {
+    let days = day_millis.div_euclid(DAY_MILLIS);
+    let (year, month, day) = civil_from_days(days)?;
+    Some(DateTimeParts {
+        year,
+        month,
+        day,
+        hour: time_source.hour,
+        minute: time_source.minute,
+        second: time_source.second,
+    })
+}
 
-    let mut days = 0i64;
-    for current_year in 1970..year {
-        days += if is_leap_year(current_year) { 366 } else { 365 };
-    }
-    for current_month in 1..month {
-        days += i64::from(days_in_month(year, current_month));
-    }
-    days += i64::from(day - 1);
+fn iso_millis(value: &str) -> Option<i64> {
+    parse_ics_datetime(value, value.len() == 10).map(|moment| moment.millis)
+}
 
-    Some(days * 86_400 + i64::from(hour * 3600 + minute * 60 + second))
+fn iso_from_millis(millis: i64) -> String {
+    let days = millis.div_euclid(DAY_MILLIS);
+    let day_millis = millis.rem_euclid(DAY_MILLIS);
+    let (year, month, day) = civil_from_days(days).unwrap_or((1970, 1, 1));
+    let total_seconds = day_millis / 1000;
+    let hour = total_seconds / 3600;
+    let minute = (total_seconds % 3600) / 60;
+    let second = total_seconds % 60;
+
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.000Z")
+}
+
+fn compact_timestamp(millis: i64) -> String {
+    let iso = iso_from_millis(millis);
+    let prefix = iso
+        .split_once('.')
+        .map(|(prefix, _)| prefix)
+        .unwrap_or(&iso);
+    format!("{}Z", prefix.replace(['-', ':'], ""))
+}
+
+fn utc_millis(parts: DateTimeParts) -> i64 {
+    (days_from_civil(parts.year, parts.month, parts.day) * DAY_MILLIS)
+        + i64::from(parts.hour * 3_600 + parts.minute * 60 + parts.second) * 1000
+}
+
+fn valid_date_time(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> bool {
+    year >= 1
+        && (1..=12).contains(&month)
+        && (1..=days_in_month(year, month)).contains(&day)
+        && hour <= 23
+        && minute <= 59
+        && second <= 59
+}
+
+fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+    let mut year = i64::from(year);
+    let month = i64::from(month);
+    let day = i64::from(day);
+    year -= if month <= 2 { 1 } else { 0 };
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let month_prime = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * month_prime + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+
+    era * 146_097 + day_of_era - 719_468
+}
+
+fn civil_from_days(days: i64) -> Option<(i32, u32, u32)> {
+    let days = days + 719_468;
+    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36524 - day_of_era / 146096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += if month <= 2 { 1 } else { 0 };
+
+    Some((
+        i32::try_from(year).ok()?,
+        u32::try_from(month).ok()?,
+        u32::try_from(day).ok()?,
+    ))
+}
+
+fn week_start_day_number(year: i32, month: u32, day: u32) -> i64 {
+    let day_number = days_from_civil(year, month, day);
+    day_number - weekday_for_date(year, month, day).index()
+}
+
+fn weekday_for_date(year: i32, month: u32, day: u32) -> Weekday {
+    match (days_from_civil(year, month, day) + 3).rem_euclid(7) {
+        0 => Weekday::Monday,
+        1 => Weekday::Tuesday,
+        2 => Weekday::Wednesday,
+        3 => Weekday::Thursday,
+        4 => Weekday::Friday,
+        5 => Weekday::Saturday,
+        _ => Weekday::Sunday,
+    }
 }
 
 fn is_leap_year(year: i32) -> bool {
@@ -181,159 +765,6 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     }
 }
 
-fn xml_unescape(value: &str) -> String {
-    value
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&")
-}
-
-fn decode_calendar_data(raw: &str) -> String {
-    let trimmed = raw.trim();
-    if let Some(inner) = trimmed
-        .strip_prefix("<![CDATA[")
-        .and_then(|value| value.strip_suffix("]]>"))
-    {
-        return inner.to_string();
-    }
-
-    xml_unescape(trimmed)
-}
-
-fn extract_calendar_data_entries(body: &str) -> Vec<String> {
-    if body.contains("BEGIN:VEVENT") && !body.to_ascii_lowercase().contains("calendar-data") {
-        return vec![body.to_string()];
-    }
-
-    let lower = body.to_ascii_lowercase();
-    let mut entries = Vec::new();
-    let mut offset = 0usize;
-
-    while let Some(relative_name_pos) = lower[offset..].find("calendar-data") {
-        let name_pos = offset + relative_name_pos;
-        let Some(tag_start) = lower[..name_pos].rfind('<') else {
-            offset = name_pos + "calendar-data".len();
-            continue;
-        };
-
-        if lower[tag_start + 1..].starts_with('/') {
-            offset = name_pos + "calendar-data".len();
-            continue;
-        }
-
-        let Some(open_end_relative) = lower[name_pos..].find('>') else {
-            break;
-        };
-        let open_end = name_pos + open_end_relative;
-        let mut close_search = open_end + 1;
-        let mut close_bounds = None;
-
-        while let Some(relative_close_start) = lower[close_search..].find("</") {
-            let close_start = close_search + relative_close_start;
-            let Some(relative_close_end) = lower[close_start..].find('>') else {
-                break;
-            };
-            let close_end = close_start + relative_close_end;
-            if lower[close_start..close_end].contains("calendar-data") {
-                close_bounds = Some((close_start, close_end + 1));
-                break;
-            }
-            close_search = close_end + 1;
-        }
-
-        let Some((close_start, close_end)) = close_bounds else {
-            offset = open_end + 1;
-            continue;
-        };
-
-        entries.push(decode_calendar_data(&body[open_end + 1..close_start]));
-        offset = close_end;
-    }
-
-    if entries.is_empty() && body.contains("BEGIN:VEVENT") {
-        entries.push(body.to_string());
-    }
-
-    entries
-}
-
-pub fn parse_calendar_events(body: &str, calendar_name: Option<String>) -> Vec<CalendarEvent> {
-    extract_calendar_data_entries(body)
-        .into_iter()
-        .flat_map(|entry| parse_ics_events(&entry, calendar_name.clone()))
-        .collect()
-}
-
-fn parse_ics_events(ics: &str, calendar_name: Option<String>) -> Vec<CalendarEvent> {
-    vevent_blocks(&unfold_ics_lines(ics))
-        .into_iter()
-        .filter_map(|lines| parse_vevent(&lines, calendar_name.clone()))
-        .collect()
-}
-
-fn unfold_ics_lines(ics: &str) -> Vec<String> {
-    let mut lines: Vec<String> = Vec::new();
-
-    for raw_line in ics.replace("\r\n", "\n").replace('\r', "\n").lines() {
-        if raw_line.starts_with(' ') || raw_line.starts_with('\t') {
-            if let Some(last) = lines.last_mut() {
-                last.push_str(raw_line.trim_start());
-            }
-            continue;
-        }
-
-        lines.push(raw_line.to_string());
-    }
-
-    lines
-}
-
-fn vevent_blocks(lines: &[String]) -> Vec<Vec<String>> {
-    let mut blocks = Vec::new();
-    let mut current: Vec<String> = Vec::new();
-    let mut in_event = false;
-
-    for line in lines {
-        let upper = line.to_ascii_uppercase();
-        if upper == "BEGIN:VEVENT" {
-            current.clear();
-            in_event = true;
-            continue;
-        }
-
-        if upper == "END:VEVENT" && in_event {
-            blocks.push(current.clone());
-            current.clear();
-            in_event = false;
-            continue;
-        }
-
-        if in_event {
-            current.push(line.clone());
-        }
-    }
-
-    blocks
-}
-
-fn property_value(lines: &[String], name: &str) -> Option<String> {
-    for line in lines {
-        let Some((key, value)) = line.split_once(':') else {
-            continue;
-        };
-        let Some(property_name) = key.split(';').next() else {
-            continue;
-        };
-        if property_name.trim().eq_ignore_ascii_case(name) {
-            return Some(unescape_ics_text(value.trim()));
-        }
-    }
-
-    None
-}
-
 fn unescape_ics_text(value: &str) -> String {
     value
         .replace("\\n", "\n")
@@ -343,173 +774,150 @@ fn unescape_ics_text(value: &str) -> String {
         .replace("\\\\", "\\")
 }
 
-fn parse_vevent(lines: &[String], calendar_name: Option<String>) -> Option<CalendarEvent> {
-    let uid = property_value(lines, "UID").unwrap_or_else(|| {
-        property_value(lines, "DTSTART").unwrap_or_else(|| format!("event-{}", lines.len()))
-    });
-    let title = property_value(lines, "SUMMARY").unwrap_or_else(|| "Untitled event".to_string());
-    let (starts_at, all_day) = parse_ics_datetime(&property_value(lines, "DTSTART")?)?;
-    let ends_at = property_value(lines, "DTEND")
-        .and_then(|value| parse_ics_datetime(&value).map(|(iso, _)| iso))
-        .unwrap_or_else(|| {
-            if all_day {
-                next_day_iso(&starts_at)
-            } else {
-                starts_at.clone()
-            }
-        });
-
-    Some(CalendarEvent {
-        all_day,
-        calendar_name,
-        description: property_value(lines, "DESCRIPTION"),
-        ends_at,
-        location: property_value(lines, "LOCATION"),
-        source_url: property_value(lines, "URL"),
-        starts_at,
-        title,
-        uid,
-    })
-}
-
-fn parse_ics_datetime(value: &str) -> Option<(String, bool)> {
-    let trimmed = value.trim();
-    let digits: String = trimmed.chars().filter(|ch| ch.is_ascii_digit()).collect();
-
-    if digits.len() == 8 && !trimmed.contains('T') {
-        return Some((format_date_start(&digits), true));
-    }
-
-    if digits.len() < 14 {
-        return None;
-    }
-
-    let date = &digits[..8];
-    let time = &digits[8..14];
-    Some((
-        format!(
-            "{}-{}-{}T{}:{}:{}.000Z",
-            &date[0..4],
-            &date[4..6],
-            &date[6..8],
-            &time[0..2],
-            &time[2..4],
-            &time[4..6]
-        ),
-        false,
-    ))
-}
-
-fn format_date_start(date: &str) -> String {
-    format!(
-        "{}-{}-{}T00:00:00.000Z",
-        &date[0..4],
-        &date[4..6],
-        &date[6..8]
-    )
-}
-
-fn next_day_iso(iso: &str) -> String {
-    let digits: String = iso.chars().filter(|ch| ch.is_ascii_digit()).collect();
-    if digits.len() < 8 {
-        return iso.to_string();
-    }
-
-    let Ok(year) = digits[0..4].parse::<i32>() else {
-        return iso.to_string();
-    };
-    let Ok(month) = digits[4..6].parse::<u32>() else {
-        return iso.to_string();
-    };
-    let Ok(day) = digits[6..8].parse::<u32>() else {
-        return iso.to_string();
-    };
-
-    let mut next_year = year;
-    let mut next_month = month;
-    let mut next_day = day + 1;
-    if next_day > days_in_month(year, month) {
-        next_day = 1;
-        next_month += 1;
-    }
-    if next_month > 12 {
-        next_month = 1;
-        next_year += 1;
-    }
-
-    format!("{next_year:04}-{next_month:02}-{next_day:02}T00:00:00.000Z")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn builds_caldav_calendar_query_time_range() {
-        let body = calendar_query_body(&CalendarEventRange {
-            start: "2026-06-01T00:00:00.000Z".to_string(),
-            end: "2026-07-01T00:00:00.000Z".to_string(),
-        })
-        .unwrap();
+    fn range(start: &str, end: &str) -> CalendarEventRange {
+        CalendarEventRange {
+            end: end.to_string(),
+            start: start.to_string(),
+        }
+    }
 
-        assert!(body.contains("<C:calendar-query"));
-        assert!(body.contains("start=\"20260601T000000Z\""));
-        assert!(body.contains("end=\"20260701T000000Z\""));
+    fn event(uid: &str, summary: &str, start: &str, end: &str) -> minicaldav::Event {
+        minicaldav::Event::builder(
+            Url::parse(&format!("https://calendar.example.test/{uid}.ics")).unwrap(),
+        )
+        .uid(uid.to_string())
+        .summary(summary.to_string())
+        .start(start.to_string(), vec![])
+        .end(end.to_string(), vec![])
+        .build()
     }
 
     #[test]
-    fn parses_multistatus_calendar_data_into_events() {
-        let xml = r#"
-          <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-            <D:response>
-              <D:propstat><D:prop><C:calendar-data><![CDATA[
-BEGIN:VCALENDAR
-BEGIN:VEVENT
-UID:daily-sync
-SUMMARY:Daily Sync
-DTSTART:20260625T160000Z
-DTEND:20260625T163000Z
-LOCATION:Matrix room 7
-DESCRIPTION:Standup bridge
-END:VEVENT
-BEGIN:VEVENT
-UID:launch-window
-SUMMARY:Launch Window
-DTSTART;VALUE=DATE:20260625
-DTEND;VALUE=DATE:20260626
-END:VEVENT
-END:VCALENDAR
-              ]]></C:calendar-data></D:prop></D:propstat>
-            </D:response>
-          </D:multistatus>
-        "#;
+    fn normalizes_events_from_multiple_calendars() {
+        let ops = event(
+            "ops-sync",
+            "Ops sync",
+            "20260625T160000Z",
+            "20260625T163000Z",
+        );
+        let personal = event(
+            "personal-call",
+            "Personal call",
+            "20260625T120000Z",
+            "20260625T123000Z",
+        );
+        let range = range("2026-06-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z");
 
-        let mut events = parse_calendar_events(xml, Some("Ops".to_string()));
+        let mut events = normalize_minicaldav_events("Ops", &[ops], &range);
+        events.extend(normalize_minicaldav_events("Personal", &[personal], &range));
         events.sort_by(compare_calendar_events);
 
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].uid, "launch-window");
-        assert!(events[0].all_day);
-        assert_eq!(events[0].starts_at, "2026-06-25T00:00:00.000Z");
-        assert_eq!(events[0].ends_at, "2026-06-26T00:00:00.000Z");
-        assert_eq!(events[1].uid, "daily-sync");
-        assert_eq!(events[1].location.as_deref(), Some("Matrix room 7"));
+        assert_eq!(events[0].calendar_name.as_deref(), Some("Personal"));
         assert_eq!(events[1].calendar_name.as_deref(), Some("Ops"));
+        assert_eq!(
+            events[1].source_url.as_deref(),
+            Some("https://calendar.example.test/ops-sync.ics")
+        );
     }
 
     #[test]
-    fn parses_escaped_calendar_data_without_xml_dependencies() {
-        let xml = r#"<calendar-data>BEGIN:VCALENDAR
-BEGIN:VEVENT
-UID:escaped
-SUMMARY:Escaped &amp; Reviewed
-DTSTART:20260625T090000Z
-END:VEVENT
-END:VCALENDAR</calendar-data>"#;
+    fn expands_weekly_rrule_occurrences_inside_visible_range() {
+        let recurring = minicaldav::Event::builder(
+            Url::parse("https://calendar.example.test/weekly.ics").unwrap(),
+        )
+        .uid("weekly-sync".to_string())
+        .summary("Weekly sync".to_string())
+        .start("20260601T090000Z".to_string(), vec![])
+        .end("20260601T100000Z".to_string(), vec![])
+        .rrule(Some("FREQ=WEEKLY;COUNT=3;BYDAY=MO".to_string()))
+        .build();
+        let events = normalize_minicaldav_events(
+            "Ops",
+            &[recurring],
+            &range("2026-06-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z"),
+        );
 
-        let events = parse_calendar_events(xml, None);
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.starts_at.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "2026-06-01T09:00:00.000Z",
+                "2026-06-08T09:00:00.000Z",
+                "2026-06-15T09:00:00.000Z",
+            ]
+        );
+        assert_eq!(events[0].uid, "weekly-sync@20260601T090000Z");
+    }
 
-        assert_eq!(events[0].title, "Escaped & Reviewed");
-        assert_eq!(events[0].ends_at, "2026-06-25T09:00:00.000Z");
+    #[test]
+    fn respects_exdate_and_rdate_for_recurring_events() {
+        let recurring = minicaldav::Event::builder(
+            Url::parse("https://calendar.example.test/standup.ics").unwrap(),
+        )
+        .uid("standup".to_string())
+        .summary("Standup".to_string())
+        .start("20260601T090000Z".to_string(), vec![])
+        .end("20260601T093000Z".to_string(), vec![])
+        .rrule(Some("FREQ=DAILY;COUNT=3".to_string()))
+        .generic("EXDATE".to_string(), "20260602T090000Z".to_string())
+        .generic("RDATE".to_string(), "20260605T090000Z".to_string())
+        .build();
+        let events = normalize_minicaldav_events(
+            "Ops",
+            &[recurring],
+            &range("2026-06-01T00:00:00.000Z", "2026-06-10T00:00:00.000Z"),
+        );
+
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.starts_at.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "2026-06-01T09:00:00.000Z",
+                "2026-06-03T09:00:00.000Z",
+                "2026-06-05T09:00:00.000Z",
+            ]
+        );
+    }
+
+    #[test]
+    fn keeps_annual_all_day_recurrences_in_later_visible_ranges() {
+        let recurring = minicaldav::Event::builder(
+            Url::parse("https://calendar.example.test/birthday.ics").unwrap(),
+        )
+        .uid("birthday".to_string())
+        .summary("Birthday".to_string())
+        .start("20080212".to_string(), vec![("VALUE", "DATE")])
+        .end("20080213".to_string(), vec![("VALUE", "DATE")])
+        .rrule(Some("FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=12".to_string()))
+        .build();
+        let events = normalize_minicaldav_events(
+            "Personal",
+            &[recurring],
+            &range("2026-02-01T00:00:00.000Z", "2026-03-01T00:00:00.000Z"),
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(events[0].all_day);
+        assert_eq!(events[0].starts_at, "2026-02-12T00:00:00.000Z");
+        assert_eq!(events[0].ends_at, "2026-02-13T00:00:00.000Z");
+    }
+
+    #[test]
+    fn converts_civil_dates_around_unix_epoch() {
+        assert_eq!(iso_from_millis(0), "1970-01-01T00:00:00.000Z");
+        assert_eq!(
+            iso_from_millis(1_782_777_600_000),
+            "2026-06-30T00:00:00.000Z"
+        );
+        assert_eq!(weekday_for_date(2026, 6, 1), Weekday::Monday);
     }
 }

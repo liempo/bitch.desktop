@@ -69,7 +69,7 @@ plumbing because it happens to be nearby and unsupervised.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Hermes     | Dashboard `/api/*` requests, authenticated remote files/media, JSON-RPC runtime gateway, ws-ticket/session-token handling, profile-scoped dashboard/plugin APIs | Beszel/monitoring, generic native helpers, non-Hermes services |
 | Monitoring | Beszel/PocketBase monitoring telemetry, `MONITORING_*` config, system selection, token refresh, metrics reads                                                   | Hermes dashboard/session/files/gateway/plugin modules          |
-| Calendar   | CalDAV `CALDAV_*` config, Basic auth, calendar-query REPORTs, ICS event normalization, Calendar route event ViewModel                                           | Hermes dashboard proxying, Beszel monitoring, local schedulers |
+| Calendar   | CalDAV `CALDAV_*` config, Basic auth, minicaldav calendar discovery, recurrence expansion, Calendar route event ViewModel                                       | Hermes dashboard proxying, Beszel monitoring, local schedulers |
 | Platform   | Native app helpers: connection config storage, external URL opening, window setup, generic invoke/event wrappers                                                | Product backend route knowledge for Hermes or Beszel           |
 | Shared     | Pure utilities such as errors, layout helpers, UI helpers, typed DTOs, storage namespace helpers                                                                | Feature-lane imports or privileged backend calls               |
 
@@ -159,8 +159,7 @@ src/lib/calendar/
 ```
 
 The matching Rust lane lives under `src-tauri/src/calendar` with stable command
-wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` is a concrete
-calendar collection URL; credentials remain behind Tauri.
+wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri.
 
 ## Platform renderer lane: `src/lib/platform/*`
 
@@ -207,7 +206,7 @@ src-tauri/src/
   calendar/
     mod.rs
     config.rs        CALDAV_* configuration
-    caldav.rs        CalDAV calendar-query REPORTs and ICS normalization
+    caldav.rs        minicaldav discovery, event loading, and recurrence normalization
   platform/
     mod.rs
     window.rs

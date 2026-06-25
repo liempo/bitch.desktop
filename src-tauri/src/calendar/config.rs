@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::config::config_value;
 
 pub const CALDAV_CONFIG_HINT: &str =
-    "Set CALDAV_URL to a CalDAV calendar collection URL, plus CALDAV_USERNAME and CALDAV_PASSWORD.";
+    "Set CALDAV_URL to a CalDAV endpoint or calendar collection URL, plus CALDAV_USERNAME and CALDAV_PASSWORD.";
 
 #[derive(Clone, Debug)]
 pub struct CalDavConfig {
@@ -110,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn resolves_caldav_collection_url_and_credentials() {
+    fn resolves_caldav_endpoint_url_and_credentials() {
         let config = resolve_with_values(&[
             (
                 "CALDAV_URL",

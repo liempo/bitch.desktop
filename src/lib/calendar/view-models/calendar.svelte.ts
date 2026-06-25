@@ -47,7 +47,7 @@ export class CalendarViewModel {
   get configurationHint(): string {
     return (
       this.configStatus?.hint ??
-      'Set CALDAV_URL to a calendar collection URL, plus CALDAV_USERNAME and CALDAV_PASSWORD.'
+      'Set CALDAV_URL to a CalDAV endpoint or calendar collection URL, plus CALDAV_USERNAME and CALDAV_PASSWORD.'
     )
   }
 

@@ -27,4 +27,8 @@ serde_json = "1"
 tokio = { version = "1", features = ["net", "rt", "sync", "macros"] }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
+chrono = "0.4"
+minicaldav = "0.8"
+rrule = "0.14"
+ureq = { version = "2", features = ["tls"] }
 url = "2"

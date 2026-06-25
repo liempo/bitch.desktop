@@ -105,6 +105,16 @@ describe('Rust bridge backend lanes', () => {
     expect(libSource).not.toMatch(/fn\s+open_url_in_browser/)
   })
 
+  it('uses minicaldav for CalDAV discovery, multi-calendar event loading, and RRULE expansion', () => {
+    expect(calendarCaldavSource).toContain('minicaldav::get_calendars')
+    expect(calendarCaldavSource).toContain('minicaldav::get_events')
+    expect(calendarCaldavSource).toMatch(/for\s+calendar\s+in\s+calendars/)
+    expect(calendarCaldavSource).toContain('expand_recurring_event')
+    expect(calendarCaldavSource).toContain('RRULE')
+    expect(calendarCaldavSource).toContain('rrule::RRuleSet')
+    expect(calendarCaldavSource).not.toContain('calendar_query_body')
+  })
+
   it('does not leak Hermes, monitoring, or platform concerns across Rust lanes', () => {
     expect(hermesConfigSource).not.toMatch(/MONITORING_|Beszel/)
     expect(monitoringConfigSource).not.toMatch(/HERMES_DASHBOARD|BITCH_DASHBOARD|GatewayConfig/)

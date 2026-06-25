@@ -9,7 +9,7 @@ It follows the same Clean MVVM / Ports & Adapters split as the other feature lan
 - `application/` owns use-case orchestration.
 - `view-models/` owns Svelte page state for the Calendar route.
 
-CalDAV credentials stay behind the Tauri bridge. Renderer code calls
+CalDAV credentials, multi-calendar discovery, and recurrence expansion stay behind the Tauri bridge. Renderer code calls
 `get_caldav_config_status` and `list_calendar_events`; it does not read
 `CALDAV_PASSWORD`, import Hermes dashboard clients, or tunnel through
 `dashboard_request`.
