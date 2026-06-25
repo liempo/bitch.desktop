@@ -158,9 +158,7 @@ export interface KanbanStatusUpdateContext extends KanbanRequestContext {
 }
 
 const KANBAN_PLUGIN_BASE = '/api/plugins/kanban'
-const STATUS_DISPLAY_ALIASES: Record<string, KanbanStatus> = {
-  review: 'blocked'
-}
+const STATUS_DISPLAY_ALIASES: Record<string, KanbanStatus> = {}
 
 export function kanbanDisplayStatus(status: KanbanStatus | (string & {})): KanbanStatus | (string & {}) {
   return STATUS_DISPLAY_ALIASES[status] ?? status

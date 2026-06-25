@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { Popover } from 'bits-ui'
   import Button from '@/app/components/ui/Button.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
+  import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import { agentRoute } from '../router.svelte'
   import {
     addKanbanComment,
@@ -20,17 +22,28 @@
   import { messageForError } from '$lib/errors'
   import { ensureGatewayProfile, profileState } from '$lib/hermes/profiles'
 
-  const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'blocked', 'done', 'archived'])
+  const DIRECT_DROP_STATUSES = new Set<string>(['triage', 'todo', 'scheduled', 'ready', 'review', 'blocked', 'done', 'archived'])
   const COLUMN_LABELS: Record<string, string> = {
     triage: 'Triage',
     todo: 'Todo',
     scheduled: 'Scheduled',
     ready: 'Ready',
     running: 'Running',
+    review: 'Review',
     blocked: 'Blocked',
     done: 'Done',
     archived: 'Archived'
   }
+
+  const labelClass = 'grid gap-1 text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted'
+  const pillClass = 'rounded-control border border-line bg-canvas px-1.5 py-1 font-mono text-[0.62rem] text-ink-muted'
+  const filterTriggerClass = [
+    'min-h-8 w-full rounded-control border border-line bg-canvas px-2 py-1 text-left font-mono text-sm normal-case tracking-normal text-ink-bright',
+    'transition hover:border-line-strong hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
+    'disabled:cursor-not-allowed disabled:opacity-50'
+  ].join(' ')
+  const filterMenuContentClass = `${popoverClass} z-50 w-64 p-1.5 font-mono`
+  const filterMenuItemClass = `${menuItemClass} flex w-full items-start justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
 
   let selectedProfile = $state('default')
   let boards = $state<KanbanBoardMeta[]>([])
@@ -52,6 +65,9 @@
   let draggedTaskStatus = $state<string | null>(null)
   let newComment = $state('')
   let commentSaving = $state(false)
+  let profileMenuOpen = $state(false)
+  let boardMenuOpen = $state(false)
+  let tenantMenuOpen = $state(false)
 
   const activeProfile = $derived(selectedProfile || profileState.activeGatewayProfile || 'default')
   const selectedBoardMeta = $derived.by(() => boards.find(board => board.slug === selectedBoard) ?? null)
@@ -62,6 +78,9 @@
     return [...names].filter(Boolean).sort((a, b) => a.localeCompare(b))
   })
   const selectedReferences = $derived.by(() => referenceMatches(selectedTaskDetail))
+  const selectedProfileLabel = $derived(selectedProfile || 'default')
+  const selectedBoardLabel = $derived(selectedBoardMeta?.name || selectedBoard || 'no board')
+  const selectedTenantLabel = $derived(tenantFilter || 'all tenants')
 
   onMount(() => {
     selectedProfile = profileState.activeGatewayProfile || 'default'
@@ -77,6 +96,8 @@
     switch (kanbanDisplayStatus(status)) {
       case 'running':
         return 'border-primary/40 bg-primary/10 text-primary'
+      case 'review':
+        return 'border-secondary/40 bg-secondary/10 text-secondary'
       case 'blocked':
         return 'border-danger/40 bg-danger/10 text-danger'
       case 'done':
@@ -89,10 +110,9 @@
   }
 
   function cardClass(task: KanbanTask): string {
-    const base =
-      'w-full rounded-panel border p-3 text-left shadow-sm transition focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
-    const selected = selectedTaskId === task.id ? 'border-primary/70 bg-primary/10' : 'border-line bg-surface-raised/80'
-    return `${base} ${selected} hover:border-line-strong hover:bg-surface-raised`
+    const base = 'w-full rounded-panel border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
+    const selected = selectedTaskId === task.id ? 'border-primary/70 bg-primary/10' : 'border-line bg-surface-raised'
+    return `${base} ${selected} hover:border-line-strong hover:bg-primary/5`
   }
 
   function markerForTask(task: KanbanTask): string {
@@ -101,6 +121,7 @@
       const stale = typeof task.last_heartbeat_at === 'number' && boardNow > 0 && boardNow - task.last_heartbeat_at > 60 * 60
       return stale ? 'stale worker' : 'in progress'
     }
+    if (displayStatus === 'review') return 'review'
     if (displayStatus === 'blocked') return 'blocked'
     if (task.warnings?.count) return `${task.warnings.count} diagnostics`
     if (task.progress) return `${task.progress.done}/${task.progress.total} children`
@@ -109,6 +130,7 @@
 
   function markerClass(task: KanbanTask): string {
     const marker = markerForTask(task)
+    if (marker === 'review') return 'border-secondary/40 bg-secondary/10 text-secondary'
     if (marker.includes('stale') || marker === 'blocked') return 'border-danger/40 bg-danger/10 text-danger'
     if (marker.includes('diagnostics')) return 'border-warning/40 bg-warning/10 text-warning'
     if (marker === 'in progress') return 'border-primary/40 bg-primary/10 text-primary'
@@ -235,25 +257,25 @@
     }
   }
 
-  async function handleProfileChange(event: Event): Promise<void> {
-    const target = event.currentTarget as HTMLSelectElement
-    selectedProfile = target.value || 'default'
+  async function selectProfileOption(profile: string): Promise<void> {
+    selectedProfile = profile || 'default'
+    profileMenuOpen = false
     selectedTaskId = null
     selectedTaskDetail = null
     await loadKanbanBoards()
   }
 
-  async function handleBoardChange(event: Event): Promise<void> {
-    const target = event.currentTarget as HTMLSelectElement
-    selectedBoard = target.value
+  async function selectBoardOption(board: KanbanBoardMeta): Promise<void> {
+    selectedBoard = board.slug
+    boardMenuOpen = false
     selectedTaskId = null
     selectedTaskDetail = null
     await loadKanbanBoard()
   }
 
-  async function handleTenantChange(event: Event): Promise<void> {
-    const target = event.currentTarget as HTMLSelectElement
-    tenantFilter = target.value
+  async function selectTenantOption(tenant: string): Promise<void> {
+    tenantFilter = tenant
+    tenantMenuOpen = false
     selectedTaskId = null
     selectedTaskDetail = null
     await loadKanbanBoard()
@@ -301,34 +323,79 @@
   aria-label="Kanban board"
 >
   <Panel title="Kanban Board" padded={false} fullHeight={false} contentClass="p-3" actions={boardActions}>
-    <div class="grid gap-3 md:grid-cols-[minmax(10rem,14rem)_minmax(10rem,14rem)_minmax(10rem,14rem)_1fr]">
-      <label class="flex flex-col gap-1 text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted">
+    <div class="grid gap-3 md:grid-cols-[minmax(10rem,14rem)_minmax(10rem,14rem)_minmax(10rem,14rem)_1fr] md:items-end">
+      <div class={labelClass}>
         Remote profile
-        <select class="rounded-control border border-line bg-canvas px-2 py-1 text-sm normal-case tracking-normal text-ink-bright" bind:value={selectedProfile} onchange={handleProfileChange}>
-          {#each profileOptions as profile}
-            <option value={profile}>{profile}</option>
-          {/each}
-        </select>
-      </label>
+        <Popover.Root bind:open={profileMenuOpen}>
+          <Popover.Trigger class={filterTriggerClass} aria-label={`Choose Kanban remote profile. Current profile: ${selectedProfileLabel}`}>
+            profile:{selectedProfileLabel}
+          </Popover.Trigger>
+          <Popover.Content class={filterMenuContentClass} sideOffset={4} align="start">
+            <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">remote profiles</div>
+            <div class="grid gap-1">
+              {#each profileOptions as profile}
+                <button class={filterMenuItemClass} type="button" onclick={() => void selectProfileOption(profile)} aria-pressed={profile === selectedProfile}>
+                  <span class="min-w-0 truncate">profile:{profile}</span>
+                  {#if profile === selectedProfile}<span class="shrink-0 text-primary">active</span>{/if}
+                </button>
+              {/each}
+            </div>
+          </Popover.Content>
+        </Popover.Root>
+      </div>
 
-      <label class="flex flex-col gap-1 text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted">
+      <div class={labelClass}>
         Board
-        <select class="rounded-control border border-line bg-canvas px-2 py-1 text-sm normal-case tracking-normal text-ink-bright" bind:value={selectedBoard} onchange={handleBoardChange} disabled={loadingBoards || boards.length === 0}>
-          {#each boards as board}
-            <option value={board.slug}>{board.name || board.slug}</option>
-          {/each}
-        </select>
-      </label>
+        <Popover.Root bind:open={boardMenuOpen}>
+          <Popover.Trigger class={filterTriggerClass} disabled={loadingBoards || boards.length === 0} aria-label={`Choose Kanban board. Current board: ${selectedBoardLabel}`}>
+            board:{selectedBoardLabel}
+          </Popover.Trigger>
+          <Popover.Content class={filterMenuContentClass} sideOffset={4} align="start">
+            <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">available boards</div>
+            {#if loadingBoards}
+              <div class="px-2 py-1.5 text-[11px] uppercase tracking-[0.08em] text-ink-muted">syncing boards…</div>
+            {:else if boards.length === 0}
+              <div class="px-2 py-1.5 text-[11px] uppercase tracking-[0.08em] text-ink-muted">no boards reported</div>
+            {:else}
+              <div class="grid gap-1">
+                {#each boards as board}
+                  <button class={filterMenuItemClass} type="button" onclick={() => void selectBoardOption(board)} aria-pressed={board.slug === selectedBoard}>
+                    <span class="min-w-0">
+                      <span class="block truncate">board:{board.name || board.slug}</span>
+                      <span class="mt-0.5 block truncate text-[10px] text-ink-muted/80">{board.slug} · {board.total ?? 0} cards</span>
+                    </span>
+                    {#if board.slug === selectedBoard}<span class="shrink-0 text-primary">current</span>{/if}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </Popover.Content>
+        </Popover.Root>
+      </div>
 
-      <label class="flex flex-col gap-1 text-[0.65rem] uppercase tracking-[0.16em] text-ink-muted">
+      <div class={labelClass}>
         Tenant
-        <select class="rounded-control border border-line bg-canvas px-2 py-1 text-sm normal-case tracking-normal text-ink-bright" bind:value={tenantFilter} onchange={handleTenantChange}>
-          <option value="">All tenants</option>
-          {#each tenants as tenant}
-            <option value={tenant}>{tenant}</option>
-          {/each}
-        </select>
-      </label>
+        <Popover.Root bind:open={tenantMenuOpen}>
+          <Popover.Trigger class={filterTriggerClass} aria-label={`Choose Kanban tenant. Current tenant: ${selectedTenantLabel}`}>
+            tenant:{selectedTenantLabel}
+          </Popover.Trigger>
+          <Popover.Content class={filterMenuContentClass} sideOffset={4} align="start">
+            <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">tenants</div>
+            <div class="grid gap-1">
+              <button class={filterMenuItemClass} type="button" onclick={() => void selectTenantOption('')} aria-pressed={tenantFilter === ''}>
+                <span class="min-w-0 truncate">tenant:all tenants</span>
+                {#if tenantFilter === ''}<span class="shrink-0 text-primary">active</span>{/if}
+              </button>
+              {#each tenants as tenant}
+                <button class={filterMenuItemClass} type="button" onclick={() => void selectTenantOption(tenant)} aria-pressed={tenant === tenantFilter}>
+                  <span class="min-w-0 truncate">tenant:{tenant}</span>
+                  {#if tenant === tenantFilter}<span class="shrink-0 text-primary">active</span>{/if}
+                </button>
+              {/each}
+            </div>
+          </Popover.Content>
+        </Popover.Root>
+      </div>
 
       <div class="flex min-w-0 flex-col justify-end text-xs leading-5 text-ink-muted">
         <span class="min-w-0 overflow-hidden whitespace-nowrap">{selectedBoardMeta?.description || 'Hermes Kanban cards via authenticated dashboard plugin routes.'}</span>
@@ -351,20 +418,20 @@
     </div>
   {/if}
 
-  <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+  <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
     <Panel
-      title="Grouped cards"
+      title="Cards"
       badge={loadingBoard ? 'SYNC' : `${visibleTaskCount}`}
       padded={false}
       class="min-h-112 md:min-h-0"
-      contentClass="overflow-hidden p-3"
+      contentClass="flex min-h-0 flex-col overflow-hidden p-3"
     >
       {#if loadingBoard && columns.length === 0}
         <div class="flex h-full items-center justify-center font-hud text-[0.72rem] uppercase tracking-[0.18em] text-primary">
           Loading grouped cards…
         </div>
       {:else}
-        <div class="h-full min-h-0 space-y-3 overflow-auto pr-1" data-selectable="true">
+        <div class="min-h-0 flex-1 space-y-3 overflow-auto pr-1" data-selectable="true">
           {#each columns as column (column.name)}
             <section
               class="rounded-panel border border-line bg-canvas/45"
@@ -394,7 +461,7 @@
                     {@const marker = markerForTask(task)}
                     <button
                       type="button"
-                      class={`${cardClass(task)} grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)] md:items-start`}
+                      class={`${cardClass(task)} grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)] 2xl:items-start`}
                       draggable="true"
                       ondragstart={event => handleDragStart(event, task)}
                       ondragend={handleDragEnd}
@@ -411,19 +478,19 @@
                         </p>
                       </div>
 
-                      <div class="flex flex-wrap gap-1.5 md:justify-end">
+                      <div class="flex flex-wrap gap-1.5 2xl:justify-end">
                         {#if task.assignee}
-                          <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.62rem] text-secondary">@{task.assignee}</span>
+                          <span class={pillClass}>@{task.assignee}</span>
                         {/if}
                         {#if task.tenant}
-                          <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.62rem] text-ink-muted">{task.tenant}</span>
+                          <span class={pillClass}>{task.tenant}</span>
                         {/if}
                         {#if marker}
                           <span class={`rounded-control border px-1.5 py-0.5 text-[0.62rem] ${markerClass(task)}`}>{marker}</span>
                         {/if}
                       </div>
 
-                      <div class="flex items-center justify-between gap-3 border-t border-line/60 pt-2 font-mono text-[0.62rem] text-ink-faint md:col-span-2">
+                      <div class="flex items-center justify-between gap-3 border-t border-line/60 pt-2 font-mono text-[0.62rem] text-ink-faint 2xl:col-span-2">
                         <span>priority {task.priority ?? 0}</span>
                         <span>age {formatAge(task.age?.created_age_seconds)}</span>
                       </div>
