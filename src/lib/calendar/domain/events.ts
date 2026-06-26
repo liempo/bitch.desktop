@@ -15,6 +15,11 @@ export interface CalendarEventRange {
   start: string
 }
 
+export interface CalendarVisibleRangeOptions {
+  monthsAfter?: number
+  monthsBefore?: number
+}
+
 export interface CalendarSyncStatus {
   cachedSources: number
   lastError?: null | string
@@ -95,7 +100,10 @@ export function calendarDateKey(value: Date | string): string {
   return directMatch ? `${directMatch[1]}-${directMatch[2]}-${directMatch[3]}` : ''
 }
 
-export function calendarVisibleRange(anchor: Date | string = new Date()): CalendarEventRange {
+export function calendarVisibleRange(
+  anchor: Date | string = new Date(),
+  options: CalendarVisibleRangeOptions = {}
+): CalendarEventRange {
   const anchorKey = calendarDateKey(anchor)
   const parts = dateKeyParts(anchorKey) ?? dateKeyParts(calendarDateKey(new Date()))
   if (!parts) {
@@ -105,9 +113,11 @@ export function calendarVisibleRange(anchor: Date | string = new Date()): Calend
     }
   }
 
+  const monthsBefore = Math.max(0, Math.floor(options.monthsBefore ?? 0))
+  const monthsAfter = Math.max(0, Math.floor(options.monthsAfter ?? 0))
   const [year, month] = parts
-  const start = new Date(year, month - 1, 1)
-  const end = new Date(year, month, 1)
+  const start = new Date(year, month - 1 - monthsBefore, 1)
+  const end = new Date(year, month + monthsAfter, 1)
 
   return {
     end: isoFromLocalDate(end),

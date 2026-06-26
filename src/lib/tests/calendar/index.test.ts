@@ -121,6 +121,17 @@ describe('calendar domain helpers', () => {
     expect(calendarDateKey('2026-06-25')).toBe('2026-06-25')
   })
 
+  it('derives continuous multi-month fetch windows from the visible anchor', () => {
+    expect(calendarVisibleRange('2026-06-15', { monthsAfter: 6, monthsBefore: 6 })).toEqual({
+      end: isoFromLocalDate(2027, 0, 1),
+      start: isoFromLocalDate(2025, 11, 1)
+    })
+    expect(calendarVisibleRange('2026-06-15', { monthsAfter: 1, monthsBefore: 1 })).toEqual({
+      end: isoFromLocalDate(2026, 7, 1),
+      start: isoFromLocalDate(2026, 4, 1)
+    })
+  })
+
   it('uses the system timezone for instant date keys, month ranges, and timed day grouping', () => {
     withTimeZone('America/Los_Angeles', () => {
       const lateNightEvent: CalendarEvent = {
@@ -211,6 +222,63 @@ describe('calendar view model', () => {
 
     expect(loadEvents).toHaveBeenCalledWith(localMonthRange(2026, 6))
     expect(syncEvents).not.toHaveBeenCalled()
+  })
+
+  it('loads continuous visible month stacks from cache without running a CalDAV sync', async () => {
+    const loadEvents = vi.fn().mockResolvedValue([])
+    const loadStatus = vi.fn().mockResolvedValue({
+      configured: true,
+      calendarUrl: 'https://calendar.example.test/caldav/home/',
+      username: 'operator'
+    })
+    const syncEvents = vi.fn()
+    const viewModel = createCalendarViewModel({
+      loadEvents,
+      loadStatus,
+      now: () => new Date('2026-06-25T12:00:00.000Z'),
+      syncEvents
+    })
+
+    await viewModel.loadVisibleRange({ monthsAfter: 6, monthsBefore: 6 })
+    await viewModel.refresh()
+
+    expect(loadEvents).toHaveBeenCalledWith({
+      end: isoFromLocalDate(2027, 0, 1),
+      start: isoFromLocalDate(2025, 11, 1)
+    })
+    expect(loadEvents).toHaveBeenLastCalledWith({
+      end: isoFromLocalDate(2027, 0, 1),
+      start: isoFromLocalDate(2025, 11, 1)
+    })
+    expect(syncEvents).not.toHaveBeenCalled()
+  })
+
+  it('keeps existing events visible when a background lazy load fails', async () => {
+    const loadEvents = vi
+      .fn()
+      .mockResolvedValueOnce(events)
+      .mockRejectedValueOnce(new Error('Cache temporarily unavailable'))
+    const loadStatus = vi.fn().mockResolvedValue({
+      configured: true,
+      calendarUrl: 'https://calendar.example.test/caldav/home/',
+      username: 'operator'
+    })
+    const viewModel = createCalendarViewModel({
+      loadEvents,
+      loadStatus,
+      now: () => new Date('2026-06-25T12:00:00.000Z')
+    })
+
+    await viewModel.loadVisibleRange({ monthsAfter: 6, monthsBefore: 6 })
+    await viewModel.loadVisibleRange({ monthsAfter: 12, monthsBefore: 6 }, { background: true })
+
+    expect(viewModel.events).toEqual(events)
+    expect(viewModel.error).toBe('')
+    expect(viewModel.loading).toBe(false)
+    expect(loadEvents).toHaveBeenLastCalledWith({
+      end: isoFromLocalDate(2027, 6, 1),
+      start: isoFromLocalDate(2025, 11, 1)
+    })
   })
 
   it('runs explicit syncs and reloads cached events afterward', async () => {

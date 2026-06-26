@@ -9,7 +9,8 @@ import {
   type CalendarConfigStatus,
   type CalendarEvent,
   type CalendarEventRange,
-  type CalendarSyncStatus
+  type CalendarSyncStatus,
+  type CalendarVisibleRangeOptions
 } from '../domain/events'
 import type { CalendarConfigStatusLoader, CalendarEventsLoader, CalendarSyncRunner } from '../ports/calendar-port'
 
@@ -18,6 +19,10 @@ export interface CalendarViewModelDependencies {
   loadStatus?: CalendarConfigStatusLoader
   now?: () => Date
   syncEvents?: CalendarSyncRunner
+}
+
+export interface CalendarLoadOptions {
+  background?: boolean
 }
 
 export class CalendarViewModel {
@@ -33,6 +38,7 @@ export class CalendarViewModel {
   readonly #loadStatus: CalendarConfigStatusLoader
   readonly #now: () => Date
   readonly #syncEvents: CalendarSyncRunner
+  #visibleRangeOptions: CalendarVisibleRangeOptions = {}
 
   constructor(dependencies: CalendarViewModelDependencies = {}) {
     this.#loadEvents = dependencies.loadEvents ?? listCalendarEvents
@@ -85,20 +91,31 @@ export class CalendarViewModel {
   }
 
   async refresh(): Promise<void> {
-    await this.loadVisibleRange()
+    await this.loadVisibleRange(this.#visibleRangeOptions)
   }
 
-  async loadVisibleRange(): Promise<void> {
-    this.loading = true
-    this.error = ''
+  async loadVisibleRange(
+    rangeOptions: CalendarVisibleRangeOptions = this.#visibleRangeOptions,
+    loadOptions: CalendarLoadOptions = {}
+  ): Promise<boolean> {
+    const background = loadOptions.background === true
+    this.#visibleRangeOptions = rangeOptions
+    if (!background) {
+      this.loading = true
+      this.error = ''
+    }
 
     try {
-      await this.#loadCachedEvents()
+      await this.#loadCachedEvents(rangeOptions, loadOptions)
+      return true
     } catch (error) {
-      this.error = messageForError(error)
-      this.events = []
+      if (!background) {
+        this.error = messageForError(error)
+        this.events = []
+      }
+      return false
     } finally {
-      this.loading = false
+      if (!background) this.loading = false
     }
   }
 
@@ -116,7 +133,7 @@ export class CalendarViewModel {
       }
 
       this.#applySyncStatus(await this.#syncEvents())
-      await this.#loadCachedEvents()
+      await this.#loadCachedEvents(this.#visibleRangeOptions)
     } catch (error) {
       this.error = messageForError(error)
     } finally {
@@ -124,16 +141,19 @@ export class CalendarViewModel {
     }
   }
 
-  async #loadCachedEvents(): Promise<void> {
+  async #loadCachedEvents(
+    rangeOptions: CalendarVisibleRangeOptions = this.#visibleRangeOptions,
+    loadOptions: CalendarLoadOptions = {}
+  ): Promise<void> {
     const status = await this.#loadStatus()
     this.configStatus = status
 
     if (!status.configured) {
-      this.events = []
+      if (!loadOptions.background) this.events = []
       return
     }
 
-    this.range = calendarVisibleRange(this.visibleAnchorKey || this.selectedDateKey || this.#now())
+    this.range = calendarVisibleRange(this.visibleAnchorKey || this.selectedDateKey || this.#now(), rangeOptions)
     this.events = await this.#loadEvents(this.range)
   }
 
