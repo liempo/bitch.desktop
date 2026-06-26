@@ -22,7 +22,6 @@ import {
 } from '$lib/hermes/prompts'
 import type { GatewayEvent } from '$lib/hermes/gateway'
 import {
-  compactWhitespace,
   coerceGatewayText,
   coerceThinkingBlocks,
   coerceThinkingText,
@@ -773,30 +772,25 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
         conversation.canvas = display.canvas
       }
 
-      if (finalText) {
-        const previous = compactWhitespace(message.text)
-        const next = compactWhitespace(finalText)
+      if (finalText && message.text !== finalText) {
+        message.text = finalText
 
-        if (!previous || previous !== next) {
-          message.text = finalText
+        const parts = ensureParts(message)
+        let lastTextPart: Extract<ConversationMessagePart, { type: 'text' }> | null = null
 
-          const parts = ensureParts(message)
-          let lastTextPart: Extract<ConversationMessagePart, { type: 'text' }> | null = null
+        for (let index = parts.length - 1; index >= 0; index -= 1) {
+          const part = parts[index]
 
-          for (let index = parts.length - 1; index >= 0; index -= 1) {
-            const part = parts[index]
-
-            if (part.type === 'text') {
-              lastTextPart = part
-              break
-            }
+          if (part.type === 'text') {
+            lastTextPart = part
+            break
           }
+        }
 
-          if (lastTextPart) {
-            lastTextPart.text = finalText
-          } else {
-            parts.push({ type: 'text', text: finalText })
-          }
+        if (lastTextPart) {
+          lastTextPart.text = finalText
+        } else {
+          parts.push({ type: 'text', text: finalText })
         }
       }
     }
