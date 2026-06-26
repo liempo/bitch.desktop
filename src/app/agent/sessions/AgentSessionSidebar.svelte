@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import TextInput from '@/app/components/ui/TextInput.svelte'
   import { cardClass } from '@/app/components/ui/styles'
@@ -219,7 +220,9 @@
                 <div class="mb-1.5 flex items-center justify-between px-1">
                   <h3 class={sectionHeadingClass}>Search</h3>
                   {#if sessionState.searching}
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching</span>
+                    <span class="text-ink-muted">
+                      <Loader size="sm" tone="secondary" label="Searching sessions" />
+                    </span>
                   {/if}
                 </div>
 
@@ -274,7 +277,9 @@
                 <div class="mb-1.5 flex items-center justify-between px-1">
                   <h3 class={sectionHeadingClass}>Recents</h3>
                   {#if sessionState.sessionsLoading}
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing</span>
+                    <span class="text-ink-muted">
+                      <Loader size="sm" tone="secondary" label="Refreshing sessions" />
+                    </span>
                   {/if}
                 </div>
 
@@ -317,8 +322,13 @@
                   class="mt-3 w-full"
                   onclick={() => void loadMoreSessions()}
                   disabled={sessionState.sessionsLoadingMore}
+                  aria-label={sessionState.sessionsLoadingMore ? 'Loading more sessions' : 'Load more sessions'}
                 >
-                  {sessionState.sessionsLoadingMore ? 'Loading' : 'Load more'}
+                  {#if sessionState.sessionsLoadingMore}
+                    <Loader size="sm" label="Loading more sessions" />
+                  {:else}
+                    Load more
+                  {/if}
                 </Button>
               {/if}
             {/if}

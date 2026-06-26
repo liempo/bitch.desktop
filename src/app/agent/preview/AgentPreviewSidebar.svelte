@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
   import type { ConversationPreview } from '$lib/hermes/conversations'
@@ -120,8 +121,8 @@
     </div>
 
     {#if loading}
-      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-primary/30 bg-primary/10 font-hud text-[0.68rem] uppercase tracking-[0.18em] text-primary" role="status">
-        Loading remote file preview…
+      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-primary/30 bg-primary/10" role="status">
+        <Loader size="lg" label="Loading remote file preview" />
       </div>
     {:else if visibleError}
       <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-dashed border-warning/40 bg-warning/5 p-6 text-center text-sm leading-6 text-warning" role="status">

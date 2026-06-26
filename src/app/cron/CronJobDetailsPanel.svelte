@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import {
     cronJobProfile,
@@ -206,14 +207,27 @@
       <div class="mb-2 flex items-center justify-between gap-2">
         <h3 class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-muted">Recent run output</h3>
         {#if onLoadRuns}
-          <Button size="sm" chrome="ghost" variant="secondary" onclick={onLoadRuns} disabled={runsLoading}>
-            {runsLoading ? 'Loading…' : runs.length ? 'Refresh' : 'Load'}
+          <Button
+            size="sm"
+            chrome="ghost"
+            variant="secondary"
+            onclick={onLoadRuns}
+            disabled={runsLoading}
+            aria-label={runsLoading ? 'Loading recent run output' : runs.length ? 'Refresh recent run output' : 'Load recent run output'}
+          >
+            {#if runsLoading}
+              <Loader size="sm" label="Loading recent run output" />
+            {:else}
+              {runs.length ? 'Refresh' : 'Load'}
+            {/if}
           </Button>
         {/if}
       </div>
 
       {#if runsLoading}
-        <div class="py-2 text-xs text-primary">Loading recent run output…</div>
+        <div class="flex py-2 text-primary">
+          <Loader size="sm" label="Loading recent run output" />
+        </div>
       {:else if runs.length === 0}
         <div class="border border-dashed border-line p-2 text-xs text-ink-muted">No recorded run sessions loaded for this job.</div>
       {:else}

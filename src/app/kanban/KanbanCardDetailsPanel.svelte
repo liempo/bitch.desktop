@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { kanbanDisplayStatus, type KanbanEvent, type KanbanTask, type KanbanTaskDetailResponse } from '$lib/hermes/kanban'
   import { agentRoute } from '../router.svelte'
@@ -164,8 +165,8 @@
     data-selectable="true"
   >
     {#if loading}
-      <div class="flex h-full min-h-40 items-center justify-center font-hud text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-        Loading card detail…
+      <div class="flex h-full min-h-40 items-center justify-center text-primary">
+        <Loader size="lg" label="Loading card detail" />
       </div>
     {:else if !detail}
       <div class="flex h-full min-h-40 items-center justify-center border border-dashed border-line p-6 text-center text-sm leading-6 text-ink-muted">
@@ -317,7 +318,13 @@
               placeholder="Add operator note"
               bind:value={comment}
             />
-            <Button type="submit" size="sm" variant="primary" disabled={commentSaving || !comment.trim()}>Comment</Button>
+            <Button type="submit" size="sm" variant="primary" disabled={commentSaving || !comment.trim()} aria-label={commentSaving ? 'Saving comment' : 'Add comment'}>
+              {#if commentSaving}
+                <Loader size="sm" label="Saving comment" />
+              {:else}
+                Comment
+              {/if}
+            </Button>
           </form>
         {/if}
       </section>

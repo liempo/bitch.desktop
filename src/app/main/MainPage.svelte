@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
 
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { gatewayState } from '$lib/hermes/gateway'
   import { getProfileScope, refreshActiveProfile } from '$lib/hermes/profiles'
@@ -219,7 +220,13 @@
         <div class="grid grid-cols-2 gap-2 uppercase tracking-[0.12em]">
           <div class="border border-line bg-canvas px-2 py-1.5">
             <div class="text-[0.58rem] text-ink-muted">Gateway</div>
-            <div class={`mt-1 text-[0.68rem] font-bold ${mobileAgentStatusClass}`}>{mobileAgentStatusLabel}</div>
+            <div class={`mt-1 text-[0.68rem] font-bold ${mobileAgentStatusClass}`}>
+              {#if connectionState === 'connecting'}
+                <Loader size="sm" tone="secondary" label="Connecting to gateway" />
+              {:else}
+                {mobileAgentStatusLabel}
+              {/if}
+            </div>
           </div>
           <div class="border border-line bg-canvas px-2 py-1.5">
             <div class="text-[0.58rem] text-ink-muted">Index</div>

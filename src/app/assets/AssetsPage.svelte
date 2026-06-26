@@ -4,6 +4,7 @@
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import {
@@ -740,8 +741,8 @@
         Remote file listing unavailable: {selectedError}
       </div>
     {:else if selectedLoading}
-      <div class="mb-2 rounded-control border border-primary/30 bg-primary/10 p-2 font-hud text-[0.62rem] uppercase tracking-[0.16em] text-primary">
-        Reading remote file index…
+      <div class="mb-2 flex items-center rounded-control border border-primary/30 bg-primary/10 p-2 text-primary">
+        <Loader size="sm" label="Reading remote file index" />
       </div>
     {/if}
 
@@ -770,7 +771,7 @@
                 <Icon name="folder" class="w-3.5 text-center text-secondary" />
                 <span class="min-w-0 flex-1 truncate">{row.entry.name}</span>
                 {#if row.loading}
-                  <span class="text-[0.58rem] uppercase tracking-[0.12em] text-primary">sync</span>
+                  <Loader size="sm" label={`Loading ${row.entry.name}`} />
                 {/if}
               </button>
             {:else}
@@ -936,8 +937,8 @@
     {#if !selectedFile || !selectedFilePresentation}
       <div class="min-h-0 flex-1 overflow-hidden rounded-panel border border-line bg-canvas/55">
         {#if selectedLoading}
-          <div class="flex h-full items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-            Loading folder contents…
+          <div class="flex h-full items-center justify-center text-primary">
+            <Loader size="lg" label="Loading folder contents" />
           </div>
         {:else if selectedError}
           <div class="m-3 rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">
@@ -1059,8 +1060,8 @@
 
       <div class="min-h-0 flex-1 overflow-hidden rounded-panel border border-line bg-canvas/55">
         {#if dataPreviewLoading}
-          <div class="flex h-full items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-            Loading remote file preview…
+          <div class="flex h-full items-center justify-center text-primary">
+            <Loader size="lg" label="Loading remote file preview" />
           </div>
         {:else if dataPreviewError}
           <div class="m-3 rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">
@@ -1086,8 +1087,8 @@
           <iframe title={selectedFile.name} src={dataPreviewUrl} class="h-full w-full bg-white"></iframe>
         {:else if selectedViewerKind === 'text'}
           {#if textPreviewLoading}
-            <div class="flex h-full items-center justify-center text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-              Loading text preview…
+            <div class="flex h-full items-center justify-center text-primary">
+              <Loader size="lg" label="Loading text preview" />
             </div>
           {:else if textPreviewError}
             <div class="m-3 rounded-panel border border-danger/40 bg-danger/10 p-4 text-sm leading-6 text-danger" role="alert">

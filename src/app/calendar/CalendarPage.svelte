@@ -1237,7 +1237,7 @@
       <Panel title="CALENDAR" class="border-line bg-surface" contentClass="flex min-h-0 flex-col overflow-hidden p-3" titleClass="text-primary" actions={calendarActions}>
         {#if initialCalendarLoading && viewModel.configStatus === null}
           <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4" aria-label="Loading calendar" role="status">
-            <Loader size="xl" label="Loading calendar" />
+            <Loader size="lg" label="Loading calendar" />
           </div>
         {:else if viewModel.error}
           <div class="rounded-panel border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{viewModel.error}</div>
@@ -1366,7 +1366,7 @@
 
         {#if initialCalendarLoading && viewModel.configStatus === null}
           <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4" aria-label="Loading calendar" role="status">
-            <Loader size="xl" label="Loading calendar" />
+            <Loader size="lg" label="Loading calendar" />
           </div>
         {:else if viewModel.error}
           <div class="rounded-panel border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{viewModel.error}</div>

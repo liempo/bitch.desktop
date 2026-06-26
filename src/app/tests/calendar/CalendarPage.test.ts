@@ -211,7 +211,7 @@ describe('Calendar page source contract', () => {
     expect(calendarPageSource).not.toContain('const loadedMonthCount = $derived')
     expect(calendarPageSource).toContain('numberOfMonths={1}')
     expect(calendarPageSource).toContain('{#if initialCalendarLoading && viewModel.configStatus === null}')
-    expect(calendarPageSource).toContain('<Loader size="xl" label="Loading calendar" />')
+    expect(calendarPageSource).toContain('<Loader size="lg" label="Loading calendar" />')
     expect(calendarPageSource).not.toContain('Loading calendar events…')
     expect(calendarPageSource).toContain('aria-label="Continuous month calendar"')
     expect(calendarPageSource).toContain('const calendarWeekdayHeaderClass =')

@@ -4,6 +4,7 @@
   import AgentSessionSidebar from './sessions/AgentSessionSidebar.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Composer from '../components/composer/Composer.svelte'
   import SecretModal from '../components/prompts/SecretModal.svelte'
   import SudoModal from '../components/prompts/SudoModal.svelte'
@@ -457,7 +458,9 @@
 
       <div class="mt-2 border-t border-dotted border-line pt-2">
         {#if sessionState.sessionsLoading && selectableSessions.length === 0}
-          <div class={emptySessionNoticeClass}>SYNCING_SESSION_INDEX</div>
+          <div class={`${emptySessionNoticeClass} flex items-center justify-center`}>
+            <Loader size="md" label="Loading session index" />
+          </div>
         {:else if selectableSessions.length === 0}
           <div class={emptySessionNoticeClass}>NO_EXISTING_SESSIONS</div>
         {:else}

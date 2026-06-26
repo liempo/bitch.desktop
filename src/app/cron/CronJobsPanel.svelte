@@ -543,7 +543,7 @@
     <div class="min-h-0 flex-1 overflow-auto p-1" style="--custom-scrollbar-offset-x: 4px" data-selectable="true" aria-label="Cron jobs">
       {#if loading}
         <div class="flex h-full items-center justify-center" aria-label="Loading cron jobs">
-          <Loader size="xl" label="Loading cron jobs" />
+          <Loader size="lg" label="Loading cron jobs" />
         </div>
       {:else if jobs.length === 0}
         <div class="border border-dashed border-line p-3 text-[0.68rem] text-ink-muted">
@@ -592,8 +592,12 @@
                   <Button size="sm" chrome="ghost" variant={state === 'paused' ? 'success' : 'warning'} onclick={() => pauseOrResume(job)} disabled={actionBusyKey === key}>
                     {state === 'paused' ? 'Resume' : 'Pause'}
                   </Button>
-                  <Button size="sm" chrome="ghost" variant="secondary" onclick={() => toggleRuns(job)} disabled={runsLoadingKey === key}>
-                    Runs
+                  <Button size="sm" chrome="ghost" variant="secondary" onclick={() => toggleRuns(job)} disabled={runsLoadingKey === key} aria-label={runsLoadingKey === key ? 'Loading job runs' : 'Show job runs'}>
+                    {#if runsLoadingKey === key}
+                      <Loader size="sm" label="Loading job runs" />
+                    {:else}
+                      Runs
+                    {/if}
                   </Button>
                   <Button size="sm" chrome="ghost" variant="danger" onclick={() => remove(job)} disabled={actionBusyKey === key}>Remove</Button>
                 </div>
@@ -606,7 +610,9 @@
                     <span class="font-mono text-[0.62rem] text-ink-faint">{runs.length}/5</span>
                   </div>
                   {#if runsLoadingKey === key}
-                    <div class="py-2 text-xs text-primary">Loading recent run output…</div>
+                    <div class="flex py-2 text-primary">
+                      <Loader size="sm" label="Loading recent run output" />
+                    </div>
                   {:else if runs.length === 0}
                     <div class="border border-dashed border-line p-2 text-xs text-ink-muted">No recorded run sessions for this job.</div>
                   {:else}

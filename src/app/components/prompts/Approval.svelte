@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
   import { type ApprovalChoice, promptsState, respondToApproval } from '$lib/hermes/prompts'
@@ -43,10 +44,34 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2 px-3 pb-3">
-          <Button chrome="ghost" variant="success" disabled={Boolean(promptsState.submitting)} onclick={() => respond('once')}>{isSubmitting('once') ? 'Sending' : 'Run once'}</Button>
-          <Button chrome="ghost" variant="primary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('session')}>{isSubmitting('session') ? 'Sending' : 'Allow session'}</Button>
-          <Button chrome="ghost" variant="secondary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('always')}>{isSubmitting('always') ? 'Sending' : 'Always allow'}</Button>
-          <Button chrome="ghost" variant="danger" disabled={Boolean(promptsState.submitting)} onclick={() => respond('deny')}>{isSubmitting('deny') ? 'Sending' : 'Deny'}</Button>
+          <Button chrome="ghost" variant="success" disabled={Boolean(promptsState.submitting)} onclick={() => respond('once')} aria-label={isSubmitting('once') ? 'Sending approval response' : 'Run once'}>
+            {#if isSubmitting('once')}
+              <Loader size="sm" label="Sending approval response" />
+            {:else}
+              Run once
+            {/if}
+          </Button>
+          <Button chrome="ghost" variant="primary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('session')} aria-label={isSubmitting('session') ? 'Sending approval response' : 'Allow session'}>
+            {#if isSubmitting('session')}
+              <Loader size="sm" label="Sending approval response" />
+            {:else}
+              Allow session
+            {/if}
+          </Button>
+          <Button chrome="ghost" variant="secondary" disabled={Boolean(promptsState.submitting)} onclick={() => respond('always')} aria-label={isSubmitting('always') ? 'Sending approval response' : 'Always allow'}>
+            {#if isSubmitting('always')}
+              <Loader size="sm" label="Sending approval response" />
+            {:else}
+              Always allow
+            {/if}
+          </Button>
+          <Button chrome="ghost" variant="danger" disabled={Boolean(promptsState.submitting)} onclick={() => respond('deny')} aria-label={isSubmitting('deny') ? 'Sending approval response' : 'Deny'}>
+            {#if isSubmitting('deny')}
+              <Loader size="sm" label="Sending approval response" />
+            {:else}
+              Deny
+            {/if}
+          </Button>
         </div>
       </div>
 

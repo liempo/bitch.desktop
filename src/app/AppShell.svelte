@@ -2,6 +2,7 @@
   import type { Component } from 'svelte'
 
   import StartupSplash from './components/StartupSplash.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import AppNavbar from './navigation/AppNavbar.svelte'
   import { appRouterState, type AppPage } from './router.svelte'
   import { currentThemeStyleAttribute, initializeThemeSelection, themeState } from '$lib/theme'
@@ -49,8 +50,8 @@
 
     <main class="relative z-10 min-h-0 flex-1 overflow-hidden">
       {#await pageComponentPromise}
-        <div class="grid h-full place-items-center p-4 font-hud text-xs uppercase tracking-[0.18em] text-ink-muted" role="status">
-          Loading {appRouterState.page}
+        <div class="grid h-full place-items-center p-4">
+          <Loader size="lg" label={`Loading ${appRouterState.page}`} />
         </div>
       {:then module}
         {@const PageComponent = module.default}

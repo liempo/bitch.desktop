@@ -3,6 +3,7 @@
 
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import MainDashboardStatGrid from '../components/MainDashboardStatGrid.svelte'
   import { messageForError } from '$lib/errors'
@@ -211,9 +212,8 @@
         <span>Cron unavailable: {cronError}</span>
       </div>
     {:else if cronLoading && cronFocusJobs.length === 0}
-      <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
-        <Icon name="sync" class="text-primary" />
-        <span>Syncing scheduler jobs…</span>
+      <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-primary">
+        <Loader size="sm" label="Loading scheduler jobs" />
       </div>
     {:else if cronFocusJobs.length === 0}
       <div class="flex items-center gap-2 rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">

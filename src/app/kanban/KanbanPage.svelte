@@ -3,6 +3,7 @@
   import { Popover } from 'bits-ui'
   import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import {
@@ -411,7 +412,9 @@
           <Popover.Content class={filterMenuContentClass} sideOffset={4} align="end">
             <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">available boards</div>
             {#if loadingBoards}
-              <div class="px-2 py-1.5 text-[11px] uppercase tracking-[0.08em] text-ink-muted">syncing boards…</div>
+              <div class="px-2 py-1.5 text-ink-muted">
+                <Loader size="sm" tone="secondary" label="Loading Kanban boards" />
+              </div>
             {:else if boards.length === 0}
               <div class="px-2 py-1.5 text-[11px] uppercase tracking-[0.08em] text-ink-muted">no boards reported</div>
             {:else}
@@ -455,8 +458,8 @@
       {/snippet}
 
       {#if loadingBoard && columns.length === 0}
-        <div class="flex h-full items-center justify-center font-hud text-[0.72rem] uppercase tracking-[0.18em] text-primary">
-          Loading grouped cards…
+        <div class="flex h-full items-center justify-center text-primary">
+          <Loader size="lg" label="Loading grouped cards" />
         </div>
       {:else}
         <div class="min-h-0 flex-1 overflow-auto p-1" style="--custom-scrollbar-offset-x: 4px" data-selectable="true">
