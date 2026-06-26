@@ -1,4 +1,4 @@
-export type AppPage = 'main' | 'agent' | 'assets' | 'calendar' | 'cron' | 'kanban'
+export type AppPage = 'main' | 'agent' | 'assets' | 'calendar' | 'cron' | 'kanban' | 'settings'
 
 export interface AppRouterState {
   page: AppPage
@@ -45,6 +45,10 @@ export function parseAppHash(hash: string): AppRouterState {
     return { page: 'kanban' }
   }
 
+  if (path === '/settings') {
+    return { page: 'settings' }
+  }
+
   return { page: 'main' }
 }
 
@@ -71,4 +75,8 @@ export function cronRoute(): string {
 
 export function kanbanRoute(): string {
   return '/kanban'
+}
+
+export function settingsRoute(): string {
+  return '/settings'
 }
