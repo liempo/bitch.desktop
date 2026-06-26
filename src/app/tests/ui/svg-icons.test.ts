@@ -15,6 +15,7 @@ import systemSource from '../../components/conversation/System.svelte?raw'
 import toolSource from '../../components/conversation/Tool.svelte?raw'
 import mainPageSource from '../../main/MainPage.svelte?raw'
 import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
+import mainCalendarPanelSource from '../../main/panels/MainCalendarPanel.svelte?raw'
 import mainContainersPanelSource from '../../main/panels/MainContainersPanel.svelte?raw'
 import mainCronPanelSource from '../../main/panels/MainCronPanel.svelte?raw'
 import mainKanbanPanelSource from '../../main/panels/MainKanbanPanel.svelte?raw'
@@ -45,6 +46,7 @@ const iconSurfaceSources = [
   toolSource,
   mainPageSource,
   mainAgentPanelSource,
+  mainCalendarPanelSource,
   mainContainersPanelSource,
   mainCronPanelSource,
   mainKanbanPanelSource,
@@ -68,6 +70,7 @@ function sourceName(index: number): string {
     'Tool',
     'MainPage',
     'MainAgentPanel',
+    'MainCalendarPanel',
     'MainContainersPanel',
     'MainCronPanel',
     'MainKanbanPanel',
