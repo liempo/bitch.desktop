@@ -15,7 +15,8 @@
     calendar: () => import('./calendar/CalendarPage.svelte'),
     cron: () => import('./cron/CronPage.svelte'),
     kanban: () => import('./kanban/KanbanPage.svelte'),
-    main: () => import('./main/MainPage.svelte')
+    main: () => import('./main/MainPage.svelte'),
+    settings: () => import('./settings/SettingsPage.svelte')
   } satisfies Record<AppPage, () => Promise<PageModule>>
 
   const pageComponentCache = new Map<AppPage, Promise<PageModule>>()

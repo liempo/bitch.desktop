@@ -34,6 +34,7 @@ import kanban from './prime-icons/kanban.svg?raw'
 import menu from './prime-icons/menu.svg?raw'
 import pin from './prime-icons/pin.svg?raw'
 import search from './prime-icons/search.svg?raw'
+import settings from './prime-icons/settings.svg?raw'
 import shieldCheck from './prime-icons/shieldCheck.svg?raw'
 import sortAscending from './prime-icons/sortAscending.svg?raw'
 import sortDescending from './prime-icons/sortDescending.svg?raw'
@@ -79,6 +80,7 @@ export const iconSources = {
   menu,
   pin,
   search,
+  settings,
   shieldCheck,
   sortAscending,
   sortDescending,

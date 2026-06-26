@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import navbarSource from '../navigation/AppNavbar.svelte?raw'
-import { agentRoute, parseAppHash } from '../router.svelte'
+import { agentRoute, parseAppHash, settingsRoute } from '../router.svelte'
 import { sessionRoute } from '../agent/router.svelte'
 
 describe('top-level app routing', () => {
@@ -23,6 +23,11 @@ describe('top-level app routing', () => {
     expect(parseAppHash('/calendar')).toEqual({ page: 'calendar' })
     expect(parseAppHash('/cron')).toEqual({ page: 'cron' })
     expect(parseAppHash('/kanban')).toEqual({ page: 'kanban' })
+    expect(parseAppHash('/settings')).toEqual({ page: 'settings' })
+  })
+
+  it('builds the Settings route for the app configuration page', () => {
+    expect((settingsRoute as () => string)()).toBe('/settings')
   })
 
   it('builds the AGENT tab href for the current stored session when one is selected', () => {
