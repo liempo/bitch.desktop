@@ -161,6 +161,8 @@ src/lib/calendar/
 The matching Rust lane lives under `src-tauri/src/calendar` with stable command
 wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri. Whole-calendar CalDAV sync runs in the native background worker and range reads expand the local cache.
 
+Calendar presentation stays renderer-local: the month grid is generated from date math and virtualized by week row, while events populate from cached `list_calendar_events` reads in the background. Month navigation and scrolling must not trigger CalDAV network syncs, block day rendering, or grow the DOM by appending every loaded month.
+
 ## Platform renderer lane: `src/lib/platform/*`
 
 `src/lib/platform` wraps native Tauri capabilities for renderer code. It is a

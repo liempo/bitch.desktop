@@ -19,6 +19,17 @@ The bridge uses `minicaldav::get_calendars` to discover all VEVENT-capable calen
 
 Sync happens as a whole-calendar background job on app startup and then on `CALDAV_SYNC_INTERVAL`. The raw VEVENT cache is persisted under the local app cache directory so Calendar page range reads are fast and do not trigger CalDAV network requests.
 
+## Renderer month-view strategy
+
+The month view keeps calendar geometry separate from event data:
+
+- The continuous day grid is generated locally in `src/app/calendar/CalendarPage.svelte` from date math. It must not wait for CalDAV, cache reads, or network sync before rendering days.
+- The visible month highlight is derived from the month with the majority of currently visible day cells, not from the first rendered row.
+- Week rows are virtualized by scroll position with fixed row heights and spacer rows. This keeps the DOM small even when the user scrolls far backward or forward.
+- Event data is loaded from the local Tauri cache in the background. Initial cache reads cover six months before and six months after the visible anchor; scrolling near either edge extends the event cache window in larger background steps.
+- Background event loads must not clear existing events, show a blocking page loader, or trigger CalDAV network requests. The only network sync path is the background worker or explicit sync button.
+- Lazy edge loaders are normal scroll content with reserved slots, so toggling a spinner does not insert layout above the visible rows or cause scroll jumps.
+
 ## Command surface
 
 - `get_caldav_config_status` returns whether the bridge has enough non-secret

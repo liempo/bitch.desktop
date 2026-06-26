@@ -7,6 +7,7 @@ import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
 import mainContainersPanelSource from '../../main/panels/MainContainersPanel.svelte?raw'
 import mainCronPanelSource from '../../main/panels/MainCronPanel.svelte?raw'
 import mainKanbanPanelSource from '../../main/panels/MainKanbanPanel.svelte?raw'
+import mainDashboardStatGridSource from '../../main/components/MainDashboardStatGrid.svelte?raw'
 import buttonSource from '../../components/ui/Button.svelte?raw'
 import glyphSource from '../../components/Glyph.svelte?raw'
 import mainGlyphPanelSource from '../../main/panels/MainGlyphPanel.svelte?raw'
@@ -31,17 +32,21 @@ describe('Main dashboard source contract', () => {
     expect(mainContainersPanelSource).toContain('{containerCount} containers')
     expect(mainContainersPanelSource).toContain('Container')
     expect(mainPageSource).toContain('dashboardPanelClass')
-    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain('raisedPanelClass')
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain('MainDashboardStatGrid')
+    expect(mainDashboardStatGridSource).toContain('export interface MainDashboardStat')
+    expect(mainDashboardStatGridSource).toContain('<Panel flat fullHeight={false} padded={false} class={cardClass}')
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain(
+      '<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}'
+    )
+    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain('raisedPanelClass')
     expect(mainPageSource).toContain('{#each monitoringSystemStats as stat')
     expect(mainPageSource).toContain('{#each monitoringUsageRows as row')
     expect(mainPageSource).not.toContain('remoteTemperatureRows')
     expect(mainPageSource).not.toContain('REMOTE TEMP')
     expect(mainPageSource).not.toContain('No remote thermal sensors reported.')
     expect(mainPageSource).toContain('{#each placeholderPanels as placeholder')
-    expect(mainKanbanPanelSource).toContain('{#each kanbanStats as stat')
-    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain(
-      '<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}'
-    )
+    expect(mainKanbanPanelSource).toContain('const kanbanStats = $derived')
+    expect(mainDashboardStatGridSource).toContain('{#each stats as stat')
     expect(mainPageSource).not.toContain('border border-line bg-surface-raised p-2')
     expect(mainContainersPanelSource).toContain(
       "let containerSortDirection = $state<MonitoringContainerSortDirection>('desc')"
@@ -52,7 +57,8 @@ describe('Main dashboard source contract', () => {
     )
     expect(mainContainersPanelSource).toContain("onclick={() => toggleContainerSort('cpu')}")
     expect(mainContainersPanelSource).toContain("onclick={() => toggleContainerSort('memory')}")
-    expect(mainContainersPanelSource).toContain('MEM{containerSortLabel')
+    expect(mainContainersPanelSource).toContain('containerSortIcon')
+    expect(mainContainersPanelSource).toContain('<Icon name={cpuSortIcon}')
     expect(mainContainersPanelSource).toContain('return formatBytes(container.memoryBytes)')
     expect(mainContainersPanelSource).not.toContain('formatPercent(container.memoryPercent)')
     expect(mainContainersPanelSource).not.toContain('containerSortVariant')
@@ -75,6 +81,9 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).toContain('class={`${dashboardPanelClass} order-2 md:hidden md:order-0`}')
     expect(mainPageSource).not.toContain('badge="link"')
     expect(mainContainersPanelSource).toContain('aria-label="Containers"')
+    expect(mainContainersPanelSource).toContain(
+      'class="min-h-0 flex-1 overflow-auto p-px" style="--custom-scrollbar-offset-x: 4px"'
+    )
     expect(mainPageSource).not.toContain('grid-rows-[minmax(0,0.72fr)_minmax(0,1.28fr)]')
     expect(mainPageSource).not.toContain('PROCESS_LIST')
     expect(mainPageSource).not.toContain('aria-label="Process list"')
@@ -177,11 +186,15 @@ describe('Main dashboard source contract', () => {
     expect(mainAgentPanelSource).toContain('title="AGENT"')
     expect(mainAgentPanelSource).toContain('href={agentHref}')
     expect(mainAgentPanelSource).toContain('aria-label="Open current chat in AGENT"')
+    expect(mainAgentPanelSource).toContain('name="arrowUpRight"')
+    expect(mainAgentPanelSource).not.toContain('name="external"')
     expect(mainAgentPanelSource).toContain('aria-haspopup="dialog"')
     expect(mainAgentPanelSource).toContain('SESSION')
     expect(mainAgentPanelSource).toContain('title="Select AGENT Session"')
     expect(mainAgentPanelSource).toContain('New session')
     expect(mainAgentPanelSource).toContain('startNewSession({ commitRoute: false })')
+    expect(composerSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
+    expect(composerSource).toContain('<BracketTrigger {...props} label="PROFILE" value={profileLabel}')
     expect(mainAgentPanelSource).toContain('compact')
     expect(mainAgentPanelSource).toContain('commitRoute={false}')
     expect(composerSource).toContain("? 'shrink-0 p-2'")
@@ -213,6 +226,9 @@ describe('Main dashboard source contract', () => {
     expect(buttonSource).toContain('<a {href} class={classes} {...anchorRest}>')
     expect(mainCronPanelSource).toContain('getCronJobs')
     expect(mainCronPanelSource).toContain('refreshCronJobs')
+    expect(mainCronPanelSource).toContain('aria-label="Refresh cron jobs"')
+    expect(mainCronPanelSource).toContain('<Icon name="sync" class="text-[0.85rem]" />')
+    expect(mainCronPanelSource).not.toContain('<span>Sync</span>')
     expect(mainCronPanelSource).toContain('cronFocusJobs')
     expect(mainCronPanelSource).toContain('Run queue')
     expect(mainCronPanelSource).toContain("{ label: 'Jobs'")
@@ -234,17 +250,29 @@ describe('Main dashboard source contract', () => {
     expect(mainKanbanPanelSource).toContain('getKanbanBoard')
     expect(mainKanbanPanelSource).toContain('listKanbanBoards')
     expect(mainKanbanPanelSource).toContain('kanbanCurrentBoardLabel')
-    expect(mainKanbanPanelSource).toContain('BOARD::{kanbanCurrentBoardLabel}')
+    expect(mainKanbanPanelSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
     expect(mainKanbanPanelSource).toContain(
+      '<BracketTrigger {...props} label="BOARD" value={kanbanCurrentBoardLabel} />'
+    )
+    expect(mainKanbanPanelSource).toContain('board: {kanbanBoardLabel(board)}')
+    expect(mainKanbanPanelSource).not.toContain('<Icon name="board"')
+    expect(mainKanbanPanelSource).not.toContain(
       '<Button {...props} size="sm" chrome="ghost" variant="primary" class="rounded-none!">'
     )
     expect(mainKanbanPanelSource).toContain('available boards')
     expect(mainKanbanPanelSource).toContain('selectKanbanBoard')
     expect(mainKanbanPanelSource).toContain('onclick={() => void selectKanbanBoard(board)}')
-    expect(mainKanbanPanelSource).toContain("variant={board.slug === kanbanCurrentBoardSlug ? 'primary' : 'default'}")
+    expect(mainKanbanPanelSource).toContain('class={kanbanBoardChoiceClass(board)}')
+    expect(mainKanbanPanelSource).toContain('<span class="shrink-0 text-primary">active</span>')
+    expect(mainKanbanPanelSource).not.toContain(
+      "variant={board.slug === kanbanCurrentBoardSlug ? 'primary' : 'default'}"
+    )
     expect(mainKanbanPanelSource).toContain('resolveKanbanBoardSlug')
     expect(mainKanbanPanelSource).toContain('Focus queue')
     expect(mainKanbanPanelSource).toContain('kanbanFocusTasks')
+    expect(mainKanbanPanelSource).toContain("if (stale) return 'stale worker'")
+    expect(mainKanbanPanelSource).not.toContain("return stale ? 'stale worker' : 'in progress'")
+    expect(mainKanbanPanelSource).not.toContain("if (displayStatus === 'blocked') return 'blocked'")
     expect(mainKanbanPanelSource).toContain("{ label: 'Active'")
     expect(mainKanbanPanelSource).toContain("{ label: 'Running'")
     expect(mainKanbanPanelSource).toContain("{ label: 'Ready'")
@@ -267,8 +295,8 @@ describe('Main dashboard source contract', () => {
       mainKanbanPanelSource.match(/function collectKanbanFocusTasks\(\): KanbanTask\[] \{[\s\S]*?\n {2}\}/)?.[0] ?? ''
 
     expect(mainKanbanPanelSource).toContain('aria-label="Kanban focus queue"')
-    expect(mainKanbanPanelSource).toContain('overflow-y-auto')
-    expect(mainKanbanPanelSource).toContain('overscroll-contain')
+    expect(mainKanbanPanelSource).toContain('class="min-h-0 flex-1 overflow-auto overscroll-contain p-px"')
+    expect(mainKanbanPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
     expect(collectFocusTasksSource).toContain('.sort((a, b) => {')
     expect(collectFocusTasksSource).toContain('kanbanTaskStatusRank(a) - kanbanTaskStatusRank(b)')
     expect(collectFocusTasksSource).toContain('warningDelta')
@@ -280,8 +308,8 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).toContain('aria-label="Cron run queue"')
     expect(mainCronPanelSource).toContain('cronProblemJobs, ...cronUpcomingJobs')
     expect(mainCronPanelSource).toContain('grid-rows-[auto_minmax(0,1fr)]')
-    expect(mainCronPanelSource).toContain('overflow-y-auto')
-    expect(mainCronPanelSource).toContain('overscroll-contain')
+    expect(mainCronPanelSource).toContain('class="min-h-0 overflow-auto overscroll-contain p-px"')
+    expect(mainCronPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
     expect(mainCronPanelSource).not.toMatch(/jobs\.length\s*>=\s*3/)
   })
 })

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import Icon from '@/app/components/ui/Icon.svelte'
   import { readRemoteFileDataUrl } from '$lib/hermes/files'
   import type { ConversationAttachment, ConversationAttachmentKind } from '$lib/hermes/conversations'
+  import type { IconName } from '$lib/theme'
 
   interface Props {
     attachments?: ConversationAttachment[]
@@ -56,18 +58,18 @@
     }
   }
 
-  function badgeFor(kind: ConversationAttachmentKind): string {
+  function iconFor(kind: ConversationAttachmentKind): IconName {
     switch (kind) {
       case 'audio':
-        return 'AUD'
+        return 'fileAudio'
       case 'file':
-        return 'FILE'
+        return 'file'
       case 'pdf':
-        return 'PDF'
+        return 'filePdf'
       case 'video':
-        return 'VID'
+        return 'fileVideo'
       default:
-        return 'IMG'
+        return 'fileImage'
     }
   }
 
@@ -170,7 +172,7 @@
         {@const key = keyFor(attachment, profile)}
         <div class="grid max-w-xl gap-2 border border-line bg-surface/70 px-3 py-2 text-xs text-ink">
           <div class="flex items-center gap-2">
-            <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-success">{badgeFor(attachment.kind)}</span>
+            <Icon name={iconFor(attachment.kind)} label={detailFor(attachment)} decorative={false} class="text-success" />
             <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
             <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
           </div>
@@ -195,7 +197,7 @@
             </span>
           {/if}
           <div class="flex items-center gap-2">
-            <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-primary">{badgeFor(attachment.kind)}</span>
+            <Icon name={iconFor(attachment.kind)} label={detailFor(attachment)} decorative={false} class="text-primary" />
             <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
             <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
           </div>
@@ -209,7 +211,7 @@
           disabled={!href}
           onclick={() => openAttachment(attachment)}
         >
-          <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-warning">{badgeFor(attachment.kind)}</span>
+          <Icon name={iconFor(attachment.kind)} label={detailFor(attachment)} decorative={false} class="text-warning" />
           <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
           <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
         </button>
@@ -243,7 +245,7 @@
             aria-label="Download attachment"
             title="Download attachment"
           >
-            ⇩
+            <Icon name="download" class="text-base" />
           </a>
         {/if}
         <button
@@ -252,7 +254,7 @@
           aria-label="Close attachment viewer"
           onclick={closeAttachmentViewer}
         >
-          ×
+          <Icon name="close" class="text-sm" />
         </button>
       </header>
 

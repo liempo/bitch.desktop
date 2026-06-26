@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import appCssSource from '../../../app.css?raw'
 import appShellSource from '../../AppShell.svelte?raw'
+import dialogSource from '../../components/ui/Dialog.svelte?raw'
 import appNavbarSource from '../../navigation/AppNavbar.svelte?raw'
 
 describe('temporary theme picker source contract', () => {
@@ -25,6 +26,14 @@ describe('temporary theme picker source contract', () => {
     expect(appNavbarSource).toContain('{#each themeOptions as theme (theme.id)}')
     expect(appNavbarSource).toContain('value={theme.id}')
     expect(appNavbarSource).toContain('bind:value={themeState.selectedThemeId}')
+  })
+
+  it('carries the active runtime theme into portal dialogs', () => {
+    expect(dialogSource).toContain("import { currentThemeStyleAttribute, themeState } from '$lib/theme'")
+    expect(dialogSource).toContain('const portalThemeStyle = $derived(currentThemeStyleAttribute())')
+    expect(dialogSource).toContain('data-theme={themeState.selectedThemeId}')
+    expect(dialogSource).toContain('data-theme-type={themeState.selectedTheme.source.type}')
+    expect(dialogSource).toContain('style={portalThemeStyle}')
   })
 
   it('keeps color themes centralized outside app.css data-theme blocks', () => {
