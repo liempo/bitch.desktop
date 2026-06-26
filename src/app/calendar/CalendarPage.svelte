@@ -1,15 +1,17 @@
 <script lang="ts">
-  import { Calendar } from 'bits-ui'
+  import { Calendar, Popover } from 'bits-ui'
   import { CalendarDate, type DateValue } from '@internationalized/date'
   import { onMount, tick } from 'svelte'
 
+  import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
+  import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
+  import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import {
     calendarDateKey,
     calendarEventOverlapsDate,
-    calendarEventsForDate,
     createCalendarViewModel,
     formatCalendarEventTime,
     listenCalendarSyncUpdates,
@@ -22,37 +24,57 @@
   const viewModel = createCalendarViewModel()
 
   const calendarShellClass = 'flex min-h-0 flex-1 flex-col text-ink'
-  const calendarHeaderClass = 'mb-3 flex items-center justify-between gap-2 border-b border-line pb-3'
-  const calendarNavClass = [
-    'inline-flex size-8 items-center justify-center rounded-control bg-transparent text-primary',
-    'hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
-    'disabled:cursor-not-allowed disabled:opacity-40'
-  ].join(' ')
+  const calendarHeaderClass = 'mb-3 flex items-center justify-between gap-3 border-b border-line pb-3'
+  const calendarHeaderTitleClass = 'min-w-0 truncate text-left font-hud text-2xl font-bold tracking-[0.04em] text-ink-bright'
+  const calendarHeaderControlsClass = 'flex shrink-0 items-center gap-1'
   const calendarPanelActionClass = [
-    'flex h-5 items-center justify-center rounded-control bg-transparent px-1.5 font-hud text-[0.58rem] uppercase tracking-[0.14em]',
+    'flex h-5 items-center justify-center rounded-control bg-transparent px-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.05em]',
     'hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
     'disabled:cursor-not-allowed disabled:opacity-40'
   ].join(' ')
+  const calendarViewMenuContentClass = `${popoverClass} z-50 w-48 p-1.5 font-mono`
+  const calendarViewMenuItemBaseClass = `${menuItemClass} flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-[0.08em]`
   const calendarGridClass = 'w-full table-fixed border-collapse text-left'
-  const calendarWeekdayHeaderClass = 'sticky top-0 z-20 grid grid-cols-7 border-b border-line bg-surface/95 backdrop-blur'
+  const calendarWeekdayHeaderClass = 'sticky top-0 z-[1] grid grid-cols-7 border-b border-line bg-surface/95 backdrop-blur'
   const calendarWeekdayCellClass = 'px-2 py-2 text-right font-hud text-[0.58rem] tracking-[0.16em] text-ink-muted'
   const calendarCellClass = 'h-28 border border-line/70 align-top'
   const calendarDayBaseClass = [
     'group flex h-full min-h-28 w-full flex-col items-stretch gap-1 border p-2 text-left transition',
     'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
   ].join(' ')
+  const calendarDesktopMediaQuery = '(min-width: 768px)'
+  const agendaDayRowHeightPx = 360
+  const agendaVirtualOverscanRows = 3
+  const agendaVirtualWindowRows = 1200
   const initialEventMonthWindow = 6
   const eventLazyMonthStep = 24
   const maxProgrammaticScrollDurationMs = 360
   const minProgrammaticScrollDurationMs = 120
-  const focusedRangeOptions: CalendarVisibleRangeOptions = { monthsAfter: 1, monthsBefore: 1 }
   const monthEventLoaderSlotHeightPx = 28
   const monthVirtualMonthWindow = 1200
   const monthVirtualOverscanRows = 6
   const monthWeekRowHeightPx = 112
-  type CalendarView = 'day' | 'month' | 'week'
+  type CalendarView = 'day' | 'month'
   type CalendarScrollBehavior = 'auto' | 'instant' | 'smooth'
   type LinkedTextSegment = { kind: 'link'; href: string; text: string } | { kind: 'text'; text: string }
+
+  interface VirtualAgendaGrid {
+    rowCount: number
+    startKey: string
+  }
+
+  interface VirtualAgendaRow {
+    dateKeys: string[]
+    index: number
+    key: string
+    label: string
+  }
+
+  interface VirtualAgendaWindow {
+    bottomSpacerHeight: number
+    rows: VirtualAgendaRow[]
+    topSpacerHeight: number
+  }
 
   interface MonthDayCell {
     date: CalendarDate
@@ -80,30 +102,30 @@
     topSpacerHeight: number
   }
 
-  interface WeekEventGroup {
-    dateKey: string
-    events: CalendarEvent[]
-    label: string
-  }
-
   interface VisibleMonthScore {
     count: number
   }
 
   const calendarViews: { id: CalendarView; label: string }[] = [
     { id: 'month', label: 'Month' },
-    { id: 'day', label: 'Day' },
-    { id: 'week', label: 'Week' }
+    { id: 'day', label: 'Day' }
   ]
 
   const eventCardClass = [
-    'w-full border border-line bg-surface-raised p-3 text-left transition',
+    'block w-full !border !border-solid border-line bg-surface-raised p-3 text-left transition',
     'hover:border-line-strong hover:bg-canvas/75'
   ].join(' ')
   const eventPillClass = 'rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.62rem] text-ink-muted'
   const eventLinkClass = 'break-all text-secondary underline-offset-2 hover:text-ink-bright hover:underline'
 
-  let calendarView = $state<CalendarView>('month')
+  let calendarView = $state<CalendarView>(initialCalendarView())
+  let calendarDesktopViewport = $state(initialCalendarDesktopViewport())
+  let agendaAnchorKey = $state(viewModel.selectedDateKey)
+  let agendaScrollAnimationFrame: null | number = null
+  let agendaScrollFrame: null | number = null
+  let agendaScroller = $state<HTMLElement | null>(null)
+  let agendaViewportHeight = $state(agendaDayRowHeightPx)
+  let agendaVirtualScrollTop = $state(0)
   let currentMonthInViewKey = $state(viewModel.visibleAnchorKey)
   let eventLoadingAfter = $state(false)
   let eventLoadingBefore = $state(false)
@@ -111,43 +133,76 @@
   let eventMonthsBefore = $state(initialEventMonthWindow)
   let eventRangeLoadToken = 0
   let initialCalendarLoading = $state(true)
+  let calendarViewMenuOpen = $state(false)
+  let eventDetailDialogOpen = $state(false)
   let monthScrollAnimationFrame: null | number = null
   let monthScrollFrame: null | number = null
   let monthScroller = $state<HTMLElement | null>(null)
   let monthVirtualScrollTop = $state(0)
   let monthViewportHeight = $state(monthWeekRowHeightPx * 6)
+  let programmaticAgendaScrollEndTimer: null | number = null
+  let programmaticAgendaScrollTargetKey = ''
   let programmaticMonthScrollEndTimer: null | number = null
   let programmaticMonthScrollTargetKey = ''
+  let selectedMonthEventUid = $state('')
+  let selectedAgendaEventUid = $state('')
   let selectedDate = $state<DateValue | undefined>(dateValueFromKey(viewModel.selectedDateKey))
   let visibleMonth = $state<DateValue>(dateValueFromKey(viewModel.selectedDateKey))
 
-  const selectedEvents = $derived(viewModel.selectedEvents)
   const selectedDateLabel = $derived(formatDateLabel(viewModel.selectedDateKey))
   const eventRangeOptions = $derived.by<CalendarVisibleRangeOptions>(() => ({
     monthsAfter: eventMonthsAfter,
     monthsBefore: eventMonthsBefore
   }))
   const monthVirtualGrid = $derived.by<VirtualMonthGrid>(() => createVirtualMonthGrid(visibleMonth.toString(), monthVirtualMonthWindow, monthVirtualMonthWindow))
+  const agendaVirtualGrid = $derived.by<VirtualAgendaGrid>(() => createVirtualAgendaGrid(agendaAnchorKey))
+  const virtualAgendaWindow = $derived.by<VirtualAgendaWindow>(() => createVirtualAgendaWindow(agendaVirtualGrid, agendaVirtualScrollTop, agendaViewportHeight))
   const virtualWeekWindow = $derived.by<VirtualWeekWindow>(() => createVirtualWeekWindow(monthVirtualGrid, monthVirtualScrollTop, monthViewportHeight))
   const monthEventsByDate = $derived.by<Map<string, CalendarEvent[]>>(() => monthEventMap(viewModel.events))
-  const currentMonthInViewLabel = $derived(formatMonthHeading(currentMonthInViewKey || visibleMonth.toString()))
-  const weekGroups = $derived.by<WeekEventGroup[]>(() =>
-    weekDateKeys(viewModel.selectedDateKey).map(dateKey => ({
-      dateKey,
-      events: calendarEventsForDate(viewModel.events, dateKey),
-      label: formatDateLabel(dateKey)
-    }))
+  const selectedMonthEvent = $derived.by<CalendarEvent | null>(() => viewModel.events.find(event => event.uid === selectedMonthEventUid) ?? null)
+  const selectedAgendaEvent = $derived.by<CalendarEvent | null>(() => viewModel.events.find(event => event.uid === selectedAgendaEventUid) ?? null)
+  const monthLayoutClass = $derived(
+    selectedMonthEvent ? 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] gap-3' : 'grid min-h-0 flex-1 gap-3'
   )
-  const weekEventCount = $derived.by(() => weekGroups.reduce((total, group) => total + group.events.length, 0))
-  const activeDateLabel = $derived.by(() => (calendarView === 'week' ? formatWeekLabel(viewModel.selectedDateKey) : selectedDateLabel))
+  const agendaLayoutClass = $derived(
+    selectedAgendaEvent ? 'grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]' : 'grid min-h-0 flex-1 gap-3'
+  )
+  const currentMonthInViewLabel = $derived(formatMonthHeading(currentMonthInViewKey || visibleMonth.toString()))
+  const calendarViewOptions = $derived.by(() => calendarViews.filter(view => isCalendarViewEnabled(view.id)))
+  const selectedCalendarViewLabel = $derived(calendarViews.find(view => view.id === calendarView)?.label.toLowerCase() ?? calendarView)
+  const activeDateLabel = $derived(selectedDateLabel)
+  const selectedAgendaEventDialogDescription = $derived(
+    selectedAgendaEvent ? [selectedAgendaEvent.calendarName, formatCalendarEventTime(selectedAgendaEvent)].filter(Boolean).join(' · ') : ''
+  )
+
+  $effect(() => {
+    if (!selectedAgendaEvent) eventDetailDialogOpen = false
+  })
+
+  $effect(() => {
+    if (selectedAgendaEvent && !eventDetailDialogOpen && !calendarDesktopViewport) selectedAgendaEventUid = ''
+  })
+
+
 
   onMount(() => {
     let disposed = false
     let unlisten: undefined | (() => void)
+    const mediaQuery = window.matchMedia(calendarDesktopMediaQuery)
+    const handleViewportChange = (event: MediaQueryListEvent) => syncCalendarDesktopViewport(event.matches)
+
+    syncCalendarDesktopViewport(mediaQuery.matches, false)
+    mediaQuery.addEventListener('change', handleViewportChange)
 
     void tick().then(() => {
-      syncMonthViewportMetrics()
-      void scrollMonthIntoView(visibleMonth.toString(), 'auto')
+      if (calendarView === 'month') {
+        syncMonthViewportMetrics()
+        void scrollMonthIntoView(visibleMonth.toString(), 'auto')
+        return
+      }
+
+      syncAgendaViewportMetrics()
+      void scrollAgendaIntoView(viewModel.selectedDateKey, 'auto')
     })
     void loadCalendarViewRange({ background: true }).finally(() => {
       initialCalendarLoading = false
@@ -164,16 +219,52 @@
 
     return () => {
       disposed = true
+      if (agendaScrollFrame !== null) window.cancelAnimationFrame(agendaScrollFrame)
+      if (agendaScrollAnimationFrame !== null) window.cancelAnimationFrame(agendaScrollAnimationFrame)
       if (monthScrollFrame !== null) window.cancelAnimationFrame(monthScrollFrame)
       if (monthScrollAnimationFrame !== null) window.cancelAnimationFrame(monthScrollAnimationFrame)
+      if (programmaticAgendaScrollEndTimer !== null) window.clearTimeout(programmaticAgendaScrollEndTimer)
       if (programmaticMonthScrollEndTimer !== null) window.clearTimeout(programmaticMonthScrollEndTimer)
+      agendaScrollFrame = null
+      agendaScrollAnimationFrame = null
       monthScrollFrame = null
       monthScrollAnimationFrame = null
+      programmaticAgendaScrollEndTimer = null
+      programmaticAgendaScrollTargetKey = ''
       programmaticMonthScrollEndTimer = null
       programmaticMonthScrollTargetKey = ''
+      mediaQuery.removeEventListener('change', handleViewportChange)
       unlisten?.()
     }
   })
+
+  function initialCalendarDesktopViewport(): boolean {
+    return typeof window === 'undefined' ? true : window.matchMedia(calendarDesktopMediaQuery).matches
+  }
+
+  function initialCalendarView(): CalendarView {
+    return initialCalendarDesktopViewport() ? 'month' : 'day'
+  }
+
+  function syncCalendarDesktopViewport(matches: boolean, load = true): void {
+    calendarDesktopViewport = matches
+    if (matches) eventDetailDialogOpen = false
+    if (!matches && selectedAgendaEventUid && calendarView !== 'month') eventDetailDialogOpen = true
+    if (matches || calendarView !== 'month') return
+
+    calendarViewMenuOpen = false
+    calendarView = 'day'
+    agendaAnchorKey = viewModel.selectedDateKey
+    selectedMonthEventUid = ''
+    selectedAgendaEventUid = ''
+    eventDetailDialogOpen = false
+    void scrollAgendaIntoView(viewModel.selectedDateKey, 'auto')
+    if (load) void loadCalendarViewRange({ background: true })
+  }
+
+  function isCalendarViewEnabled(view: CalendarView): boolean {
+    return calendarDesktopViewport || view !== 'month'
+  }
 
   function dateValueFromKey(key: string): CalendarDate {
     const [year, month, day] = key.split('-').map(part => Number(part))
@@ -186,7 +277,7 @@
   }
 
   function activeRangeOptions(): CalendarVisibleRangeOptions {
-    return calendarView === 'month' ? eventRangeOptions : focusedRangeOptions
+    return eventRangeOptions
   }
 
   function loadCalendarViewRange(loadOptions: CalendarLoadOptions = {}): Promise<boolean> {
@@ -357,9 +448,185 @@
     return monthWeekRowHeightPx
   }
 
+  async function scrollAgendaIntoView(dateKey: string, behavior: CalendarScrollBehavior = 'smooth'): Promise<void> {
+    if (calendarView === 'month') return
+
+    const targetKey = agendaRowKeyForDate(dateKey)
+    await tick()
+    window.requestAnimationFrame(() => {
+      const scroller = agendaScroller
+      if (!scroller) return
+
+      syncAgendaViewportMetrics(scroller)
+      scrollAgendaScroller(scroller, agendaScrollTopForDate(dateKey), targetKey, behavior)
+      selectAgendaDate(targetKey)
+      maybeLoadEventsForMonth(targetKey)
+    })
+  }
+
+  function scrollAgendaScroller(scroller: HTMLElement, targetTop: number, targetKey: string, behavior: CalendarScrollBehavior): void {
+    if (agendaScrollAnimationFrame !== null) window.cancelAnimationFrame(agendaScrollAnimationFrame)
+    agendaScrollAnimationFrame = null
+    beginProgrammaticAgendaScroll(targetKey, behavior)
+
+    if (behavior !== 'smooth') {
+      scroller.scrollTop = targetTop
+      agendaVirtualScrollTop = targetTop
+      return
+    }
+
+    const startTop = scroller.scrollTop
+    const distance = targetTop - startTop
+    if (Math.abs(distance) < 2) {
+      scroller.scrollTop = targetTop
+      agendaVirtualScrollTop = targetTop
+      scheduleProgrammaticAgendaScrollEnd(80)
+      return
+    }
+
+    const duration = Math.min(maxProgrammaticScrollDurationMs, Math.max(minProgrammaticScrollDurationMs, Math.abs(distance) * 0.04))
+    const startedAt = performance.now()
+
+    function step(now: number): void {
+      const progress = Math.min(1, (now - startedAt) / duration)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const nextTop = startTop + distance * eased
+      scroller.scrollTop = nextTop
+      agendaVirtualScrollTop = nextTop
+
+      if (progress < 1) {
+        agendaScrollAnimationFrame = window.requestAnimationFrame(step)
+        return
+      }
+
+      scroller.scrollTop = targetTop
+      agendaVirtualScrollTop = targetTop
+      agendaScrollAnimationFrame = null
+      scheduleProgrammaticAgendaScrollEnd(80)
+    }
+
+    agendaScrollAnimationFrame = window.requestAnimationFrame(step)
+  }
+
+  function beginProgrammaticAgendaScroll(targetKey: string, behavior: CalendarScrollBehavior): void {
+    if (programmaticAgendaScrollEndTimer !== null) window.clearTimeout(programmaticAgendaScrollEndTimer)
+    programmaticAgendaScrollEndTimer = null
+
+    if (behavior !== 'smooth') {
+      programmaticAgendaScrollTargetKey = ''
+      return
+    }
+
+    programmaticAgendaScrollTargetKey = targetKey
+  }
+
+  function scheduleProgrammaticAgendaScrollEnd(delayMs = 180): void {
+    if (!programmaticAgendaScrollTargetKey) return
+    if (programmaticAgendaScrollEndTimer !== null) window.clearTimeout(programmaticAgendaScrollEndTimer)
+
+    programmaticAgendaScrollEndTimer = window.setTimeout(() => {
+      programmaticAgendaScrollEndTimer = null
+      programmaticAgendaScrollTargetKey = ''
+      updateSelectedAgendaFromScroll()
+    }, delayMs)
+  }
+
+  function syncAgendaViewportMetrics(scroller = agendaScroller): void {
+    if (!scroller || calendarView === 'month') return
+
+    agendaVirtualScrollTop = scroller.scrollTop
+    agendaViewportHeight = Math.max(agendaRowHeight(), scroller.clientHeight)
+  }
+
+  function handleAgendaScroll(): void {
+    if (agendaScrollFrame !== null) return
+
+    agendaScrollFrame = window.requestAnimationFrame(() => {
+      agendaScrollFrame = null
+      syncAgendaViewportMetrics()
+      updateSelectedAgendaFromScroll()
+    })
+  }
+
+  function updateSelectedAgendaFromScroll(): void {
+    const scroller = agendaScroller
+    if (!scroller || calendarView === 'month') return
+
+    if (programmaticAgendaScrollTargetKey) {
+      selectAgendaDate(programmaticAgendaScrollTargetKey)
+      maybeLoadEventsForMonth(programmaticAgendaScrollTargetKey)
+      scheduleProgrammaticAgendaScrollEnd()
+      return
+    }
+
+    const bestKey = highlightedAgendaKey(scroller) || viewModel.selectedDateKey
+    if (bestKey && bestKey !== viewModel.selectedDateKey) selectAgendaDate(bestKey)
+    if (bestKey) maybeLoadEventsForMonth(bestKey)
+  }
+
+  function highlightedAgendaKey(scroller: HTMLElement): string {
+    const rowHeight = agendaRowHeight()
+    const sampleTop = scroller.scrollTop + Math.min(scroller.clientHeight * 0.35, rowHeight * 0.8)
+    const rowIndex = clamp(Math.floor(sampleTop / rowHeight), 0, agendaVirtualGrid.rowCount - 1)
+    return agendaRowAtIndex(agendaVirtualGrid, rowIndex).key
+  }
+
+  function selectAgendaDate(dateKey: string): void {
+    selectedDate = dateValueFromKey(dateKey)
+    currentMonthInViewKey = monthStartKey(dateKey)
+    viewModel.selectDate(dateKey)
+  }
+
+  function agendaRowHeight(): number {
+    return agendaDayRowHeightPx
+  }
+
+  function agendaScrollTopForDate(dateKey: string): number {
+    return agendaRowIndexForDate(dateKey, agendaVirtualGrid) * agendaRowHeight()
+  }
+
+  function agendaRowIndexForDate(dateKey: string, grid: VirtualAgendaGrid): number {
+    const gridStart = localDateFromKey(grid.startKey)
+    const target = localDateFromKey(dateKey)
+    const rowOffset = daysBetween(gridStart, target)
+    return clamp(rowOffset, 0, grid.rowCount - 1)
+  }
+
+  function agendaRowKeyForDate(dateKey: string): string {
+    return dateKey
+  }
+
   function selectMonthDate(dateKey: string): void {
     selectedDate = dateValueFromKey(dateKey)
     viewModel.selectDate(dateKey)
+  }
+
+  function selectMonthEvent(clickEvent: MouseEvent, calendarEvent: CalendarEvent, dateKey: string): void {
+    clickEvent.stopPropagation()
+    selectedAgendaEventUid = ''
+    eventDetailDialogOpen = false
+    selectedMonthEventUid = calendarEvent.uid
+    selectMonthDate(dateKey)
+  }
+
+  function openAgendaEventDetail(calendarEvent: CalendarEvent): void {
+    selectedMonthEventUid = ''
+    selectedAgendaEventUid = calendarEvent.uid
+    if (!calendarDesktopViewport) eventDetailDialogOpen = true
+  }
+
+  function closeMonthEventDetail(): void {
+    selectedMonthEventUid = ''
+  }
+
+  function closeAgendaEventDetail(): void {
+    selectedAgendaEventUid = ''
+    eventDetailDialogOpen = false
+  }
+
+  function closeEventDetail(): void {
+    closeMonthEventDetail()
+    closeAgendaEventDetail()
   }
 
   function navigateVisibleMonth(offset: number): void {
@@ -380,19 +647,31 @@
       return
     }
 
+    agendaAnchorKey = todayKey
     visibleMonth = today
     viewModel.setVisibleAnchor(todayKey)
+    void scrollAgendaIntoView(todayKey, 'smooth')
     void loadCalendarViewRange({ background: true })
   }
 
   function selectCalendarView(view: CalendarView): void {
+    calendarViewMenuOpen = false
+    if (!isCalendarViewEnabled(view)) return
+
     calendarView = view
-    if (view === 'month') {
-      void scrollMonthIntoView(visibleMonth.toString(), 'auto')
+    if (view !== 'month') {
+      agendaAnchorKey = viewModel.selectedDateKey
+      selectedMonthEventUid = ''
+      void scrollAgendaIntoView(viewModel.selectedDateKey, 'auto')
+      void loadCalendarViewRange({ background: true })
       return
     }
 
-    void loadCalendarViewRange({ background: true })
+    selectedAgendaEventUid = ''
+    eventDetailDialogOpen = false
+    visibleMonth = dateValueFromKey(viewModel.selectedDateKey)
+    viewModel.setVisibleAnchor(viewModel.selectedDateKey)
+    void scrollMonthIntoView(visibleMonth.toString(), 'auto')
   }
 
   function dateKeyFromLocalDate(date: Date): string {
@@ -458,20 +737,21 @@
     return Math.min(max, Math.max(min, value))
   }
 
-  function weekDateKeys(dateKey: string): string[] {
-    const selected = localDateFromKey(dateKey)
-    const start = new Date(selected)
-    start.setDate(selected.getDate() - selected.getDay())
 
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(start)
-      date.setDate(start.getDate() + index)
-      return dateKeyFromLocalDate(date)
-    })
-  }
 
   function eventsForDateKey(dateKey: string): CalendarEvent[] {
     return monthEventsByDate.get(dateKey) ?? []
+  }
+
+  function eventsForDateKeys(dateKeys: string[]): CalendarEvent[] {
+    const eventsByUid = new Map<string, CalendarEvent>()
+    for (const dateKey of dateKeys) {
+      for (const event of eventsForDateKey(dateKey)) {
+        eventsByUid.set(event.uid, event)
+      }
+    }
+
+    return sortCalendarEvents([...eventsByUid.values()])
   }
 
   function monthEventMap(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
@@ -514,6 +794,47 @@
     return {
       startKey: dateKeyFromLocalDate(start),
       weekCount: Math.max(1, Math.floor(daysBetween(start, end) / 7) + 1)
+    }
+  }
+
+  function createVirtualAgendaGrid(anchorKey: string): VirtualAgendaGrid {
+    const start = localDateFromKey(anchorKey)
+    start.setDate(start.getDate() - agendaVirtualWindowRows)
+
+    return {
+      rowCount: agendaVirtualWindowRows * 2 + 1,
+      startKey: dateKeyFromLocalDate(start)
+    }
+  }
+
+  function createVirtualAgendaWindow(grid: VirtualAgendaGrid, scrollTop: number, viewportHeight: number): VirtualAgendaWindow {
+    const rowHeight = agendaRowHeight()
+    const firstVisibleIndex = clamp(Math.floor(scrollTop / rowHeight) - agendaVirtualOverscanRows, 0, Math.max(0, grid.rowCount - 1))
+    const visibleRowCount = Math.ceil(Math.max(viewportHeight, rowHeight) / rowHeight) + agendaVirtualOverscanRows * 2
+    const endIndex = Math.min(grid.rowCount, firstVisibleIndex + visibleRowCount)
+    const rows: VirtualAgendaRow[] = []
+
+    for (let index = firstVisibleIndex; index < endIndex; index += 1) {
+      rows.push(agendaRowAtIndex(grid, index))
+    }
+
+    return {
+      bottomSpacerHeight: Math.max(0, (grid.rowCount - endIndex) * rowHeight),
+      rows,
+      topSpacerHeight: firstVisibleIndex * rowHeight
+    }
+  }
+
+  function agendaRowAtIndex(grid: VirtualAgendaGrid, index: number): VirtualAgendaRow {
+    const cursor = localDateFromKey(grid.startKey)
+    cursor.setDate(cursor.getDate() + index)
+    const key = dateKeyFromLocalDate(cursor)
+
+    return {
+      dateKeys: [key],
+      index,
+      key,
+      label: formatDateLabel(key)
     }
   }
 
@@ -597,8 +918,6 @@
   }
 
   function maybeLoadEventsForMonth(monthInViewKey: string): void {
-    if (calendarView !== 'month') return
-
     const offset = monthOffsetFromVisibleAnchor(monthStartKey(monthInViewKey))
     if (offset <= -eventMonthsBefore + 1) {
       extendEventRange('before', Math.max(eventMonthsBefore + eventLazyMonthStep, Math.abs(offset) + initialEventMonthWindow))
@@ -627,8 +946,8 @@
     })
   }
 
-  function calendarViewButtonClass(view: CalendarView): string {
-    return `${calendarPanelActionClass} ${calendarView === view ? 'text-primary' : 'text-ink-muted'}`
+  function calendarViewMenuItemClass(view: CalendarView): string {
+    return calendarView === view ? `${calendarViewMenuItemBaseClass} border-primary/40 bg-primary/10 text-primary` : calendarViewMenuItemBaseClass
   }
 
   function monthDayClass(dateKey: string): string {
@@ -646,8 +965,13 @@
     return isCurrentMonthCell(dateKey) ? 'text-ink-bright' : 'text-ink-muted/35'
   }
 
+  function monthEventButtonClass(eventUid: string): string {
+    const selected = selectedMonthEventUid === eventUid ? 'bg-primary/15 text-ink-bright ring-1 ring-primary/40' : 'text-ink-muted hover:bg-surface-raised/80'
+    return `w-full rounded-control px-1 py-0.5 text-left ${selected}`
+  }
+
   function monthEventRowClass(): string {
-    return 'grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-l-2 border-primary/80 pl-1 text-[0.66rem] leading-4 text-ink-muted'
+    return 'grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-l-2 border-primary/80 pl-1 text-[0.66rem] leading-4'
   }
 
   function monthEventTitleClass(): string {
@@ -660,6 +984,10 @@
 
   function monthEventMoreClass(): string {
     return 'mt-0.5 text-[0.62rem] text-primary'
+  }
+
+  function eventCardButtonClass(eventUid: string): string {
+    return selectedAgendaEventUid === eventUid ? `${eventCardClass} border-primary/50 bg-primary/10 ring-1 ring-primary/35` : eventCardClass
   }
 
   function monthEventTimeLabel(event: CalendarEvent): string {
@@ -732,33 +1060,33 @@
     }).format(date)
   }
 
-  function formatWeekLabel(dateKey: string): string {
-    const days = weekDateKeys(dateKey)
-    const start = localDateFromKey(days[0] ?? dateKey)
-    const end = localDateFromKey(days[6] ?? dateKey)
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return dateKey
 
-    const formatter = new Intl.DateTimeFormat(undefined, {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    })
-
-    return `${formatter.format(start)} – ${formatter.format(end)}`
-  }
 </script>
 
 {#snippet calendarActions()}
   <div class="flex h-5 items-center gap-1" aria-label="Calendar actions">
-    <div class="flex h-5 items-center gap-0.5" aria-label="Calendar view selector">
-      {#each calendarViews as view (view.id)}
-        <Button variant="unstyled" class={calendarViewButtonClass(view.id)} aria-pressed={calendarView === view.id} onclick={() => selectCalendarView(view.id)}>
-          {view.label}
-        </Button>
-      {/each}
-    </div>
-    <span class="h-3 w-px bg-line/70" aria-hidden="true"></span>
-    <Button variant="unstyled" class={`${calendarPanelActionClass} text-secondary`} onclick={selectToday}>Today</Button>
+    <Popover.Root bind:open={calendarViewMenuOpen}>
+      <Popover.Trigger aria-label={`Choose calendar view. Current view: ${selectedCalendarViewLabel}`}>
+        {#snippet child({ props })}
+          <BracketTrigger {...props} label="VIEW" value={selectedCalendarViewLabel} />
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content class={calendarViewMenuContentClass} sideOffset={4} align="end">
+        <div class="px-2 pb-1 pt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">calendar views</div>
+        <div class="grid gap-1">
+          {#each calendarViewOptions as view (view.id)}
+            <button class={calendarViewMenuItemClass(view.id)} type="button" onclick={() => selectCalendarView(view.id)} aria-pressed={calendarView === view.id}>
+              <span class="min-w-0 truncate">view:{view.label.toLowerCase()}</span>
+              {#if calendarView === view.id}<span class="shrink-0 text-primary">active</span>{/if}
+            </button>
+          {/each}
+        </div>
+      </Popover.Content>
+    </Popover.Root>
+    {#if calendarView !== 'month'}
+      <span class="h-3 w-px bg-line/70" aria-hidden="true"></span>
+      <Button variant="unstyled" class={`${calendarPanelActionClass} text-secondary`} onclick={selectToday}>Today</Button>
+    {/if}
     <Button
       variant="unstyled"
       class="flex h-5 w-6 items-center justify-center p-0 text-primary hover:text-ink-bright"
@@ -777,6 +1105,18 @@
   </div>
 {/snippet}
 
+{#snippet eventDetailLeading()}
+  <Button
+    variant="unstyled"
+    class="flex h-5 w-6 items-center justify-center p-0 text-xs text-ink-muted hover:text-ink-bright"
+    onclick={closeEventDetail}
+    aria-label="Close event detail"
+    title="Close event detail"
+  >
+    x
+  </Button>
+{/snippet}
+
 {#snippet linkedText(value: string)}
   {#each linkedTextSegments(value) as segment}
     {#if segment.kind === 'link'}
@@ -787,41 +1127,79 @@
   {/each}
 {/snippet}
 
-{#snippet eventCard(event: CalendarEvent)}
-  <article class={eventCardClass}>
-    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)] md:items-start">
-      <div class="min-w-0">
-        <h3 class="min-w-0 text-sm font-semibold leading-5 text-ink-bright">{event.title}</h3>
-      </div>
-
-      <div class="flex flex-wrap gap-1.5 md:justify-end">
-        <span class="rounded-control border border-line bg-canvas px-1.5 py-0.5 text-[0.62rem] text-secondary">{formatCalendarEventTime(event)}</span>
+{#snippet eventDetail(event: CalendarEvent)}
+  <article class="flex min-h-0 flex-col gap-3 text-xs leading-5 text-ink-muted" aria-label={`Details for ${event.title}`}>
+    <header class="border-b border-line pb-3">
+      <h2 class="text-base font-semibold leading-6 text-ink-bright">{event.title}</h2>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        <span class="rounded-control border border-secondary/40 bg-secondary/10 px-1.5 py-0.5 font-mono text-[0.62rem] text-secondary">{formatCalendarEventTime(event)}</span>
+        {#if event.allDay}
+          <span class="rounded-control border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-mono text-[0.62rem] text-primary">all day</span>
+        {/if}
         {#if event.calendarName}
           <span class={eventPillClass}>{event.calendarName}</span>
         {/if}
-        {#if event.allDay}
-          <span class="rounded-control border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[0.62rem] text-primary">all day</span>
-        {/if}
       </div>
-    </div>
+    </header>
+
+    <dl class="grid gap-2 border-b border-line/60 pb-3">
+      <div>
+        <dt class="font-hud text-[0.58rem] uppercase tracking-[0.14em] text-ink-dim">Starts</dt>
+        <dd class="mt-0.5 font-mono text-ink-bright">{formatEventStamp(event.startsAt)}</dd>
+      </div>
+      <div>
+        <dt class="font-hud text-[0.58rem] uppercase tracking-[0.14em] text-ink-dim">Ends</dt>
+        <dd class="mt-0.5 font-mono text-ink-bright">{formatEventStamp(event.endsAt)}</dd>
+      </div>
+      {#if event.location}
+        <div>
+          <dt class="font-hud text-[0.58rem] uppercase tracking-[0.14em] text-ink-dim">Location</dt>
+          <dd class="mt-0.5 wrap-break-word text-ink-muted">{@render linkedText(event.location)}</dd>
+        </div>
+      {/if}
+    </dl>
+
+    <section class="min-h-0 flex-1 overflow-auto pr-1" data-selectable="true">
+      <h3 class="font-hud text-[0.58rem] uppercase tracking-[0.14em] text-ink-dim">Description</h3>
+      <p class="mt-2 whitespace-pre-wrap wrap-break-word text-ink-muted">
+        {@render linkedText(eventDescription(event))}
+      </p>
+    </section>
+
+  </article>
+{/snippet}
+
+{#snippet eventCard(event: CalendarEvent)}
+  <Button
+    variant="unstyled"
+    class={eventCardButtonClass(event.uid)}
+    onclick={() => openAgendaEventDetail(event)}
+    aria-label={`Show details for ${event.title}`}
+    aria-pressed={selectedAgendaEventUid === event.uid}
+  >
+    <span class="grid grid-cols-[minmax(0,1fr)_minmax(6.5rem,9rem)] items-start gap-3">
+      <span class="min-w-0">
+        <span class="block min-w-0 text-sm font-semibold leading-5 text-ink-bright">{event.title}</span>
+        {#if event.calendarName}
+          <span class="mt-1 flex min-w-0 flex-wrap gap-1.5">
+            <span class={eventPillClass}>{event.calendarName}</span>
+          </span>
+        {/if}
+      </span>
+
+      <span class="w-full justify-self-end rounded-control border border-line bg-canvas px-2 py-1 text-right font-mono text-xs tabular-nums text-secondary">
+        {formatCalendarEventTime(event)}
+      </span>
+    </span>
 
     {#if event.location}
-      <p class="mt-3 border-l border-line/70 pl-2 text-xs leading-5 text-ink-muted">
+      <span class="mt-3 block border-l border-line/70 pl-2 text-xs leading-5 text-ink-muted">
         <span class="font-hud uppercase tracking-[0.12em] text-ink-dim">Location</span>
         <span class="text-ink-muted"> · </span>
-        {@render linkedText(event.location)}
-      </p>
+        <span class="wrap-break-word">{event.location}</span>
+      </span>
     {/if}
-
-    <p class="mt-3 whitespace-pre-wrap wrap-break-word text-xs leading-5 text-ink-muted">
-      {@render linkedText(eventDescription(event))}
-    </p>
-
-    <div class="mt-3 flex items-center justify-between gap-3 border-t border-line/60 pt-2 font-mono text-[0.62rem] text-ink-faint">
-      <span>starts {formatEventStamp(event.startsAt)}</span>
-      <span>ends {formatEventStamp(event.endsAt)}</span>
-    </div>
-  </article>
+  </Button>
 {/snippet}
 
 {#snippet eventList(events: CalendarEvent[])}
@@ -832,140 +1210,218 @@
   </div>
 {/snippet}
 
-{#snippet weekEventList(groups: WeekEventGroup[])}
-  <div class="grid gap-4">
-    {#each groups as group (group.dateKey)}
-      {#if group.events.length}
-        <section class="grid gap-2" aria-label={`Events for ${group.label}`}>
-          <header class="flex items-center justify-between gap-3 border-b border-line pb-2">
-            <h3 class="min-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] text-ink-bright">{group.label}</h3>
-            <span class="rounded-control border border-line bg-canvas px-2 py-1 font-mono text-[0.62rem] text-ink-muted">{group.events.length}</span>
-          </header>
-          {@render eventList(group.events)}
-        </section>
+{#snippet agendaEmptyState(label: string)}
+  <div class="flex min-h-24 items-center justify-center border border-line/60 bg-surface-raised/35 p-4 text-center text-sm text-ink-muted">{label}</div>
+{/snippet}
+
+{#snippet agendaRow(row: VirtualAgendaRow)}
+  {@const rowEvents = eventsForDateKeys(row.dateKeys)}
+  <section class="border-b border-line/70" style={`min-height: ${agendaRowHeight()}px`} data-calendar-agenda-row={row.key} aria-label={row.label}>
+    <header class="flex w-full shrink-0 items-center justify-between gap-3 border-b border-line/60 py-2 text-left">
+      <span class="min-w-0 truncate font-hud text-sm font-bold uppercase tracking-[0.12em] text-ink-bright">{row.label}</span>
+
+    </header>
+    <div class="py-3">
+      {#if rowEvents.length}
+        {@render eventList(rowEvents)}
+      {:else}
+        {@render agendaEmptyState('No events returned for this date.')}
       {/if}
-    {/each}
-  </div>
+    </div>
+  </section>
 {/snippet}
 
 <section class="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-chat-scroll/40 p-3 font-mono text-ink md:overflow-hidden md:p-4" aria-label="Calendar">
-  <Panel title="CALENDAR" class="border-line bg-surface" contentClass="flex min-h-0 flex-col overflow-hidden p-3" titleClass="text-primary" actions={calendarActions}>
-    {#if calendarView !== 'month'}
-      <div class="mb-3 min-w-0 truncate border-b border-line pb-3 text-right font-hud text-[0.68rem] uppercase tracking-[0.16em] text-secondary">{activeDateLabel}</div>
-    {/if}
+  {#if calendarView === 'month'}
+    <div class={monthLayoutClass}>
+      <Panel title="CALENDAR" class="border-line bg-surface" contentClass="flex min-h-0 flex-col overflow-hidden p-3" titleClass="text-primary" actions={calendarActions}>
+        {#if initialCalendarLoading && viewModel.configStatus === null}
+          <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4" aria-label="Loading calendar" role="status">
+            <Loader size="xl" label="Loading calendar" />
+          </div>
+        {:else if viewModel.error}
+          <div class="rounded-panel border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{viewModel.error}</div>
+        {:else if !viewModel.configured}
+          <div class="rounded-panel border border-warning/50 bg-warning/10 p-4 text-sm leading-6 text-warning">
+            Calendar config missing. {viewModel.configurationHint}
+          </div>
+        {:else}
+          <Calendar.Root
+            type="single"
+            value={selectedDate}
+            placeholder={visibleMonth}
+            onValueChange={handleDateChange}
+            onPlaceholderChange={handleVisibleMonthChange}
+            weekdayFormat="short"
+            fixedWeeks={true}
+            numberOfMonths={1}
+            calendarLabel="BITCH calendar"
+            class={calendarShellClass}
+          >
+            {#snippet children({ weekdays })}
+              <Calendar.Header class={calendarHeaderClass}>
+                <div class={calendarHeaderTitleClass}>{currentMonthInViewLabel}</div>
+                <div class={calendarHeaderControlsClass} aria-label="Month navigation">
+                  <Button size="icon" aria-label="Previous month" onclick={() => navigateVisibleMonth(-1)}>‹</Button>
+                  <Button size="sm" variant="secondary" onclick={selectToday}>Today</Button>
+                  <Button size="icon" aria-label="Next month" onclick={() => navigateVisibleMonth(1)}>›</Button>
+                </div>
+              </Calendar.Header>
 
-    {#if initialCalendarLoading && viewModel.configStatus === null}
-      <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4" aria-label="Loading calendar" role="status">
-        <Loader size="xl" label="Loading calendar" />
-      </div>
-    {:else if viewModel.error}
-      <div class="rounded-panel border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{viewModel.error}</div>
-    {:else if !viewModel.configured}
-      <div class="rounded-panel border border-warning/50 bg-warning/10 p-4 text-sm leading-6 text-warning">
-        Calendar config missing. {viewModel.configurationHint}
-      </div>
-    {:else if calendarView === 'month'}
-      <Calendar.Root
-        type="single"
-        value={selectedDate}
-        placeholder={visibleMonth}
-        onValueChange={handleDateChange}
-        onPlaceholderChange={handleVisibleMonthChange}
-        weekdayFormat="short"
-        fixedWeeks={true}
-        numberOfMonths={1}
-        calendarLabel="BITCH calendar"
-        class={calendarShellClass}
-      >
-        {#snippet children({ weekdays })}
-          <Calendar.Header class={calendarHeaderClass}>
-            <Button variant="unstyled" class={calendarNavClass} aria-label="Previous month" onclick={() => navigateVisibleMonth(-1)}>‹</Button>
-            <div class="min-w-0 font-hud text-lg font-bold tracking-[0.12em] text-ink-bright">{currentMonthInViewLabel}</div>
-            <Button variant="unstyled" class={calendarNavClass} aria-label="Next month" onclick={() => navigateVisibleMonth(1)}>›</Button>
-          </Calendar.Header>
+              <div bind:this={monthScroller} onscroll={handleMonthScroll} class="min-h-0 flex-1 overflow-y-auto pr-1" data-selectable="true" aria-label="Continuous month calendar">
+                <div class={calendarWeekdayHeaderClass} data-calendar-weekday-header aria-hidden="true">
+                  {#each weekdays as day (day)}
+                    <div class={calendarWeekdayCellClass}>{day.toLowerCase()}</div>
+                  {/each}
+                </div>
+                <div
+                  class="flex justify-center border-b border-primary/20 bg-surface/90 py-1"
+                  style={`height: ${monthEventLoaderSlotHeightPx}px`}
+                  aria-hidden={eventLoadingBefore ? undefined : 'true'}
+                  aria-label={eventLoadingBefore ? 'Loading previous calendar events' : undefined}
+                  role={eventLoadingBefore ? 'status' : undefined}
+                >
+                  {#if eventLoadingBefore}
+                    <Loader size="md" label="Loading previous calendar events" />
+                  {/if}
+                </div>
+                <Calendar.Grid class={calendarGridClass}>
+                  <Calendar.GridBody>
+                    {#if virtualWeekWindow.topSpacerHeight > 0}
+                      <tr aria-hidden="true">
+                        <td colspan="7" class="border-0 p-0" style={`height: ${virtualWeekWindow.topSpacerHeight}px`}></td>
+                      </tr>
+                    {/if}
+                    {#each virtualWeekWindow.rows as row (row.startKey)}
+                      <Calendar.GridRow data-calendar-week-month={row.monthKey} data-calendar-week-start={row.startKey} style={`height: ${monthWeekRowHeightPx}px`}>
+                        {#each row.week as cell (cell.dateKey)}
+                          <Calendar.Cell date={cell.date} month={cell.month} class={calendarCellClass}>
+                            {@const cellEvents = eventsForDateKey(cell.dateKey)}
+                            <Calendar.Day class={monthDayClass(cell.dateKey)} data-calendar-day-month={monthStartKey(cell.dateKey)} aria-label={`${cell.dateKey}${cellEvents.length ? `, ${cellEvents.length} events` : ''}`} onclick={() => selectMonthDate(cell.dateKey)}>
+                              {#snippet children({ day })}
+                                <span class={`mb-1 self-end font-mono text-sm leading-none ${monthDayLabelClass(cell.dateKey)}`}>{day}</span>
+                                {#each cellEvents.slice(0, 4) as event (event.uid)}
+                                  <Button
+                                    variant="unstyled"
+                                    class={monthEventButtonClass(event.uid)}
+                                    title={event.title}
+                                    aria-label={`Show details for ${event.title}`}
+                                    onclick={clickEvent => selectMonthEvent(clickEvent, event, cell.dateKey)}
+                                  >
+                                    <span class={monthEventRowClass()}>
+                                      <span class={monthEventTitleClass()}>{event.title}</span>
+                                      <span class={monthEventTimeClass()}>{monthEventTimeLabel(event)}</span>
+                                    </span>
+                                  </Button>
+                                {/each}
+                                {#if cellEvents.length > 4}
+                                  <span class={monthEventMoreClass()}>+{cellEvents.length - 4} more</span>
+                                {/if}
+                              {/snippet}
+                            </Calendar.Day>
+                          </Calendar.Cell>
+                        {/each}
+                      </Calendar.GridRow>
+                    {/each}
+                    {#if virtualWeekWindow.bottomSpacerHeight > 0}
+                      <tr aria-hidden="true">
+                        <td colspan="7" class="border-0 p-0" style={`height: ${virtualWeekWindow.bottomSpacerHeight}px`}></td>
+                      </tr>
+                    {/if}
+                  </Calendar.GridBody>
+                </Calendar.Grid>
+                <div
+                  class="flex justify-center border-t border-primary/20 bg-surface/90 py-1"
+                  style={`height: ${monthEventLoaderSlotHeightPx}px`}
+                  aria-hidden={eventLoadingAfter ? undefined : 'true'}
+                  aria-label={eventLoadingAfter ? 'Loading next calendar events' : undefined}
+                  role={eventLoadingAfter ? 'status' : undefined}
+                >
+                  {#if eventLoadingAfter}
+                    <Loader size="md" label="Loading next calendar events" />
+                  {/if}
+                </div>
+              </div>
+            {/snippet}
+          </Calendar.Root>
+        {/if}
+      </Panel>
 
-          <div bind:this={monthScroller} onscroll={handleMonthScroll} class="min-h-0 flex-1 overflow-y-auto pr-1" data-selectable="true" aria-label="Continuous month calendar">
-            <div class={calendarWeekdayHeaderClass} data-calendar-weekday-header aria-hidden="true">
-              {#each weekdays as day (day)}
-                <div class={calendarWeekdayCellClass}>{day.toLowerCase()}</div>
+      {#if selectedMonthEvent}
+        <Panel
+          title="EVENT DETAIL"
+          class="min-h-0"
+          contentClass="flex min-h-0 flex-col overflow-hidden p-3"
+          titleClass="text-secondary"
+          leading={eventDetailLeading}
+        >
+          {@render eventDetail(selectedMonthEvent)}
+        </Panel>
+      {/if}
+    </div>
+  {:else}
+    <div class={agendaLayoutClass}>
+      <Panel title="CALENDAR" class="border-line bg-surface" contentClass="flex min-h-0 flex-col overflow-hidden p-3" titleClass="text-primary" actions={calendarActions}>
+        <div class="mb-3 min-w-0 truncate border-b border-line pb-3 text-right font-hud text-[0.68rem] uppercase tracking-[0.16em] text-secondary">{activeDateLabel}</div>
+
+        {#if initialCalendarLoading && viewModel.configStatus === null}
+          <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4" aria-label="Loading calendar" role="status">
+            <Loader size="xl" label="Loading calendar" />
+          </div>
+        {:else if viewModel.error}
+          <div class="rounded-panel border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{viewModel.error}</div>
+        {:else if !viewModel.configured}
+          <div class="rounded-panel border border-warning/50 bg-warning/10 p-4 text-sm leading-6 text-warning">
+            Calendar config missing. {viewModel.configurationHint}
+          </div>
+        {:else}
+          <div
+            bind:this={agendaScroller}
+            onscroll={handleAgendaScroll}
+            class="min-h-0 flex-1 overflow-y-auto pr-1"
+            data-selectable="true"
+            aria-label="Continuous day calendar events"
+          >
+            {#if virtualAgendaWindow.topSpacerHeight > 0}
+              <div aria-hidden="true" style={`height: ${virtualAgendaWindow.topSpacerHeight}px`}></div>
+            {/if}
+            <div class="grid gap-3" data-calendar-agenda-list>
+              {#each virtualAgendaWindow.rows as row (row.key)}
+                {@render agendaRow(row)}
               {/each}
             </div>
-            <div
-              class="flex justify-center border-b border-primary/20 bg-surface/90 py-1"
-              style={`height: ${monthEventLoaderSlotHeightPx}px`}
-              aria-hidden={eventLoadingBefore ? undefined : 'true'}
-              aria-label={eventLoadingBefore ? 'Loading previous calendar events' : undefined}
-              role={eventLoadingBefore ? 'status' : undefined}
-            >
-              {#if eventLoadingBefore}
-                <Loader size="md" label="Loading previous calendar events" />
-              {/if}
-            </div>
-            <Calendar.Grid class={calendarGridClass}>
-              <Calendar.GridBody>
-                {#if virtualWeekWindow.topSpacerHeight > 0}
-                  <tr aria-hidden="true">
-                    <td colspan="7" class="border-0 p-0" style={`height: ${virtualWeekWindow.topSpacerHeight}px`}></td>
-                  </tr>
-                {/if}
-                {#each virtualWeekWindow.rows as row (row.startKey)}
-                  <Calendar.GridRow data-calendar-week-month={row.monthKey} data-calendar-week-start={row.startKey} style={`height: ${monthWeekRowHeightPx}px`}>
-                    {#each row.week as cell (cell.dateKey)}
-                      <Calendar.Cell date={cell.date} month={cell.month} class={calendarCellClass}>
-                        {@const cellEvents = eventsForDateKey(cell.dateKey)}
-                        <Calendar.Day class={monthDayClass(cell.dateKey)} data-calendar-day-month={monthStartKey(cell.dateKey)} aria-label={`${cell.dateKey}${cellEvents.length ? `, ${cellEvents.length} events` : ''}`} onclick={() => selectMonthDate(cell.dateKey)}>
-                          {#snippet children({ day })}
-                            <span class={`mb-1 self-end font-mono text-sm leading-none ${monthDayLabelClass(cell.dateKey)}`}>{day}</span>
-                            {#each cellEvents.slice(0, 4) as event (event.uid)}
-                              <span class={monthEventRowClass()} title={event.title}>
-                                <span class={monthEventTitleClass()}>{event.title}</span>
-                                <span class={monthEventTimeClass()}>{monthEventTimeLabel(event)}</span>
-                              </span>
-                            {/each}
-                            {#if cellEvents.length > 4}
-                              <span class={monthEventMoreClass()}>+{cellEvents.length - 4} more</span>
-                            {/if}
-                          {/snippet}
-                        </Calendar.Day>
-                      </Calendar.Cell>
-                    {/each}
-                  </Calendar.GridRow>
-                {/each}
-                {#if virtualWeekWindow.bottomSpacerHeight > 0}
-                  <tr aria-hidden="true">
-                    <td colspan="7" class="border-0 p-0" style={`height: ${virtualWeekWindow.bottomSpacerHeight}px`}></td>
-                  </tr>
-                {/if}
-              </Calendar.GridBody>
-            </Calendar.Grid>
-            <div
-              class="flex justify-center border-t border-primary/20 bg-surface/90 py-1"
-              style={`height: ${monthEventLoaderSlotHeightPx}px`}
-              aria-hidden={eventLoadingAfter ? undefined : 'true'}
-              aria-label={eventLoadingAfter ? 'Loading next calendar events' : undefined}
-              role={eventLoadingAfter ? 'status' : undefined}
-            >
-              {#if eventLoadingAfter}
-                <Loader size="md" label="Loading next calendar events" />
-              {/if}
-            </div>
+            {#if virtualAgendaWindow.bottomSpacerHeight > 0}
+              <div aria-hidden="true" style={`height: ${virtualAgendaWindow.bottomSpacerHeight}px`}></div>
+            {/if}
           </div>
-        {/snippet}
-      </Calendar.Root>
-    {:else if calendarView === 'week'}
-      {#if weekEventCount === 0}
-        <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4 text-center text-sm text-ink-muted">No events returned for this week.</div>
-      {:else}
-        <div class="min-h-0 flex-1 overflow-auto pr-1" data-selectable="true" aria-label="Selected week calendar events">
-          {@render weekEventList(weekGroups)}
-        </div>
+        {/if}
+      </Panel>
+
+      {#if selectedAgendaEvent}
+        <Panel
+          title="EVENT DETAIL"
+          class="hidden min-h-0 md:flex"
+          contentClass="flex min-h-0 flex-col overflow-hidden p-3"
+          titleClass="text-secondary"
+          leading={eventDetailLeading}
+        >
+          {@render eventDetail(selectedAgendaEvent)}
+        </Panel>
       {/if}
-    {:else if selectedEvents.length === 0}
-      <div class="flex flex-1 items-center justify-center rounded-panel border border-line bg-surface-raised p-4 text-center text-sm text-ink-muted">No events returned for this date.</div>
-    {:else}
-      <div class="min-h-0 flex-1 overflow-auto pr-1" data-selectable="true" aria-label="Selected date calendar events">
-        {@render eventList(selectedEvents)}
-      </div>
-    {/if}
-  </Panel>
+    </div>
+  {/if}
 </section>
+
+{#if selectedAgendaEvent}
+  <Dialog
+    bind:open={eventDetailDialogOpen}
+    title="EVENT DETAIL"
+    description={selectedAgendaEventDialogDescription || selectedAgendaEvent.title}
+    class="w-[min(38rem,calc(100vw-2rem))] md:hidden"
+    contentClass="flex max-h-[min(38rem,calc(100vh-7rem))] flex-col overflow-hidden"
+  >
+    <div class="min-h-0 flex-1 overflow-hidden p-3">
+      {@render eventDetail(selectedAgendaEvent)}
+    </div>
+  </Dialog>
+{/if}
