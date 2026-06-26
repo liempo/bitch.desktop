@@ -73,6 +73,7 @@
   function handleVisibleMonthChange(value: DateValue): void {
     visibleMonth = value
     viewModel.setVisibleAnchor(value.toString())
+    void viewModel.loadVisibleRange()
   }
 
   function dayEventCount(date: DateValue): number {

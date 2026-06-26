@@ -52,6 +52,8 @@ describe('Calendar page source contract', () => {
     expect(calendarPageSource).not.toContain('>Refresh</Button>')
     expect(calendarPageSource).not.toContain('onclick={() => void viewModel.refresh()}')
     expect(visibleMonthHandler).toContain('viewModel.setVisibleAnchor(value.toString())')
+    expect(visibleMonthHandler).toContain('void viewModel.loadVisibleRange()')
     expect(visibleMonthHandler).not.toContain('viewModel.refresh')
+    expect(visibleMonthHandler).not.toContain('viewModel.syncNow')
   })
 })

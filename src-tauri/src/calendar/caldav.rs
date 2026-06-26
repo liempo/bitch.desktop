@@ -987,6 +987,32 @@ mod tests {
     }
 
     #[test]
+    fn expands_cached_whole_calendar_sources_for_any_requested_range() {
+        let future = event(
+            "year-end",
+            "Year end",
+            "20261215T090000Z",
+            "20261215T100000Z",
+        );
+        let source = cached_source_from_event("Work", &future);
+
+        let june_events = calendar_events_from_cached_sources(
+            &[source.clone()],
+            &range("2026-06-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z"),
+        )
+        .unwrap();
+        let december_events = calendar_events_from_cached_sources(
+            &[source],
+            &range("2026-12-01T00:00:00.000Z", "2027-01-01T00:00:00.000Z"),
+        )
+        .unwrap();
+
+        assert!(june_events.is_empty());
+        assert_eq!(december_events.len(), 1);
+        assert_eq!(december_events[0].uid, "year-end");
+    }
+
+    #[test]
     fn converts_tzid_wall_time_to_utc_instant_for_renderer_display() {
         let manila = minicaldav::Event::builder(
             Url::parse("https://calendar.example.test/manila.ics").unwrap(),

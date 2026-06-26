@@ -191,6 +191,28 @@ describe('calendar view model', () => {
     expect(loadEvents).not.toHaveBeenCalled()
   })
 
+  it('loads newly visible months from cache without running a CalDAV sync', async () => {
+    const loadEvents = vi.fn().mockResolvedValue([])
+    const loadStatus = vi.fn().mockResolvedValue({
+      configured: true,
+      calendarUrl: 'https://calendar.example.test/caldav/home/',
+      username: 'operator'
+    })
+    const syncEvents = vi.fn()
+    const viewModel = createCalendarViewModel({
+      loadEvents,
+      loadStatus,
+      now: () => new Date('2026-06-25T12:00:00.000Z'),
+      syncEvents
+    })
+
+    viewModel.setVisibleAnchor('2026-07-01')
+    await viewModel.loadVisibleRange()
+
+    expect(loadEvents).toHaveBeenCalledWith(localMonthRange(2026, 6))
+    expect(syncEvents).not.toHaveBeenCalled()
+  })
+
   it('runs explicit syncs and reloads cached events afterward', async () => {
     const loadEvents = vi.fn().mockResolvedValue(events)
     const syncedStatus = {

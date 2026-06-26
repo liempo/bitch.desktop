@@ -85,6 +85,10 @@ export class CalendarViewModel {
   }
 
   async refresh(): Promise<void> {
+    await this.loadVisibleRange()
+  }
+
+  async loadVisibleRange(): Promise<void> {
     this.loading = true
     this.error = ''
 
