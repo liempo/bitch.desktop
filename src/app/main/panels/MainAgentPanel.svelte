@@ -3,6 +3,7 @@
   import Conversation from '../../components/conversation/Conversation.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass } from '@/app/components/ui/styles'
@@ -229,7 +230,9 @@
 
     <div class="mt-2 border-t border-dotted border-line pt-2">
       {#if sessionState.sessionsLoading && selectableSessions.length === 0}
-        <div class={emptyNoticeClass}>SYNCING_SESSION_INDEX</div>
+        <div class={`${emptyNoticeClass} flex items-center justify-center`}>
+          <Loader size="md" label="Loading session index" />
+        </div>
       {:else if selectableSessions.length === 0}
         <div class={emptyNoticeClass}>NO_EXISTING_SESSIONS</div>
       {:else}

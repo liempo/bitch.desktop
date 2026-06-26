@@ -11,6 +11,7 @@ items under its `## Feature checklist` are task sources.
 | ----------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Hermes dashboard/runtime            | [`hermes/README.md`](hermes/README.md)                   | `src/lib/hermes/*`, `src-tauri/src/hermes/*`, stable `commands/dashboard.rs` and `commands/gateway.rs` wrappers |
 | Monitoring / Beszel                 | [`monitoring/beszel.md`](monitoring/beszel.md)           | `src/lib/monitoring/*`, `src-tauri/src/monitoring/*`, `commands/monitoring.rs`                                  |
+| Calendar / CalDAV                   | [`calendar/caldav.md`](calendar/caldav.md)               | `src/lib/calendar/*`, `src-tauri/src/calendar/*`, `commands/calendar.rs`                                        |
 | Platform / native bridge            | [`platform/native-bridge.md`](platform/native-bridge.md) | `src/lib/platform/*`, `src-tauri/src/platform/*`, shared Rust `config/errors/http` helpers                      |
 | Shared conventions and future lanes | [`shared/backend-revamp.md`](shared/backend-revamp.md)   | architecture-boundary tests, migration rules, future lane pattern                                               |
 | Roadmap                             | [`roadmap.md`](roadmap.md)                               | scannable feature checklist and delivered/backlog history                                                       |
@@ -45,3 +46,8 @@ items under its `## Feature checklist` are task sources.
   componentization scan, Bits UI candidates, and deferred extraction plan.
 - [`platform/native-bridge.md`](platform/native-bridge.md) — Rust bridge lane
   responsibilities and stable Tauri command wrapper policy.
+
+## Calendar docs
+
+- [`calendar/caldav.md`](calendar/caldav.md) — CalDAV configuration, bridge commands,
+  renderer lane contract, and virtualized month-grid/event-cache strategy.

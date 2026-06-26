@@ -46,6 +46,7 @@
   import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
@@ -581,8 +582,13 @@
                 size={compact || responsiveCompact ? 'sm' : 'md'}
                 onclick={() => void handleSubmit()}
                 disabled={!canSubmit}
+                aria-label={composer.submitting ? 'Sending prompt' : busy ? 'Queue prompt' : 'Send prompt'}
               >
-                {composer.submitting ? 'Sending' : busy ? 'Queue' : 'Send'}
+                {#if composer.submitting}
+                  <Loader size="sm" label="Sending prompt" />
+                {:else}
+                  {busy ? 'Queue' : 'Send'}
+                {/if}
               </Button>
             </div>
           </div>

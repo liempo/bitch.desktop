@@ -18,11 +18,13 @@ is what keeps the glass box from filling with smoke.
 src/app/                  Svelte routes, page views, and shared UI components
 src/lib/hermes/           Hermes dashboard/runtime lane
 src/lib/monitoring/       Standalone Beszel/PocketBase monitoring telemetry lane
+src/lib/calendar/         Standalone CalDAV calendar lane
 src/lib/platform/         Renderer adapter boundary for native Tauri helpers
 src/lib/{errors,layout,
   storage,types}/         Shared renderer utilities and layout state, no feature-lane imports
 src-tauri/src/hermes/     Rust Hermes dashboard, auth, files, and gateway lane
 src-tauri/src/monitoring/ Rust monitoring/Beszel lane
+src-tauri/src/calendar/   Rust CalDAV calendar lane
 src-tauri/src/platform/   Rust native desktop helpers
 src-tauri/src/commands/   Stable Tauri command wrappers
 src-tauri/src/{config,
@@ -67,6 +69,7 @@ plumbing because it happens to be nearby and unsupervised.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Hermes     | Dashboard `/api/*` requests, authenticated remote files/media, JSON-RPC runtime gateway, ws-ticket/session-token handling, profile-scoped dashboard/plugin APIs | Beszel/monitoring, generic native helpers, non-Hermes services |
 | Monitoring | Beszel/PocketBase monitoring telemetry, `MONITORING_*` config, system selection, token refresh, metrics reads                                                   | Hermes dashboard/session/files/gateway/plugin modules          |
+| Calendar   | CalDAV `CALDAV_*` config, Basic auth, minicaldav calendar discovery, recurrence expansion, Calendar route event ViewModel                                       | Hermes dashboard proxying, Beszel monitoring, local schedulers |
 | Platform   | Native app helpers: connection config storage, external URL opening, window setup, generic invoke/event wrappers                                                | Product backend route knowledge for Hermes or Beszel           |
 | Shared     | Pure utilities such as errors, layout helpers, UI helpers, typed DTOs, storage namespace helpers                                                                | Feature-lane imports or privileged backend calls               |
 
@@ -136,6 +139,30 @@ adapter. Beszel passwords, static tokens, cached auth tokens, and CORS-sensitive
 requests stay in the Rust monitoring lane. Monitoring never calls
 `dashboard_request`.
 
+## Calendar renderer lane: `src/lib/calendar/*`
+
+`src/lib/calendar` is the renderer facade for the CalDAV-backed CALENDAR route.
+It follows the standard domain/application/ports/adapters/view-models split and
+uses `$lib/platform` only to invoke dedicated Tauri calendar commands. It must
+not import Hermes dashboard clients, monitoring helpers, or read CalDAV secrets
+in the renderer.
+
+```text
+src/lib/calendar/
+  index.ts
+  README.md
+  domain/events.ts
+  ports/calendar-port.ts
+  adapters/caldav-calendar-adapter.ts
+  application/list-calendar-events.ts
+  view-models/calendar.svelte.ts
+```
+
+The matching Rust lane lives under `src-tauri/src/calendar` with stable command
+wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri. Whole-calendar CalDAV sync runs in the native background worker and range reads expand the local cache.
+
+Calendar presentation stays renderer-local: the month grid is generated from date math and virtualized by week row, while events populate from cached `list_calendar_events` reads in the background. Month navigation and scrolling must not trigger CalDAV network syncs, block day rendering, or grow the DOM by appending every loaded month.
+
 ## Platform renderer lane: `src/lib/platform/*`
 
 `src/lib/platform` wraps native Tauri capabilities for renderer code. It is a
@@ -178,6 +205,11 @@ src-tauri/src/
     config.rs        MONITORING_* configuration
     auth.rs          Beszel static/password auth and cached token refresh
     beszel.rs        Beszel PocketBase /api/* proxy with auth refresh
+  calendar/
+    mod.rs
+    config.rs        CALDAV_* configuration
+    caldav.rs        minicaldav discovery, event loading, timezone handling, and recurrence normalization
+    sync.rs          whole-calendar background sync, persisted cache, and sync metadata
   platform/
     mod.rs
     window.rs
@@ -188,6 +220,7 @@ src-tauri/src/
     dashboard.rs
     gateway.rs
     monitoring.rs
+    calendar.rs
     platform.rs
 ```
 
@@ -199,11 +232,12 @@ window behavior.
 
 ## Future backend lanes
 
-Non-Hermes integrations add their own lane. For example, CalDAV should look like
-this instead of using `dashboard_request`:
+Non-Hermes integrations add their own lane. Calendar/CalDAV is the first concrete
+example of this pattern and must not use `dashboard_request`. A future service
+should look like this:
 
 ```text
-src/lib/calendar/
+src/lib/<feature>/
   domain/
   application/
   ports/
@@ -211,13 +245,13 @@ src/lib/calendar/
   view-models/
   index.ts
 
-src-tauri/src/calendar/
+src-tauri/src/<feature>/
   mod.rs
   config.rs
   auth.rs
-  caldav.rs
+  client.rs
 
-src-tauri/src/commands/calendar.rs
+src-tauri/src/commands/<feature>.rs
 ```
 
 Decision rule:

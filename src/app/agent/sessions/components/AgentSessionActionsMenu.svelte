@@ -3,6 +3,7 @@
   import type { Snippet } from 'svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import type { SessionInfo } from '$lib/types/hermes'
 
@@ -162,8 +163,13 @@
         variant="primary"
         type="submit"
         disabled={renameSubmitting || disabled || !renameDraft.trim()}
+        aria-label={renameSubmitting ? 'Renaming session' : 'Rename session'}
       >
-        {renameSubmitting ? 'renaming…' : 'rename'}
+        {#if renameSubmitting}
+          <Loader size="sm" label="Renaming session" />
+        {:else}
+          rename
+        {/if}
       </Button>
     </div>
   </form>

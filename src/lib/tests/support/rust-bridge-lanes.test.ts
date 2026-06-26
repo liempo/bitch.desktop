@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
+import commandsCalendarSource from '../../../../src-tauri/src/commands/calendar.rs?raw'
 import commandsConfigSource from '../../../../src-tauri/src/commands/config.rs?raw'
 import commandsDashboardSource from '../../../../src-tauri/src/commands/dashboard.rs?raw'
 import commandsGatewaySource from '../../../../src-tauri/src/commands/gateway.rs?raw'
 import commandsModSource from '../../../../src-tauri/src/commands/mod.rs?raw'
 import commandsMonitoringSource from '../../../../src-tauri/src/commands/monitoring.rs?raw'
 import commandsPlatformSource from '../../../../src-tauri/src/commands/platform.rs?raw'
+import calendarCaldavSource from '../../../../src-tauri/src/calendar/caldav.rs?raw'
+import calendarConfigSource from '../../../../src-tauri/src/calendar/config.rs?raw'
+import calendarModSource from '../../../../src-tauri/src/calendar/mod.rs?raw'
+import calendarSyncSource from '../../../../src-tauri/src/calendar/sync.rs?raw'
 import configSource from '../../../../src-tauri/src/config.rs?raw'
 import errorsSource from '../../../../src-tauri/src/errors.rs?raw'
 import hermesAuthSource from '../../../../src-tauri/src/hermes/auth.rs?raw'
@@ -31,6 +36,10 @@ const rustLaneSources = {
   'platform/mod.rs': platformModSource,
   'platform/window.rs': platformWindowSource,
   'platform/external_url.rs': platformExternalUrlSource,
+  'calendar/mod.rs': calendarModSource,
+  'calendar/config.rs': calendarConfigSource,
+  'calendar/caldav.rs': calendarCaldavSource,
+  'calendar/sync.rs': calendarSyncSource,
   'hermes/mod.rs': hermesModSource,
   'hermes/config.rs': hermesConfigSource,
   'hermes/auth.rs': hermesAuthSource,
@@ -42,6 +51,7 @@ const rustLaneSources = {
   'monitoring/auth.rs': monitoringAuthSource,
   'monitoring/beszel.rs': monitoringBeszelSource,
   'commands/mod.rs': commandsModSource,
+  'commands/calendar.rs': commandsCalendarSource,
   'commands/config.rs': commandsConfigSource,
   'commands/dashboard.rs': commandsDashboardSource,
   'commands/gateway.rs': commandsGatewaySource,
@@ -58,6 +68,10 @@ describe('Rust bridge backend lanes', () => {
       'platform/mod.rs',
       'platform/window.rs',
       'platform/external_url.rs',
+      'calendar/mod.rs',
+      'calendar/config.rs',
+      'calendar/caldav.rs',
+      'calendar/sync.rs',
       'hermes/mod.rs',
       'hermes/config.rs',
       'hermes/auth.rs',
@@ -69,6 +83,7 @@ describe('Rust bridge backend lanes', () => {
       'monitoring/auth.rs',
       'monitoring/beszel.rs',
       'commands/mod.rs',
+      'commands/calendar.rs',
       'commands/config.rs',
       'commands/dashboard.rs',
       'commands/gateway.rs',
@@ -78,6 +93,7 @@ describe('Rust bridge backend lanes', () => {
   })
 
   it('keeps lib.rs as the app builder and invoke-handler switchboard only', () => {
+    expect(libSource).toContain('mod calendar;')
     expect(libSource).toContain('mod commands;')
     expect(libSource).toContain('mod hermes;')
     expect(libSource).toContain('mod monitoring;')
@@ -85,10 +101,23 @@ describe('Rust bridge backend lanes', () => {
     expect(libSource).toContain('tauri::generate_handler!')
     expect(libSource).toContain('commands::config::get_connection_config')
     expect(libSource).toContain('commands::gateway::connect_ws')
+    expect(libSource).toContain('commands::calendar::list_calendar_events')
+    expect(libSource).toContain('commands::calendar::sync_calendar_events')
     expect(libSource).toContain('commands::monitoring::monitoring_request')
     expect(libSource).not.toMatch(/fn\s+resolve_gateway_config/)
     expect(libSource).not.toMatch(/fn\s+monitoring_auth_token/)
     expect(libSource).not.toMatch(/fn\s+open_url_in_browser/)
+  })
+
+  it('uses minicaldav for CalDAV discovery, multi-calendar event loading, and RRULE expansion', () => {
+    expect(calendarCaldavSource).toContain('minicaldav::get_calendars')
+    expect(calendarCaldavSource).toContain('minicaldav::get_events')
+    expect(calendarCaldavSource).toMatch(/for\s+calendar\s+in\s+calendars/)
+    expect(calendarCaldavSource).toContain('expand_recurring_event')
+    expect(calendarCaldavSource).toContain('RRULE')
+    expect(calendarCaldavSource).toContain('rrule::RRuleSet')
+    expect(calendarCaldavSource).not.toContain('calendar_query_body')
+    expect(calendarSyncSource).toContain('CALENDAR_SYNC_EVENT')
   })
 
   it('does not leak Hermes, monitoring, or platform concerns across Rust lanes', () => {
@@ -99,6 +128,11 @@ describe('Rust bridge backend lanes', () => {
     )
     expect(commandsDashboardSource).toContain('crate::hermes::dashboard_http')
     expect(commandsDashboardSource).not.toContain('monitoring')
+    expect(commandsCalendarSource).toContain('crate::calendar::caldav')
+    expect(commandsCalendarSource).toContain('crate::calendar::sync')
+    expect(commandsCalendarSource).not.toContain('dashboard_http')
+    expect(calendarConfigSource).toContain('CALDAV_URL')
+    expect(calendarCaldavSource).not.toMatch(/crate::hermes|dashboard_request/)
     expect(commandsMonitoringSource).toContain('crate::monitoring::beszel')
     expect(commandsMonitoringSource).not.toContain('dashboard_http')
   })

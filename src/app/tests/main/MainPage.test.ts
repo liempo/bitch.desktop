@@ -4,6 +4,7 @@ import composerSource from '../../components/composer/Composer.svelte?raw'
 import dashboardSource from '../../main/dashboard.ts?raw'
 import mainPageSource from '../../main/MainPage.svelte?raw'
 import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
+import mainCalendarPanelSource from '../../main/panels/MainCalendarPanel.svelte?raw'
 import mainContainersPanelSource from '../../main/panels/MainContainersPanel.svelte?raw'
 import mainCronPanelSource from '../../main/panels/MainCronPanel.svelte?raw'
 import mainKanbanPanelSource from '../../main/panels/MainKanbanPanel.svelte?raw'
@@ -35,16 +36,18 @@ describe('Main dashboard source contract', () => {
     expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).toContain('MainDashboardStatGrid')
     expect(mainDashboardStatGridSource).toContain('export interface MainDashboardStat')
     expect(mainDashboardStatGridSource).toContain('<Panel flat fullHeight={false} padded={false} class={cardClass}')
-    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain(
+    expect(`${mainCalendarPanelSource}\n${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain(
       '<Panel flat fullHeight={false} padded={false} class={raisedPanelClass}'
     )
-    expect(`${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain('raisedPanelClass')
+    expect(`${mainCalendarPanelSource}\n${mainCronPanelSource}\n${mainKanbanPanelSource}`).not.toContain(
+      'raisedPanelClass'
+    )
     expect(mainPageSource).toContain('{#each monitoringSystemStats as stat')
     expect(mainPageSource).toContain('{#each monitoringUsageRows as row')
     expect(mainPageSource).not.toContain('remoteTemperatureRows')
     expect(mainPageSource).not.toContain('REMOTE TEMP')
     expect(mainPageSource).not.toContain('No remote thermal sensors reported.')
-    expect(mainPageSource).toContain('{#each placeholderPanels as placeholder')
+    expect(mainPageSource).not.toContain('{#each placeholderPanels as placeholder')
     expect(mainKanbanPanelSource).toContain('const kanbanStats = $derived')
     expect(mainDashboardStatGridSource).toContain('{#each stats as stat')
     expect(mainPageSource).not.toContain('border border-line bg-surface-raised p-2')
@@ -200,25 +203,66 @@ describe('Main dashboard source contract', () => {
     expect(composerSource).toContain("? 'shrink-0 p-2'")
   })
 
-  it('renders Calendar placeholder plus wired Cron and Kanban dashboard panels', () => {
-    expect(mainPageSource).toContain('CALENDAR')
+  it('renders wired Calendar, Cron, and Kanban dashboard panels', () => {
+    expect(mainCalendarPanelSource).toContain('title="CALENDAR"')
     expect(mainCronPanelSource).toContain('title="CRON"')
     expect(mainKanbanPanelSource).toContain('title="KANBAN"')
     expect(mainPageSource).not.toContain('KANBAN_SUMMARY')
-    expect(mainPageSource).toContain('placeholder')
+    expect(mainPageSource).not.toContain('placeholderPanels')
+    expect(mainPageSource).not.toContain('Chronos panel queued')
     expect(mainPageSource).toContain("import MainAgentPanel from './panels/MainAgentPanel.svelte'")
+    expect(mainPageSource).toContain("import MainCalendarPanel from './panels/MainCalendarPanel.svelte'")
     expect(mainPageSource).toContain("import MainContainersPanel from './panels/MainContainersPanel.svelte'")
     expect(mainPageSource).toContain("import MainCronPanel from './panels/MainCronPanel.svelte'")
     expect(mainPageSource).toContain("import MainGlyphPanel from './panels/MainGlyphPanel.svelte'")
     expect(mainPageSource).toContain("import MainKanbanPanel from './panels/MainKanbanPanel.svelte'")
+    expect(mainPageSource).toContain(
+      '<MainCalendarPanel class={`${dashboardPanelClass} hidden md:flex`} titleClass={dashboardPanelTitleClass} />'
+    )
     expect(mainPageSource).toContain(
       '<MainCronPanel class={`${dashboardPanelClass} order-4 md:order-0`} titleClass={dashboardPanelTitleClass} />'
     )
     expect(mainPageSource).toContain(
       '<MainKanbanPanel class={`${dashboardPanelClass} order-3 md:order-0`} titleClass={dashboardPanelTitleClass} />'
     )
+    expect(mainCalendarPanelSource).toContain("import { calendarRoute } from '../../router.svelte'")
     expect(mainCronPanelSource).toContain("import { cronRoute } from '../../router.svelte'")
     expect(mainKanbanPanelSource).toContain("import { kanbanRoute } from '../../router.svelte'")
+    expect(mainCalendarPanelSource).toContain('const calendarHref')
+    expect(mainCalendarPanelSource).toContain("from '$lib/calendar'")
+    expect(mainCalendarPanelSource).toContain('createCalendarViewModel')
+    expect(mainCalendarPanelSource).toContain('listenCalendarSyncUpdates')
+    expect(mainCalendarPanelSource).toContain('calendarCurrentDateLabel')
+    expect(mainCalendarPanelSource).toContain('calendarCurrentTimeLabel')
+    expect(mainCalendarPanelSource).toContain('collectUpcomingCalendarEvents')
+    expect(mainCalendarPanelSource).toContain('calendarEventEndMs')
+    expect(mainCalendarPanelSource).toContain('const todayStart = calendarDateStartMs(calendarTodayKey)')
+    expect(mainCalendarPanelSource).toContain('const todayEnd = todayStart + dayMs')
+    expect(mainCalendarPanelSource).toContain('end > nowMs')
+    expect(mainCalendarPanelSource).toContain('start < todayEnd')
+    expect(mainCalendarPanelSource).toContain('end > todayStart')
+    expect(mainCalendarPanelSource).toContain('Upcoming events')
+    expect(mainCalendarPanelSource).toContain('aria-label="Current date and time"')
+    expect(mainCalendarPanelSource).toContain('text-center uppercase tracking-[0.12em]')
+    expect(mainCalendarPanelSource).toContain('href={calendarHref}')
+    expect(mainCalendarPanelSource).toContain('aria-label="Sync calendar"')
+    expect(mainCalendarPanelSource).toContain('aria-label="Open Calendar"')
+    expect(mainCalendarPanelSource).toContain('Open Calendar')
+    expect(mainCalendarPanelSource).toContain('<Icon name="sync" class="text-[0.85rem]" />')
+    expect(mainCalendarPanelSource).not.toContain('Chronos panel queued')
+    expect(mainCalendarPanelSource).not.toContain('fake feed')
+    expect(mainCalendarPanelSource).not.toContain('MainDashboardStatGrid')
+    expect(mainCalendarPanelSource).not.toContain('calendarFocusEvents')
+    expect(mainCalendarPanelSource).not.toContain('calendarStats')
+    expect(mainCalendarPanelSource).not.toContain("{ label: 'Sources'")
+    expect(mainCalendarPanelSource).not.toContain('sources=')
+    expect(mainCalendarPanelSource).not.toContain('events={formatDashboardCount')
+    expect(mainCalendarPanelSource).not.toContain('>Agenda</span>')
+    expect(mainCalendarPanelSource).not.toContain('>Current date</div>')
+    expect(mainCalendarPanelSource).not.toContain('<Icon name="calendar" class="mt-0.5 text-primary" />')
+    expect(mainCalendarPanelSource).not.toContain('No upcoming events in this window.')
+    expect(mainCalendarPanelSource).not.toContain('No upcoming events for today.')
+    expect(mainCalendarPanelSource).not.toContain('no upcoming events')
     expect(mainCronPanelSource).toContain('const cronHref')
     expect(mainCronPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
     expect(mainKanbanPanelSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
@@ -311,5 +355,20 @@ describe('Main dashboard source contract', () => {
     expect(mainCronPanelSource).toContain('class="min-h-0 overflow-auto overscroll-contain p-px"')
     expect(mainCronPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
     expect(mainCronPanelSource).not.toMatch(/jobs\.length\s*>=\s*3/)
+  })
+
+  it('keeps the Main Calendar upcoming events queue scrollable and filters out passed events', () => {
+    expect(mainCalendarPanelSource).toContain('aria-label="Calendar upcoming events"')
+    expect(mainCalendarPanelSource).toContain('collectUpcomingCalendarEvents')
+    expect(mainCalendarPanelSource).toContain('const nowMs = calendarNow.getTime()')
+    expect(mainCalendarPanelSource).toContain('const todayStart = calendarDateStartMs(calendarTodayKey)')
+    expect(mainCalendarPanelSource).toContain('const todayEnd = todayStart + dayMs')
+    expect(mainCalendarPanelSource).toContain('end > nowMs')
+    expect(mainCalendarPanelSource).toContain('start < todayEnd')
+    expect(mainCalendarPanelSource).toContain('end > todayStart')
+    expect(mainCalendarPanelSource).toContain('grid-rows-[auto_minmax(0,1fr)]')
+    expect(mainCalendarPanelSource).toContain('class="min-h-0 overflow-auto overscroll-contain p-px"')
+    expect(mainCalendarPanelSource).toContain('style="--custom-scrollbar-offset-x: 4px"')
+    expect(mainCalendarPanelSource).not.toMatch(/\.slice\(\s*0\s*,\s*3\s*\)/)
   })
 })

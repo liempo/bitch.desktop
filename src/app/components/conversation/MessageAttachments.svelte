@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import { readRemoteFileDataUrl } from '$lib/hermes/files'
   import type { ConversationAttachment, ConversationAttachmentKind } from '$lib/hermes/conversations'
   import type { IconName } from '$lib/theme'
@@ -158,9 +159,13 @@
               alt={attachment.label || 'Attached image'}
               loading="lazy"
             />
-          {:else}
+          {:else if failedSources[key]}
             <span class="block px-3 py-2 text-[0.72rem] uppercase tracking-[0.16em] text-ink-muted">
-              {failedSources[key] ? unavailableLabel(attachment.kind) : loadingLabel(attachment.kind)}
+              {unavailableLabel(attachment.kind)}
+            </span>
+          {:else}
+            <span class="block px-3 py-2 text-ink-muted">
+              <Loader size="sm" tone="secondary" label={loadingLabel(attachment.kind)} />
             </span>
           {/if}
           <span class="block border-t border-line/70 px-2 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-ink-muted">
@@ -178,9 +183,13 @@
           </div>
           {#if href}
             <audio controls preload="metadata" src={href} class="w-full"></audio>
-          {:else}
+          {:else if failedSources[key]}
             <span class="text-[0.72rem] uppercase tracking-[0.16em] text-ink-muted">
-              {failedSources[key] ? unavailableLabel(attachment.kind) : loadingLabel(attachment.kind)}
+              {unavailableLabel(attachment.kind)}
+            </span>
+          {:else}
+            <span class="text-ink-muted">
+              <Loader size="sm" tone="secondary" label={loadingLabel(attachment.kind)} />
             </span>
           {/if}
         </div>
@@ -191,9 +200,13 @@
           {#if href}
             <!-- svelte-ignore a11y_media_has_caption -->
             <video controls preload="metadata" src={href} class="max-h-80 max-w-full rounded-control bg-black/30"></video>
-          {:else}
+          {:else if failedSources[key]}
             <span class="px-3 py-2 text-[0.72rem] uppercase tracking-[0.16em] text-ink-muted">
-              {failedSources[key] ? unavailableLabel(attachment.kind) : loadingLabel(attachment.kind)}
+              {unavailableLabel(attachment.kind)}
+            </span>
+          {:else}
+            <span class="px-3 py-2 text-ink-muted">
+              <Loader size="sm" tone="secondary" label={loadingLabel(attachment.kind)} />
             </span>
           {/if}
           <div class="flex items-center gap-2">

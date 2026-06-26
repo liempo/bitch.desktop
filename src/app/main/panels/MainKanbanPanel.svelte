@@ -5,6 +5,7 @@
   import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import MainDashboardStatGrid from '../components/MainDashboardStatGrid.svelte'
@@ -311,7 +312,9 @@
         </div>
 
         {#if kanbanBoardsLoading}
-          <div class="px-2 py-1.5 text-[11px] uppercase tracking-[0.08em] text-ink-muted">syncing boards…</div>
+          <div class="px-2 py-1.5 text-ink-muted">
+            <Loader size="sm" tone="secondary" label="Loading Kanban boards" />
+          </div>
         {:else if kanbanBoardsError}
           <div class="px-2 py-1.5 text-[11px] leading-4 text-danger">{kanbanBoardsError}</div>
         {:else if kanbanBoards.length === 0}
@@ -355,9 +358,8 @@
           <span>Kanban unavailable: {kanbanBoardsError}</span>
         </div>
       {:else if kanbanBoardsLoading && kanbanFocusTasks.length === 0}
-        <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">
-          <Icon name="sync" class="text-primary" />
-          <span>Syncing current board…</span>
+        <div class="flex items-center gap-2 rounded-none border border-line bg-surface-raised/60 p-3 text-primary">
+          <Loader size="sm" label="Loading current Kanban board" />
         </div>
       {:else if kanbanFocusTasks.length === 0}
         <div class="flex items-center gap-2 rounded-none border border-dashed border-line p-3 text-[0.68rem] leading-4 text-ink-muted">

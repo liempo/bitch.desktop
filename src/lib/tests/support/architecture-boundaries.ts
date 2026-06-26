@@ -193,6 +193,7 @@ function isFeatureInternalImport(specifier: string): boolean {
 
   if (parts[0] === 'hermes') return INTERNAL_FEATURE_SEGMENTS.has(parts[2] ?? '')
   if (parts[0] === 'monitoring') return INTERNAL_FEATURE_SEGMENTS.has(parts[1] ?? '')
+  if (parts[0] === 'calendar') return INTERNAL_FEATURE_SEGMENTS.has(parts[1] ?? '')
 
   return false
 }
@@ -206,7 +207,7 @@ function isMonitoringRendererSpecifier(specifier: string): boolean {
 }
 
 function isFeatureRendererSpecifier(specifier: string): boolean {
-  return /^\$lib\/(?:api|composer|files|gateway|hermes|messages|monitoring|session|stores|conversation)(?:\/|$)/.test(
+  return /^\$lib\/(?:api|calendar|composer|files|gateway|hermes|messages|monitoring|session|stores|conversation)(?:\/|$)/.test(
     specifier
   )
 }

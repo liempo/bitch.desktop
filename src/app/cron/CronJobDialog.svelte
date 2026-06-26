@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import TextArea from '@/app/components/ui/TextArea.svelte'
   import TextInput from '@/app/components/ui/TextInput.svelte'
   import { cronJobTitle, type CronDeliveryTarget, type CronJob } from '$lib/hermes/cron'
@@ -143,7 +144,13 @@
       </span>
       <div class="flex shrink-0 justify-end gap-2">
         <Button size="sm" chrome="ghost" onclick={onCancel}>Cancel</Button>
-        <Button size="sm" variant="primary" type="submit" disabled={saving}>{saving ? 'Saving…' : modeTitle}</Button>
+        <Button size="sm" variant="primary" type="submit" disabled={saving} aria-label={saving ? 'Saving cron job' : modeTitle}>
+          {#if saving}
+            <Loader size="sm" label="Saving cron job" />
+          {:else}
+            {modeTitle}
+          {/if}
+        </Button>
       </div>
     </div>
   </form>
