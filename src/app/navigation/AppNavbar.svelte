@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Popover } from 'bits-ui'
 
+  import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import {
@@ -34,8 +35,9 @@
   const settingsNavItem = $derived<NavItem>({ href: `#${settingsRoute()}`, label: 'SETTINGS', page: 'settings' })
   const mobileMenuItems = $derived<NavItem[]>([...navItems, settingsNavItem])
 
-  const settingsControlClass =
-    'inline-flex h-9 w-9 items-center justify-center rounded-control border border-line bg-surface-raised text-ink-muted hover:border-line-strong hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
+  const navIconButtonClass =
+    'inline-flex h-9 w-9 items-center justify-center rounded-control bg-surface-raised p-0 text-ink-muted hover:text-ink-bright'
+  const settingsControlClass = navIconButtonClass
   const mobileMenuContentClass = `${popoverClass} z-50 min-w-52 p-1.5 font-mono shadow-xl`
   const mobileMenuItemBaseClass = `${menuItemClass} flex w-full justify-between px-3 py-2 text-left font-hud text-[11px] font-bold uppercase tracking-[0.14em]`
 
@@ -63,7 +65,7 @@
   class="relative z-20 flex min-h-(--bits-navbar-height) shrink-0 items-center border-b border-line bg-canvas px-3 md:px-4"
   aria-label="Primary navigation"
 >
-  <div class="flex min-w-0 items-center gap-3 pl-2 md:pl-18.5">
+  <div class="hidden min-w-0 items-center gap-3 pl-2 md:flex md:pl-18.5">
     <div class="ml-2 hidden h-4 w-px bg-line-strong/70 md:block" data-tauri-drag-region></div>
     <a
       class={`${linkClass('main')} inline-flex items-center gap-2`}
@@ -86,12 +88,12 @@
 
   <div class="flex items-center gap-2 md:hidden">
     <Popover.Root bind:open={mobileMenuOpen}>
-      <Popover.Trigger
-        class="inline-flex h-9 w-9 items-center justify-center rounded-control border border-line bg-surface-raised text-ink-muted hover:border-line-strong hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
-        aria-label="Open navigation menu"
-        aria-expanded={mobileMenuOpen}
-      >
-        <Icon name="menu" class="text-lg" />
+      <Popover.Trigger aria-label="Open navigation menu" aria-expanded={mobileMenuOpen}>
+        {#snippet child({ props })}
+          <Button {...props} variant="unstyled" class={navIconButtonClass}>
+            <Icon name="menu" class="text-lg" />
+          </Button>
+        {/snippet}
       </Popover.Trigger>
 
       <Popover.Content class={mobileMenuContentClass} sideOffset={6} align="end">
@@ -128,7 +130,8 @@
     </Popover.Root>
   </div>
 
-  <a
+  <Button
+    variant="unstyled"
     class={settingsControlClass}
     href={`#${settingsRoute()}`}
     aria-label="Open settings"
@@ -137,5 +140,5 @@
   >
     <Icon name="settings" class="text-base" />
     <span class="sr-only">{settingsNavItem.label}</span>
-  </a>
+  </Button>
 </nav>

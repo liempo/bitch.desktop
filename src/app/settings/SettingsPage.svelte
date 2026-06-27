@@ -12,14 +12,6 @@
 
 <section class="h-full min-h-0 overflow-y-auto bg-chat-scroll/40 p-3 md:p-4" aria-label="Settings">
   <div class="mx-auto grid w-full max-w-4xl gap-4 pb-8">
-    <div class="rounded-panel border border-line bg-canvas/80 p-4">
-      <p class="font-hud text-[0.62rem] font-bold uppercase tracking-[0.2em] text-primary">Settings</p>
-      <h1 class="mt-2 font-hud text-lg font-bold uppercase tracking-[0.12em] text-ink-bright">Control surface</h1>
-      <p class="mt-2 max-w-2xl text-sm leading-6 text-ink-muted">
-        Configure local BITCH desktop preferences without crowding the primary navigation bar.
-      </p>
-    </div>
-
     <Panel title="Appearance" fullHeight={false} contentClass="space-y-4">
       <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] md:items-center">
         <div>

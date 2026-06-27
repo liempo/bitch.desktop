@@ -8,10 +8,12 @@ describe('AppNavbar branding', () => {
     expect(appNavbarSource).not.toContain("'$lib/assets/glyph.png'")
     expect(appNavbarSource).not.toContain('<img')
     expect(appNavbarSource).toContain('<span>BITCH</span>')
+    expect(appNavbarSource).toContain('class="hidden min-w-0 items-center gap-3 pl-2 md:flex md:pl-18.5"')
   })
 
   it('keeps desktop nav links while collapsing mobile navigation into a right-side hamburger popover', () => {
     expect(appNavbarSource).toContain("import { Popover } from 'bits-ui'")
+    expect(appNavbarSource).toContain("import Button from '@/app/components/ui/Button.svelte'")
     expect(appNavbarSource).toContain("import Icon from '@/app/components/ui/Icon.svelte'")
     expect(appNavbarSource).toContain('settingsRoute')
     expect(appNavbarSource).toContain("label: 'SETTINGS'")
@@ -19,7 +21,9 @@ describe('AppNavbar branding', () => {
     expect(appNavbarSource).toContain('<Popover.Root bind:open={mobileMenuOpen}>')
     expect(appNavbarSource).toContain('aria-label="Open navigation menu"')
     expect(appNavbarSource).toContain('aria-expanded={mobileMenuOpen}')
+    expect(appNavbarSource).toContain('<Button {...props} variant="unstyled" class={navIconButtonClass}>')
     expect(appNavbarSource).toContain('<Icon name="menu"')
+    expect(appNavbarSource).not.toContain('hover:border-line-strong')
     expect(appNavbarSource).toContain('<Popover.Content class={mobileMenuContentClass} sideOffset={6} align="end">')
     expect(appNavbarSource).toContain('onclick={closeMobileMenu}')
   })
