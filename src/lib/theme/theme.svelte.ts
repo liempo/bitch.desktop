@@ -1,8 +1,15 @@
 import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage'
 
+import {
+  deserializeImportedThemes,
+  importVsCodeExtensionThemes,
+  serializeImportedThemes,
+  type VsCodeThemeFile
+} from './domain/vscode-extension-theme'
 import { createAppTheme, themeStyleAttribute, type AppTheme, type VsCodeTheme } from './domain/vscode-theme'
 
 export const THEME_STORAGE_SUFFIX = 'theme.v1'
+export const IMPORTED_THEMES_STORAGE_SUFFIX = 'themes.imported.v1'
 export const DEFAULT_THEME_ID = 'bitch'
 
 const BITCH_THEME_SOURCE: VsCodeTheme = {
@@ -84,7 +91,7 @@ export const builtInThemes = [
   createAppTheme('terminal-green', TERMINAL_GREEN_THEME_SOURCE)
 ] as const satisfies readonly AppTheme[]
 
-export const themeOptions = builtInThemes
+export const themeOptions = $state<AppTheme[]>([...builtInThemes])
 
 const defaultTheme = builtInThemes[0]
 
@@ -101,10 +108,33 @@ export function resolveThemeSelection(themeId?: null | string): AppTheme {
   const normalized = themeId?.trim()
   if (!normalized) return defaultTheme
 
-  return builtInThemes.find(theme => theme.id === normalized) ?? defaultTheme
+  return themeOptions.find(theme => theme.id === normalized) ?? defaultTheme
+}
+
+export function loadImportedThemes(storage?: Storage): AppTheme[] {
+  return deserializeImportedThemes(readNamespacedStorageItem(IMPORTED_THEMES_STORAGE_SUFFIX, storage))
+}
+
+export function replaceImportedThemes(themes: readonly AppTheme[], storage?: Storage): AppTheme[] {
+  const imported = uniqueThemesById(themes)
+  themeOptions.splice(0, themeOptions.length, ...builtInThemes, ...imported)
+  writeNamespacedStorageItem(IMPORTED_THEMES_STORAGE_SUFFIX, serializeImportedThemes(imported), storage)
+  return imported
+}
+
+export async function importAndUseVsCodeExtensionThemes(files: Iterable<VsCodeThemeFile>, storage?: Storage) {
+  const result = await importVsCodeExtensionThemes(files)
+
+  if (result.themes.length > 0) {
+    replaceImportedThemes([...loadImportedThemes(storage), ...result.themes], storage)
+    updateThemeState(persistThemeSelection(result.themes[0].id, storage))
+  }
+
+  return result
 }
 
 export function loadThemeSelection(storage?: Storage): AppTheme {
+  replaceImportedThemes(loadImportedThemes(storage), storage)
   return resolveThemeSelection(readNamespacedStorageItem(THEME_STORAGE_SUFFIX, storage))
 }
 
@@ -120,6 +150,10 @@ export function initializeThemeSelection(storage?: Storage): AppTheme {
 
 export function selectTheme(themeId: string, storage?: Storage): AppTheme {
   return updateThemeState(persistThemeSelection(themeId, storage))
+}
+
+function uniqueThemesById(themes: readonly AppTheme[]): AppTheme[] {
+  return [...new Map(themes.map(theme => [theme.id, theme])).values()]
 }
 
 function updateThemeState(theme: AppTheme): AppTheme {
