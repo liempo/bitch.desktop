@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte'
   import AgentPreviewSidebar from './preview/AgentPreviewSidebar.svelte'
   import AgentSessionSidebar from './sessions/AgentSessionSidebar.svelte'
+  import { formatSessionDialogPreview, formatSessionDialogTitle, shortSessionId } from './sessions/session-labels'
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
@@ -64,7 +65,9 @@
   )
   const composerProfileName = $derived(selectedSessionProfile ?? profileState.newChatProfile ?? activeGatewayProfile)
   const selectableSessions = $derived(sortSelectableSessions(sessionState.sessions))
-  const chatTitle = $derived(selectedSession?.title?.trim() || (selectedSessionId ? 'Untitled session' : 'New session'))
+  const chatTitle = $derived(
+    selectedSession ? formatSessionDialogTitle(selectedSession) : selectedSessionId ? `Session ${shortSessionId(selectedSessionId)}` : 'New session'
+  )
   const sessionSelectorTitle = $derived(`AGENT: ${chatTitle}`)
 
   const emptySessionNoticeClass = `${cardClass} rounded-control !bg-surface-raised/40 p-3 text-xs text-ink-muted`
@@ -154,11 +157,11 @@
   }
 
   function formatSessionTitle(session: SessionInfo): string {
-    return session.title?.trim() || session.preview?.replace(/\s+/g, ' ').trim() || 'Untitled session'
+    return formatSessionDialogTitle(session)
   }
 
   function formatSessionPreview(session: SessionInfo): string {
-    return session.preview?.replace(/\s+/g, ' ').trim() ?? ''
+    return formatSessionDialogPreview(session)
   }
 
   function formatSessionMeta(session: SessionInfo): string {
