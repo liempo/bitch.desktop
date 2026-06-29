@@ -24,13 +24,15 @@ describe('AppNavbar branding', () => {
     expect(appNavbarSource).toContain('onclick={closeMobileMenu}')
   })
 
-  it('keeps Settings as the right-most navbar control with a gear icon', () => {
-    expect(appNavbarSource).toContain('const settingsControlClass')
-    expect(appNavbarSource).toContain('aria-label="Open settings"')
-    expect(appNavbarSource).toContain('href={`#${settingsRoute()}`}')
-    expect(appNavbarSource).toContain('<Icon name="settings"')
+  it('aligns Settings with desktop nav links and with the mobile menu control', () => {
+    expect(appNavbarSource).toContain("const settingsDesktopControlClass = 'inline-flex items-center leading-none'")
+    expect(appNavbarSource).toContain('const settingsMobileControlClass')
+    expect(appNavbarSource).toContain("class={`${linkClass('settings')} ${settingsDesktopControlClass}`}")
+    expect(appNavbarSource).toContain('<Icon name="settings" class="text-[12px] leading-none" />')
+    expect(appNavbarSource).toContain('class={settingsMobileControlClass}')
+    expect(appNavbarSource).toContain('<Icon name="settings" class="text-lg" />')
     expect(appNavbarSource.indexOf('<Popover.Root bind:open={mobileMenuOpen}>')).toBeLessThan(
-      appNavbarSource.indexOf('aria-label="Open settings"')
+      appNavbarSource.indexOf('class={settingsMobileControlClass}')
     )
   })
 })
