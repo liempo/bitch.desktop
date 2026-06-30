@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { Canvas } from '@threlte/core'
 
   import Glyph from './Glyph.svelte'
+  import { themeState } from '$lib/theme'
 
   interface Props {
     animated?: boolean
@@ -24,20 +24,12 @@
     mutedColor
   }: Props = $props()
 
-  let themeElement = $state<HTMLDivElement>()
-  let resolvedForegroundColor = $state('white')
-  let resolvedMutedColor = $state('gray')
-  let resolvedLineColor = $state('white')
-
-  onMount(() => {
-    const styles = getComputedStyle(themeElement ?? document.documentElement)
-    resolvedForegroundColor = foregroundColor ?? (styles.getPropertyValue('--color-ink-bright').trim() || resolvedForegroundColor)
-    resolvedMutedColor = mutedColor ?? (styles.getPropertyValue('--color-ink-muted').trim() || resolvedMutedColor)
-    resolvedLineColor = lineColor ?? (styles.getPropertyValue('--color-line-strong').trim() || resolvedLineColor)
-  })
+  const resolvedForegroundColor = $derived(foregroundColor ?? themeState.selectedTheme.cssVariables['--bits-ink-bright'] ?? 'white')
+  const resolvedMutedColor = $derived(mutedColor ?? themeState.selectedTheme.cssVariables['--bits-ink-muted'] ?? 'gray')
+  const resolvedLineColor = $derived(lineColor ?? themeState.selectedTheme.cssVariables['--bits-line-strong'] ?? 'white')
 </script>
 
-<div bind:this={themeElement} class={className} aria-hidden="true">
+<div class={className} aria-hidden="true">
   <Canvas renderMode={animated ? 'always' : 'on-demand'} dpr={[1, 1.5]} colorManagementEnabled={false}>
     <Glyph
       {animated}
