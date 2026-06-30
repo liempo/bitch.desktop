@@ -807,7 +807,7 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
   conversation.error = null
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
-  queueMacosNotification(buildAssistantCompleteNotification({ error: completionError, text: finalText }))
+  queueMacosNotification(buildAssistantCompleteNotification({ error: completionError, sessionId, text: finalText }))
   void loadSessions().catch(() => undefined)
 }
 
@@ -821,7 +821,7 @@ function failAssistantMessage(sessionId: string, errorMessage: string): void {
   conversation.error = message.error
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
-  queueMacosNotification(buildAssistantCompleteNotification({ error: message.error }))
+  queueMacosNotification(buildAssistantCompleteNotification({ error: message.error, sessionId }))
 }
 
 function usageFrom(payload: GatewayPayload): Partial<UsageStats> | undefined {
@@ -1026,7 +1026,7 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   ) {
     recordInteractivePrompt(event.type, sessionId, payload)
     setNeedsInput(sessionId, true)
-    queueMacosNotification(buildInputNeededNotification(inputNeededNotificationText(event.type, payload)))
+    queueMacosNotification(buildInputNeededNotification(inputNeededNotificationText(event.type, payload), sessionId))
   } else if (event.type === 'error') {
     clearAllPrompts()
     setNeedsInput(sessionId, false)
