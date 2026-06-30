@@ -124,6 +124,23 @@ export function replaceImportedThemes(themes: readonly AppTheme[], storage?: Sto
   return imported
 }
 
+export function installedThemeOptions(): AppTheme[] {
+  const builtInIds = new Set(builtInThemes.map(theme => theme.id))
+  return themeOptions.filter(theme => !builtInIds.has(theme.id))
+}
+
+export function uninstallImportedTheme(themeId: string, storage?: Storage): AppTheme[] {
+  const imported = loadImportedThemes(storage).filter(theme => theme.id !== themeId)
+  const persistedThemeId = readNamespacedStorageItem(THEME_STORAGE_SUFFIX, storage)
+  replaceImportedThemes(imported, storage)
+
+  if (themeState.selectedThemeId === themeId || persistedThemeId === themeId) {
+    updateThemeState(persistThemeSelection(DEFAULT_THEME_ID, storage))
+  }
+
+  return imported
+}
+
 export async function importAndUseVsCodeExtensionThemes(files: Iterable<VsCodeThemeFile>, storage?: Storage) {
   const result = await importVsCodeExtensionThemes(files)
 

@@ -21,17 +21,21 @@ describe('settings page route contract', () => {
     expect(settingsPageSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
     expect(settingsPageSource).toContain("import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'")
     expect(settingsPageSource).toContain(
-      "import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'"
+      "import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'"
     )
     expect(settingsPageSource).toContain('aria-label="Settings"')
     expect(settingsPageSource).toContain('Appearance')
     expect(settingsPageSource).toContain('bind:value={themeState.selectedThemeId}')
     expect(settingsPageSource).toContain('onchange={handleThemeChange}')
-    expect(settingsPageSource).toContain('VS Code extension themes')
-    expect(settingsPageSource).toContain('function handleVsCodeThemeBrowse')
-    expect(settingsPageSource).toContain('importAndUseVsCodeExtensionThemes(target.files)')
-    expect(settingsPageSource).toContain('webkitdirectory')
-    expect(settingsPageSource).toContain('accept=".json,application/json"')
+    expect(settingsPageSource).toContain('Installed themes/extensions')
+    expect(settingsPageSource).toContain('installedThemeOptions()')
+    expect(settingsPageSource).toContain('function handleUninstallTheme')
+    expect(settingsPageSource).toContain('uninstallImportedTheme(themeId)')
+    expect(settingsPageSource).toContain('Uninstall')
+    expect(settingsPageSource).not.toContain('function handleVsCodeThemeBrowse')
+    expect(settingsPageSource).not.toContain('webkitdirectory')
+    expect(settingsPageSource).not.toContain('Browse extension folder')
+    expect(settingsPageSource).not.toContain('Browse theme JSON')
     expect(settingsPageSource).toContain('<MarketplaceThemeBrowser />')
   })
 

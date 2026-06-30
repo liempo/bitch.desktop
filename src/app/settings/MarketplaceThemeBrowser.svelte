@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '@/app/components/ui/Button.svelte'
   import { openExternalUrl } from '$lib/platform'
   import {
     importAndUseVsCodeMarketplaceThemeExtension,
@@ -113,13 +114,13 @@
         placeholder="Search themes, e.g. dracula"
         class="w-full rounded-control border border-line bg-input px-3 py-2 font-hud text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted outline-none placeholder:text-ink-muted/55 hover:border-line-strong hover:text-ink-bright focus:border-focus focus:outline-2 focus:outline-focus focus:outline-offset-0"
       />
-      <button
+      <Button
         type="submit"
         disabled={marketplaceLoading}
-        class="rounded-control border border-line bg-input px-3 py-2 font-hud text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted hover:border-line-strong hover:text-ink-bright disabled:cursor-wait disabled:opacity-60"
+        class="w-full disabled:cursor-wait"
       >
         {marketplaceLoading ? 'Scanning marketplace…' : marketplaceQuery.trim() ? 'Search theme marketplace' : 'Load popular marketplace themes'}
-      </button>
+      </Button>
     </form>
   </div>
 
@@ -159,21 +160,23 @@
           </div>
 
           <div class="grid gap-2 self-start">
-            <button
+            <Button
               type="button"
               disabled={!extension.packageUrl || Boolean(installingExtensionId)}
-              class="rounded-control border border-line bg-input px-3 py-2 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted hover:border-line-strong hover:text-ink-bright disabled:cursor-not-allowed disabled:opacity-60"
+              size="sm"
+              class="w-full"
               onclick={() => installMarketplaceExtension(extension)}
             >
               {installingExtensionId === extension.extensionId ? 'Installing…' : 'Install'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              class="rounded-control border border-line bg-input px-3 py-2 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted hover:border-line-strong hover:text-ink-bright"
+              size="sm"
+              class="w-full"
               onclick={() => openMarketplaceExtension(extension)}
             >
               Open
-            </button>
+            </Button>
           </div>
         </article>
       {/each}
