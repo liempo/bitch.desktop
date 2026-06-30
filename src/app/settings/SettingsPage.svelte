@@ -1,5 +1,6 @@
 <script lang="ts">
   import Panel from '@/app/components/ui/Panel.svelte'
+  import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'
   import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'
 
   let themeImportStatus = $state('')
@@ -110,6 +111,8 @@
           />
         </div>
       </div>
+
+      <MarketplaceThemeBrowser />
     </Panel>
   </div>
 </section>

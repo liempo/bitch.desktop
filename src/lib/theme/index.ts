@@ -1,4 +1,6 @@
-export * from './domain/vscode-theme'
+export * from './adapters/vscode-marketplace'
 export * from './domain/vscode-extension-theme'
+export * from './domain/vscode-marketplace'
+export * from './domain/vscode-theme'
 export * from './icons'
 export * from './theme.svelte'

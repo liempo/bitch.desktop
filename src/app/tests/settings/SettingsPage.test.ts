@@ -18,6 +18,7 @@ describe('settings page route contract', () => {
 
   it('renders theme controls on the Settings page instead of only in the navbar', () => {
     expect(settingsPageSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
+    expect(settingsPageSource).toContain("import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'")
     expect(settingsPageSource).toContain(
       "import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'"
     )
@@ -30,5 +31,6 @@ describe('settings page route contract', () => {
     expect(settingsPageSource).toContain('importAndUseVsCodeExtensionThemes(target.files)')
     expect(settingsPageSource).toContain('webkitdirectory')
     expect(settingsPageSource).toContain('accept=".json,application/json"')
+    expect(settingsPageSource).toContain('<MarketplaceThemeBrowser />')
   })
 })
