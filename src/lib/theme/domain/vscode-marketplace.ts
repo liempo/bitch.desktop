@@ -86,6 +86,7 @@ export const VSCODE_MARKETPLACE_GALLERY_API = 'https://marketplace.visualstudio.
 const VSCODE_TARGET = 'Microsoft.VisualStudio.Code'
 const THEMES_CATEGORY = 'Themes'
 const FILTER_TYPE_CATEGORY = 5
+const FILTER_TYPE_EXTENSION_NAME = 7
 const FILTER_TYPE_TARGET = 8
 const FILTER_TYPE_SEARCH_TEXT = 10
 const SORT_BY = {
@@ -103,6 +104,7 @@ const SMALL_ICON_ASSET = 'Microsoft.VisualStudio.Services.Icons.Small'
 
 export function buildVsCodeMarketplaceThemeQuery(query: VsCodeMarketplaceThemeQuery): Record<string, unknown> {
   const normalizedQuery = query.query?.trim()
+  const exactExtensionName = marketplaceExtensionItemName(normalizedQuery)
   const page = Math.max(1, Math.trunc(query.page ?? 1))
   const pageSize = clampPageSize(query.pageSize ?? 20)
 
@@ -112,7 +114,11 @@ export function buildVsCodeMarketplaceThemeQuery(query: VsCodeMarketplaceThemeQu
         criteria: [
           { filterType: FILTER_TYPE_TARGET, value: VSCODE_TARGET },
           { filterType: FILTER_TYPE_CATEGORY, value: THEMES_CATEGORY },
-          ...(normalizedQuery ? [{ filterType: FILTER_TYPE_SEARCH_TEXT, value: normalizedQuery }] : [])
+          ...(exactExtensionName
+            ? [{ filterType: FILTER_TYPE_EXTENSION_NAME, value: exactExtensionName }]
+            : normalizedQuery
+              ? [{ filterType: FILTER_TYPE_SEARCH_TEXT, value: normalizedQuery }]
+              : [])
         ],
         pageNumber: page,
         pageSize,
@@ -218,6 +224,11 @@ function totalCount(metadata?: GalleryResultMetadata): number {
     ?.metadataItems?.find(item => item.name === 'TotalCount')?.count
 
   return typeof count === 'number' && Number.isFinite(count) ? count : 0
+}
+
+function marketplaceExtensionItemName(query: string | undefined): string | undefined {
+  if (!query || /[\s/?#]/.test(query)) return undefined
+  return /^[a-z0-9][a-z0-9._-]*\.[a-z0-9][a-z0-9._-]*$/i.test(query) ? query.toLowerCase() : undefined
 }
 
 function clampPageSize(pageSize: number): number {
