@@ -6,13 +6,23 @@ const { mockGetSessionMessages, mockSendMacosNotification } = vi.hoisted(() => (
 }))
 
 vi.mock('$lib/platform/notifications', () => ({
-  buildAssistantCompleteNotification: ({ error, text }: { error?: string | null; text?: string | null }) => ({
+  buildAssistantCompleteNotification: ({
+    error,
+    sessionId,
+    text
+  }: {
+    error?: string | null
+    sessionId?: string | null
+    text?: string | null
+  }) => ({
     title: error ? 'BITCH needs attention' : 'BITCH finished',
-    body: error || text || 'Agent response completed.'
+    body: error || text || 'Agent response completed.',
+    sessionId
   }),
-  buildInputNeededNotification: (text: string | null | undefined) => ({
+  buildInputNeededNotification: (text: string | null | undefined, sessionId?: string | null) => ({
     title: 'BITCH needs input',
-    body: text || 'The agent is waiting for your response.'
+    body: text || 'The agent is waiting for your response.',
+    sessionId
   }),
   sendMacosNotification: mockSendMacosNotification
 }))
@@ -436,7 +446,8 @@ describe('message session id mapping', () => {
 
     expect(mockSendMacosNotification).toHaveBeenCalledWith({
       title: 'BITCH needs input',
-      body: 'Pick a color'
+      body: 'Pick a color',
+      sessionId: storedKey
     })
   })
 
@@ -725,7 +736,8 @@ describe('message session id mapping', () => {
     })
     expect(mockSendMacosNotification).toHaveBeenCalledWith({
       title: 'BITCH finished',
-      body: 'All done.'
+      body: 'All done.',
+      sessionId: storedKey
     })
   })
 

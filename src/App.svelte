@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import AppShell from './app/AppShell.svelte'
+  import { agentRoute } from './app/router.svelte'
   import { installCustomScrollbars, SPLASH_REMOVE_AFTER_MS, STARTUP_SPLASH_COMPLETE_EVENT } from '$lib/layout'
-  import { openExternalUrl } from '$lib/platform'
+  import { installMacosNotificationClickHandler, openExternalUrl } from '$lib/platform'
   import { connectGateway, disconnectGateway } from '$lib/hermes/gateway'
   import { startMessageStream, stopMessageStream } from '$lib/hermes/conversations'
   import { refreshActiveProfile } from '$lib/hermes/profiles'
@@ -30,6 +31,7 @@
 
     let customScrollbarsInstalled = false
     let uninstallCustomScrollbars: () => void = () => undefined
+    let uninstallNotificationClickHandler: () => void = () => undefined
 
     function installScrollbars(): void {
       if (customScrollbarsInstalled) return
@@ -45,6 +47,16 @@
     window.addEventListener(STARTUP_SPLASH_COMPLETE_EVENT, installScrollbars, { once: true })
     startMessageStream()
 
+    void installMacosNotificationClickHandler(sessionId => {
+      window.location.hash = agentRoute(sessionId)
+    })
+      .then(unlisten => {
+        uninstallNotificationClickHandler = unlisten
+      })
+      .catch(error => {
+        console.warn('Failed to install macOS notification click handler', error)
+      })
+
     void (async () => {
       await connectGateway()
       await refreshActiveProfile()
@@ -56,6 +68,7 @@
       window.removeEventListener('click', handleClick)
       window.removeEventListener(STARTUP_SPLASH_COMPLETE_EVENT, installScrollbars)
       uninstallCustomScrollbars()
+      uninstallNotificationClickHandler()
       stopMessageStream()
       disconnectGateway()
     }

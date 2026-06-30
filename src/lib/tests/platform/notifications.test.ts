@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildAssistantCompleteNotification,
   buildInputNeededNotification,
+  installMacosNotificationClickHandler,
   sendMacosNotification,
+  sessionIdFromNotificationAction,
   shouldSendMacosNotification
 } from '../../platform/notifications'
 
@@ -19,10 +21,11 @@ describe('macOS desktop notifications', () => {
     expect(notification?.body.endsWith('…')).toBe(true)
   })
 
-  it('builds a needs-input notification from prompt text', () => {
-    expect(buildInputNeededNotification('Approval required for rm -rf no')).toEqual({
+  it('builds a needs-input notification from prompt text with the target session id', () => {
+    expect(buildInputNeededNotification('Approval required for rm -rf no', 'stored-session')).toEqual({
       title: 'BITCH needs input',
-      body: 'Approval required for rm -rf no'
+      body: 'Approval required for rm -rf no',
+      sessionId: 'stored-session'
     })
   })
 
@@ -34,13 +37,57 @@ describe('macOS desktop notifications', () => {
     }
 
     await sendMacosNotification(
-      { title: 'BITCH finished', body: 'The run completed.' },
+      { title: 'BITCH finished', body: 'The run completed.', sessionId: 'stored-session' },
       { backend, isMacOs: true, isWindowFocused: () => false }
     )
 
     expect(backend.isPermissionGranted).toHaveBeenCalledOnce()
     expect(backend.requestPermission).toHaveBeenCalledOnce()
-    expect(backend.sendNotification).toHaveBeenCalledWith({ title: 'BITCH finished', body: 'The run completed.' })
+    expect(backend.sendNotification).toHaveBeenCalledWith({
+      title: 'BITCH finished',
+      body: 'The run completed.',
+      autoCancel: true,
+      extra: { bitchSessionId: 'stored-session' },
+      group: 'session:stored-session'
+    })
+  })
+
+  it('extracts and routes notification clicks to stored session ids', async () => {
+    const unregister = vi.fn()
+    const onSessionClick = vi.fn()
+    const backend = {
+      onAction: vi.fn(async (handler: (payload: { extra?: Record<string, unknown> }) => void) => {
+        handler({ extra: { bitchSessionId: 'stored-session' } })
+        handler({ extra: { unrelated: 'ignored' } })
+        return { unregister }
+      })
+    }
+
+    const unlisten = await installMacosNotificationClickHandler(onSessionClick, {
+      backend,
+      isMacOs: true,
+      isTauriRuntime: true
+    })
+    await unlisten()
+
+    expect(sessionIdFromNotificationAction({ extra: { bitchSessionId: 'stored-session' } })).toBe('stored-session')
+    expect(sessionIdFromNotificationAction({ extra: { bitchSessionId: '   ' } })).toBeNull()
+    expect(onSessionClick).toHaveBeenCalledOnce()
+    expect(onSessionClick).toHaveBeenCalledWith('stored-session')
+    expect(unregister).toHaveBeenCalledOnce()
+  })
+
+  it('does not install click listeners outside macOS Tauri runtime', async () => {
+    const backend = { onAction: vi.fn() }
+
+    const unlisten = await installMacosNotificationClickHandler(vi.fn(), {
+      backend,
+      isMacOs: true,
+      isTauriRuntime: false
+    })
+
+    unlisten()
+    expect(backend.onAction).not.toHaveBeenCalled()
   })
 
   it('does not request permission or send while focused or off macOS', async () => {
