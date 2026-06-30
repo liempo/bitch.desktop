@@ -33,6 +33,7 @@
     "@threlte/core": "^8.5.16",
     "bits-ui": "^2.18.1",
     "dompurify": "^3.4.9",
+    "fflate": "^0.8.3",
     "marked": "^18.0.5",
     "three": "^0.184.0"
   },

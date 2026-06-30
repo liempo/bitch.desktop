@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import appShellSource from '../../AppShell.svelte?raw'
+import marketplaceThemeBrowserSource from '../../settings/MarketplaceThemeBrowser.svelte?raw'
 import settingsPageSource from '../../settings/SettingsPage.svelte?raw'
 import navSource from '../../navigation/AppNavbar.svelte?raw'
 import routerSource from '../../router.svelte.ts?raw'
@@ -18,6 +19,7 @@ describe('settings page route contract', () => {
 
   it('renders theme controls on the Settings page instead of only in the navbar', () => {
     expect(settingsPageSource).toContain("import Panel from '@/app/components/ui/Panel.svelte'")
+    expect(settingsPageSource).toContain("import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'")
     expect(settingsPageSource).toContain(
       "import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'"
     )
@@ -30,5 +32,14 @@ describe('settings page route contract', () => {
     expect(settingsPageSource).toContain('importAndUseVsCodeExtensionThemes(target.files)')
     expect(settingsPageSource).toContain('webkitdirectory')
     expect(settingsPageSource).toContain('accept=".json,application/json"')
+    expect(settingsPageSource).toContain('<MarketplaceThemeBrowser />')
+  })
+
+  it('lets Marketplace theme browser install VSIX color themes into the local selector', () => {
+    expect(marketplaceThemeBrowserSource).toContain('importAndUseVsCodeMarketplaceThemeExtension')
+    expect(marketplaceThemeBrowserSource).toContain('function installMarketplaceExtension')
+    expect(marketplaceThemeBrowserSource).toContain('onclick={() => installMarketplaceExtension(extension)}')
+    expect(marketplaceThemeBrowserSource).toContain('Install')
+    expect(marketplaceThemeBrowserSource).toContain('extension.packageUrl')
   })
 })
