@@ -21,13 +21,17 @@ describe('temporary theme picker source contract', () => {
   it('renders the runtime theme picker from the Settings page linked by the navbar', () => {
     expect(appNavbarSource).toContain("label: 'SETTINGS'")
     expect(appNavbarSource).toContain('settingsRoute()')
-    expect(settingsPageSource).toContain("import { selectTheme, themeOptions, themeState } from '$lib/theme'")
+    expect(settingsPageSource).toContain(
+      "import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'"
+    )
     expect(settingsPageSource).toContain('function handleThemeChange')
     expect(settingsPageSource).toContain('selectTheme(')
     expect(settingsPageSource).toContain('aria-label="Theme"')
     expect(settingsPageSource).toContain('{#each themeOptions as theme (theme.id)}')
     expect(settingsPageSource).toContain('value={theme.id}')
     expect(settingsPageSource).toContain('bind:value={themeState.selectedThemeId}')
+    expect(settingsPageSource).toContain('Browse extension folder')
+    expect(settingsPageSource).toContain('Browse theme JSON')
   })
 
   it('carries the active runtime theme into portal dialogs', () => {

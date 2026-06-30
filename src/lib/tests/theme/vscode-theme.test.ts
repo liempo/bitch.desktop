@@ -3,13 +3,19 @@ import { describe, expect, it } from 'vitest'
 import { namespacedStorageKey } from '$lib/storage'
 import {
   DEFAULT_THEME_ID,
+  IMPORTED_THEMES_STORAGE_SUFFIX,
   THEME_STORAGE_SUFFIX,
   builtInThemes,
   cssVariablesFromVsCodeTheme,
+  deserializeImportedThemes,
+  importAndUseVsCodeExtensionThemes,
+  importVsCodeExtensionThemes,
   loadThemeSelection,
+  replaceImportedThemes,
   persistThemeSelection,
   resolveThemeSelection,
   themeStyleAttribute,
+  themeOptions,
   type VsCodeTheme
 } from '$lib/theme'
 
@@ -114,6 +120,79 @@ describe('VS Code-compatible app themes', () => {
     expect(storage.getItem(namespacedStorageKey(THEME_STORAGE_SUFFIX))).toBe('terminal-green')
   })
 
+  it('imports VS Code color themes from an unpacked extension manifest', async () => {
+    const result = await importVsCodeExtensionThemes([
+      file('probe/package.json', {
+        name: 'probe-theme-extension',
+        publisher: 'liempo',
+        contributes: {
+          themes: [{ id: 'night-city', label: 'Night City', uiTheme: 'vs-dark', path: './themes/night-city.json' }]
+        }
+      }),
+      file('probe/themes/night-city.json', {
+        name: 'Night City Theme',
+        colors: {
+          'editor.background': '#120018',
+          'sideBar.background': '#180020',
+          foreground: '#f4e8ff',
+          focusBorder: '#ff33cc'
+        },
+        tokenColors: [{ scope: 'keyword', settings: { foreground: '#ff33cc' } }]
+      })
+    ])
+
+    expect(result.errors).toEqual([])
+    expect(result.themes).toHaveLength(1)
+    expect(result.themes[0]).toMatchObject({
+      id: 'vscode-extension:liempo-probe-theme-extension-night-city-probe-themes-night-city-json',
+      source: { name: 'Night City Theme', type: 'vs-dark' },
+      cssVariables: expect.objectContaining({
+        '--bits-canvas': '#120018',
+        '--bits-surface': '#180020',
+        '--bits-focus': '#ff33cc'
+      })
+    })
+  })
+
+  it('imports standalone VS Code theme JSON files and persists them for selection', async () => {
+    const storage = storageStub()
+    const result = await importAndUseVsCodeExtensionThemes(
+      [
+        file('synthetic.json', {
+          name: 'Synthetic Light',
+          type: 'light',
+          colors: { 'editor.background': '#fafafa', foreground: '#111111', focusBorder: '#0055ff' }
+        })
+      ],
+      storage
+    )
+
+    expect(result.themes).toHaveLength(1)
+    expect(result.themes[0].colorScheme).toBe('light')
+    expect(storage.getItem(namespacedStorageKey(THEME_STORAGE_SUFFIX))).toBe(result.themes[0].id)
+    expect(
+      deserializeImportedThemes(storage.getItem(namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)))
+    ).toHaveLength(1)
+    expect(themeOptions.map(theme => theme.id)).toContain(result.themes[0].id)
+
+    replaceImportedThemes([...result.themes, ...result.themes], storage)
+
+    expect(themeOptions.filter(theme => theme.id === result.themes[0].id)).toHaveLength(1)
+  })
+
+  it('loads imported themes before resolving a persisted custom theme id', () => {
+    const imported = importTheme('Persisted Corpo Blue', '#001122')
+    const storage = storageStub({
+      [namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)]: JSON.stringify([
+        { id: imported.id, source: imported.source }
+      ]),
+      [namespacedStorageKey(THEME_STORAGE_SUFFIX)]: imported.id
+    })
+
+    expect(loadThemeSelection(storage).id).toBe(imported.id)
+    replaceImportedThemes([], storage)
+  })
+
   it('renders a CSS style attribute from the theme adapter rather than hardcoded data-theme blocks', () => {
     const theme = resolveThemeSelection('terminal-green')
 
@@ -121,3 +200,22 @@ describe('VS Code-compatible app themes', () => {
     expect(themeStyleAttribute(theme)).toContain('--bits-primary: #7cff7c;')
   })
 })
+
+function file(path: string, body: unknown) {
+  return {
+    name: path.split('/').at(-1) ?? path,
+    webkitRelativePath: path,
+    text: async () => JSON.stringify(body)
+  }
+}
+
+function importTheme(name: string, background: string) {
+  return deserializeImportedThemes(
+    JSON.stringify([
+      {
+        id: `vscode-extension:${name.toLowerCase().replaceAll(' ', '-')}`,
+        source: { name, type: 'dark', colors: { 'editor.background': background, foreground: '#ffffff' } }
+      }
+    ])
+  )[0]
+}

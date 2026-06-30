@@ -1,12 +1,30 @@
 <script lang="ts">
   import Panel from '@/app/components/ui/Panel.svelte'
-  import { selectTheme, themeOptions, themeState } from '$lib/theme'
+  import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'
+
+  let themeImportStatus = $state('')
 
   function handleThemeChange(event: Event): void {
     const target = event.currentTarget
     if (!(target instanceof HTMLSelectElement)) return
 
     selectTheme(target.value)
+  }
+
+  async function handleVsCodeThemeBrowse(event: Event): Promise<void> {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLInputElement) || !target.files?.length) return
+
+    const result = await importAndUseVsCodeExtensionThemes(target.files)
+    themeImportStatus = result.themes.length
+      ? `Imported ${result.themes.length} VS Code theme${result.themes.length === 1 ? '' : 's'} from extension files.`
+      : 'No VS Code color themes found. Select an unpacked extension folder or a theme JSON file.'
+
+    if (result.errors.length > 0) {
+      themeImportStatus = `${themeImportStatus} ${result.errors.length} file${result.errors.length === 1 ? '' : 's'} could not be read.`
+    }
+
+    target.value = ''
   }
 </script>
 
@@ -42,6 +60,55 @@
             <option value={theme.id}>{theme.source.name}</option>
           {/each}
         </select>
+      </div>
+
+      <div class="grid gap-2 rounded-panel border border-line/70 bg-surface/70 p-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] md:items-center">
+        <div>
+          <p class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-bright">
+            VS Code extension themes
+          </p>
+          <p class="mt-1 text-xs leading-5 text-ink-muted">
+            Browse an unpacked VS Code extension folder or select a color-theme JSON file. Imported themes are stored locally
+            and can be used immediately from the theme selector.
+          </p>
+          {#if themeImportStatus}
+            <p class="mt-2 text-xs leading-5 text-primary" role="status">{themeImportStatus}</p>
+          {/if}
+        </div>
+
+        <div class="grid gap-2">
+          <label
+            for="settings-vscode-extension-theme-folder"
+            class="cursor-pointer rounded-control border border-line bg-input px-3 py-2 text-center font-hud text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted hover:border-line-strong hover:text-ink-bright focus-within:border-focus focus-within:outline-2 focus-within:outline-focus focus-within:outline-offset-0"
+          >
+            Browse extension folder
+          </label>
+          <input
+            id="settings-vscode-extension-theme-folder"
+            class="sr-only"
+            type="file"
+            multiple
+            webkitdirectory
+            aria-label="Browse VS Code extension theme folder"
+            onchange={handleVsCodeThemeBrowse}
+          />
+
+          <label
+            for="settings-vscode-theme-json"
+            class="cursor-pointer rounded-control border border-line bg-input px-3 py-2 text-center font-hud text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted hover:border-line-strong hover:text-ink-bright focus-within:border-focus focus-within:outline-2 focus-within:outline-focus focus-within:outline-offset-0"
+          >
+            Browse theme JSON
+          </label>
+          <input
+            id="settings-vscode-theme-json"
+            class="sr-only"
+            type="file"
+            accept=".json,application/json"
+            multiple
+            aria-label="Browse VS Code theme JSON"
+            onchange={handleVsCodeThemeBrowse}
+          />
+        </div>
       </div>
     </Panel>
   </div>
