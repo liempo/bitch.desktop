@@ -34,7 +34,8 @@
   const settingsNavItem = $derived<NavItem>({ href: `#${settingsRoute()}`, label: 'SETTINGS', page: 'settings' })
   const mobileMenuItems = $derived<NavItem[]>([...navItems, settingsNavItem])
 
-  const settingsControlClass =
+  const settingsDesktopControlClass = 'inline-flex items-center leading-none'
+  const settingsMobileControlClass =
     'inline-flex h-9 w-9 items-center justify-center rounded-control border border-line bg-surface-raised text-ink-muted hover:border-line-strong hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2'
   const mobileMenuContentClass = `${popoverClass} z-50 min-w-52 p-1.5 font-mono shadow-xl`
   const mobileMenuItemBaseClass = `${menuItemClass} flex w-full justify-between px-3 py-2 text-left font-hud text-[11px] font-bold uppercase tracking-[0.14em]`
@@ -82,6 +83,16 @@
         {item.label}
       </a>
     {/each}
+    <a
+      class={`${linkClass('settings')} ${settingsDesktopControlClass}`}
+      href={`#${settingsRoute()}`}
+      aria-label="Open settings"
+      aria-current={appRouterState.page === 'settings' ? 'page' : undefined}
+      title={settingsNavItem.label}
+    >
+      <Icon name="settings" class="text-[12px] leading-none" />
+      <span class="sr-only">{settingsNavItem.label}</span>
+    </a>
   </div>
 
   <div class="flex items-center gap-2 md:hidden">
@@ -126,16 +137,16 @@
         </div>
       </Popover.Content>
     </Popover.Root>
-  </div>
 
-  <a
-    class={settingsControlClass}
-    href={`#${settingsRoute()}`}
-    aria-label="Open settings"
-    aria-current={appRouterState.page === 'settings' ? 'page' : undefined}
-    title={settingsNavItem.label}
-  >
-    <Icon name="settings" class="text-base" />
-    <span class="sr-only">{settingsNavItem.label}</span>
-  </a>
+    <a
+      class={settingsMobileControlClass}
+      href={`#${settingsRoute()}`}
+      aria-label="Open settings"
+      aria-current={appRouterState.page === 'settings' ? 'page' : undefined}
+      title={settingsNavItem.label}
+    >
+      <Icon name="settings" class="text-lg" />
+      <span class="sr-only">{settingsNavItem.label}</span>
+    </a>
+  </div>
 </nav>
