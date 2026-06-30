@@ -90,7 +90,7 @@
   }
 </script>
 
-<div class="grid gap-3 rounded-panel border border-line/70 bg-surface/70 p-3">
+<div class="grid gap-3 rounded-panel border border-line bg-surface-muted p-3">
   <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-end">
     <div>
       <p class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-bright">
@@ -133,7 +133,7 @@
   {#if marketplaceExtensions.length > 0}
     <div class="grid gap-2" role="list" aria-label="VS Code Marketplace theme extensions">
       {#each marketplaceExtensions as extension (extension.extensionId)}
-        <article class="grid gap-3 rounded-panel border border-line bg-canvas/60 p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]" role="listitem">
+        <article class="grid gap-3 rounded-panel border border-line bg-surface p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]" role="listitem">
           <div class="h-10 w-10 overflow-hidden rounded-control border border-line bg-input">
             {#if extension.iconUrl}
               <img src={extension.iconUrl} alt="" class="h-full w-full object-cover" loading="lazy" />

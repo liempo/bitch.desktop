@@ -27,8 +27,8 @@
 
   type ThermalZone = MonitoringMetrics['thermal'][number]
 
-  const dashboardPanelClass = 'h-auto min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong md:h-full'
-  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong'
+  const dashboardPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong md:h-full'
+  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong'
   const dashboardPanelTitleClass = 'text-ink-muted'
 
 
