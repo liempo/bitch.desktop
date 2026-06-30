@@ -7,6 +7,12 @@ import navSource from '../../navigation/AppNavbar.svelte?raw'
 import routerSource from '../../router.svelte.ts?raw'
 import { settingsRoute } from '../../router.svelte'
 
+function expectAll(source: string, needles: string[]): void {
+  for (const needle of needles) {
+    expect(source).toContain(needle)
+  }
+}
+
 describe('settings page route contract', () => {
   it('adds Settings as a top-level route and navbar destination', () => {
     expect((settingsRoute as () => string)()).toBe('/settings')
@@ -45,5 +51,23 @@ describe('settings page route contract', () => {
     expect(marketplaceThemeBrowserSource).toContain('onclick={() => installMarketplaceExtension(extension)}')
     expect(marketplaceThemeBrowserSource).toContain('Install')
     expect(marketplaceThemeBrowserSource).toContain('extension.packageUrl')
+  })
+
+  it('keeps Settings responsive on narrow mobile viewports', () => {
+    expectAll(settingsPageSource, [
+      'p-2 sm:p-3 md:p-4',
+      'max-w-4xl min-w-0 gap-3',
+      'contentClass="space-y-3 sm:space-y-4"',
+      '!bottom-2 !left-2 !right-2 !top-2 !w-auto',
+      'max-h-[calc(100dvh-5rem)]',
+      'w-full self-start sm:w-auto'
+    ])
+
+    expectAll(marketplaceThemeBrowserSource, [
+      'grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)]',
+      'col-span-2 grid w-full gap-2 self-start sm:col-span-1 sm:w-auto',
+      'break-all text-xs text-ink-muted sm:truncate',
+      'w-full whitespace-normal py-2 !leading-tight disabled:cursor-wait'
+    ])
   })
 })

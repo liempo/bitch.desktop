@@ -91,8 +91,8 @@
   }
 </script>
 
-<div class="grid gap-3 rounded-panel border border-line bg-surface-muted p-3">
-  <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-end">
+<div class="grid min-w-0 gap-3 rounded-panel border border-line bg-surface-muted p-3">
+  <div class="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-end">
     <div>
       <p class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-bright">
         VS Code Marketplace themes
@@ -104,7 +104,7 @@
       </p>
     </div>
 
-    <form class="grid gap-2" onsubmit={handleMarketplaceThemeSubmit}>
+    <form class="grid min-w-0 gap-2" onsubmit={handleMarketplaceThemeSubmit}>
       <label for="settings-marketplace-theme-query" class="sr-only">Search Marketplace themes</label>
       <input
         id="settings-marketplace-theme-query"
@@ -117,16 +117,16 @@
       <Button
         type="submit"
         disabled={marketplaceLoading}
-        class="w-full disabled:cursor-wait"
+        class="w-full whitespace-normal py-2 !leading-tight disabled:cursor-wait"
       >
         {marketplaceLoading ? 'Scanning marketplace…' : marketplaceQuery.trim() ? 'Search theme marketplace' : 'Load popular marketplace themes'}
       </Button>
     </form>
   </div>
 
-  <p class="text-xs leading-5 text-primary" role="status">{marketplaceStatus}</p>
+  <p class="break-words text-xs leading-5 text-primary" role="status">{marketplaceStatus}</p>
   {#if marketplaceError}
-    <p class="rounded-control border border-danger/50 bg-danger/10 px-3 py-2 text-xs leading-5 text-danger" role="alert">
+    <p class="break-words rounded-control border border-danger/50 bg-danger/10 px-3 py-2 text-xs leading-5 text-danger" role="alert">
       {marketplaceError}
     </p>
   {/if}
@@ -134,7 +134,10 @@
   {#if marketplaceExtensions.length > 0}
     <div class="grid gap-2" role="list" aria-label="VS Code Marketplace theme extensions">
       {#each marketplaceExtensions as extension (extension.extensionId)}
-        <article class="grid gap-3 rounded-panel border border-line bg-surface p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]" role="listitem">
+        <article
+          class="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)] gap-3 rounded-panel border border-line bg-surface p-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]"
+          role="listitem"
+        >
           <div class="h-10 w-10 overflow-hidden rounded-control border border-line bg-input">
             {#if extension.iconUrl}
               <img src={extension.iconUrl} alt="" class="h-full w-full object-cover" loading="lazy" />
@@ -144,22 +147,22 @@
           </div>
 
           <div class="min-w-0">
-            <h3 class="truncate font-hud text-[0.74rem] font-bold uppercase tracking-[0.14em] text-ink-bright">
+            <h3 class="break-words font-hud text-[0.74rem] font-bold uppercase tracking-[0.14em] text-ink-bright sm:truncate">
               {extension.displayName}
             </h3>
-            <p class="mt-1 truncate text-xs text-ink-muted">
+            <p class="mt-1 break-all text-xs text-ink-muted sm:truncate">
               {extension.publisherDisplayName} · {extension.publisherName}.{extension.extensionName}
             </p>
             {#if extension.shortDescription}
-              <p class="mt-2 line-clamp-2 text-xs leading-5 text-ink-muted">{extension.shortDescription}</p>
+              <p class="mt-2 line-clamp-2 break-words text-xs leading-5 text-ink-muted">{extension.shortDescription}</p>
             {/if}
-            <p class="mt-2 text-xs leading-5 text-ink-muted">
+            <p class="mt-2 break-words text-xs leading-5 text-ink-muted">
               {formatCount(extension.installCount)} installs · {formatRating(extension)} · {extension.themes.length}
-              color theme{extension.themes.length === 1 ? '' : 's'}: <span class="text-ink-bright">{themeLabels(extension)}</span>
+              color theme{extension.themes.length === 1 ? '' : 's'}: <span class="break-words text-ink-bright">{themeLabels(extension)}</span>
             </p>
           </div>
 
-          <div class="grid gap-2 self-start">
+          <div class="col-span-2 grid w-full gap-2 self-start sm:col-span-1 sm:w-auto">
             <Button
               type="button"
               disabled={!extension.packageUrl || Boolean(installingExtensionId)}
