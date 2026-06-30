@@ -34,13 +34,7 @@
       (conversation?.loading || sessionState.resumingSessionId === sessionId)
   )
 
-  const sectionClass = $derived(
-    compact
-      ? 'flex-1 overflow-y-auto bg-chat-scroll/30'
-      : responsiveCompact
-        ? 'flex-1 overflow-y-auto bg-chat-scroll/30 md:bg-chat-scroll/40'
-        : 'flex-1 overflow-y-auto bg-chat-scroll/40'
-  )
+  const sectionClass = 'flex-1 overflow-y-auto bg-transparent'
   const emptyStateClass = $derived(
     compact
       ? 'flex min-h-full items-center justify-center px-3 py-6'

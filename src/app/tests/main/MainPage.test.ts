@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import composerSource from '../../components/composer/Composer.svelte?raw'
+import conversationSource from '../../components/conversation/Conversation.svelte?raw'
 import dashboardSource from '../../main/dashboard.ts?raw'
 import mainPageSource from '../../main/MainPage.svelte?raw'
 import mainAgentPanelSource from '../../main/panels/MainAgentPanel.svelte?raw'
@@ -199,6 +200,8 @@ describe('Main dashboard source contract', () => {
     expect(composerSource).toContain("import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'")
     expect(composerSource).toContain('<BracketTrigger {...props} label="PROFILE" value={profileLabel}')
     expect(mainAgentPanelSource).toContain('compact')
+    expect(conversationSource).toContain('flex-1 overflow-y-auto bg-transparent')
+    expect(conversationSource).not.toContain('bg-chat-scroll')
     expect(mainAgentPanelSource).toContain('commitRoute={false}')
     expect(composerSource).toContain("? 'shrink-0 p-2'")
   })
