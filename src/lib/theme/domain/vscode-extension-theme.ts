@@ -113,11 +113,101 @@ function indexThemeFiles(files: readonly VsCodeThemeFile[]): Map<string, VsCodeT
 
 async function readJsonFile<T>(file: VsCodeThemeFile, errors: string[]): Promise<T | undefined> {
   try {
-    return JSON.parse(await file.text()) as T
+    return parseJsonc(await file.text()) as T
   } catch (error) {
     errors.push(`${filePath(file)} is not readable JSON: ${error instanceof Error ? error.message : String(error)}`)
     return undefined
   }
+}
+
+function parseJsonc(value: string): unknown {
+  return JSON.parse(stripTrailingJsonCommas(stripJsonComments(value)))
+}
+
+function stripJsonComments(value: string): string {
+  let output = ''
+  let index = 0
+  let inString = false
+  let escaped = false
+
+  while (index < value.length) {
+    const char = value[index]
+    const next = value[index + 1]
+
+    if (inString) {
+      output += char
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      index += 1
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      output += char
+      index += 1
+      continue
+    }
+
+    if (char === '/' && next === '/') {
+      index += 2
+      while (index < value.length && value[index] !== '\n' && value[index] !== '\r') index += 1
+      continue
+    }
+
+    if (char === '/' && next === '*') {
+      index += 2
+      while (index < value.length) {
+        if (value[index] === '*' && value[index + 1] === '/') {
+          index += 2
+          break
+        }
+        if (value[index] === '\n' || value[index] === '\r') output += value[index]
+        index += 1
+      }
+      continue
+    }
+
+    output += char
+    index += 1
+  }
+
+  return output
+}
+
+function stripTrailingJsonCommas(value: string): string {
+  let output = ''
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index]
+
+    if (inString) {
+      output += char
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      output += char
+      continue
+    }
+
+    if (char === ',') {
+      let nextIndex = index + 1
+      while (nextIndex < value.length && /\s/.test(value[nextIndex])) nextIndex += 1
+      if (value[nextIndex] === '}' || value[nextIndex] === ']') continue
+    }
+
+    output += char
+  }
+
+  return output
 }
 
 function normalizeVsCodeTheme(

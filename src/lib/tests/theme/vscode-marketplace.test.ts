@@ -29,6 +29,27 @@ describe('VS Code Marketplace theme browsing', () => {
     ])
   })
 
+  it('uses exact Marketplace item-name lookup for publisher.extension queries', () => {
+    const body = buildVsCodeMarketplaceThemeQuery({ query: ' DrewXS.Tokyo-Night-Dark ', page: 1, pageSize: 10 })
+
+    expect(body.filters).toEqual([
+      expect.objectContaining({
+        pageNumber: 1,
+        pageSize: 10,
+        criteria: expect.arrayContaining([
+          { filterType: 8, value: 'Microsoft.VisualStudio.Code' },
+          { filterType: 5, value: 'Themes' },
+          { filterType: 7, value: 'drewxs.tokyo-night-dark' }
+        ])
+      })
+    ])
+    expect(body.filters).not.toEqual([
+      expect.objectContaining({
+        criteria: expect.arrayContaining([{ filterType: 10, value: 'drewxs.tokyo-night-dark' }])
+      })
+    ])
+  })
+
   it('recognizes color-theme contributions from extension manifests', () => {
     expect(
       themeContributionsFromMarketplaceManifest({
@@ -96,6 +117,112 @@ describe('VS Code Marketplace theme browsing', () => {
     })
   })
 
+  it('queries exact Marketplace item names and hydrates Tokyo Night Dark contributions', async () => {
+    const fetchCalls: string[] = []
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input)
+      fetchCalls.push(url)
+
+      if (url === VSCODE_MARKETPLACE_GALLERY_API) {
+        const body = JSON.parse(String(init?.body)) as { filters: { criteria: unknown[] }[] }
+        expect(body.filters[0].criteria).toEqual(
+          expect.arrayContaining([{ filterType: 7, value: 'drewxs.tokyo-night-dark' }])
+        )
+        expect(body.filters[0].criteria).not.toEqual(
+          expect.arrayContaining([{ filterType: 10, value: 'drewxs.tokyo-night-dark' }])
+        )
+
+        return jsonResponse({
+          results: [
+            {
+              resultMetadata: [{ metadataType: 'ResultCount', metadataItems: [{ name: 'TotalCount', count: 1 }] }],
+              extensions: [
+                galleryExtension(
+                  'tokyo-night-dark-id',
+                  'tokyo-night-dark-manifest',
+                  'tokyo-night-dark',
+                  'Tokyo Night Dark',
+                  'drewxs'
+                )
+              ]
+            }
+          ]
+        })
+      }
+
+      if (url === 'tokyo-night-dark-manifest') {
+        return jsonResponse({
+          contributes: {
+            themes: [
+              { label: 'Tokyo Night Dark', uiTheme: 'vs-dark', path: './themes/tokyo-night-dark-color-theme.json' }
+            ]
+          }
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    }
+
+    const result = await searchVsCodeMarketplaceThemes({
+      query: 'drewxs.tokyo-night-dark',
+      pageSize: 12,
+      maxPagesToScan: 1,
+      fetchImpl
+    })
+
+    expect(fetchCalls).toEqual([VSCODE_MARKETPLACE_GALLERY_API, 'tokyo-night-dark-manifest'])
+    expect(result.extensions).toHaveLength(1)
+    expect(result.extensions[0]).toMatchObject({
+      extensionName: 'tokyo-night-dark',
+      displayName: 'Tokyo Night Dark',
+      publisherName: 'drewxs',
+      themes: [{ label: 'Tokyo Night Dark', uiTheme: 'vs-dark' }]
+    })
+  })
+
+  it('imports JSONC theme files with VS Code comments and trailing commas', async () => {
+    const result = await importVsCodeExtensionThemes([
+      {
+        name: 'package.json',
+        webkitRelativePath: 'extension/package.json',
+        text: async () =>
+          JSON.stringify({
+            name: 'tokyo-night-dark',
+            publisher: 'drewxs',
+            contributes: {
+              themes: [
+                {
+                  label: 'Tokyo Night Dark',
+                  uiTheme: 'vs-dark',
+                  path: './themes/tokyo-night-dark-color-theme.json'
+                }
+              ]
+            }
+          })
+      },
+      {
+        name: 'tokyo-night-dark-color-theme.json',
+        webkitRelativePath: 'extension/themes/tokyo-night-dark-color-theme.json',
+        text: async () => `{
+          "name": "Tokyo Night Dark",
+          "type": "dark",
+          "colors": {
+            // Actual VS Code themes may be JSONC, not strict JSON.
+            "editor.background": "#1a1b26",
+            "focusBorder": "#7aa2f7",
+          },
+        }`
+      }
+    ])
+
+    expect(result.errors).toEqual([])
+    expect(result.themes[0]).toMatchObject({
+      id: 'vscode-extension:drewxs-tokyo-night-dark-tokyo-night-dark-extension-themes-tokyo-night-dark-color-theme-json',
+      source: { name: 'Tokyo Night Dark', type: 'dark' },
+      cssVariables: expect.objectContaining({ '--bits-canvas': '#1a1b26', '--bits-focus': '#7aa2f7' })
+    })
+  })
+
   it('downloads a VSIX package and exposes extension files for theme import', async () => {
     const packageBytes = zipSync({
       'extension/package.json': strToU8(
@@ -145,14 +272,20 @@ function binaryResponse(body: Uint8Array): Response {
   return new Response(bytes, { status: 200, headers: { 'Content-Type': 'application/zip' } })
 }
 
-function galleryExtension(extensionId: string, manifestUrl: string, extensionName: string, displayName: string) {
+function galleryExtension(
+  extensionId: string,
+  manifestUrl: string,
+  extensionName: string,
+  displayName: string,
+  publisherName = 'test-publisher'
+) {
   return {
     extensionId,
     extensionName,
     displayName,
     shortDescription: `${displayName} description`,
     lastUpdated: '2026-06-30T00:00:00Z',
-    publisher: { publisherName: 'test-publisher', displayName: 'Test Publisher' },
+    publisher: { publisherName, displayName: publisherName === 'test-publisher' ? 'Test Publisher' : publisherName },
     versions: [
       {
         version: '1.2.3',
