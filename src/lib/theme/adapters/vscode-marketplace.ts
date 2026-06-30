@@ -1,3 +1,6 @@
+import { strFromU8, unzipSync } from 'fflate'
+
+import type { VsCodeThemeFile } from '../domain/vscode-extension-theme'
 import {
   buildVsCodeMarketplaceThemeQuery,
   parseVsCodeMarketplaceThemeSearchResponse,
@@ -15,6 +18,10 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 export type SearchVsCodeMarketplaceThemeOptions = VsCodeMarketplaceThemeQuery & {
   fetchImpl?: FetchLike
   maxPagesToScan?: number
+}
+
+export type DownloadVsCodeMarketplaceThemePackageOptions = {
+  fetchImpl?: FetchLike
 }
 
 const DEFAULT_PAGE_SIZE = 12
@@ -68,6 +75,43 @@ export async function searchVsCodeMarketplaceThemes(
   }
 }
 
+export async function downloadVsCodeMarketplaceThemeExtensionPackage(
+  extension: Pick<VsCodeMarketplaceThemeExtension, 'displayName' | 'packageUrl'>,
+  options: DownloadVsCodeMarketplaceThemePackageOptions = {}
+): Promise<VsCodeThemeFile[]> {
+  if (!extension.packageUrl) {
+    throw new Error(`${extension.displayName} does not expose a VSIX package URL.`)
+  }
+
+  const fetchImpl = options.fetchImpl ?? fetch
+  const response = await fetchImpl(extension.packageUrl, {
+    headers: { Accept: 'application/zip, application/octet-stream' }
+  })
+
+  if (!response.ok) {
+    throw new Error(`VSIX download failed: ${response.status} ${response.statusText}`.trim())
+  }
+
+  const archive = unzipSync(new Uint8Array(await response.arrayBuffer()))
+  const files = Object.entries(archive).flatMap(([path, content]) => {
+    if (!isInstallCandidate(path)) return []
+
+    return [
+      {
+        name: basename(path),
+        webkitRelativePath: path,
+        text: async () => strFromU8(content)
+      } satisfies VsCodeThemeFile
+    ]
+  })
+
+  if (!files.some(file => basename(file.webkitRelativePath ?? file.name) === 'package.json')) {
+    throw new Error(`${extension.displayName} package did not contain an extension manifest.`)
+  }
+
+  return files
+}
+
 async function hydrateMarketplaceThemeContributions(
   extensions: Omit<VsCodeMarketplaceThemeExtension, 'themes'>[],
   fetchImpl: FetchLike
@@ -95,6 +139,17 @@ function uniqueMarketplaceExtensions(
   extensions: readonly VsCodeMarketplaceThemeExtension[]
 ): VsCodeMarketplaceThemeExtension[] {
   return [...new Map(extensions.map(extension => [extension.extensionId, extension])).values()]
+}
+
+function isInstallCandidate(path: string): boolean {
+  const normalized = path.toLowerCase()
+  return normalized === 'package.json' || normalized.endsWith('/package.json') || normalized.endsWith('.json')
+}
+
+function basename(path: string): string {
+  const normalized = path.replaceAll('\\', '/')
+  const index = normalized.lastIndexOf('/')
+  return index === -1 ? normalized : normalized.slice(index + 1)
 }
 
 function clamp(value: number, min: number, max: number): number {

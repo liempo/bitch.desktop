@@ -1,7 +1,10 @@
+import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 
 import {
   buildVsCodeMarketplaceThemeQuery,
+  downloadVsCodeMarketplaceThemeExtensionPackage,
+  importVsCodeExtensionThemes,
   searchVsCodeMarketplaceThemes,
   themeContributionsFromMarketplaceManifest,
   VSCODE_MARKETPLACE_GALLERY_API
@@ -88,13 +91,58 @@ describe('VS Code Marketplace theme browsing', () => {
       extensionId: 'theme-id',
       displayName: 'Dracula Theme Official',
       publisherName: 'test-publisher',
+      packageUrl: 'theme-manifest-vsix',
       themes: [{ id: 'dracula', label: 'Dracula', uiTheme: 'vs-dark' }]
+    })
+  })
+
+  it('downloads a VSIX package and exposes extension files for theme import', async () => {
+    const packageBytes = zipSync({
+      'extension/package.json': strToU8(
+        JSON.stringify({
+          name: 'probe-theme',
+          publisher: 'liempo',
+          contributes: { themes: [{ id: 'probe', label: 'Probe', uiTheme: 'vs-dark', path: './themes/probe.json' }] }
+        })
+      ),
+      'extension/themes/probe.json': strToU8(
+        JSON.stringify({
+          name: 'Probe',
+          type: 'dark',
+          colors: { 'editor.background': '#010203', foreground: '#fefefe', focusBorder: '#66ccff' }
+        })
+      ),
+      'extension/README.md': strToU8('# ignored')
+    })
+    const fetchImpl = async () => binaryResponse(packageBytes)
+
+    const files = await downloadVsCodeMarketplaceThemeExtensionPackage(
+      { displayName: 'Probe Theme', packageUrl: 'probe.vsix' },
+      { fetchImpl }
+    )
+    const result = await importVsCodeExtensionThemes(files)
+
+    expect(files.map(file => file.webkitRelativePath)).toEqual([
+      'extension/package.json',
+      'extension/themes/probe.json'
+    ])
+    expect(result.errors).toEqual([])
+    expect(result.themes[0]).toMatchObject({
+      id: 'vscode-extension:liempo-probe-theme-probe-extension-themes-probe-json',
+      source: { name: 'Probe', type: 'dark' },
+      cssVariables: expect.objectContaining({ '--bits-canvas': '#010203', '--bits-focus': '#66ccff' })
     })
   })
 })
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+}
+
+function binaryResponse(body: Uint8Array): Response {
+  const bytes = new Uint8Array(body.byteLength)
+  bytes.set(body)
+  return new Response(bytes, { status: 200, headers: { 'Content-Type': 'application/zip' } })
 }
 
 function galleryExtension(extensionId: string, manifestUrl: string, extensionName: string, displayName: string) {
@@ -110,7 +158,8 @@ function galleryExtension(extensionId: string, manifestUrl: string, extensionNam
         version: '1.2.3',
         files: [
           { assetType: 'Microsoft.VisualStudio.Code.Manifest', source: manifestUrl },
-          { assetType: 'Microsoft.VisualStudio.Services.Icons.Default', source: `${manifestUrl}-icon` }
+          { assetType: 'Microsoft.VisualStudio.Services.Icons.Default', source: `${manifestUrl}-icon` },
+          { assetType: 'Microsoft.VisualStudio.Services.VSIXPackage', source: `${manifestUrl}-vsix` }
         ]
       }
     ],

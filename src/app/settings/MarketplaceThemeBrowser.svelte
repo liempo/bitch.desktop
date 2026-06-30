@@ -1,11 +1,17 @@
 <script lang="ts">
   import { openExternalUrl } from '$lib/platform'
-  import { searchVsCodeMarketplaceThemes, type VsCodeMarketplaceThemeExtension } from '$lib/theme'
+  import {
+    importAndUseVsCodeMarketplaceThemeExtension,
+    searchVsCodeMarketplaceThemes,
+    themeState,
+    type VsCodeMarketplaceThemeExtension
+  } from '$lib/theme'
 
   let marketplaceQuery = $state('')
   let marketplaceStatus = $state('Search the live Visual Studio Marketplace theme category without leaving the desktop shell.')
   let marketplaceError = $state('')
   let marketplaceLoading = $state(false)
+  let installingExtensionId = $state<string | undefined>()
   let marketplaceExtensions = $state<VsCodeMarketplaceThemeExtension[]>([])
 
   async function handleMarketplaceThemeSubmit(event: SubmitEvent): Promise<void> {
@@ -43,6 +49,28 @@
     }
   }
 
+  async function installMarketplaceExtension(extension: VsCodeMarketplaceThemeExtension): Promise<void> {
+    marketplaceError = ''
+    installingExtensionId = extension.extensionId
+    marketplaceStatus = `Downloading ${extension.displayName} from Marketplace and extracting VS Code color themes…`
+
+    try {
+      const result = await importAndUseVsCodeMarketplaceThemeExtension(extension)
+      marketplaceStatus = result.themes.length
+        ? `Installed ${result.themes.length} theme${result.themes.length === 1 ? '' : 's'} from ${extension.displayName}; applied ${themeState.selectedTheme.source.name}.`
+        : `${extension.displayName} did not contain installable color themes.`
+
+      if (result.errors.length > 0) {
+        marketplaceStatus = `${marketplaceStatus} ${result.errors.length} file${result.errors.length === 1 ? '' : 's'} could not be read.`
+      }
+    } catch (error) {
+      marketplaceError = error instanceof Error ? error.message : String(error)
+      marketplaceStatus = `Install failed for ${extension.displayName}. The package elevator stopped between floors.`
+    } finally {
+      installingExtensionId = undefined
+    }
+  }
+
   function formatCount(value?: number): string {
     if (value === undefined) return '—'
     return new Intl.NumberFormat(undefined, { notation: value >= 100000 ? 'compact' : 'standard' }).format(value)
@@ -70,7 +98,8 @@
       </p>
       <p class="mt-1 text-xs leading-5 text-ink-muted">
         Browse the actual Visual Studio Marketplace, locked to the VS Code <span class="font-bold text-ink-bright">Themes</span>
-        category and filtered to extensions that publish color-theme contributions. Icon packs can wait outside in the rain.
+        category, filtered to extensions that publish color-theme contributions, then install the VSIX theme payload directly into the
+        local theme selector. Icon packs can wait outside in the rain.
       </p>
     </div>
 
@@ -129,13 +158,23 @@
             </p>
           </div>
 
-          <button
-            type="button"
-            class="self-start rounded-control border border-line bg-input px-3 py-2 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted hover:border-line-strong hover:text-ink-bright"
-            onclick={() => openMarketplaceExtension(extension)}
-          >
-            Open
-          </button>
+          <div class="grid gap-2 self-start">
+            <button
+              type="button"
+              disabled={!extension.packageUrl || Boolean(installingExtensionId)}
+              class="rounded-control border border-line bg-input px-3 py-2 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted hover:border-line-strong hover:text-ink-bright disabled:cursor-not-allowed disabled:opacity-60"
+              onclick={() => installMarketplaceExtension(extension)}
+            >
+              {installingExtensionId === extension.extensionId ? 'Installing…' : 'Install'}
+            </button>
+            <button
+              type="button"
+              class="rounded-control border border-line bg-input px-3 py-2 font-hud text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted hover:border-line-strong hover:text-ink-bright"
+              onclick={() => openMarketplaceExtension(extension)}
+            >
+              Open
+            </button>
+          </div>
         </article>
       {/each}
     </div>

@@ -1,5 +1,6 @@
 import { readNamespacedStorageItem, writeNamespacedStorageItem } from '$lib/storage'
 
+import { downloadVsCodeMarketplaceThemeExtensionPackage } from './adapters/vscode-marketplace'
 import {
   deserializeImportedThemes,
   importVsCodeExtensionThemes,
@@ -7,6 +8,7 @@ import {
   type VsCodeThemeFile
 } from './domain/vscode-extension-theme'
 import { createAppTheme, themeStyleAttribute, type AppTheme, type VsCodeTheme } from './domain/vscode-theme'
+import type { VsCodeMarketplaceThemeExtension } from './domain/vscode-marketplace'
 
 export const THEME_STORAGE_SUFFIX = 'theme.v1'
 export const IMPORTED_THEMES_STORAGE_SUFFIX = 'themes.imported.v1'
@@ -131,6 +133,14 @@ export async function importAndUseVsCodeExtensionThemes(files: Iterable<VsCodeTh
   }
 
   return result
+}
+
+export async function importAndUseVsCodeMarketplaceThemeExtension(
+  extension: VsCodeMarketplaceThemeExtension,
+  storage?: Storage
+) {
+  const files = await downloadVsCodeMarketplaceThemeExtensionPackage(extension)
+  return importAndUseVsCodeExtensionThemes(files, storage)
 }
 
 export function loadThemeSelection(storage?: Storage): AppTheme {

@@ -28,6 +28,7 @@ export type VsCodeMarketplaceThemeExtension = {
   marketplaceUrl: string
   iconUrl?: string
   manifestUrl?: string
+  packageUrl?: string
   themes: VsCodeMarketplaceThemeContribution[]
 }
 
@@ -96,6 +97,7 @@ const SORT_BY = {
 const SORT_ORDER_DESCENDING = 0
 const GALLERY_FLAGS_WITH_ASSETS = 914
 const MANIFEST_ASSET = 'Microsoft.VisualStudio.Code.Manifest'
+const VSIX_PACKAGE_ASSET = 'Microsoft.VisualStudio.Services.VSIXPackage'
 const DEFAULT_ICON_ASSET = 'Microsoft.VisualStudio.Services.Icons.Default'
 const SMALL_ICON_ASSET = 'Microsoft.VisualStudio.Services.Icons.Small'
 
@@ -195,7 +197,8 @@ function parseGalleryExtension(
     ratingCount: statistic(extension, 'ratingcount'),
     marketplaceUrl: `https://marketplace.visualstudio.com/items?itemName=${encodeURIComponent(`${publisherName}.${extensionName}`)}`,
     iconUrl: assetSource(version, DEFAULT_ICON_ASSET) ?? assetSource(version, SMALL_ICON_ASSET),
-    manifestUrl: assetSource(version, MANIFEST_ASSET)
+    manifestUrl: assetSource(version, MANIFEST_ASSET),
+    packageUrl: assetSource(version, VSIX_PACKAGE_ASSET)
   }
 }
 
