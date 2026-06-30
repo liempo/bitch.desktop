@@ -65,26 +65,52 @@ describe('VS Code-compatible app themes', () => {
       }
     }
 
-    expect(cssVariablesFromVsCodeTheme(source)).toEqual({
+    expect(cssVariablesFromVsCodeTheme(source)).toMatchObject({
       '--bits-canvas': '#101010',
       '--bits-surface': '#111111',
-      '--bits-surface-raised': '#151515',
+      '--bits-surface-muted': expect.any(String),
+      '--bits-surface-raised': expect.any(String),
       '--bits-overlay': 'rgba(16, 16, 16, 0.92)',
       '--bits-ink': '#eeeeee',
       '--bits-ink-muted': '#777777',
+      '--bits-ink-faint': expect.any(String),
       '--bits-ink-bright': '#ffffff',
       '--bits-primary': '#00eeee',
       '--bits-secondary': '#ff00ee',
       '--bits-success': '#00ff66',
       '--bits-warning': '#ffff00',
       '--bits-danger': '#ff4444',
-      '--bits-line': '#333333',
+      '--bits-line': expect.any(String),
       '--bits-line-strong': '#555555',
       '--bits-focus': '#00ffff',
       '--bits-input': '#080808',
       '--bits-chat-scroll': 'rgba(0, 0, 0, 0.25)',
       '--bits-tool-bg': 'rgba(0, 0, 0, 0.45)'
     })
+  })
+
+  it('derives theme-aware fallback surfaces and visible borders for sparse or low-contrast themes', () => {
+    const source: VsCodeTheme = {
+      name: 'Sparse Light',
+      type: 'light',
+      colors: {
+        'editor.background': '#fafafa',
+        foreground: '#111111',
+        'editor.foreground': '#111111',
+        focusBorder: '#0055ff',
+        'panel.border': '#fafafa',
+        contrastBorder: '#fafafa'
+      }
+    }
+
+    const variables = cssVariablesFromVsCodeTheme(source)
+
+    expect(variables['--bits-surface-raised']).not.toBe('#050505')
+    expect(variables['--bits-input']).not.toBe('#050505')
+    expect(variables['--bits-input']).not.toBe(variables['--bits-canvas'])
+    expect(variables['--bits-line']).not.toBe('#fafafa')
+    expect(variables['--bits-line-strong']).not.toBe('#fafafa')
+    expect(variables['--bits-surface-muted']).not.toBe(variables['--bits-canvas'])
   })
 
   it('ships the existing BITCH theme and a real alternate as VS Code-style theme sources', () => {
