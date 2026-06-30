@@ -3,16 +3,14 @@
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'
-  import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'
+  import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'
 
   let themeImportStatus = $state('')
   let themePickerOpen = $state(false)
 
-  const filePickerLabelClass = [
-    'inline-flex min-h-8 cursor-pointer items-center justify-center rounded-control border border-line bg-surface-raised px-3 py-1',
-    'text-center font-hud text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-ink-muted',
-    'hover:border-line-strong hover:text-ink-bright focus-within:outline-2 focus-within:outline-focus focus-within:outline-offset-2'
-  ].join(' ')
+  function installedThemes() {
+    return installedThemeOptions()
+  }
 
   function handleThemeChange(event: Event): void {
     const target = event.currentTarget
@@ -21,20 +19,10 @@
     selectTheme(target.value)
   }
 
-  async function handleVsCodeThemeBrowse(event: Event): Promise<void> {
-    const target = event.currentTarget
-    if (!(target instanceof HTMLInputElement) || !target.files?.length) return
-
-    const result = await importAndUseVsCodeExtensionThemes(target.files)
-    themeImportStatus = result.themes.length
-      ? `Imported ${result.themes.length} VS Code theme${result.themes.length === 1 ? '' : 's'} from extension files.`
-      : 'No VS Code color themes found. Select an unpacked extension folder or a theme JSON/JSONC file.'
-
-    if (result.errors.length > 0) {
-      themeImportStatus = `${themeImportStatus} ${result.errors.length} file${result.errors.length === 1 ? '' : 's'} could not be read.`
-    }
-
-    target.value = ''
+  function handleUninstallTheme(themeId: string): void {
+    const themeName = themeOptions.find(theme => theme.id === themeId)?.source.name ?? 'theme'
+    uninstallImportedTheme(themeId)
+    themeImportStatus = `Uninstalled ${themeName}.`
   }
 </script>
 
@@ -78,7 +66,7 @@
             VS Code theme picker
           </p>
           <p class="mt-1 text-xs leading-5 text-ink-muted">
-            Import local VS Code theme files or install Marketplace color-theme extensions in a dedicated picker dialog.
+            Install Marketplace color-theme extensions and manage installed themes in a dedicated picker dialog.
           </p>
           {#if themeImportStatus}
             <p class="mt-2 text-xs leading-5 text-primary" role="status">{themeImportStatus}</p>
@@ -95,52 +83,45 @@
   <Dialog
     bind:open={themePickerOpen}
     title="VS Code Theme Picker"
-    description="import JSON/JSONC themes, unpacked extensions, or Marketplace color-theme packages"
+    description="install Marketplace color-theme packages and uninstall installed themes"
     class="!w-[min(56rem,calc(100vw-2rem))]"
     contentClass="p-0"
   >
     <div class="grid max-h-[min(44rem,calc(100vh-8rem))] gap-3 overflow-y-auto p-3">
-      <div class="grid gap-2 rounded-panel border border-line bg-surface-muted p-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] md:items-center">
+      <div class="grid gap-3 rounded-panel border border-line bg-surface-muted p-3">
         <div>
           <p class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-bright">
-            Local extension themes
+            Installed themes/extensions
           </p>
           <p class="mt-1 text-xs leading-5 text-ink-muted">
-            Browse an unpacked VS Code extension folder or select color-theme JSON/JSONC files. Imported themes are stored locally
-            and can be used immediately from the theme selector.
+            Loaded Marketplace themes are stored locally. Uninstalling a selected theme returns the app to the default BITCH
+            palette.
           </p>
           {#if themeImportStatus}
             <p class="mt-2 text-xs leading-5 text-primary" role="status">{themeImportStatus}</p>
           {/if}
         </div>
 
-        <div class="grid gap-2">
-          <label for="settings-vscode-extension-theme-folder" class={filePickerLabelClass}>
-            Browse extension folder
-          </label>
-          <input
-            id="settings-vscode-extension-theme-folder"
-            class="sr-only"
-            type="file"
-            multiple
-            webkitdirectory
-            aria-label="Browse VS Code extension theme folder"
-            onchange={handleVsCodeThemeBrowse}
-          />
+        {#if installedThemes().length > 0}
+          <div class="grid gap-2" role="list" aria-label="Installed VS Code themes and extensions">
+            {#each installedThemes() as theme (theme.id)}
+              <article class="grid gap-3 rounded-panel border border-line bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_auto]" role="listitem">
+                <div class="min-w-0">
+                  <h3 class="truncate font-hud text-[0.74rem] font-bold uppercase tracking-[0.14em] text-ink-bright">
+                    {theme.source.name}
+                  </h3>
+                  <p class="mt-1 truncate text-xs text-ink-muted">{theme.id}</p>
+                </div>
 
-          <label for="settings-vscode-theme-json" class={filePickerLabelClass}>
-            Browse theme JSON/JSONC
-          </label>
-          <input
-            id="settings-vscode-theme-json"
-            class="sr-only"
-            type="file"
-            accept=".json,.jsonc,application/json"
-            multiple
-            aria-label="Browse VS Code theme JSON or JSONC"
-            onchange={handleVsCodeThemeBrowse}
-          />
-        </div>
+                <Button variant="secondary" class="self-start" onclick={() => handleUninstallTheme(theme.id)}>Uninstall</Button>
+              </article>
+            {/each}
+          </div>
+        {:else}
+          <p class="rounded-control border border-line bg-input px-3 py-2 text-xs leading-5 text-ink-muted">
+            No Marketplace themes installed yet. Search below and install one when the catalogue behaves.
+          </p>
+        {/if}
       </div>
 
       <MarketplaceThemeBrowser />

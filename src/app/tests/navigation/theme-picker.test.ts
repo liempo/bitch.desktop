@@ -22,7 +22,7 @@ describe('temporary theme picker source contract', () => {
     expect(appNavbarSource).toContain("label: 'SETTINGS'")
     expect(appNavbarSource).toContain('settingsRoute()')
     expect(settingsPageSource).toContain(
-      "import { importAndUseVsCodeExtensionThemes, selectTheme, themeOptions, themeState } from '$lib/theme'"
+      "import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'"
     )
     expect(settingsPageSource).toContain('function handleThemeChange')
     expect(settingsPageSource).toContain('selectTheme(')
@@ -30,8 +30,12 @@ describe('temporary theme picker source contract', () => {
     expect(settingsPageSource).toContain('{#each themeOptions as theme (theme.id)}')
     expect(settingsPageSource).toContain('value={theme.id}')
     expect(settingsPageSource).toContain('bind:value={themeState.selectedThemeId}')
-    expect(settingsPageSource).toContain('Browse extension folder')
-    expect(settingsPageSource).toContain('Browse theme JSON')
+    expect(settingsPageSource).toContain('Installed themes/extensions')
+    expect(settingsPageSource).toContain('uninstallImportedTheme(themeId)')
+    expect(settingsPageSource).toContain('Uninstall')
+    expect(settingsPageSource).toContain('<MarketplaceThemeBrowser />')
+    expect(settingsPageSource).not.toContain('Browse extension folder')
+    expect(settingsPageSource).not.toContain('Browse theme JSON')
   })
 
   it('carries the active runtime theme into portal dialogs', () => {

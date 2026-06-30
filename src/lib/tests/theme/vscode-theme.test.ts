@@ -10,12 +10,14 @@ import {
   deserializeImportedThemes,
   importAndUseVsCodeExtensionThemes,
   importVsCodeExtensionThemes,
+  installedThemeOptions,
   loadThemeSelection,
   replaceImportedThemes,
   persistThemeSelection,
   resolveThemeSelection,
   themeStyleAttribute,
   themeOptions,
+  uninstallImportedTheme,
   type VsCodeTheme
 } from '$lib/theme'
 
@@ -217,6 +219,27 @@ describe('VS Code-compatible app themes', () => {
 
     expect(loadThemeSelection(storage).id).toBe(imported.id)
     replaceImportedThemes([], storage)
+  })
+
+  it('lists and uninstalls imported themes without removing built-ins', () => {
+    const imported = importTheme('Installed Marketplace Blue', '#001122')
+    const storage = storageStub({
+      [namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)]: JSON.stringify([
+        { id: imported.id, source: imported.source }
+      ]),
+      [namespacedStorageKey(THEME_STORAGE_SUFFIX)]: imported.id
+    })
+
+    loadThemeSelection(storage)
+
+    expect(installedThemeOptions().map(theme => theme.id)).toEqual([imported.id])
+
+    uninstallImportedTheme(imported.id, storage)
+
+    expect(installedThemeOptions()).toEqual([])
+    expect(themeOptions.map(theme => theme.id)).toEqual(builtInThemes.map(theme => theme.id))
+    expect(storage.getItem(namespacedStorageKey(THEME_STORAGE_SUFFIX))).toBe(DEFAULT_THEME_ID)
+    expect(deserializeImportedThemes(storage.getItem(namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)))).toEqual([])
   })
 
   it('renders a CSS style attribute from the theme adapter rather than hardcoded data-theme blocks', () => {
