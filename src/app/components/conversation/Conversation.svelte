@@ -44,10 +44,10 @@
   )
   const glyphClass = $derived(
     compact
-      ? 'h-16 w-16 overflow-hidden rounded-panel bg-black opacity-90'
+      ? 'h-16 w-16 overflow-hidden rounded-panel bg-transparent opacity-90'
       : responsiveCompact
-        ? 'h-16 w-16 overflow-hidden rounded-panel bg-black opacity-90 md:h-28 md:w-28'
-        : 'h-28 w-28 overflow-hidden rounded-panel bg-black opacity-90'
+        ? 'h-16 w-16 overflow-hidden rounded-panel bg-transparent opacity-90 md:h-28 md:w-28'
+        : 'h-28 w-28 overflow-hidden rounded-panel bg-transparent opacity-90'
   )
   const transcriptClass = $derived(compact ? 'py-2' : responsiveCompact ? 'py-2 md:py-4' : 'py-4')
 

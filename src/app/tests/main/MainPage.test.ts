@@ -113,6 +113,13 @@ describe('Main dashboard source contract', () => {
     expect(mainPageSource).not.toContain('Dashboard page placeholder')
   })
 
+  it('keeps new-session glyph chrome transparent and theme-driven', () => {
+    expect(conversationSource).toContain("import GlyphCanvas from '@/app/components/GlyphCanvas.svelte'")
+    expect(conversationSource).toContain('<GlyphCanvas class={glyphClass} />')
+    expect(conversationSource).toContain('bg-transparent opacity-90')
+    expect(conversationSource).not.toContain('bg-black opacity-90')
+  })
+
   it('uses the shared Threlte glyph for the GLYPH panel and reflects CPU/RAM load in shape scale', () => {
     expect(mainPageSource).toContain('MainGlyphPanel')
     expect(mainGlyphPanelSource).toContain("import { Canvas } from '@threlte/core'")
@@ -129,9 +136,11 @@ describe('Main dashboard source contract', () => {
     expect(glyphSource).toContain('memoryUsagePercent')
     expect(glyphSource).toContain('cpuShape')
     expect(glyphSource).toContain('LineSegments')
-    expect(mainGlyphPanelSource).toContain('--color-ink-bright')
-    expect(mainGlyphPanelSource).toContain('--color-ink-muted')
-    expect(mainGlyphPanelSource).toContain('--color-line-strong')
+    expect(mainGlyphPanelSource).toContain("import { themeState } from '$lib/theme'")
+    expect(mainGlyphPanelSource).toContain("themeState.selectedTheme.cssVariables['--bits-ink-bright']")
+    expect(mainGlyphPanelSource).toContain("themeState.selectedTheme.cssVariables['--bits-ink-muted']")
+    expect(mainGlyphPanelSource).toContain("themeState.selectedTheme.cssVariables['--bits-line-strong']")
+    expect(mainGlyphPanelSource).not.toContain('getComputedStyle')
     expect(glyphSource).toContain('foregroundColor')
     expect(glyphSource).toContain('mutedColor')
     expect(`${mainGlyphPanelSource}\n${glyphSource}`).not.toMatch(/#8be9fd|#bd93f9|#ff79c6/)

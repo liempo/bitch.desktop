@@ -34,10 +34,10 @@
     data-startup-splash="true"
   >
     {#await glyphCanvasComponentPromise}
-      <div class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-black" aria-hidden="true"></div>
+      <div class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-transparent" aria-hidden="true"></div>
     {:then module}
       {@const GlyphCanvas = module.default}
-      <GlyphCanvas class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-black" />
+      <GlyphCanvas class="h-[min(34vw,10rem)] w-[min(34vw,10rem)] overflow-hidden bg-transparent" />
     {/await}
   </div>
 {/if}
