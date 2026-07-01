@@ -4,6 +4,7 @@
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
+  import { formatAgentSessionTitle } from '../session-labels'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import type { SessionInfo } from '$lib/types/hermes'
 
@@ -35,7 +36,7 @@
   let renameSubmitting = $state(false)
 
   function currentTitle(): string {
-    return session.title?.trim() || 'Untitled session'
+    return formatAgentSessionTitle(session)
   }
 
   function openRenameDialog(): void {

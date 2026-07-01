@@ -2,6 +2,7 @@
   import Button from '@/app/components/ui/Button.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import AgentSessionActionsMenu from './AgentSessionActionsMenu.svelte'
+  import { formatAgentSessionTitle } from '../session-labels'
   import type { SessionInfo, SessionSearchResult } from '$lib/types/hermes'
 
   interface Props {
@@ -47,9 +48,9 @@
     'data-[disabled=true]:opacity-50'
 
   function formatTitle(info: SessionInfo | null, result: SessionSearchResult | null): string {
-    if (info) return info.title?.trim() || 'Untitled session'
-    if (result) return result.title?.trim() || 'Untitled session'
-    return 'Untitled session'
+    if (info) return formatAgentSessionTitle(info)
+    if (result) return formatAgentSessionTitle(result)
+    return 'Session unknown'
   }
 
   function formatSubtitle(info: SessionInfo | null, result: SessionSearchResult | null): string {
