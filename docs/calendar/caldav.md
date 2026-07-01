@@ -24,7 +24,7 @@ Sync happens as a whole-calendar background job on app startup and then on `CALD
 The month view keeps calendar geometry separate from event data:
 
 - The continuous day grid is generated locally in `src/app/calendar/CalendarPage.svelte` from date math. It must not wait for CalDAV, cache reads, or network sync before rendering days.
-- The visible month highlight is derived from the month with the majority of currently visible day cells, not from the first rendered row.
+- The visible month highlight is derived from the first fully visible week row. If the top row is partially clipped, the next full row determines the active month.
 - Week rows are virtualized by scroll position with fixed row heights and spacer rows. This keeps the DOM small even when the user scrolls far backward or forward.
 - Event data is loaded from the local Tauri cache in the background. Initial cache reads cover six months before and six months after the visible anchor; scrolling near either edge extends the event cache window in larger background steps.
 - Background event loads must not clear existing events, show a blocking page loader, or trigger CalDAV network requests. The only network sync path is the background worker or explicit sync button.
