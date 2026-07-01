@@ -51,6 +51,7 @@
   const maxProgrammaticScrollDurationMs = 360
   const minProgrammaticScrollDurationMs = 120
   const monthEventLoaderSlotHeightPx = 28
+  const monthFullRowVisibilityEpsilonPx = 1
   const monthVirtualMonthWindow = 1200
   const monthVirtualOverscanRows = 6
   const monthWeekRowHeightPx = 112
@@ -100,10 +101,6 @@
     bottomSpacerHeight: number
     rows: VirtualWeekRow[]
     topSpacerHeight: number
-  }
-
-  interface VisibleMonthScore {
-    count: number
   }
 
   const calendarViews: { id: CalendarView; label: string }[] = [
@@ -415,29 +412,13 @@
 
   function highlightedMonthKey(scroller: HTMLElement): string {
     const rowHeight = monthWeekRowHeight()
-    const firstVisibleIndex = clamp(Math.floor(monthGridScrollTop(scroller) / rowHeight), 0, monthVirtualGrid.weekCount - 1)
-    const visibleRowCount = Math.ceil(scroller.clientHeight / rowHeight) + 1
-    const scores = new Map<string, VisibleMonthScore>()
+    const firstFullVisibleIndex = clamp(
+      Math.ceil((monthGridScrollTop(scroller) - monthFullRowVisibilityEpsilonPx) / rowHeight),
+      0,
+      monthVirtualGrid.weekCount - 1
+    )
 
-    for (let index = firstVisibleIndex; index < Math.min(monthVirtualGrid.weekCount, firstVisibleIndex + visibleRowCount); index += 1) {
-      for (const cell of monthWeekAtIndex(monthVirtualGrid, index)) {
-        const month = monthStartKey(cell.dateKey)
-        const score = scores.get(month) ?? { count: 0 }
-        score.count += 1
-        scores.set(month, score)
-      }
-    }
-
-    const currentKey = monthStartKey(currentMonthInViewKey)
-    return [...scores.entries()].sort((left, right) => {
-      const countDelta = right[1].count - left[1].count
-      if (countDelta !== 0) return countDelta
-
-      if (left[0] === currentKey && right[0] !== currentKey) return -1
-      if (right[0] === currentKey && left[0] !== currentKey) return 1
-
-      return left[0].localeCompare(right[0])
-    })[0]?.[0] ?? ''
+    return dominantMonthKey(monthWeekAtIndex(monthVirtualGrid, firstFullVisibleIndex))
   }
 
   function monthGridScrollTop(scroller: HTMLElement): number {
