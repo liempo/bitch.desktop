@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SessionInfo } from '$lib/types/hermes'
 import {
   compactSessionText,
+  formatAgentSessionTitle,
   formatSessionDialogPreview,
   formatSessionDialogTitle,
   shortSessionId
@@ -57,5 +58,35 @@ describe('agent mobile session dialog labels', () => {
   it('compacts whitespace for dialog-safe labels', () => {
     expect(compactSessionText(' alpha\n\t beta  ')).toBe('alpha beta')
     expect(shortSessionId(' 1234567890 ')).toBe('12345678')
+  })
+})
+
+describe('agent sidebar session labels', () => {
+  it('uses preview text for untitled sidebar sessions', () => {
+    expect(formatAgentSessionTitle(session({ title: '', preview: ' inspect live output ' }))).toBe(
+      'inspect live output'
+    )
+  })
+
+  it('uses a stable id fallback instead of Untitled session for sidebar rows', () => {
+    expect(formatAgentSessionTitle(session({ id: 'stored-sidebar-abcdef', title: '', preview: '' }))).toBe(
+      'Session stored-s'
+    )
+  })
+
+  it('supports session search results without copying the Untitled fallback', () => {
+    expect(
+      formatAgentSessionTitle({
+        session_id: 'search-sidebar-abcdef',
+        title: '',
+        preview: '',
+        snippet: '',
+        profile: 'default',
+        model: null,
+        role: null,
+        session_started: null,
+        source: null
+      })
+    ).toBe('Session search-s')
   })
 })

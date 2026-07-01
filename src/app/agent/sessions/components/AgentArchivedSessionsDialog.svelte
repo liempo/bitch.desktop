@@ -3,6 +3,7 @@
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import { cardClass } from '@/app/components/ui/styles'
+  import { formatAgentSessionTitle } from '../session-labels'
   import { gatewayState } from '$lib/hermes/gateway'
   import {
     hasMoreArchivedSessions,
@@ -34,7 +35,7 @@
   })
 
   function formatTitle(session: SessionInfo): string {
-    return session.title?.trim() || 'Untitled session'
+    return formatAgentSessionTitle(session)
   }
 
   function formatPreview(session: SessionInfo): string {
