@@ -38,6 +38,12 @@ describe('testing foundation contract', () => {
     expect(testingDoc).toContain('/box')
     expect(testingDoc).toContain('Never add Dufs')
     expect(testingDoc).toContain('`VITE_BOX_BASE_URL`')
+    expect(testingDoc).toContain('Source-contract allowlist')
+    expect(testingDoc).toContain('Allowed source-contract categories')
+    expect(testingDoc).toContain('Current source-contract inventory')
+    expect(testingDoc).toContain('REPLACE_WITH_UNIT')
+    expect(testingDoc).toContain('REPLACE_WITH_COMPONENT')
+    expect(testingDoc).toContain('REPLACE_WITH_UI')
   })
 
   it('exposes routine scripts and direct dependencies for each test layer', () => {
