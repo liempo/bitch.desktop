@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::config::config_value;
 
 const DEFAULT_MONITORING_URL: &str = "http://homestation:8090";
@@ -6,6 +8,14 @@ const DEFAULT_MONITORING_URL: &str = "http://homestation:8090";
 pub struct MonitoringConfig {
     pub auth: MonitoringAuth,
     pub base_url: String,
+    pub system_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedMonitoringConfig {
+    pub base_url: String,
+    pub system_id: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -62,16 +72,27 @@ fn resolve_monitoring_config_from(
         MonitoringAuth::None
     };
 
-    Ok(MonitoringConfig { auth, base_url })
+    Ok(MonitoringConfig {
+        auth,
+        base_url,
+        system_id: get_value("MONITORING_SYSTEM_ID"),
+    })
+}
+
+impl MonitoringConfig {
+    pub fn resolved_public_config(&self) -> ResolvedMonitoringConfig {
+        ResolvedMonitoringConfig {
+            base_url: self.base_url.clone(),
+            system_id: self.system_id.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn resolve_with_monitoring_values(
-        pairs: &[(&str, &str)],
-    ) -> Result<MonitoringConfig, String> {
+    fn resolve_with_monitoring_values(pairs: &[(&str, &str)]) -> Result<MonitoringConfig, String> {
         resolve_monitoring_config_from(|name| {
             pairs.iter().find_map(|(key, value)| {
                 if *key != name {

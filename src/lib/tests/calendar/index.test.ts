@@ -73,12 +73,12 @@ describe('calendar CalDAV facade', () => {
       configured: false,
       calendarUrl: '',
       username: '',
-      hint: 'Set CALDAV_URL, CALDAV_USERNAME, and CALDAV_PASSWORD in the Tauri environment.'
+      hint: 'Set calendar.url, calendar.username, and calendar.password in ~/.bitch/config.yaml.'
     })
 
     await expect(calendarConfigStatus()).resolves.toMatchObject({
       configured: false,
-      hint: expect.stringContaining('CALDAV_URL')
+      hint: expect.stringContaining('calendar.url')
     })
 
     expect(mockInvokeTauriCommand).toHaveBeenCalledWith('get_caldav_config_status')
@@ -322,7 +322,7 @@ describe('calendar view model', () => {
     const loadEvents = vi.fn().mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('CalDAV returned 401'))
     const loadStatus = vi
       .fn()
-      .mockResolvedValueOnce({ configured: false, hint: 'Set CALDAV_URL' })
+      .mockResolvedValueOnce({ configured: false, hint: 'Set calendar.url' })
       .mockResolvedValueOnce({
         configured: true,
         calendarUrl: 'https://calendar.example.test/caldav/home/',

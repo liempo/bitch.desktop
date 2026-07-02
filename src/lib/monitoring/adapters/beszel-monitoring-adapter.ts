@@ -13,19 +13,13 @@ export const BESZEL_COLLECTIONS = {
   systemStats: 'system_stats'
 } as const
 
-declare const __MONITORING_SYSTEM_ID__: string | undefined
-declare const __MONITORING_URL__: string | undefined
+interface ResolvedMonitoringBridgeConfig {
+  baseUrl: string
+  systemId?: string | null
+}
 
-function clean(value: string | undefined): string {
+function clean(value: string | null | undefined): string {
   return value?.trim() ?? ''
-}
-
-function configuredMonitoringUrl(): string | undefined {
-  return typeof __MONITORING_URL__ === 'undefined' ? undefined : __MONITORING_URL__
-}
-
-function configuredMonitoringSystemId(): string | undefined {
-  return typeof __MONITORING_SYSTEM_ID__ === 'undefined' ? undefined : __MONITORING_SYSTEM_ID__
 }
 
 function systemIdFromUrl(url: URL): string {
@@ -56,10 +50,10 @@ function urlPort(url: URL): string {
 }
 
 export function monitoringConfig(env: MonitoringEnv = {}): MonitoringConfig {
-  const normalized = normalizeMonitoringUrl(env.url ?? configuredMonitoringUrl())
+  const normalized = normalizeMonitoringUrl(env.url)
   const baseUrl = normalized.baseUrl
   const parsedUrl = new URL(baseUrl)
-  const systemId = clean(env.systemId ?? configuredMonitoringSystemId()) || normalized.systemId
+  const systemId = clean(env.systemId) || normalized.systemId
 
   return {
     baseUrl,
@@ -67,6 +61,14 @@ export function monitoringConfig(env: MonitoringEnv = {}): MonitoringConfig {
     port: urlPort(parsedUrl),
     systemId
   }
+}
+
+export async function loadMonitoringConfig(): Promise<MonitoringConfig> {
+  const config = await invokeTauriCommand<ResolvedMonitoringBridgeConfig>('get_monitoring_config')
+  return monitoringConfig({
+    systemId: config.systemId ?? undefined,
+    url: config.baseUrl
+  })
 }
 
 export function collectionRecordsPath(collection: string, params: Record<string, string>): string {

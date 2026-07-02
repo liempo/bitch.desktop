@@ -6,7 +6,6 @@ mod hermes;
 mod http;
 mod monitoring;
 mod platform;
-mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,13 +33,12 @@ pub fn run() {
             commands::calendar::get_caldav_config_status,
             commands::calendar::list_calendar_events,
             commands::calendar::sync_calendar_events,
+            commands::monitoring::get_monitoring_config,
             commands::monitoring::monitoring_request,
             commands::gateway::connect_ws,
             commands::gateway::send_ws_message,
             commands::gateway::close_ws,
-            commands::platform::open_external_url,
-            commands::updater::check_source_update,
-            commands::updater::run_source_update
+            commands::platform::open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

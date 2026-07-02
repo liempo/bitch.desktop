@@ -68,8 +68,8 @@ plumbing because it happens to be nearby and unsupervised.
 | Lane       | Owns                                                                                                                                                            | Must not own                                                   |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Hermes     | Dashboard `/api/*` requests, authenticated remote files/media, JSON-RPC runtime gateway, ws-ticket/session-token handling, profile-scoped dashboard/plugin APIs | Beszel/monitoring, generic native helpers, non-Hermes services |
-| Monitoring | Beszel/PocketBase monitoring telemetry, `MONITORING_*` config, system selection, token refresh, metrics reads                                                   | Hermes dashboard/session/files/gateway/plugin modules          |
-| Calendar   | CalDAV `CALDAV_*` config, Basic auth, minicaldav calendar discovery, recurrence expansion, Calendar route event ViewModel                                       | Hermes dashboard proxying, Beszel monitoring, local schedulers |
+| Monitoring | Beszel/PocketBase monitoring telemetry, `monitoring` config from `~/.bitch/config.yaml`, system selection, token refresh, metrics reads                         | Hermes dashboard/session/files/gateway/plugin modules          |
+| Calendar   | CalDAV config from `~/.bitch/config.yaml`, Basic auth, minicaldav calendar discovery, recurrence expansion, Calendar route event ViewModel                      | Hermes dashboard proxying, Beszel monitoring, local schedulers |
 | Platform   | Native app helpers: connection config storage, external URL opening, window setup, generic invoke/event wrappers                                                | Product backend route knowledge for Hermes or Beszel           |
 | Shared     | Pure utilities such as errors, layout helpers, UI helpers, typed DTOs, storage namespace helpers                                                                | Feature-lane imports or privileged backend calls               |
 
@@ -101,10 +101,9 @@ src/lib/hermes/
 ```
 
 Hermes source may use `hermes/shared` and platform adapters. It must not import
-monitoring modules, read `MONITORING_*` configuration, mention Beszel, or route
+monitoring modules, read `monitoring` configuration, mention Beszel, or route
 through monitoring commands. Token-sensitive Hermes work stays behind Tauri: the
-renderer does not read `HERMES_DASHBOARD_SESSION_TOKEN`,
-`HERMES_DASHBOARD_USERNAME`, `HERMES_DASHBOARD_PASSWORD`, dashboard session
+renderer does not read dashboard tokens, usernames/passwords, dashboard session
 cookies, mint WebSocket tickets, or attach dashboard auth headers directly.
 
 Legacy top-level feature barrels and stores were removed after call sites migrated.
@@ -159,7 +158,7 @@ src/lib/calendar/
 ```
 
 The matching Rust lane lives under `src-tauri/src/calendar` with stable command
-wrappers in `src-tauri/src/commands/calendar.rs`. `CALDAV_URL` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri. Whole-calendar CalDAV sync runs in the native background worker and range reads expand the local cache.
+wrappers in `src-tauri/src/commands/calendar.rs`. `calendar.url` may be a CalDAV discovery endpoint or direct calendar collection URL; credentials remain behind Tauri. Whole-calendar CalDAV sync runs in the native background worker and range reads expand the local cache.
 
 Calendar presentation stays renderer-local: the month grid is generated from date math and virtualized by week row, while events populate from cached `list_calendar_events` reads in the background. Month navigation and scrolling must not trigger CalDAV network syncs, block day rendering, or grow the DOM by appending every loaded month.
 
@@ -189,12 +188,12 @@ wrappers for the renderer.
 src-tauri/src/
   lib.rs             app builder, plugin registration, invoke handler only
   main.rs            Tauri entrypoint
-  config.rs          generic env/.env/config helpers, no route details
+  config.rs          generic ~/.bitch/config.yaml helpers and legacy connection migration, no route details
   errors.rs          shared error/result helpers
   http.rs            generic reqwest client/response helpers
   hermes/
     mod.rs
-    config.rs        HERMES_DASHBOARD_* / BITCH_DASHBOARD_* compatibility
+    config.rs        connection section / legacy HERMES_DASHBOARD_* compatibility
     auth.rs          dashboard auth headers and ws-ticket/session-token rules
     session_auth.rs  password-login session cookies for gated dashboards
     dashboard_http.rs Hermes-only /api/* proxying for dashboard_request
@@ -202,12 +201,12 @@ src-tauri/src/
     gateway_ws.rs    native WebSocket proxy for Hermes JSON-RPC runtime
   monitoring/
     mod.rs
-    config.rs        MONITORING_* configuration
+    config.rs        monitoring section configuration
     auth.rs          Beszel static/password auth and cached token refresh
     beszel.rs        Beszel PocketBase /api/* proxy with auth refresh
   calendar/
     mod.rs
-    config.rs        CALDAV_* configuration
+    config.rs        calendar section configuration
     caldav.rs        minicaldav discovery, event loading, timezone handling, and recurrence normalization
     sync.rs          whole-calendar background sync, persisted cache, and sync metadata
   platform/

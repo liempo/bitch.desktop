@@ -35,11 +35,14 @@ Keep the Svelte app organized around page folders plus shared app components:
 
 ## Configuration
 
-The app uses these environment values, usually from `.env` copied from `.env.example`:
+The app reads local desktop configuration from `~/.bitch/config.yaml`; do not reintroduce `.env` as an app configuration source. A missing YAML file may be initialized by one-time legacy `.env` import, but runtime config reads must come from the YAML file. The tracked `config.example.yaml` documents the shape:
 
-- `HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
-- `HERMES_DASHBOARD_SESSION_TOKEN` — Hermes dashboard session token used by the Tauri bridge.
-- `MONITORING_URL` — Beszel hub HTTP origin for the main dashboard monitoring panel. Defaults to `http://homestation:8090` when unset. Include scheme and port in this one URL; do not add a separate monitoring port variable.
+- `connection.url` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
+- `connection.token` — Hermes dashboard session token used by the Tauri bridge for token auth.
+- `connection.authMode` — `token` or `session`; session auth reads optional `hermes.username`, `hermes.password`, and `hermes.authProvider` from the same YAML file.
+- `monitoring.url` — Beszel hub HTTP origin for the main dashboard monitoring panel. Defaults to `http://homestation:8090` when unset. Include scheme and port in this one URL; do not add a separate monitoring port variable.
+- `monitoring.systemId`, `monitoring.authToken`, `monitoring.email`, and `monitoring.password` — optional Beszel target/auth values consumed by the Tauri bridge.
+- `calendar.url`, `calendar.username`, `calendar.password`, `calendar.displayName`, and `calendar.syncIntervalSeconds` — CalDAV route configuration.
 
 Remote file preview, inline media, and the Assets page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax. File/filesystem wording is still appropriate when describing remote filesystem APIs or actual remote file entries.
 

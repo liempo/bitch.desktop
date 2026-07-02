@@ -45,23 +45,27 @@ and `src-tauri/src/lib.rs` share the same remote-only config shape:
 }
 ```
 
-Tauri persists this at `$XDG_CONFIG_HOME/bitch/connection.json`, falling back to
-`~/.config/bitch/connection.json` when `XDG_CONFIG_HOME` is not set. On first
-read, Rust migrates the old desktop-qualified config path into the new app
-namespace. If the file is absent, Rust seeds the connection from the existing
-`.env` variables:
+Tauri stores the connection under the `connection` section in `~/.bitch/config.yaml`. On first read, Rust migrates legacy `$XDG_CONFIG_HOME/bitch/connection.json` or `~/.config/bitch/connection.json` data into that YAML file and removes the old connection JSON.
 
-- `HERMES_DASHBOARD_URL`
-- `HERMES_DASHBOARD_SESSION_TOKEN` for legacy/static token mode
-- `HERMES_DASHBOARD_USERNAME` and `HERMES_DASHBOARD_PASSWORD` for Hermes dashboard
-  password-login session mode, defaulting to provider `basic`
-- `HERMES_DASHBOARD_AUTH_PROVIDER` when the password-login provider name is not `basic`
-- `MONITORING_URL` for the renderer-only Beszel dashboard panel, for example `http://homestation:8090`
+Optional password-login credentials live under the sibling `hermes` section:
+
+```yaml
+connection:
+  mode: remote
+  url: http://127.0.0.1:9119
+  authMode: session
+hermes:
+  username: admin
+  password: choose-a-strong-password
+  authProvider: basic
+monitoring:
+  url: http://homestation:8090
+```
 
 New Tauri commands:
 
-- `get_connection_config()` — read saved config or env fallback.
-- `save_connection_config(config)` — persist the connection config.
+- `get_connection_config()` — read the saved connection config or the built-in remote default.
+- `save_connection_config(config)` — persist the connection config to `~/.bitch/config.yaml`.
 - `resolve_connection(profile?)` — return the effective `{ baseUrl, authMode,
 profile }` for the global config or a profile override. The dashboard token
   stays in Tauri and is not returned to the renderer on this live routing path.
@@ -82,8 +86,7 @@ Hermes dashboards using upstream dashboard providers such as `basic`; old
 `authMode: "oauth"` and provider-name `authMode: "basic"` configs normalize to
 `authMode: "session"`. The native bridge performs `POST /auth/password-login`,
 stores cookies in the Tauri process, and mints a fresh `/api/auth/ws-ticket` for
-gated WebSocket connections. The password is read from environment/`.env` only and
-is not saved to `connection.json` or returned to the renderer.
+gated WebSocket connections. Password-login credentials are read from the local YAML file and are not returned to the renderer.
 
 ## Frontend stores
 
@@ -173,16 +176,20 @@ hermes --profile crypto dashboard --port 9121
 hermes --profile research dashboard --port 9122
 ```
 
-```json
-{
-  "mode": "remote",
-  "url": "http://127.0.0.1:9119",
-  "token": "[REDACTED]",
-  "profiles": {
-    "crypto": { "mode": "remote", "url": "http://127.0.0.1:9121", "token": "[REDACTED]" },
-    "research": { "mode": "remote", "url": "http://127.0.0.1:9122", "token": "[REDACTED]" }
-  }
-}
+```yaml
+connection:
+  mode: remote
+  url: http://127.0.0.1:9119
+  token: '[REDACTED]'
+  profiles:
+    crypto:
+      mode: remote
+      url: http://127.0.0.1:9121
+      token: '[REDACTED]'
+    research:
+      mode: remote
+      url: http://127.0.0.1:9122
+      token: '[REDACTED]'
 ```
 
 ## Known constraints
@@ -190,8 +197,8 @@ hermes --profile research dashboard --port 9122
 - **Same URL, multiple profiles:** history can be scoped through
   `/api/profiles/sessions?profile=...`, but live WebSocket chat still executes in
   the profile that backend process booted with. Use one backend per profile.
-- **Session credentials:** password-login credentials are environment/`.env` backed
-  in this pass. A renderer sign-in form can be added later without changing the
+- **Session credentials:** password-login credentials live under the `hermes` section in
+  `~/.bitch/config.yaml`. A renderer sign-in form can be added later without changing the
   downstream cookie/ticket bridge.
 - **Profile administration UI:** create/rename/delete/SOUL editor routes are not
   ported yet, so the renderer keeps only the profile list/scope types used by

@@ -54,17 +54,22 @@ The bridge supports two remote dashboard auth modes:
   The username/password provider named `basic` is **not HTTP Basic Auth**; it is a
   JSON `POST /auth/password-login` flow that returns HttpOnly dashboard cookies.
 
-For the `basic` provider, `.env` can seed the native bridge without exposing the
+For the `basic` provider, `~/.bitch/config.yaml` seeds the native bridge without exposing the
 password to Svelte:
 
-```bash
-HERMES_DASHBOARD_URL=http://VM_IP:9119
-HERMES_DASHBOARD_USERNAME=admin
-HERMES_DASHBOARD_PASSWORD=choose-a-strong-password
+```yaml
+connection:
+  mode: remote
+  url: http://VM_IP:9119
+  authMode: session
+hermes:
+  username: admin
+  password: choose-a-strong-password
+  authProvider: basic
 ```
 
-When `HERMES_DASHBOARD_SESSION_TOKEN` is absent and both username/password values
-are present, Rust resolves the connection as `authMode: "session"`, posts:
+When `connection.token` is absent, `connection.authMode` is `session`, and both username/password values
+are present, Rust posts:
 
 ```json
 {
@@ -77,7 +82,7 @@ are present, Rust resolves the connection as `authMode: "session"`, posts:
 
 to `/auth/password-login`, stores the returned dashboard cookies in the Tauri
 process, attaches those cookies to `/api/*` calls, and mints `/api/auth/ws-ticket`
-for gated WebSocket connections. `HERMES_DASHBOARD_AUTH_PROVIDER` may override the
+for gated WebSocket connections. `hermes.authProvider` may override the
 provider name if a deployment uses a non-`basic` password provider.
 
 ## Acceptance
