@@ -77,3 +77,18 @@ npm run install -- --config-only      # migrate .env only
 npm run install -- --skip-build       # copy an existing build and migrate config
 npm run install -- --force-config     # rewrite config.yaml from legacy .env
 ```
+
+## Useful scripts
+
+- `npm run dev` — run the Tauri app in development mode.
+- `npm run build` — build the Tauri app.
+- `npm run frontend:build` — build the Vite renderer only.
+- `npm run type-check` — run `svelte-check`.
+- `npm run lint` — lint renderer source.
+- `npm test` — run the default Vitest unit/source-contract and component sweep.
+- `npm run test:unit` — run pure unit and source-contract tests only.
+- `npm run test:component` — run Svelte component DOM tests with jsdom.
+- `npm run test:ui` — run Playwright route-level UI tests with mocked Tauri/dashboard services.
+- `npm run test:all` — run the full test pyramid: unit, component, then route UI.
+
+See [`docs/testing.md`](docs/testing.md) for mock ownership, remote-only fixture rules, and the full validation sequence.

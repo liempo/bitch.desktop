@@ -10,7 +10,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       $lib: path.resolve(__dirname, './src/lib')
-    }
+    },
+    conditions: ['browser']
   },
   build: {
     rolldownOptions: {
@@ -35,6 +36,7 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.{test,spec}.ts'],
-    environment: 'node'
+    environment: 'node',
+    setupFiles: ['src/lib/tests/support/component-dom-setup.ts']
   }
 })

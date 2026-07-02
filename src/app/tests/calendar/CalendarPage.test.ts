@@ -333,7 +333,13 @@ describe('Calendar page source contract', () => {
     expect(calendarPageSource).toContain(
       'Math.ceil((monthGridScrollTop(scroller) - monthFullRowVisibilityEpsilonPx) / rowHeight)'
     )
-    expect(calendarPageSource).toContain('dominantMonthKey(monthWeekAtIndex(monthVirtualGrid, firstFullVisibleIndex))')
+    expect(calendarPageSource).toContain(
+      'return dominantMonthKey(monthWeekAtIndex(monthVirtualGrid, firstFullVisibleIndex))'
+    )
+    expect(calendarPageSource).toContain('function monthWeekAtIndex(grid: VirtualMonthGrid, index: number): MonthWeek')
+    expect(calendarPageSource).toContain('function dominantMonthKey(week: MonthWeek): string')
+    expect(calendarPageSource).toContain("const firstOfMonth = week.find(cell => cell.dateKey.endsWith('-01'))")
+    expect(calendarPageSource).toContain('right[1] - left[1] || left[0].localeCompare(right[0])')
     expect(calendarPageSource).not.toContain('const scores = new Map<string, VisibleMonthScore>()')
     expect(calendarPageSource).not.toContain('score.count += 1')
     expect(calendarPageSource).not.toContain('const countDelta = right[1].count - left[1].count')
