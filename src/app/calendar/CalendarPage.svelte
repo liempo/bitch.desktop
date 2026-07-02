@@ -10,15 +10,34 @@
   import Loader from '@/app/components/ui/Loader.svelte'
   import { menuItemClass, popoverClass } from '@/app/components/ui/styles'
   import {
-    calendarDateKey,
-    calendarEventOverlapsDate,
+    agendaScrollTopForDate as agendaScrollTopForDateInGrid,
     createCalendarViewModel,
+    createVirtualAgendaGrid,
+    createVirtualAgendaWindow,
+    createVirtualMonthGrid,
+    createVirtualWeekWindow,
+    dateKeyFromLocalDate,
+    eventsForDateKeys as eventsForDateKeysFromMap,
     formatCalendarEventTime,
+    highlightedAgendaKey as highlightedAgendaKeyForGrid,
+    highlightedMonthKey as highlightedMonthKeyForGrid,
     listenCalendarSyncUpdates,
-    sortCalendarEvents,
+    localDateFromKey,
+    monthEventMap,
+    monthGridScrollTop,
+    monthKey,
+    monthOffsetFromAnchor,
+    monthScrollTopForMonth as monthScrollTopForMonthInGrid,
+    monthStartKey,
+    monthStartKeyWithOffset,
     type CalendarEvent,
     type CalendarLoadOptions,
-    type CalendarVisibleRangeOptions
+    type CalendarVisibleRangeOptions,
+    type VirtualAgendaGrid,
+    type VirtualAgendaRow,
+    type VirtualAgendaWindow,
+    type VirtualMonthGrid,
+    type VirtualWeekWindow
   } from '$lib/calendar'
 
   const viewModel = createCalendarViewModel()
@@ -58,50 +77,6 @@
   type CalendarView = 'day' | 'month'
   type CalendarScrollBehavior = 'auto' | 'instant' | 'smooth'
   type LinkedTextSegment = { kind: 'link'; href: string; text: string } | { kind: 'text'; text: string }
-
-  interface VirtualAgendaGrid {
-    rowCount: number
-    startKey: string
-  }
-
-  interface VirtualAgendaRow {
-    dateKeys: string[]
-    index: number
-    key: string
-    label: string
-  }
-
-  interface VirtualAgendaWindow {
-    bottomSpacerHeight: number
-    rows: VirtualAgendaRow[]
-    topSpacerHeight: number
-  }
-
-  interface MonthDayCell {
-    date: CalendarDate
-    dateKey: string
-    month: CalendarDate
-  }
-
-  type MonthWeek = MonthDayCell[]
-
-  interface VirtualMonthGrid {
-    startKey: string
-    weekCount: number
-  }
-
-  interface VirtualWeekRow {
-    index: number
-    monthKey: string
-    startKey: string
-    week: MonthWeek
-  }
-
-  interface VirtualWeekWindow {
-    bottomSpacerHeight: number
-    rows: VirtualWeekRow[]
-    topSpacerHeight: number
-  }
 
   const calendarViews: { id: CalendarView; label: string }[] = [
     { id: 'month', label: 'Month' },
@@ -152,9 +127,13 @@
     monthsBefore: eventMonthsBefore
   }))
   const monthVirtualGrid = $derived.by<VirtualMonthGrid>(() => createVirtualMonthGrid(visibleMonth.toString(), monthVirtualMonthWindow, monthVirtualMonthWindow))
-  const agendaVirtualGrid = $derived.by<VirtualAgendaGrid>(() => createVirtualAgendaGrid(agendaAnchorKey))
-  const virtualAgendaWindow = $derived.by<VirtualAgendaWindow>(() => createVirtualAgendaWindow(agendaVirtualGrid, agendaVirtualScrollTop, agendaViewportHeight))
-  const virtualWeekWindow = $derived.by<VirtualWeekWindow>(() => createVirtualWeekWindow(monthVirtualGrid, monthVirtualScrollTop, monthViewportHeight))
+  const agendaVirtualGrid = $derived.by<VirtualAgendaGrid>(() => createVirtualAgendaGrid(agendaAnchorKey, agendaVirtualWindowRows))
+  const virtualAgendaWindow = $derived.by<VirtualAgendaWindow>(() =>
+    createVirtualAgendaWindow(agendaVirtualGrid, agendaVirtualScrollTop, agendaViewportHeight, { overscanRows: agendaVirtualOverscanRows, rowHeight: agendaRowHeight() })
+  )
+  const virtualWeekWindow = $derived.by<VirtualWeekWindow>(() =>
+    createVirtualWeekWindow(monthVirtualGrid, monthVirtualScrollTop, monthViewportHeight, { overscanRows: monthVirtualOverscanRows, rowHeight: monthWeekRowHeight() })
+  )
   const monthEventsByDate = $derived.by<Map<string, CalendarEvent[]>>(() => monthEventMap(viewModel.events))
   const selectedMonthEvent = $derived.by<CalendarEvent | null>(() => viewModel.events.find(event => event.uid === selectedMonthEventUid) ?? null)
   const selectedAgendaEvent = $derived.by<CalendarEvent | null>(() => viewModel.events.find(event => event.uid === selectedAgendaEventUid) ?? null)
@@ -380,7 +359,7 @@
   function syncMonthViewportMetrics(scroller = monthScroller): void {
     if (!scroller) return
 
-    monthVirtualScrollTop = monthGridScrollTop(scroller)
+    monthVirtualScrollTop = monthGridScrollTop(scroller.scrollTop, monthEventLoaderSlotHeightPx)
     monthViewportHeight = Math.max(monthWeekRowHeight(), scroller.clientHeight)
   }
 
@@ -411,18 +390,11 @@
   }
 
   function highlightedMonthKey(scroller: HTMLElement): string {
-    const rowHeight = monthWeekRowHeight()
-    const firstFullVisibleIndex = clamp(
-      Math.ceil((monthGridScrollTop(scroller) - monthFullRowVisibilityEpsilonPx) / rowHeight),
-      0,
-      monthVirtualGrid.weekCount - 1
-    )
-
-    return dominantMonthKey(monthWeekAtIndex(monthVirtualGrid, firstFullVisibleIndex))
-  }
-
-  function monthGridScrollTop(scroller: HTMLElement): number {
-    return Math.max(0, scroller.scrollTop - monthEventLoaderSlotHeightPx)
+    return highlightedMonthKeyForGrid(monthVirtualGrid, scroller.scrollTop, {
+      fullRowVisibilityEpsilon: monthFullRowVisibilityEpsilonPx,
+      loaderSlotHeight: monthEventLoaderSlotHeightPx,
+      rowHeight: monthWeekRowHeight()
+    })
   }
 
   function monthWeekRowHeight(): number {
@@ -546,10 +518,7 @@
   }
 
   function highlightedAgendaKey(scroller: HTMLElement): string {
-    const rowHeight = agendaRowHeight()
-    const sampleTop = scroller.scrollTop + Math.min(scroller.clientHeight * 0.35, rowHeight * 0.8)
-    const rowIndex = clamp(Math.floor(sampleTop / rowHeight), 0, agendaVirtualGrid.rowCount - 1)
-    return agendaRowAtIndex(agendaVirtualGrid, rowIndex).key
+    return highlightedAgendaKeyForGrid(agendaVirtualGrid, scroller.scrollTop, scroller.clientHeight, { rowHeight: agendaRowHeight() })
   }
 
   function selectAgendaDate(dateKey: string): void {
@@ -563,14 +532,7 @@
   }
 
   function agendaScrollTopForDate(dateKey: string): number {
-    return agendaRowIndexForDate(dateKey, agendaVirtualGrid) * agendaRowHeight()
-  }
-
-  function agendaRowIndexForDate(dateKey: string, grid: VirtualAgendaGrid): number {
-    const gridStart = localDateFromKey(grid.startKey)
-    const target = localDateFromKey(dateKey)
-    const rowOffset = daysBetween(gridStart, target)
-    return clamp(rowOffset, 0, grid.rowCount - 1)
+    return agendaScrollTopForDateInGrid(dateKey, agendaVirtualGrid, agendaRowHeight())
   }
 
   function agendaRowKeyForDate(dateKey: string): string {
@@ -655,223 +617,16 @@
     void scrollMonthIntoView(visibleMonth.toString(), 'auto')
   }
 
-  function dateKeyFromLocalDate(date: Date): string {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-
-    return `${year}-${month}-${day}`
-  }
-
-  function calendarDateFromLocalDate(date: Date): CalendarDate {
-    return new CalendarDate(date.getFullYear(), date.getMonth() + 1, date.getDate())
-  }
-
-  function monthKey(dateKey: string): string {
-    return dateKey.slice(0, 7)
-  }
-
-  function monthStartKey(dateKey: string): string {
-    return `${monthKey(dateKey)}-01`
-  }
-
-  function monthStartKeyWithOffset(dateKey: string, offset: number): string {
-    const date = localDateFromKey(dateKey)
-    return dateKeyFromLocalDate(new Date(date.getFullYear(), date.getMonth() + offset, 1))
-  }
-
-  function monthIndex(dateKey: string): number {
-    const date = localDateFromKey(dateKey)
-    return date.getFullYear() * 12 + date.getMonth()
-  }
-
   function monthOffsetFromVisibleAnchor(dateKey: string): number {
-    return monthIndex(dateKey) - monthIndex(visibleMonth.toString())
+    return monthOffsetFromAnchor(visibleMonth.toString(), dateKey)
   }
-
-  function localDateFromKey(dateKey: string): Date {
-    const [year, month, day] = dateKey.split('-').map(part => Number(part))
-    return new Date(year || 1970, (month || 1) - 1, day || 1)
-  }
-
-  function localNoonMs(date: Date): number {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12).getTime()
-  }
-
-  function daysBetween(start: Date, end: Date): number {
-    return Math.max(0, Math.round((localNoonMs(end) - localNoonMs(start)) / 86_400_000))
-  }
-
-  function startOfWeek(date: Date): Date {
-    const start = new Date(date)
-    start.setDate(date.getDate() - date.getDay())
-    return start
-  }
-
-  function endOfWeek(date: Date): Date {
-    const end = new Date(date)
-    end.setDate(date.getDate() + (6 - date.getDay()))
-    return end
-  }
-
-  function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value))
-  }
-
-
 
   function eventsForDateKey(dateKey: string): CalendarEvent[] {
     return monthEventsByDate.get(dateKey) ?? []
   }
 
   function eventsForDateKeys(dateKeys: string[]): CalendarEvent[] {
-    const eventsByUid = new Map<string, CalendarEvent>()
-    for (const dateKey of dateKeys) {
-      for (const event of eventsForDateKey(dateKey)) {
-        eventsByUid.set(event.uid, event)
-      }
-    }
-
-    return sortCalendarEvents([...eventsByUid.values()])
-  }
-
-  function monthEventMap(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
-    const eventsByDate = new Map<string, CalendarEvent[]>()
-
-    for (const event of events) {
-      const startKey = calendarDateKey(event.startsAt)
-      const endKey = calendarDateKey(event.endsAt) || startKey
-      if (!startKey) continue
-
-      const cursor = localDateFromKey(startKey)
-      const end = localDateFromKey(endKey)
-      if (end < cursor) end.setTime(cursor.getTime())
-
-      for (let days = 0; cursor <= end && days < 3700; days += 1) {
-        const dateKey = dateKeyFromLocalDate(cursor)
-        if (calendarEventOverlapsDate(event, dateKey)) {
-          const dateEvents = eventsByDate.get(dateKey) ?? []
-          dateEvents.push(event)
-          eventsByDate.set(dateKey, dateEvents)
-        }
-        cursor.setDate(cursor.getDate() + 1)
-      }
-    }
-
-    for (const [dateKey, dateEvents] of eventsByDate.entries()) {
-      if (dateEvents.length > 1) eventsByDate.set(dateKey, sortCalendarEvents(dateEvents))
-    }
-
-    return eventsByDate
-  }
-
-  function createVirtualMonthGrid(anchorKey: string, monthsBefore: number, monthsAfter: number): VirtualMonthGrid {
-    const anchor = localDateFromKey(anchorKey)
-    const firstOfStartMonth = new Date(anchor.getFullYear(), anchor.getMonth() - Math.max(0, Math.floor(monthsBefore)), 1)
-    const lastOfEndMonth = new Date(anchor.getFullYear(), anchor.getMonth() + Math.max(0, Math.floor(monthsAfter)) + 1, 0)
-    const start = startOfWeek(firstOfStartMonth)
-    const end = endOfWeek(lastOfEndMonth)
-
-    return {
-      startKey: dateKeyFromLocalDate(start),
-      weekCount: Math.max(1, Math.floor(daysBetween(start, end) / 7) + 1)
-    }
-  }
-
-  function createVirtualAgendaGrid(anchorKey: string): VirtualAgendaGrid {
-    const start = localDateFromKey(anchorKey)
-    start.setDate(start.getDate() - agendaVirtualWindowRows)
-
-    return {
-      rowCount: agendaVirtualWindowRows * 2 + 1,
-      startKey: dateKeyFromLocalDate(start)
-    }
-  }
-
-  function createVirtualAgendaWindow(grid: VirtualAgendaGrid, scrollTop: number, viewportHeight: number): VirtualAgendaWindow {
-    const rowHeight = agendaRowHeight()
-    const firstVisibleIndex = clamp(Math.floor(scrollTop / rowHeight) - agendaVirtualOverscanRows, 0, Math.max(0, grid.rowCount - 1))
-    const visibleRowCount = Math.ceil(Math.max(viewportHeight, rowHeight) / rowHeight) + agendaVirtualOverscanRows * 2
-    const endIndex = Math.min(grid.rowCount, firstVisibleIndex + visibleRowCount)
-    const rows: VirtualAgendaRow[] = []
-
-    for (let index = firstVisibleIndex; index < endIndex; index += 1) {
-      rows.push(agendaRowAtIndex(grid, index))
-    }
-
-    return {
-      bottomSpacerHeight: Math.max(0, (grid.rowCount - endIndex) * rowHeight),
-      rows,
-      topSpacerHeight: firstVisibleIndex * rowHeight
-    }
-  }
-
-  function agendaRowAtIndex(grid: VirtualAgendaGrid, index: number): VirtualAgendaRow {
-    const cursor = localDateFromKey(grid.startKey)
-    cursor.setDate(cursor.getDate() + index)
-    const key = dateKeyFromLocalDate(cursor)
-
-    return {
-      dateKeys: [key],
-      index,
-      key,
-      label: formatDateLabel(key)
-    }
-  }
-
-  function createVirtualWeekWindow(grid: VirtualMonthGrid, scrollTop: number, viewportHeight: number): VirtualWeekWindow {
-    const rowHeight = monthWeekRowHeight()
-    const firstVisibleIndex = clamp(Math.floor(scrollTop / rowHeight) - monthVirtualOverscanRows, 0, Math.max(0, grid.weekCount - 1))
-    const visibleRowCount = Math.ceil(Math.max(viewportHeight, rowHeight) / rowHeight) + monthVirtualOverscanRows * 2
-    const endIndex = Math.min(grid.weekCount, firstVisibleIndex + visibleRowCount)
-    const rows: VirtualWeekRow[] = []
-
-    for (let index = firstVisibleIndex; index < endIndex; index += 1) {
-      const week = monthWeekAtIndex(grid, index)
-      rows.push({
-        index,
-        monthKey: dominantMonthKey(week),
-        startKey: week[0]?.dateKey ?? '',
-        week
-      })
-    }
-
-    return {
-      bottomSpacerHeight: Math.max(0, (grid.weekCount - endIndex) * rowHeight),
-      rows,
-      topSpacerHeight: firstVisibleIndex * rowHeight
-    }
-  }
-
-  function monthWeekAtIndex(grid: VirtualMonthGrid, index: number): MonthWeek {
-    const cursor = localDateFromKey(grid.startKey)
-    cursor.setDate(cursor.getDate() + index * 7)
-    return monthWeekFromStartDate(cursor)
-  }
-
-  function monthWeekFromStartDate(startDate: Date): MonthWeek {
-    const cursor = new Date(startDate)
-    const week: MonthWeek = []
-
-    for (let index = 0; index < 7; index += 1) {
-      const date = new Date(cursor)
-      const dateKey = dateKeyFromLocalDate(date)
-      const calendarDate = calendarDateFromLocalDate(date)
-      week.push({ date: calendarDate, dateKey, month: new CalendarDate(calendarDate.year, calendarDate.month, 1) })
-      cursor.setDate(cursor.getDate() + 1)
-    }
-
-    return week
-  }
-
-  function dominantMonthKey(week: MonthWeek): string {
-    const firstOfMonth = week.find(cell => cell.dateKey.endsWith('-01'))
-    if (firstOfMonth) return monthStartKey(firstOfMonth.dateKey)
-
-    const counts = new Map<string, number>()
-    for (const cell of week) counts.set(monthStartKey(cell.dateKey), (counts.get(monthStartKey(cell.dateKey)) ?? 0) + 1)
-
-    return [...counts.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? viewModel.visibleAnchorKey
+    return eventsForDateKeysFromMap(monthEventsByDate, dateKeys)
   }
 
   function isCurrentMonthCell(dateKey: string): boolean {
@@ -887,15 +642,10 @@
   }
 
   function monthScrollTopForMonth(monthKeyValue: string): number {
-    return monthEventLoaderSlotHeightPx + monthWeekIndex(monthStartKey(monthKeyValue)) * monthWeekRowHeight()
-  }
-
-  function monthWeekIndex(monthKeyValue: string): number {
-    const firstOfMonth = localDateFromKey(monthStartKey(monthKeyValue))
-    const firstWeekStart = startOfWeek(firstOfMonth)
-    const gridStart = localDateFromKey(monthVirtualGrid.startKey)
-
-    return clamp(Math.round(daysBetween(gridStart, firstWeekStart) / 7), 0, monthVirtualGrid.weekCount - 1)
+    return monthScrollTopForMonthInGrid(monthVirtualGrid, monthKeyValue, {
+      loaderSlotHeight: monthEventLoaderSlotHeightPx,
+      rowHeight: monthWeekRowHeight()
+    })
   }
 
   function maybeLoadEventsForMonth(monthInViewKey: string): void {

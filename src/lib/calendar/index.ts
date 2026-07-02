@@ -1,4 +1,5 @@
 export * from './domain/events'
+export * from './domain/virtualization'
 export * from './ports/calendar-port'
 export * from './adapters/caldav-calendar-adapter'
 export * from './application/list-calendar-events'
