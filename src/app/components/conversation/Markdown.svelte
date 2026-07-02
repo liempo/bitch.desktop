@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
@@ -340,7 +342,7 @@
             aria-label="Download media"
             title="Download media"
           >
-            ⇩
+            <Icon name="download" class="text-base" />
           </a>
         {/if}
         <button
@@ -349,14 +351,14 @@
           aria-label="Close media viewer"
           onclick={closeMediaOverlay}
         >
-          ×
+          <Icon name="close" class="text-sm" />
         </button>
       </header>
 
       <div class="min-h-0 flex-1 overflow-hidden bg-black/20 p-3">
         {#if activeMediaOverlayLoading}
-          <div class="flex h-full items-center justify-center rounded-panel border border-primary/30 bg-primary/10 font-hud text-[0.68rem] uppercase tracking-[0.18em] text-primary" role="status">
-            Loading remote media…
+          <div class="flex h-full items-center justify-center rounded-panel border border-primary/30 bg-primary/10" role="status">
+            <Loader size="lg" label="Loading remote media" />
           </div>
         {:else if activeMediaOverlayError}
           <div class="flex h-full items-center justify-center rounded-panel border border-dashed border-warning/40 bg-warning/5 p-6 text-center text-sm leading-6 text-warning" role="status">

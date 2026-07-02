@@ -3,6 +3,7 @@
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import { cardClass } from '@/app/components/ui/styles'
+  import { formatAgentSessionTitle } from '../session-labels'
   import { gatewayState } from '$lib/hermes/gateway'
   import {
     hasMoreArchivedSessions,
@@ -34,7 +35,7 @@
   })
 
   function formatTitle(session: SessionInfo): string {
-    return session.title?.trim() || 'Untitled session'
+    return formatAgentSessionTitle(session)
   }
 
   function formatPreview(session: SessionInfo): string {
@@ -112,9 +113,13 @@
               variant="primary"
               onclick={() => restore(session)}
               disabled={mutating}
-              aria-label={`Restore ${title}`}
+              aria-label={mutating ? `Restoring ${title}` : `Restore ${title}`}
             >
-              {mutating ? 'restoring' : 'restore'}
+              {#if mutating}
+                <Loader size="sm" label={`Restoring ${title}`} />
+              {:else}
+                restore
+              {/if}
             </Button>
           </article>
         {/each}
@@ -125,8 +130,13 @@
           class="mt-3 w-full"
           onclick={() => void loadMoreArchivedSessions()}
           disabled={sessionState.archivedSessionsLoadingMore}
+          aria-label={sessionState.archivedSessionsLoadingMore ? 'Loading more archived sessions' : 'Load more archived sessions'}
         >
-          {sessionState.archivedSessionsLoadingMore ? 'Loading' : 'Load more'}
+          {#if sessionState.archivedSessionsLoadingMore}
+            <Loader size="sm" label="Loading more archived sessions" />
+          {:else}
+            Load more
+          {/if}
         </Button>
       {/if}
     </div>

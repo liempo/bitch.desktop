@@ -1,0 +1,128 @@
+# Testing
+
+BITCH uses a layered test pyramid so Hermes Desktop-inspired features land behind repeatable checks instead of optimism wearing a lab coat. Keep the app remote-only in every layer: tests may mock the Tauri bridge and remote dashboard APIs, but they must not start a local Hermes server, expose dashboard secrets to the browser, or rely on public file-server/Dufs fallbacks.
+
+## Test pyramid
+
+### Pure unit and source-contract tests
+
+- Location: `src/lib/tests/**` for library/domain/application behavior and `src/app/tests/**` for app source contracts.
+- Command: `npm run test:unit`.
+- Purpose: pure domain rules, ViewModel/application orchestration, architecture-boundary contracts, route parsing, remote-only invariants, and source-contract checks that are cheaper and more stable than a DOM harness.
+- Mocks: use explicit ports and `vi.mock` for `$lib/platform/tauri`, Hermes dashboard calls, and gateway request ports. Domain tests must not import browser, Tauri, or live network APIs.
+
+### Svelte component DOM tests
+
+- Location: `src/**/*.component.test.ts` plus colocated test-only fixtures.
+- Command: `npm run test:component`; `npm test` also runs component tests through the default Vitest config.
+- Harness: `@testing-library/svelte`, `@testing-library/user-event`, `@testing-library/jest-dom/vitest`, and `jsdom`, with shared setup in `src/lib/tests/support/component-dom-setup.ts`.
+- Purpose: rendered behavior for shared components, BITS UI wrappers, keyboard/focus behavior, accessible roles/labels, responsive-visible controls, and theme-token class contracts where rendered DOM is more useful than raw source strings.
+
+### Route-level UI tests
+
+- Location: `src/app/tests/**/*.ui.ts`.
+- Command: `npm run test:ui`.
+- Harness: Playwright starts the Vite renderer with `npm run frontend:dev`, installs a mocked Tauri/dashboard environment before app code runs, and exercises real browser routes without a live Hermes gateway or live Beszel hub.
+- Purpose: smoke MAIN, AGENT, ASSETS, CRON, KANBAN, SETTINGS, and CALENDAR routes; cover mobile and desktop breakpoints; prove route-level rendering, not just raw source strings.
+
+## Source-contract allowlist
+
+Raw-source tests (`?raw`, `import.meta.glob(..., query: '?raw')`, or direct file-text checks) are a small allowlist, not a substitute for behavior coverage. Keep them only when the reviewed source text is the product contract and a DOM/unit/UI test would be weaker, slower, or misleading. Every source-contract test must name its owner layer and the invariant it protects.
+
+### Allowed source-contract categories
+
+- Forbidden imports and lane boundaries, for example monitoring must not import Hermes/dashboard internals.
+- Remote-only product guarantees, for example no Dufs/public file-server fallbacks, no `VITE_BOX_BASE_URL`, and no browser-held dashboard secrets.
+- Explicit bundle, route, and lazy-loading contracts where source structure is the contract.
+- Migration canaries for branding, startup splash, native bridge, installer, and packaging surfaces where the source text or generated file list is the reviewed artifact.
+
+### Not allowed as source-contract tests
+
+- Function signatures such as `monthWeekAtIndex(...)`, `agendaRowAtIndex(...)`, or other implementation hooks.
+- Algorithm behavior hidden inside `.svelte` files; extract the pure rule into `domain` or `application` modules and test real inputs/outputs.
+- Visual/component behavior that can be rendered with Testing Library.
+- Route behavior that can be exercised with Playwright.
+- Broad "page contains these classes/imports" assertions when the user-visible behavior is what matters.
+
+### Disposition meanings
+
+- `KEEP`: source text is the contract and remains on the allowlist.
+- `REPLACE_WITH_UNIT`: extract or target pure domain/application behavior.
+- `REPLACE_WITH_COMPONENT`: render the Svelte component with Testing Library or a component DOM harness.
+- `REPLACE_WITH_UI`: exercise the route or workflow in Playwright with mocked Tauri/dashboard seams.
+- `DELETE`: remove the source check with no replacement because it only duplicates stronger coverage.
+
+### Current source-contract inventory
+
+Audited on 2026-07-02 against `origin/main` at `38513b1`. The inventory excludes production SVG raw imports in `src/lib/theme/icons.ts` and the `src/app/tests/ui/node-source-shims.d.ts` declaration shim because neither is a test.
+
+| Test file                                                          | Raw/file-text target                                   | Disposition              | Owner layer                            | Rationale / migration                                                                                                                                                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------ | ------------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/tests/support/architecture-boundaries.test.ts`            | renderer/Rust `import.meta.glob` source scan           | `KEEP`                   | architecture boundary support          | Canonical forbidden-import and lane-boundary tripwire; runtime tests would not catch source-level dependency leaks.                                                                                      |
+| `src/lib/tests/support/module-contracts.test.ts`                   | legacy compatibility path globs                        | `KEEP`                   | module contract support                | Absence of obsolete top-level Hermes compatibility paths and store shims is a source tree contract; runtime export checks can stay as unit assertions.                                                   |
+| `src/lib/tests/support/rust-bridge-lanes.test.ts`                  | Rust command/lane files                                | `KEEP`                   | Rust bridge lanes                      | Native bridge split and cross-lane leakage are source-structure contracts.                                                                                                                               |
+| `src/lib/tests/monitoring/lane-boundary.test.ts`                   | monitoring lane source files                           | `KEEP`                   | monitoring lane                        | Protects the standalone Beszel lane from Hermes/dashboard imports.                                                                                                                                       |
+| `src/lib/tests/hermes/files/index.test.ts`                         | renderer file consumers                                | `KEEP`                   | Hermes files lane                      | Public-entrypoint migration and remote-only file consumer imports are architecture tripwires; adapter behavior in the same file is already unit coverage.                                                |
+| `src/app/tests/app-shell-code-splitting.test.ts`                   | `AppShell`, startup splash, Vite config                | `KEEP`                   | app shell / bundle                     | Dynamic route imports, chunk grouping, and deferred Threlte splash loading are explicit bundle/lazy-loading contracts.                                                                                   |
+| `src/app/tests/startup-branding.test.ts`                           | `index.html`, splash, main entry, Tauri config         | `KEEP`                   | startup branding / native packaging    | Pre-bundle splash markup, desktop naming, and generated icon list are migration/packaging canaries where source text is the reviewed artifact.                                                           |
+| `src/app/tests/message-stream-lifecycle.test.ts`                   | `App.svelte` and `AgentShell.svelte`                   | `KEEP`                   | app shell lifecycle                    | The gateway stream must stay subscribed at the root instead of a route component; this is a route-lifecycle source placement contract.                                                                   |
+| `src/lib/tests/support/install-script.test.ts`                     | package script and migrated config output              | `KEEP`                   | installer / platform                   | File reads inspect fixture inputs and generated installer output; this is behavior-oriented installer coverage, not a page-source substitute.                                                            |
+| `src/lib/tests/support/testing-foundation.test.ts`                 | docs, package scripts, config, workflow files          | `KEEP`                   | testing foundation / CI                | Keeps the documented pyramid, harness files, CI commands, and this allowlist policy encoded in CI.                                                                                                       |
+| `src/app/tests/ui/svg-icons.test.ts`                               | broad app source/icon token scan                       | `REPLACE_WITH_COMPONENT` | shared icon UI                         | Replace broad import/string scans with Icon component accessibility tests and focused token unit tests; keep only a small no-icon-font migration canary if still needed.                                 |
+| `src/app/tests/navigation/AppNavbar.test.ts`                       | navbar source                                          | `REPLACE_WITH_COMPONENT` | AppNavbar component                    | Render brand, desktop links, mobile popover, and Settings alignment; move any remaining text-only BITCH brand canary into startup/branding allowlist coverage.                                           |
+| `src/app/tests/navigation/theme-picker.test.ts`                    | app shell, navbar, settings, CSS raw text              | `REPLACE_WITH_COMPONENT` | theme/settings UI                      | Render theme selection and portal dialog behavior; test theme token derivation in the theme domain instead of scanning app CSS/source strings.                                                           |
+| `src/app/tests/router.test.ts`                                     | navbar source in an otherwise unit router test         | `REPLACE_WITH_COMPONENT` | router unit + navbar component         | Keep route parser assertions as unit tests; replace the raw navbar href check with rendered navigation link behavior.                                                                                    |
+| `src/app/tests/settings/SettingsPage.test.ts`                      | settings, marketplace browser, nav/router/shell source | `REPLACE_WITH_COMPONENT` | Settings route/components              | Render the Settings page and Marketplace theme browser; move removed-updater negative strings into a focused migration canary if not covered by behavior.                                                |
+| `src/app/tests/main/MainPage.test.ts`                              | broad MAIN dashboard source scan                       | `REPLACE_WITH_UI`        | MAIN route                             | Replace layout, queues, responsive panels, and monitoring rows with Playwright route smoke/component checks; keep remote-only negative strings in a focused product-guarantee tripwire.                  |
+| `src/app/tests/agent/AgentShell.test.ts`                           | AGENT shell, composer, conversation, sidebars          | `REPLACE_WITH_COMPONENT` | Agent page components                  | Render separators, resize handles, mobile session dialog, persisted widths, and responsiveCompact props instead of checking class/function strings.                                                      |
+| `src/app/tests/agent/preview/AgentPreviewSidebar.test.ts`          | preview sidebar, markdown, shell source                | `REPLACE_WITH_COMPONENT` | Agent preview + Markdown components    | Render preview kinds, overlay links, text fallback, and remote bridge calls with fixtures; move public-file-server negatives to the remote-only allowlist.                                               |
+| `src/app/tests/components/conversation/MessageAttachments.test.ts` | attachment component source                            | `REPLACE_WITH_COMPONENT` | conversation attachments               | Render dialog/download/media states from attachment fixtures instead of scanning for tags and function names.                                                                                            |
+| `src/app/tests/assets/AssetsPage.test.ts`                          | Assets page source                                     | `REPLACE_WITH_UI`        | Assets route                           | Exercise context menus, navigation history, uploads/downloads, delete confirmation, and previews against dashboard filesystem mocks; keep remote-only negative strings in a focused tripwire.            |
+| `src/app/tests/calendar/CalendarPage.test.ts`                      | Calendar page, calendar facade, adapter source         | `REPLACE_WITH_UNIT`      | Calendar domain/application            | Extract agenda virtualization, viewport switching, sync/load policy, and event grouping into unit-tested helpers; render the Bits UI shell separately and rely on architecture tests for lane isolation. |
+| `src/app/tests/cron/CronPage.test.ts`                              | Cron route/panel source                                | `REPLACE_WITH_UI`        | Cron route                             | Route, job list, details panel/dialog, run output, and create/edit flows should be exercised with mocked Hermes Cron APIs.                                                                               |
+| `src/app/tests/kanban-route.test.ts`                               | Kanban route/panel source                              | `REPLACE_WITH_UI`        | Kanban route                           | Lanes, filters, detail pane, profile context, and drag/drop affordances should be route/component behavior tests, not source strings.                                                                    |
+| `src/lib/tests/hermes/files/domain/preview.test.ts`                | Assets page raw block in a domain test file            | `REPLACE_WITH_COMPONENT` | Hermes files domain + Assets component | Keep file presentation classifier tests as unit coverage; move the AssetsPage source contract block to rendered component/route coverage.                                                                |
+
+No current file is classified `DELETE` outright; every non-allowlisted source check either owns behavior that needs a stronger replacement or contains a smaller invariant that should move into one of the kept tripwires.
+
+## Remote-only mocks
+
+Test doubles live under `src/app/tests/fixtures/` or `src/lib/tests/support/` depending on who owns them. They should model these seams directly:
+
+- Tauri commands: mock `window.__TAURI_INTERNALS__.invoke` and event listener callbacks, not renderer-side auth headers.
+- Hermes dashboard REST: answer `/api/*` paths through `dashboard_request` shapes. Keep dashboard session tokens behind the mocked Tauri bridge.
+- WebSocket events: mock `connect_ws`, `send_ws_message`, `close_ws`, and `plugin:event|listen`; do not open a real gateway socket in UI tests.
+- Beszel monitoring: mock the monitoring lane through `monitoring_request` and PocketBase-shaped `systems`/`system_stats` records, not legacy Glances endpoints.
+- remote filesystem/media: use official Hermes filesystem routes such as `/api/fs/list`, `/api/fs/read-text`, and `/api/fs/read-data-url`. Fixtures that prove preview behavior must include `/opt/data` and `/box` paths; `/tmp` alone is not valid proof.
+- notifications: mock the Tauri notification plugin commands and click/event listener surfaces.
+
+Never add Dufs, `VITE_BOX_BASE_URL`, browser-held dashboard secrets, local Hermes bootstrap, or public file-server derivation to satisfy a test. If a test needs a remote file, provide it through the authenticated dashboard filesystem mock.
+
+## Fixture ownership
+
+- Shared app/UI fixtures: `src/app/tests/fixtures/`.
+- Library support and source-contract helpers: `src/lib/tests/support/`.
+- Component-only Svelte fixtures: next to the component test under `src/app/tests/**` or `src/lib/tests/**`.
+- Generated screenshots, traces, and Playwright artifacts: `test-results/**` or `playwright-report/**`; these paths are ignored by Knip and should not be committed.
+
+## CI validation
+
+The GitHub Actions workflow at `.github/workflows/validation.yml` runs the same foundation stack on pull requests and pushes to `main`: install with `npm ci`, install Chromium for Playwright route tests, then run formatting, type-check, lint, Vitest, route UI smoke tests, renderer build, npm audit, Knip, and whitespace checks.
+
+## Routine validation
+
+Use focused commands while developing, then run the full stack before a PR:
+
+```bash
+npm run fmt:check
+npm run type-check
+npm run lint
+npm test
+npm run test:ui
+npm run frontend:build
+npm audit --audit-level=moderate
+npx --yes knip --reporter json
+git diff --check
+```
+
+`npm run test:all` is the quick pyramid sweep: unit/source-contract tests, component DOM tests, then route-level UI tests.

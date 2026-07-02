@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import TextInput from '@/app/components/ui/TextInput.svelte'
   import { cardClass } from '@/app/components/ui/styles'
@@ -150,7 +152,7 @@
           aria-label="New chat"
           title="New chat (Ctrl/⌘+N)."
         >
-          +
+          <Icon name="add" class="text-[0.9rem]" />
         </Button>
         <Button
           variant="unstyled"
@@ -160,9 +162,7 @@
           aria-label="Open archives"
           title="Archives"
         >
-          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M6 7l1.25-3h9.5L18 7M6 7v13h12V7M9 12h6" />
-          </svg>
+          <Icon name="archive" class="text-[0.9rem]" />
         </Button>
         <Button
           variant="unstyled"
@@ -173,9 +173,7 @@
           aria-label="Filter profiles"
           title="Filter profiles"
         >
-          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M7 12h10M10 18h4" />
-          </svg>
+          <Icon name="filter" class="text-[0.9rem]" />
         </Button>
       {/snippet}
 
@@ -183,20 +181,7 @@
       <div class="border-b border-line px-3 pb-3 pt-5">
         <label class="sr-only" for="session-search">Search sessions</label>
         <div class="relative">
-          <svg
-            class="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-muted"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
-            />
-          </svg>
+          <Icon name="search" class="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-muted" />
           <TextInput
             id="session-search"
             class="py-2 pl-9 pr-8 text-sm"
@@ -213,9 +198,7 @@
               onclick={clearSearch}
               aria-label="Clear search"
             >
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
+              <Icon name="close" class="text-[0.9rem]" />
             </Button>
           {/if}
         </div>
@@ -237,7 +220,9 @@
                 <div class="mb-1.5 flex items-center justify-between px-1">
                   <h3 class={sectionHeadingClass}>Search</h3>
                   {#if sessionState.searching}
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">searching</span>
+                    <span class="text-ink-muted">
+                      <Loader size="sm" tone="secondary" label="Searching sessions" />
+                    </span>
                   {/if}
                 </div>
 
@@ -292,7 +277,9 @@
                 <div class="mb-1.5 flex items-center justify-between px-1">
                   <h3 class={sectionHeadingClass}>Recents</h3>
                   {#if sessionState.sessionsLoading}
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-ink-muted">refreshing</span>
+                    <span class="text-ink-muted">
+                      <Loader size="sm" tone="secondary" label="Refreshing sessions" />
+                    </span>
                   {/if}
                 </div>
 
@@ -335,8 +322,13 @@
                   class="mt-3 w-full"
                   onclick={() => void loadMoreSessions()}
                   disabled={sessionState.sessionsLoadingMore}
+                  aria-label={sessionState.sessionsLoadingMore ? 'Loading more sessions' : 'Load more sessions'}
                 >
-                  {sessionState.sessionsLoadingMore ? 'Loading' : 'Load more'}
+                  {#if sessionState.sessionsLoadingMore}
+                    <Loader size="sm" label="Loading more sessions" />
+                  {:else}
+                    Load more
+                  {/if}
                 </Button>
               {/if}
             {/if}

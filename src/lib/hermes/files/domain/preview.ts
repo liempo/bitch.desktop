@@ -1,3 +1,4 @@
+import type { IconName } from '$lib/theme'
 import type {
   FilePresentation,
   HermesFileRef,
@@ -226,9 +227,10 @@ export function isDeniedRemoteFilePath(source: string): boolean {
   return false
 }
 
-function glyphFor(extension: string, fallback: string): string {
-  if (!extension) return fallback
-  return extension.replace(/^\./, '').slice(0, 3).toUpperCase()
+function iconFor(extension: string, fallback: IconName): IconName {
+  if (ARCHIVE_EXTENSIONS.has(extension)) return 'fileArchive'
+  if (CODE_EXTENSIONS.has(extension)) return 'fileCode'
+  return fallback
 }
 
 export function isTextPreviewFile(name: string): boolean {
@@ -239,23 +241,23 @@ export function filePresentation(name: string): FilePresentation {
   const extension = remoteFileExtension(name)
   const viewerKind = viewerKindForRemoteFile(name)
 
-  if (viewerKind === 'image') return { accent: 'image', extension, glyph: 'IMG', title: 'Image', viewerKind }
-  if (viewerKind === 'pdf') return { accent: 'pdf', extension, glyph: 'PDF', title: 'PDF', viewerKind }
-  if (viewerKind === 'video') return { accent: 'video', extension, glyph: 'VID', title: 'Video', viewerKind }
-  if (viewerKind === 'audio') return { accent: 'audio', extension, glyph: 'AUD', title: 'Audio', viewerKind }
-  if (viewerKind === 'html') return { accent: 'html', extension, glyph: 'HTML', title: 'HTML', viewerKind }
-
-  if (CODE_EXTENSIONS.has(extension)) {
-    return { accent: 'code', extension, glyph: glyphFor(extension, 'CODE'), title: 'Code', viewerKind }
-  }
-
-  if (TEXT_EXTENSIONS.has(extension) || viewerKind === 'text') {
-    return { accent: 'text', extension, glyph: glyphFor(extension, 'TXT'), title: 'Text', viewerKind }
-  }
+  if (viewerKind === 'image') return { accent: 'image', extension, icon: 'fileImage', title: 'Image', viewerKind }
+  if (viewerKind === 'pdf') return { accent: 'pdf', extension, icon: 'filePdf', title: 'PDF', viewerKind }
+  if (viewerKind === 'video') return { accent: 'video', extension, icon: 'fileVideo', title: 'Video', viewerKind }
+  if (viewerKind === 'audio') return { accent: 'audio', extension, icon: 'fileAudio', title: 'Audio', viewerKind }
+  if (viewerKind === 'html') return { accent: 'html', extension, icon: 'fileHtml', title: 'HTML', viewerKind }
 
   if (ARCHIVE_EXTENSIONS.has(extension)) {
-    return { accent: 'archive', extension, glyph: glyphFor(extension, 'ZIP'), title: 'Archive', viewerKind }
+    return { accent: 'archive', extension, icon: 'fileArchive', title: 'Archive', viewerKind }
   }
 
-  return { accent: 'file', extension, glyph: glyphFor(extension, 'FILE'), title: 'File', viewerKind }
+  if (CODE_EXTENSIONS.has(extension)) {
+    return { accent: 'code', extension, icon: iconFor(extension, 'fileCode'), title: 'Code', viewerKind }
+  }
+
+  if (TEXT_EXTENSIONS.has(extension)) {
+    return { accent: 'text', extension, icon: iconFor(extension, 'fileText'), title: 'Text', viewerKind }
+  }
+
+  return { accent: 'file', extension, icon: 'file', title: 'File', viewerKind }
 }

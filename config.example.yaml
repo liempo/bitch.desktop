@@ -1,0 +1,35 @@
+# BITCH desktop configuration lives at ~/.bitch/config.yaml.
+# Keep secrets here instead of .env; the Tauri bridge consumes them behind the renderer.
+
+connection:
+  mode: remote
+  url: http://127.0.0.1:9119
+  authMode: token
+  token: replace-me
+  # Per-profile remote dashboard overrides are optional.
+  # profiles:
+  #   crypto:
+  #     mode: remote
+  #     url: http://127.0.0.1:9121
+  #     authMode: token
+  #     token: replace-me
+
+# Optional Hermes password-login session auth. Use with connection.authMode: session.
+# hermes:
+#   username: operator
+#   password: replace-me
+#   authProvider: basic
+
+monitoring:
+  url: http://homestation:8090
+  # systemId: replace-with-beszel-system-id
+  # authToken: replace-me
+  # email: beszel-user@example.com
+  # password: replace-me
+
+calendar:
+  url: https://calendar.example.test/dav/user/
+  username: replace-me
+  password: replace-me
+  # displayName: Personal
+  syncIntervalSeconds: 1800

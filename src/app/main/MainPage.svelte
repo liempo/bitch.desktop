@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
 
+  import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { gatewayState } from '$lib/hermes/gateway'
   import { getProfileScope, refreshActiveProfile } from '$lib/hermes/profiles'
@@ -11,10 +13,12 @@
     formatBytes,
     formatPercent,
     formatUptime,
+    loadMonitoringConfig,
     monitoringConfig,
     type MonitoringMetrics
   } from '$lib/monitoring'
   import MainAgentPanel from './panels/MainAgentPanel.svelte'
+  import MainCalendarPanel from './panels/MainCalendarPanel.svelte'
   import MainContainersPanel from './panels/MainContainersPanel.svelte'
   import MainCronPanel from './panels/MainCronPanel.svelte'
   import MainGlyphPanel from './panels/MainGlyphPanel.svelte'
@@ -24,24 +28,17 @@
 
   type ThermalZone = MonitoringMetrics['thermal'][number]
 
-  const dashboardPanelClass = 'h-auto min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong md:h-full'
-  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong'
+  const dashboardPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong md:h-full'
+  const dashboardAutoPanelClass = 'h-auto min-h-0 border-line bg-surface transition-colors hover:border-line-strong'
   const dashboardPanelTitleClass = 'text-ink-muted'
-  const placeholderPanels = [
-    {
-      description: 'Calendar feed will land here once the dashboard endpoint exists.',
-      headline: 'Chronos panel queued',
-      title: 'CALENDAR',
-      toneClass: 'text-primary'
-    }
-  ] as const
+
 
   let lastLoadedScope: null | string = null
   let profileRefreshStarted = false
+  let monitoring = $state(monitoringConfig())
   let monitoringMetrics = $state<MonitoringMetrics>(EMPTY_MONITORING_METRICS)
   let monitoringError = $state('')
 
-  const monitoring = monitoringConfig()
 
   const connectionState = $derived(gatewayState.connectionState)
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
@@ -125,6 +122,7 @@
 
   async function refreshMonitoring(): Promise<void> {
     try {
+      monitoring = await loadMonitoringConfig()
       monitoringMetrics = await fetchMonitoringMetrics(monitoring)
       monitoringError = ''
     } catch (error) {
@@ -224,7 +222,13 @@
         <div class="grid grid-cols-2 gap-2 uppercase tracking-[0.12em]">
           <div class="border border-line bg-canvas px-2 py-1.5">
             <div class="text-[0.58rem] text-ink-muted">Gateway</div>
-            <div class={`mt-1 text-[0.68rem] font-bold ${mobileAgentStatusClass}`}>{mobileAgentStatusLabel}</div>
+            <div class={`mt-1 text-[0.68rem] font-bold ${mobileAgentStatusClass}`}>
+              {#if connectionState === 'connecting'}
+                <Loader size="sm" tone="secondary" label="Connecting to gateway" />
+              {:else}
+                {mobileAgentStatusLabel}
+              {/if}
+            </div>
           </div>
           <div class="border border-line bg-canvas px-2 py-1.5">
             <div class="text-[0.58rem] text-ink-muted">Index</div>
@@ -244,7 +248,7 @@
             </div>
             <div class="mt-2 flex items-center justify-between gap-3 text-[0.66rem] leading-4 text-ink-muted">
               <span class="min-w-0 truncate">Resume thread and composer</span>
-              <span class="shrink-0 text-primary" aria-hidden="true">→</span>
+              <Icon name="arrowRight" class="shrink-0 text-primary" />
             </div>
           </a>
         {:else}
@@ -268,25 +272,11 @@
           <div class="mt-1 truncate text-[0.76rem] font-bold uppercase tracking-widest text-primary">Start blank thread</div>
           <div class="mt-2 flex items-center justify-between gap-3 text-[0.66rem] leading-4 text-ink-muted">
             <span class="min-w-0 truncate">Open composer in AGENT</span>
-            <span class="shrink-0 text-primary" aria-hidden="true">→</span>
+            <Icon name="arrowRight" class="shrink-0 text-primary" />
           </div>
         </a>
       </Panel>
-      {#each placeholderPanels as placeholder (placeholder.title)}
-        <Panel
-          fullHeight={false}
-          title={placeholder.title}
-          badge="placeholder"
-          class={`${dashboardPanelClass} hidden md:flex`}
-          contentClass="grid h-full content-center gap-2"
-          titleClass={dashboardPanelTitleClass}
-        >
-          <div class={`text-[0.78rem] font-bold uppercase tracking-[0.14em] ${placeholder.toneClass}`}>
-            {placeholder.headline}
-          </div>
-          <div class="text-[0.68rem] leading-4 text-ink-muted">{placeholder.description}</div>
-        </Panel>
-      {/each}
+      <MainCalendarPanel class={`${dashboardPanelClass} hidden md:flex`} titleClass={dashboardPanelTitleClass} />
 
       <MainCronPanel class={`${dashboardPanelClass} order-4 md:order-0`} titleClass={dashboardPanelTitleClass} />
 

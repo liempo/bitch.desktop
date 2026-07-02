@@ -10,7 +10,7 @@ feature work; the complete final architecture lives in
 1. BITCH remains remote-only. Do not add local Hermes process startup, local
    dashboard bootstrapping, or public file-server URL derivation.
 2. Hermes dashboard auth stays behind Tauri. The renderer must not read or
-   transmit `HERMES_DASHBOARD_SESSION_TOKEN` directly.
+   transmit dashboard tokens/passwords directly.
 3. Hermes remote file preview and inline media use authenticated dashboard
    filesystem routes through the Tauri bridge.
 4. Hermes runtime traffic continues through the Tauri WebSocket shim and the
@@ -18,8 +18,8 @@ feature work; the complete final architecture lives in
 5. Monitoring is independent from Hermes. It may share generic Rust/renderer
    helpers, but it must not import Hermes sessions, gateway, files, dashboard, or
    plugin modules.
-6. `MONITORING_*` config belongs to Beszel/monitoring; `HERMES_DASHBOARD_*`
-   config belongs to Hermes.
+6. BITCH app configuration belongs in `~/.bitch/config.yaml`, with lane-owned
+   sections such as `connection`, `hermes`, `monitoring`, and `calendar`.
 7. Public app navigation remains `AGENT`, `ASSETS`, and `CALENDAR`.
 
 ## Lane decision rule

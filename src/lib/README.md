@@ -4,6 +4,7 @@ Shared renderer code is grouped by boundary instead of parked at the root. Prefe
 
 - `assets/` — generated static source assets used by tooling, not a renderer import lane.
 - `errors/` — shared error normalization helpers.
+- `calendar/` — standalone CalDAV Calendar lane with event domain helpers, Tauri adapters, use cases, and the route ViewModel.
 - `hermes/` — Hermes lane facades for dashboard REST/plugin routes, remote files, gateway runtime contracts, composer orchestration, prompts, profiles, sessions, and conversation normalization.
   - `hermes/cron/` — Hermes dashboard Cron plugin helpers.
   - `hermes/composer/` — slash-command parsing/dispatch, composer queueing, model/reasoning selection, attachment relay, and prompt submission orchestration.
@@ -21,4 +22,4 @@ Shared renderer code is grouped by boundary instead of parked at the root. Prefe
 - `tests/` — library and source-contract tests mirroring the `src/lib/` subtree; not an app runtime lane.
 - `types/` — shared Hermes dashboard and gateway DTOs.
 
-Legacy top-level Hermes compatibility folders (`api/`, `files/`, `gateway/`, `messages/`, `session/`, `conversation/`, `composer/`, and `stores/`) have been removed. New code must import the lane-owned modules above instead of recreating source shims. The Vite renderer should never hold `HERMES_DASHBOARD_SESSION_TOKEN` directly. Monitoring must not call Hermes `dashboard_request`; platform helpers must not know Hermes or Beszel route details.
+Legacy top-level Hermes compatibility folders (`api/`, `files/`, `gateway`, `messages`, `session`, `conversation`, `composer`, and `stores`) have been removed. New code must import the lane-owned modules above instead of recreating source shims. The Vite renderer should never hold dashboard tokens or passwords directly. Calendar and Monitoring must not call Hermes `dashboard_request`; platform helpers must not know Hermes, CalDAV, or Beszel route details.

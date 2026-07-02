@@ -61,6 +61,7 @@ describe('AgentShell resizable panel source contract', () => {
     expect(composerSource).not.toContain('md:max-w-5xl')
     expect(composerSource).toContain('hidden h-5 w-5 items-center')
     expect(conversationSource).toContain('responsiveCompact?: boolean')
-    expect(conversationSource).toContain('md:bg-chat-scroll/40')
+    expect(conversationSource).toContain('flex-1 overflow-y-auto bg-transparent')
+    expect(conversationSource).not.toContain('bg-chat-scroll')
   })
 })

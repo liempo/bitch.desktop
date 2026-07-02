@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import {
     ALL_PROFILES,
     getProfileScope,
@@ -106,7 +107,9 @@
   </div>
 
   {#if profileState.loading}
-    <p class="px-2 pt-2 text-[11px] uppercase tracking-[0.08em] text-ink-muted">loading profiles</p>
+    <div class="flex px-2 pt-2 text-ink-muted">
+      <Loader size="sm" tone="secondary" label="Loading profiles" />
+    </div>
   {/if}
   {#if profileState.error}
     <p class="px-2 pt-2 text-[11px] text-danger">{profileState.error}</p>

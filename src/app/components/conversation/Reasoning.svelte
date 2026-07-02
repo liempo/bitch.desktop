@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import { cardClass } from '@/app/components/ui/styles'
 
@@ -61,16 +62,7 @@
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thinking</span>
         {:else}
           {#if text.trim()}
-            <svg
-              class="h-3 w-3 shrink-0 text-ink-muted/70 {open ? 'rotate-90' : ''}"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
+            <Icon name="chevronRight" class="h-3 w-3 text-ink-muted/70 {open ? 'rotate-90' : ''}" />
           {/if}
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Thought</span>
         {/if}

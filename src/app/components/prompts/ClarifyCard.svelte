@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import SectionTitle from '@/app/components/ui/SectionTitle.svelte'
   import TextArea from '@/app/components/ui/TextArea.svelte'
@@ -101,7 +102,13 @@
                     <Button disabled={submitting} onclick={() => { typing = false; draft = '' }}>Back</Button>
                   {/if}
                   <Button disabled={submitting} onclick={submitSkip}>Skip</Button>
-                  <Button variant="warning" disabled={submitting || !draft.trim()} type="submit">{submitting ? 'Sending' : 'Send'}</Button>
+                  <Button variant="warning" disabled={submitting || !draft.trim()} type="submit" aria-label={submitting ? 'Sending clarification response' : 'Send clarification response'}>
+                    {#if submitting}
+                      <Loader size="sm" label="Sending clarification response" />
+                    {:else}
+                      Send
+                    {/if}
+                  </Button>
                 </div>
               </div>
             </form>

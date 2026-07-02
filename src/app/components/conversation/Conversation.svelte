@@ -34,13 +34,7 @@
       (conversation?.loading || sessionState.resumingSessionId === sessionId)
   )
 
-  const sectionClass = $derived(
-    compact
-      ? 'flex-1 overflow-y-auto bg-chat-scroll/30'
-      : responsiveCompact
-        ? 'flex-1 overflow-y-auto bg-chat-scroll/30 md:bg-chat-scroll/40'
-        : 'flex-1 overflow-y-auto bg-chat-scroll/40'
-  )
+  const sectionClass = 'flex-1 overflow-y-auto bg-transparent'
   const emptyStateClass = $derived(
     compact
       ? 'flex min-h-full items-center justify-center px-3 py-6'
@@ -50,10 +44,10 @@
   )
   const glyphClass = $derived(
     compact
-      ? 'h-16 w-16 overflow-hidden rounded-panel bg-black opacity-90'
+      ? 'h-16 w-16 overflow-hidden rounded-panel bg-transparent opacity-90'
       : responsiveCompact
-        ? 'h-16 w-16 overflow-hidden rounded-panel bg-black opacity-90 md:h-28 md:w-28'
-        : 'h-28 w-28 overflow-hidden rounded-panel bg-black opacity-90'
+        ? 'h-16 w-16 overflow-hidden rounded-panel bg-transparent opacity-90 md:h-28 md:w-28'
+        : 'h-28 w-28 overflow-hidden rounded-panel bg-transparent opacity-90'
   )
   const transcriptClass = $derived(compact ? 'py-2' : responsiveCompact ? 'py-2 md:py-4' : 'py-4')
 
@@ -148,12 +142,7 @@
     </div>
   {:else if messages.length === 0}
     <div class={emptyStateClass}>
-      <Panel title="Empty Buffer" titleClass="text-secondary" class="max-w-md" contentClass="p-5 text-center" padded={false} fullHeight={false}>
-        <h2 class="text-xl font-semibold tracking-[0.08em] text-ink-bright">No messages yet</h2>
-        <p class="mt-3 text-sm leading-6 text-ink-muted">
-          History will appear here. Type in the composer below; the gateway will receive the message once the chromed courier lane is clear.
-        </p>
-      </Panel>
+      <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
     </div>
   {:else}
     <div class={transcriptClass}>

@@ -1,6 +1,9 @@
 <script lang="ts">
+  import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import { readRemoteFileDataUrl } from '$lib/hermes/files'
   import type { ConversationAttachment, ConversationAttachmentKind } from '$lib/hermes/conversations'
+  import type { IconName } from '$lib/theme'
 
   interface Props {
     attachments?: ConversationAttachment[]
@@ -56,18 +59,18 @@
     }
   }
 
-  function badgeFor(kind: ConversationAttachmentKind): string {
+  function iconFor(kind: ConversationAttachmentKind): IconName {
     switch (kind) {
       case 'audio':
-        return 'AUD'
+        return 'fileAudio'
       case 'file':
-        return 'FILE'
+        return 'file'
       case 'pdf':
-        return 'PDF'
+        return 'filePdf'
       case 'video':
-        return 'VID'
+        return 'fileVideo'
       default:
-        return 'IMG'
+        return 'fileImage'
     }
   }
 
@@ -156,9 +159,13 @@
               alt={attachment.label || 'Attached image'}
               loading="lazy"
             />
-          {:else}
+          {:else if failedSources[key]}
             <span class="block px-3 py-2 text-[0.72rem] uppercase tracking-[0.16em] text-ink-muted">
-              {failedSources[key] ? unavailableLabel(attachment.kind) : loadingLabel(attachment.kind)}
+              {unavailableLabel(attachment.kind)}
+            </span>
+          {:else}
+            <span class="block px-3 py-2 text-ink-muted">
+              <Loader size="sm" tone="secondary" label={loadingLabel(attachment.kind)} />
             </span>
           {/if}
           <span class="block border-t border-line/70 px-2 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-ink-muted">
@@ -170,15 +177,19 @@
         {@const key = keyFor(attachment, profile)}
         <div class="grid max-w-xl gap-2 border border-line bg-surface/70 px-3 py-2 text-xs text-ink">
           <div class="flex items-center gap-2">
-            <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-success">{badgeFor(attachment.kind)}</span>
+            <Icon name={iconFor(attachment.kind)} label={detailFor(attachment)} decorative={false} class="text-success" />
             <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
             <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
           </div>
           {#if href}
             <audio controls preload="metadata" src={href} class="w-full"></audio>
-          {:else}
+          {:else if failedSources[key]}
             <span class="text-[0.72rem] uppercase tracking-[0.16em] text-ink-muted">
-              {failedSources[key] ? unavailableLabel(attachment.kind) : loadingLabel(attachment.kind)}
+              {unavailableLabel(attachment.kind)}
+            </span>
+          {:else}
+            <span class="text-ink-muted">
+              <Loader size="sm" tone="secondary" label={loadingLabel(attachment.kind)} />
             </span>
           {/if}
         </div>
@@ -189,13 +200,17 @@
           {#if href}
             <!-- svelte-ignore a11y_media_has_caption -->
             <video controls preload="metadata" src={href} class="max-h-80 max-w-full rounded-control bg-black/30"></video>
-          {:else}
+          {:else if failedSources[key]}
             <span class="px-3 py-2 text-[0.72rem] uppercase tracking-[0.16em] text-ink-muted">
-              {failedSources[key] ? unavailableLabel(attachment.kind) : loadingLabel(attachment.kind)}
+              {unavailableLabel(attachment.kind)}
+            </span>
+          {:else}
+            <span class="px-3 py-2 text-ink-muted">
+              <Loader size="sm" tone="secondary" label={loadingLabel(attachment.kind)} />
             </span>
           {/if}
           <div class="flex items-center gap-2">
-            <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-primary">{badgeFor(attachment.kind)}</span>
+            <Icon name={iconFor(attachment.kind)} label={detailFor(attachment)} decorative={false} class="text-primary" />
             <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
             <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
           </div>
@@ -209,7 +224,7 @@
           disabled={!href}
           onclick={() => openAttachment(attachment)}
         >
-          <span class="font-hud text-[0.66rem] uppercase tracking-[0.18em] text-warning">{badgeFor(attachment.kind)}</span>
+          <Icon name={iconFor(attachment.kind)} label={detailFor(attachment)} decorative={false} class="text-warning" />
           <span class="min-w-0 flex-1 truncate text-ink-bright">{attachment.label}</span>
           <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.12em] text-ink-muted">{detailFor(attachment)}</span>
         </button>
@@ -243,7 +258,7 @@
             aria-label="Download attachment"
             title="Download attachment"
           >
-            ⇩
+            <Icon name="download" class="text-base" />
           </a>
         {/if}
         <button
@@ -252,7 +267,7 @@
           aria-label="Close attachment viewer"
           onclick={closeAttachmentViewer}
         >
-          ×
+          <Icon name="close" class="text-sm" />
         </button>
       </header>
 

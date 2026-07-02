@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import TextInput from '@/app/components/ui/TextInput.svelte'
@@ -222,10 +223,9 @@
                 >
               {/if}
               {#if group.warning}
-                <span
-                  class={warningTagClass}
-                  >!</span
-                >
+                <span class={warningTagClass}>
+                  <Icon name="warning" label={group.warning} decorative={false} />
+                </span>
               {/if}
             </div>
             {#each groupOptions as option (option.key)}
@@ -238,16 +238,7 @@
               >
                 <span class="min-w-0 flex-1 truncate font-mono text-xs">{option.model}</span>
                 {#if option.current}
-                  <svg
-                    class="h-3.5 w-3.5 shrink-0 text-primary"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
+                  <Icon name="check" class="h-3.5 w-3.5 text-primary" />
                 {/if}
                 {#if badges.length > 0}
                   <span class="shrink-0 text-[0.6rem] text-ink-muted/60">{badges.join('\u00b7')}</span>

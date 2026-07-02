@@ -22,7 +22,6 @@ import {
 } from '$lib/hermes/prompts'
 import type { GatewayEvent } from '$lib/hermes/gateway'
 import {
-  compactWhitespace,
   coerceGatewayText,
   coerceThinkingBlocks,
   coerceThinkingText,
@@ -773,30 +772,25 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
         conversation.canvas = display.canvas
       }
 
-      if (finalText) {
-        const previous = compactWhitespace(message.text)
-        const next = compactWhitespace(finalText)
+      if (finalText && message.text !== finalText) {
+        message.text = finalText
 
-        if (!previous || previous !== next) {
-          message.text = finalText
+        const parts = ensureParts(message)
+        let lastTextPart: Extract<ConversationMessagePart, { type: 'text' }> | null = null
 
-          const parts = ensureParts(message)
-          let lastTextPart: Extract<ConversationMessagePart, { type: 'text' }> | null = null
+        for (let index = parts.length - 1; index >= 0; index -= 1) {
+          const part = parts[index]
 
-          for (let index = parts.length - 1; index >= 0; index -= 1) {
-            const part = parts[index]
-
-            if (part.type === 'text') {
-              lastTextPart = part
-              break
-            }
+          if (part.type === 'text') {
+            lastTextPart = part
+            break
           }
+        }
 
-          if (lastTextPart) {
-            lastTextPart.text = finalText
-          } else {
-            parts.push({ type: 'text', text: finalText })
-          }
+        if (lastTextPart) {
+          lastTextPart.text = finalText
+        } else {
+          parts.push({ type: 'text', text: finalText })
         }
       }
     }
@@ -813,7 +807,7 @@ function completeAssistantMessage(sessionId: string, text: string, usage?: Parti
   conversation.error = null
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
-  queueMacosNotification(buildAssistantCompleteNotification({ error: completionError, text: finalText }))
+  queueMacosNotification(buildAssistantCompleteNotification({ error: completionError, sessionId, text: finalText }))
   void loadSessions().catch(() => undefined)
 }
 
@@ -827,7 +821,7 @@ function failAssistantMessage(sessionId: string, errorMessage: string): void {
   conversation.error = message.error
   setBusy(sessionId, false)
   setNeedsInput(sessionId, false)
-  queueMacosNotification(buildAssistantCompleteNotification({ error: message.error }))
+  queueMacosNotification(buildAssistantCompleteNotification({ error: message.error, sessionId }))
 }
 
 function usageFrom(payload: GatewayPayload): Partial<UsageStats> | undefined {
@@ -1044,7 +1038,7 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   ) {
     recordInteractivePrompt(event.type, sessionId, payload)
     setNeedsInput(sessionId, true)
-    queueMacosNotification(buildInputNeededNotification(inputNeededNotificationText(event.type, payload)))
+    queueMacosNotification(buildInputNeededNotification(inputNeededNotificationText(event.type, payload), sessionId))
   } else if (event.type === 'error') {
     clearAllPrompts()
     setNeedsInput(sessionId, false)

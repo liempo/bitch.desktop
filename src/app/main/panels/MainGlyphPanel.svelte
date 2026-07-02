@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { Canvas } from '@threlte/core'
 
   import Glyph from '@/app/components/Glyph.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import type { MonitoringMetrics } from '$lib/monitoring'
+  import { themeState } from '$lib/theme'
 
   interface Props {
     class?: string
@@ -15,20 +15,12 @@
 
   let { class: className = '', hostname, metrics, titleClass = '' }: Props = $props()
 
-  let themeElement = $state<HTMLDivElement>()
-  let foregroundColor = $state('white')
-  let mutedColor = $state('gray')
-  let lineColor = $state('white')
-
-  onMount(() => {
-    const styles = getComputedStyle(themeElement ?? document.documentElement)
-    foregroundColor = styles.getPropertyValue('--color-ink-bright').trim() || foregroundColor
-    mutedColor = styles.getPropertyValue('--color-ink-muted').trim() || mutedColor
-    lineColor = styles.getPropertyValue('--color-line-strong').trim() || lineColor
-  })
+  const foregroundColor = $derived(themeState.selectedTheme.cssVariables['--bits-ink-bright'] ?? 'white')
+  const mutedColor = $derived(themeState.selectedTheme.cssVariables['--bits-ink-muted'] ?? 'gray')
+  const lineColor = $derived(themeState.selectedTheme.cssVariables['--bits-line-strong'] ?? 'white')
 </script>
 
-<div bind:this={themeElement} class="h-full min-h-0 min-w-0">
+<div class="h-full min-h-0 min-w-0">
   <Panel title="GLYPH" padded={false} class={className} contentClass="relative h-full min-h-0 overflow-hidden p-0" {titleClass}>
     <div class="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] truncate text-[0.68rem] uppercase tracking-[0.16em] text-ink-muted" title={hostname}>
       // {hostname || 'UNKNOWN'}

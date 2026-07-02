@@ -35,11 +35,14 @@ Keep the Svelte app organized around page folders plus shared app components:
 
 ## Configuration
 
-The app uses these environment values, usually from `.env` copied from `.env.example`:
+The app reads local desktop configuration from `~/.bitch/config.yaml`; do not reintroduce `.env` as an app configuration source. A missing YAML file may be initialized by one-time legacy `.env` import, but runtime config reads must come from the YAML file. The tracked `config.example.yaml` documents the shape:
 
-- `HERMES_DASHBOARD_URL` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
-- `HERMES_DASHBOARD_SESSION_TOKEN` — Hermes dashboard session token used by the Tauri bridge.
-- `MONITORING_URL` — Beszel hub HTTP origin for the main dashboard monitoring panel. Defaults to `http://homestation:8090` when unset. Include scheme and port in this one URL; do not add a separate monitoring port variable.
+- `connection.url` — Hermes dashboard HTTP origin. Defaults to `http://127.0.0.1:9119` when unset.
+- `connection.token` — Hermes dashboard session token used by the Tauri bridge for token auth.
+- `connection.authMode` — `token` or `session`; session auth reads optional `hermes.username`, `hermes.password`, and `hermes.authProvider` from the same YAML file.
+- `monitoring.url` — Beszel hub HTTP origin for the main dashboard monitoring panel. Defaults to `http://homestation:8090` when unset. Include scheme and port in this one URL; do not add a separate monitoring port variable.
+- `monitoring.systemId`, `monitoring.authToken`, `monitoring.email`, and `monitoring.password` — optional Beszel target/auth values consumed by the Tauri bridge.
+- `calendar.url`, `calendar.username`, `calendar.password`, `calendar.displayName`, and `calendar.syncIntervalSeconds` — CalDAV route configuration.
 
 Remote file preview, inline media, and the Assets page must use authenticated Hermes dashboard filesystem routes through the Tauri bridge. Do not add public file-server origins, root-specific URL derivation, or desktop-local file syntax. File/filesystem wording is still appropriate when describing remote filesystem APIs or actual remote file entries.
 
@@ -88,9 +91,10 @@ If you later decide to copy more upstream code, add it here explicitly and keep 
 
 ## Validation expectations
 
-When a change touches the renderer, run:
+When a change touches the renderer, run the relevant focused layer first, then the normal renderer gates. For broad UI/test-harness changes, use the full pyramid from `docs/testing.md`:
 
 ```bash
+npm run test:all
 npm run type-check
 npm run lint
 npm run frontend:build
@@ -137,8 +141,9 @@ Write tests when they materially improve stability — especially for gateway wi
 
 - Add or extend tests alongside behavior changes; do not land features or fixes without coverage when a reasonable automated check exists.
 - Prefer focused unit tests on pure TypeScript/Rust helpers; use integration-style checks only where they catch real cross-layer failures.
-- Keep tests runnable in CI: document the command in the PR if a new script is added (for example `npm test` or `bash scripts/rust-wrapper.sh cargo test --manifest-path src-tauri/Cargo.toml`).
+- Keep tests runnable in CI: document the command in the PR if a new script is added (for example `npm test`, `npm run test:ui`, or `bash scripts/rust-wrapper.sh cargo test --manifest-path src-tauri/Cargo.toml`).
 - Keep renderer tests out of runtime folders: app/UI tests belong under `src/app/tests/` using the same subtree as `src/app/`, and library tests belong under `src/lib/tests/` using the same subtree as `src/lib/`. Test-only support helpers belong under `src/lib/tests/support/`.
+- Follow `docs/testing.md` for the BITCH test pyramid: source-contract/unit tests, Svelte component DOM tests, route-level UI tests, remote-only Tauri/dashboard mocks, and fixture ownership.
 - Do not add test frameworks or debug-only harnesses unless the tests they enable are maintained and run as part of normal validation.
 
 ## Repo-local Rust setup

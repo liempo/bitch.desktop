@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { panelWidthStyle, PREVIEW_PANEL_WIDTH } from '$lib/layout/panel-resize'
   import type { ConversationPreview } from '$lib/hermes/conversations'
@@ -100,7 +102,8 @@
           aria-label={openLabel}
           title={openLabel}
         >
-          {openLabel}
+          <Icon name="external" class="text-[0.85rem]" />
+          <span>{openLabel}</span>
         </a>
       {/if}
 
@@ -112,18 +115,19 @@
           title="Close preview"
           onclick={onClose}
         >
-          Close
+          <Icon name="close" class="text-[0.85rem]" />
         </button>
       {/if}
     </div>
 
     {#if loading}
-      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-primary/30 bg-primary/10 font-hud text-[0.68rem] uppercase tracking-[0.18em] text-primary" role="status">
-        Loading remote file preview…
+      <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-primary/30 bg-primary/10" role="status">
+        <Loader size="lg" label="Loading remote file preview" />
       </div>
     {:else if visibleError}
       <div class="flex min-h-0 flex-1 items-center justify-center rounded-control border border-dashed border-warning/40 bg-warning/5 p-6 text-center text-sm leading-6 text-warning" role="status">
         <div>
+          <Icon name="warning" label="Preview warning" decorative={false} class="mx-auto mb-2 text-xl" />
           <p class="font-semibold uppercase tracking-[0.12em]">Preview unavailable</p>
           <p class="mt-2 text-warning/80">{visibleError}</p>
         </div>
@@ -144,7 +148,7 @@
       <iframe title={preview.label} src={activeUrl} class="min-h-0 flex-1 rounded-control border border-line bg-white"></iframe>
     {:else if activeViewerKind === 'audio' && activeUrl}
       <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-control border border-line bg-surface/70 p-6 text-center text-sm text-ink-muted">
-        <span class="font-hud text-4xl text-success">AUD</span>
+        <Icon name="fileAudio" label="Audio" decorative={false} class="text-4xl text-success" />
         <audio controls preload="metadata" src={activeUrl} class="w-full"></audio>
       </div>
     {:else if activeViewerKind === 'video' && activeUrl}

@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import Button from '@/app/components/ui/Button.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import SectionTitle from '@/app/components/ui/SectionTitle.svelte'
   import TextInput from '@/app/components/ui/TextInput.svelte'
@@ -86,8 +87,12 @@
         <p class="text-xs text-danger">{error}</p>
       {/if}
       <div class="flex justify-end gap-2">
-        <Button variant={tone} disabled={submitting || disabled} type="submit">
-          {submitting ? submittingLabel : submitLabel}
+        <Button variant={tone} disabled={submitting || disabled} type="submit" aria-label={submitting ? submittingLabel : submitLabel}>
+          {#if submitting}
+            <Loader size="sm" label={submittingLabel} />
+          {:else}
+            {submitLabel}
+          {/if}
         </Button>
       </div>
     </form>

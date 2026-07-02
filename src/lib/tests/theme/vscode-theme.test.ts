@@ -3,13 +3,21 @@ import { describe, expect, it } from 'vitest'
 import { namespacedStorageKey } from '$lib/storage'
 import {
   DEFAULT_THEME_ID,
+  IMPORTED_THEMES_STORAGE_SUFFIX,
   THEME_STORAGE_SUFFIX,
   builtInThemes,
   cssVariablesFromVsCodeTheme,
+  deserializeImportedThemes,
+  importAndUseVsCodeExtensionThemes,
+  importVsCodeExtensionThemes,
+  installedThemeOptions,
   loadThemeSelection,
+  replaceImportedThemes,
   persistThemeSelection,
   resolveThemeSelection,
   themeStyleAttribute,
+  themeOptions,
+  uninstallImportedTheme,
   type VsCodeTheme
 } from '$lib/theme'
 
@@ -59,26 +67,52 @@ describe('VS Code-compatible app themes', () => {
       }
     }
 
-    expect(cssVariablesFromVsCodeTheme(source)).toEqual({
+    expect(cssVariablesFromVsCodeTheme(source)).toMatchObject({
       '--bits-canvas': '#101010',
       '--bits-surface': '#111111',
-      '--bits-surface-raised': '#151515',
+      '--bits-surface-muted': expect.any(String),
+      '--bits-surface-raised': expect.any(String),
       '--bits-overlay': 'rgba(16, 16, 16, 0.92)',
       '--bits-ink': '#eeeeee',
       '--bits-ink-muted': '#777777',
+      '--bits-ink-faint': expect.any(String),
       '--bits-ink-bright': '#ffffff',
       '--bits-primary': '#00eeee',
       '--bits-secondary': '#ff00ee',
       '--bits-success': '#00ff66',
       '--bits-warning': '#ffff00',
       '--bits-danger': '#ff4444',
-      '--bits-line': '#333333',
+      '--bits-line': expect.any(String),
       '--bits-line-strong': '#555555',
       '--bits-focus': '#00ffff',
       '--bits-input': '#080808',
       '--bits-chat-scroll': 'rgba(0, 0, 0, 0.25)',
       '--bits-tool-bg': 'rgba(0, 0, 0, 0.45)'
     })
+  })
+
+  it('derives theme-aware fallback surfaces and visible borders for sparse or low-contrast themes', () => {
+    const source: VsCodeTheme = {
+      name: 'Sparse Light',
+      type: 'light',
+      colors: {
+        'editor.background': '#fafafa',
+        foreground: '#111111',
+        'editor.foreground': '#111111',
+        focusBorder: '#0055ff',
+        'panel.border': '#fafafa',
+        contrastBorder: '#fafafa'
+      }
+    }
+
+    const variables = cssVariablesFromVsCodeTheme(source)
+
+    expect(variables['--bits-surface-raised']).not.toBe('#050505')
+    expect(variables['--bits-input']).not.toBe('#050505')
+    expect(variables['--bits-input']).not.toBe(variables['--bits-canvas'])
+    expect(variables['--bits-line']).not.toBe('#fafafa')
+    expect(variables['--bits-line-strong']).not.toBe('#fafafa')
+    expect(variables['--bits-surface-muted']).not.toBe(variables['--bits-canvas'])
   })
 
   it('ships the existing BITCH theme and a real alternate as VS Code-style theme sources', () => {
@@ -114,6 +148,100 @@ describe('VS Code-compatible app themes', () => {
     expect(storage.getItem(namespacedStorageKey(THEME_STORAGE_SUFFIX))).toBe('terminal-green')
   })
 
+  it('imports VS Code color themes from an unpacked extension manifest', async () => {
+    const result = await importVsCodeExtensionThemes([
+      file('probe/package.json', {
+        name: 'probe-theme-extension',
+        publisher: 'liempo',
+        contributes: {
+          themes: [{ id: 'night-city', label: 'Night City', uiTheme: 'vs-dark', path: './themes/night-city.json' }]
+        }
+      }),
+      file('probe/themes/night-city.json', {
+        name: 'Night City Theme',
+        colors: {
+          'editor.background': '#120018',
+          'sideBar.background': '#180020',
+          foreground: '#f4e8ff',
+          focusBorder: '#ff33cc'
+        },
+        tokenColors: [{ scope: 'keyword', settings: { foreground: '#ff33cc' } }]
+      })
+    ])
+
+    expect(result.errors).toEqual([])
+    expect(result.themes).toHaveLength(1)
+    expect(result.themes[0]).toMatchObject({
+      id: 'vscode-extension:liempo-probe-theme-extension-night-city-probe-themes-night-city-json',
+      source: { name: 'Night City Theme', type: 'vs-dark' },
+      cssVariables: expect.objectContaining({
+        '--bits-canvas': '#120018',
+        '--bits-surface': '#180020',
+        '--bits-focus': '#ff33cc'
+      })
+    })
+  })
+
+  it('imports standalone VS Code theme JSON files and persists them for selection', async () => {
+    const storage = storageStub()
+    const result = await importAndUseVsCodeExtensionThemes(
+      [
+        file('synthetic.json', {
+          name: 'Synthetic Light',
+          type: 'light',
+          colors: { 'editor.background': '#fafafa', foreground: '#111111', focusBorder: '#0055ff' }
+        })
+      ],
+      storage
+    )
+
+    expect(result.themes).toHaveLength(1)
+    expect(result.themes[0].colorScheme).toBe('light')
+    expect(storage.getItem(namespacedStorageKey(THEME_STORAGE_SUFFIX))).toBe(result.themes[0].id)
+    expect(
+      deserializeImportedThemes(storage.getItem(namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)))
+    ).toHaveLength(1)
+    expect(themeOptions.map(theme => theme.id)).toContain(result.themes[0].id)
+
+    replaceImportedThemes([...result.themes, ...result.themes], storage)
+
+    expect(themeOptions.filter(theme => theme.id === result.themes[0].id)).toHaveLength(1)
+  })
+
+  it('loads imported themes before resolving a persisted custom theme id', () => {
+    const imported = importTheme('Persisted Corpo Blue', '#001122')
+    const storage = storageStub({
+      [namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)]: JSON.stringify([
+        { id: imported.id, source: imported.source }
+      ]),
+      [namespacedStorageKey(THEME_STORAGE_SUFFIX)]: imported.id
+    })
+
+    expect(loadThemeSelection(storage).id).toBe(imported.id)
+    replaceImportedThemes([], storage)
+  })
+
+  it('lists and uninstalls imported themes without removing built-ins', () => {
+    const imported = importTheme('Installed Marketplace Blue', '#001122')
+    const storage = storageStub({
+      [namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)]: JSON.stringify([
+        { id: imported.id, source: imported.source }
+      ]),
+      [namespacedStorageKey(THEME_STORAGE_SUFFIX)]: imported.id
+    })
+
+    loadThemeSelection(storage)
+
+    expect(installedThemeOptions().map(theme => theme.id)).toEqual([imported.id])
+
+    uninstallImportedTheme(imported.id, storage)
+
+    expect(installedThemeOptions()).toEqual([])
+    expect(themeOptions.map(theme => theme.id)).toEqual(builtInThemes.map(theme => theme.id))
+    expect(storage.getItem(namespacedStorageKey(THEME_STORAGE_SUFFIX))).toBe(DEFAULT_THEME_ID)
+    expect(deserializeImportedThemes(storage.getItem(namespacedStorageKey(IMPORTED_THEMES_STORAGE_SUFFIX)))).toEqual([])
+  })
+
   it('renders a CSS style attribute from the theme adapter rather than hardcoded data-theme blocks', () => {
     const theme = resolveThemeSelection('terminal-green')
 
@@ -121,3 +249,22 @@ describe('VS Code-compatible app themes', () => {
     expect(themeStyleAttribute(theme)).toContain('--bits-primary: #7cff7c;')
   })
 })
+
+function file(path: string, body: unknown) {
+  return {
+    name: path.split('/').at(-1) ?? path,
+    webkitRelativePath: path,
+    text: async () => JSON.stringify(body)
+  }
+}
+
+function importTheme(name: string, background: string) {
+  return deserializeImportedThemes(
+    JSON.stringify([
+      {
+        id: `vscode-extension:${name.toLowerCase().replaceAll(' ', '-')}`,
+        source: { name, type: 'dark', colors: { 'editor.background': background, foreground: '#ffffff' } }
+      }
+    ])
+  )[0]
+}

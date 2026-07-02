@@ -2,6 +2,8 @@
   import Composer from '../../components/composer/Composer.svelte'
   import Conversation from '../../components/conversation/Conversation.svelte'
   import Button from '@/app/components/ui/Button.svelte'
+  import Icon from '@/app/components/ui/Icon.svelte'
+  import Loader from '@/app/components/ui/Loader.svelte'
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass } from '@/app/components/ui/styles'
@@ -46,7 +48,7 @@
   const selectorTitle = $derived(`AGENT: ${sessionTitle}`)
   const agentHref = $derived(`#${agentRoute(selectedSessionId)}`)
 
-  const emptyNoticeClass = `${cardClass} rounded-control !bg-canvas p-3 text-xs text-ink-muted`
+  const emptyNoticeClass = `${cardClass} rounded-control !bg-surface-muted p-3 text-xs text-ink-muted`
   const optionBaseClass = [
     'grid w-full min-w-0 grid-cols-[1fr_auto] items-start gap-2 rounded-control border px-2 py-2 text-left font-mono',
     'hover:border-line-strong hover:bg-primary/10 focus-visible:border-line-strong focus-visible:bg-primary/10 focus-visible:outline-none'
@@ -159,7 +161,7 @@
 
 <Panel
   title="AGENT"
-  class="min-h-0 border-line !bg-canvas transition-colors hover:border-line-strong"
+  class="min-h-0 border-line bg-surface transition-colors hover:border-line-strong"
   contentClass="flex h-full min-h-0 flex-col p-0"
   titleClass="text-ink-muted"
 >
@@ -182,9 +184,7 @@
         title="Open current chat in AGENT"
         aria-label="Open current chat in AGENT"
       >
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M9 7h8v8" />
-        </svg>
+        <Icon name="arrowUpRight" class="text-[0.9rem]" />
       </a>
     </div>
   {/snippet}
@@ -230,7 +230,9 @@
 
     <div class="mt-2 border-t border-dotted border-line pt-2">
       {#if sessionState.sessionsLoading && selectableSessions.length === 0}
-        <div class={emptyNoticeClass}>SYNCING_SESSION_INDEX</div>
+        <div class={`${emptyNoticeClass} flex items-center justify-center`}>
+          <Loader size="md" label="Loading session index" />
+        </div>
       {:else if selectableSessions.length === 0}
         <div class={emptyNoticeClass}>NO_EXISTING_SESSIONS</div>
       {:else}

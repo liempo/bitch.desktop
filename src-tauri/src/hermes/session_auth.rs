@@ -59,7 +59,7 @@ fn parse_set_cookie(value: &reqwest::header::HeaderValue) -> Option<(String, Str
     ))
 }
 
-fn env_password_login_credentials() -> Option<PasswordLoginCredentials> {
+fn configured_password_login_credentials() -> Option<PasswordLoginCredentials> {
     let username = config_value("HERMES_DASHBOARD_USERNAME")?;
     let password = config_value("HERMES_DASHBOARD_PASSWORD")?;
     let provider = config_value("HERMES_DASHBOARD_AUTH_PROVIDER")
@@ -149,18 +149,18 @@ pub async fn session_cookie_header_or_login(
         return Ok(cookies);
     }
 
-    password_login_from_env(client, &config.base_url).await?;
+    password_login_from_config(client, &config.base_url).await?;
     session_cookie_header(&config.base_url).ok_or_else(|| {
         "Hermes password login succeeded but did not return dashboard session cookies".to_string()
     })
 }
 
-pub async fn password_login_from_env(
+pub async fn password_login_from_config(
     client: &reqwest::Client,
     base_url: &str,
 ) -> Result<(), String> {
-    let credentials = env_password_login_credentials().ok_or_else(|| {
-        "Hermes dashboard session auth is selected, but HERMES_DASHBOARD_USERNAME and HERMES_DASHBOARD_PASSWORD are not set in the environment or .env".to_string()
+    let credentials = configured_password_login_credentials().ok_or_else(|| {
+        "Hermes dashboard session auth is selected, but hermes.username and hermes.password are not set in ~/.bitch/config.yaml".to_string()
     })?;
 
     password_login(client, base_url, credentials).await

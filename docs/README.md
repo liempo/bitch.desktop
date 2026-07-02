@@ -11,8 +11,10 @@ items under its `## Feature checklist` are task sources.
 | ----------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Hermes dashboard/runtime            | [`hermes/README.md`](hermes/README.md)                   | `src/lib/hermes/*`, `src-tauri/src/hermes/*`, stable `commands/dashboard.rs` and `commands/gateway.rs` wrappers |
 | Monitoring / Beszel                 | [`monitoring/beszel.md`](monitoring/beszel.md)           | `src/lib/monitoring/*`, `src-tauri/src/monitoring/*`, `commands/monitoring.rs`                                  |
+| Calendar / CalDAV                   | [`calendar/caldav.md`](calendar/caldav.md)               | `src/lib/calendar/*`, `src-tauri/src/calendar/*`, `commands/calendar.rs`                                        |
 | Platform / native bridge            | [`platform/native-bridge.md`](platform/native-bridge.md) | `src/lib/platform/*`, `src-tauri/src/platform/*`, shared Rust `config/errors/http` helpers                      |
 | Shared conventions and future lanes | [`shared/backend-revamp.md`](shared/backend-revamp.md)   | architecture-boundary tests, migration rules, future lane pattern                                               |
+| Testing                             | [`testing.md`](testing.md)                               | unit, component DOM, route UI, remote mock, and fixture ownership conventions                                   |
 | Roadmap                             | [`roadmap.md`](roadmap.md)                               | scannable feature checklist and delivered/backlog history                                                       |
 | Devlog                              | [`devlog.md`](devlog.md)                                 | chronological historical notes                                                                                  |
 
@@ -41,5 +43,14 @@ items under its `## Feature checklist` are task sources.
   behavior for `AGENT`, `ASSETS`, and `CALENDAR`.
 - [`shared/backend-revamp.md`](shared/backend-revamp.md) — backend lane migration
   history plus reusable Clean MVVM / Ports & Adapters rules.
+- [`ui-componentization-audit.md`](ui-componentization-audit.md) — renderer UI
+  componentization scan, Bits UI candidates, and deferred extraction plan.
+- [`testing.md`](testing.md) — BITCH test pyramid, remote-only mocks,
+  fixture ownership, and validation scripts.
 - [`platform/native-bridge.md`](platform/native-bridge.md) — Rust bridge lane
   responsibilities and stable Tauri command wrapper policy.
+
+## Calendar docs
+
+- [`calendar/caldav.md`](calendar/caldav.md) — CalDAV configuration, bridge commands,
+  renderer lane contract, and virtualized month-grid/event-cache strategy.
