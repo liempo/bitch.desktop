@@ -1,0 +1,57 @@
+name: Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-foundation:
+    name: Test foundation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Check formatting
+        run: npm run fmt:check
+
+      - name: Type-check renderer
+        run: npm run type-check
+
+      - name: Lint renderer
+        run: npm run lint
+
+      - name: Run Vitest suite
+        run: npm test
+
+      - name: Run route UI smoke tests
+        run: npm run test:ui
+
+      - name: Build renderer
+        run: npm run frontend:build
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=moderate
+
+      - name: Check unused files and dependencies
+        run: npx --yes knip --reporter json
+
+      - name: Check whitespace
+        run: git diff --check

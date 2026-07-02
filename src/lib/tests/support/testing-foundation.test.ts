@@ -79,4 +79,21 @@ describe('testing foundation contract', () => {
     expect(agentsGuide).toContain('docs/testing.md')
     expect(agentsGuide).toContain('npm run test:all')
   })
+
+  it('keeps the CI validation workflow aligned with the documented test foundation', () => {
+    const workflowPath = '.github/workflows/validation.yml'
+
+    expect(existsSync(join(root, workflowPath))).toBe(true)
+
+    const workflow = readText(workflowPath)
+    expect(workflow).toContain('npm ci')
+    expect(workflow).toContain('npm run fmt:check')
+    expect(workflow).toContain('npm run type-check')
+    expect(workflow).toContain('npm run lint')
+    expect(workflow).toContain('npm test')
+    expect(workflow).toContain('npm run test:ui')
+    expect(workflow).toContain('npm run frontend:build')
+    expect(workflow).toContain('npm audit --audit-level=moderate')
+    expect(workflow).toContain('npx --yes knip --reporter json')
+  })
 })

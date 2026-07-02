@@ -45,6 +45,10 @@ Never add Dufs, `VITE_BOX_BASE_URL`, browser-held dashboard secrets, local Herme
 - Component-only Svelte fixtures: next to the component test under `src/app/tests/**` or `src/lib/tests/**`.
 - Generated screenshots, traces, and Playwright artifacts: `test-results/**` or `playwright-report/**`; these paths are ignored by Knip and should not be committed.
 
+## CI validation
+
+The GitHub Actions workflow at `.github/workflows/validation.yml` runs the same foundation stack on pull requests and pushes to `main`: install with `npm ci`, install Chromium for Playwright route tests, then run formatting, type-check, lint, Vitest, route UI smoke tests, renderer build, npm audit, Knip, and whitespace checks.
+
 ## Routine validation
 
 Use focused commands while developing, then run the full stack before a PR:
