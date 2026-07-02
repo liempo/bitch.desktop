@@ -13,10 +13,11 @@
     isLast?: boolean
     message: ConversationMessage
     onOpenPreview?: (preview: ConversationPreview) => void
+    onOpenTranscript?: (toolId: string) => void | Promise<unknown>
     sessionId?: null | string
   }
 
-  let { isLast = false, message, onOpenPreview, sessionId = null }: Props = $props()
+  let { isLast = false, message, onOpenPreview, onOpenTranscript, sessionId = null }: Props = $props()
 
   const assistant = $derived(message.role === 'assistant')
   const user = $derived(message.role === 'user')
@@ -30,7 +31,7 @@
   const toolStatusSignature = $derived(
     parts
       .filter((part): part is Extract<typeof part, { type: 'tool' }> => part.type === 'tool')
-      .map(part => `${part.tool.id}:${part.tool.status}:${part.tool.output ?? ''}`)
+      .map(part => `${part.tool.id}:${part.tool.status}:${part.tool.output ?? ''}:${part.tool.stdout ?? ''}:${part.tool.stderr ?? ''}:${part.tool.exitStatus ?? ''}`)
       .join('|')
   )
 
@@ -79,7 +80,7 @@
   <!-- Tool result message — grouped tool rows -->
   <div class="mx-auto w-full max-w-4xl px-4" data-role="tool">
     {#each message.tools as toolRow (toolRow.id)}
-      <Tool tool={toolRow} />
+      <Tool tool={toolRow} {onOpenTranscript} />
     {/each}
   </div>
 {:else if system}
@@ -119,7 +120,7 @@
                 <Reasoning text={part.text} pending={isRunning && index === parts.length - 1} />
               {:else if part.type === 'tool'}
                 <div class="mt-1.5">
-                  <Tool tool={part.tool} />
+                  <Tool tool={part.tool} {onOpenTranscript} />
                 </div>
               {:else if part.type === 'text'}
                 <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} profile={messageProfile} {onOpenPreview} />
@@ -137,7 +138,7 @@
           {#if message.tools.length > 0}
             <div class="mt-1.5">
               {#each message.tools as toolRow (toolRow.id)}
-                <Tool tool={toolRow} />
+                <Tool tool={toolRow} {onOpenTranscript} />
               {/each}
             </div>
           {/if}

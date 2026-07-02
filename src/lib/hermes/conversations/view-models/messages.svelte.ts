@@ -37,19 +37,25 @@ import {
   type ConversationAttachment,
   type ConversationAttachmentInput
 } from '../domain/media-attachments'
+import { remoteToolTranscriptFieldsFromPayload, type RemoteToolExitStatus } from '../domain/tool-transcripts'
 import type { SessionMessage, UsageStats } from '$lib/types/hermes'
 
 type ConversationMessageRole = 'assistant' | 'system' | 'tool' | 'user'
 export type ConversationToolStatus = 'complete' | 'running'
 
 export interface ConversationTool {
+  completedAt?: number
   context?: string
   error?: string
+  exitStatus?: RemoteToolExitStatus
   id: string
   input?: string
   name: string
   output?: string
+  startedAt?: number
   status: ConversationToolStatus
+  stderr?: string
+  stdout?: string
   summary: string
 }
 
@@ -329,11 +335,13 @@ function storedToolFromMessage(sessionId: string, message: SessionMessage, index
   const name = message.tool_name || message.name || 'tool'
 
   return {
+    completedAt: message.timestamp,
     context: firstText(message.context) || undefined,
     id: message.tool_call_id || `stored-tool-${sessionId}-${index}`,
     name,
     output: text,
     status: 'complete',
+    stdout: text || undefined,
     summary: text || 'Tool completed'
   }
 }
@@ -680,9 +688,38 @@ function toolSummary(payload: GatewayPayload): string {
     payload.preview,
     payload.output,
     payload.result,
+    payload.stdout,
+    payload.stderr,
     payload.text,
     payload.error
   )
+}
+
+function toolTranscriptStartedAt(
+  status: ConversationToolStatus,
+  timestamp: number | undefined,
+  existing?: ConversationTool
+): number | undefined {
+  return existing?.startedAt ?? (status === 'running' ? timestamp : undefined)
+}
+
+function toolTranscriptCompletedAt(
+  status: ConversationToolStatus,
+  timestamp: number | undefined,
+  existing?: ConversationTool
+): number | undefined {
+  return status === 'complete' ? (timestamp ?? existing?.completedAt) : existing?.completedAt
+}
+
+function appendTranscriptChunk(existing: string | undefined, chunk: string): string | undefined {
+  if (!chunk) return existing
+  return `${existing ?? ''}${chunk}`
+}
+
+function mergedTranscriptText(existing: string | undefined, replacement: string, chunk: string): string | undefined {
+  const appended = appendTranscriptChunk(existing, chunk)
+
+  return appended ?? (replacement || existing)
 }
 
 function toolContext(payload: GatewayPayload): string {
@@ -697,19 +734,28 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: Conversa
   const context = toolContext(payload)
   const summary = toolSummary(payload)
   const input = firstText(payload.args, payload.input)
-  const output = firstText(payload.output, payload.result)
+  const transcriptFields = remoteToolTranscriptFieldsFromPayload(payload)
+  const stdoutChunk = firstText(payload.chunk, payload.stdout_chunk, payload.stdoutChunk)
+  const output = firstText(payload.output, payload.result, payload.stdout)
+  const stdout = transcriptFields.stdout || output
+  const stderr = transcriptFields.stderr
   const error = firstText(payload.error)
 
   if (match) {
     const { message, tool: existing } = match
     const updated: ConversationTool = {
       ...existing,
+      completedAt: toolTranscriptCompletedAt(status, transcriptFields.timestamp, existing),
       context: context || existing.context,
       error: error || existing.error,
+      exitStatus: transcriptFields.exitStatus ?? existing.exitStatus,
       input: input || existing.input,
       name: payloadName || existing.name,
-      output: output || existing.output,
+      output: mergedTranscriptText(existing.output, output, stdoutChunk),
+      startedAt: toolTranscriptStartedAt(status, transcriptFields.timestamp, existing),
       status,
+      stderr: stderr || existing.stderr,
+      stdout: mergedTranscriptText(existing.stdout, stdout, stdoutChunk),
       summary: summary || existing.summary || (status === 'complete' ? 'Tool completed' : 'Running')
     }
 
@@ -725,13 +771,18 @@ function upsertTool(sessionId: string, payload: GatewayPayload, status: Conversa
     const message = ensureAssistantMessage(sessionId)
     const id = toolStableId(payload) || newToolId(name)
     const tool: ConversationTool = {
+      completedAt: toolTranscriptCompletedAt(status, transcriptFields.timestamp),
       context: context || undefined,
       error: error || undefined,
+      exitStatus: transcriptFields.exitStatus,
       id,
       input: input || undefined,
       name,
-      output: output || undefined,
+      output: output || stdoutChunk || undefined,
+      startedAt: toolTranscriptStartedAt(status, transcriptFields.timestamp),
       status,
+      stderr: stderr || undefined,
+      stdout: stdout || stdoutChunk || undefined,
       summary: summary || (status === 'complete' ? 'Tool completed' : 'Running')
     }
 

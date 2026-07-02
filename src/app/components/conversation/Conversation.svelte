@@ -7,7 +7,8 @@
   import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import Message from './Message.svelte'
-  import { messageState } from '$lib/hermes/conversations'
+  import RemoteTranscriptTabs from './RemoteTranscriptTabs.svelte'
+  import { extractRemoteToolTranscriptsFromMessages, messageState } from '$lib/hermes/conversations'
   import { sessionState } from '$lib/hermes/sessions'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
   import type { ConversationPreview } from '$lib/hermes/conversations'
@@ -23,9 +24,13 @@
 
   let scrollElement: HTMLElement | null = $state(null)
   let stickToBottom = $state(true)
+  let transcriptPanelOpen = $state(false)
+  let requestedTranscriptId = $state<string | null>(null)
+  let requestedTranscriptSequence = $state(0)
 
   const conversation = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(conversation?.messages ?? [])
+  const remoteTranscripts = $derived(sessionId ? extractRemoteToolTranscriptsFromMessages(sessionId, messages) : [])
   const resumeExhausted = $derived(Boolean(sessionId) && sessionState.resumeExhaustedSessionId === sessionId)
   const loadingSession = $derived(
     Boolean(sessionId) &&
@@ -60,7 +65,7 @@
           message.reasoning,
           message.pending ? 'pending' : 'done',
           message.error ?? '',
-          message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.context ?? ''}:${tool.error ?? ''}`).join(','),
+          message.tools.map(tool => `${tool.id}:${tool.status}:${tool.summary}:${tool.context ?? ''}:${tool.output ?? ''}:${tool.stdout ?? ''}:${tool.stderr ?? ''}:${tool.error ?? ''}:${tool.exitStatus ?? ''}`).join(','),
           message.parts
             ?.map(part => {
               if (part.type === 'reasoning') return `reasoning:${part.text.length}`
@@ -72,6 +77,13 @@
       )
       .join('\n')
   )
+
+  $effect(() => {
+    if (transcriptPanelOpen && remoteTranscripts.length === 0) {
+      transcriptPanelOpen = false
+      requestedTranscriptId = null
+    }
+  })
 
   $effect(() => {
     const signature = scrollSignature
@@ -95,6 +107,18 @@
   function scrollToBottom(): void {
     if (!scrollElement) return
     scrollElement.scrollTop = scrollElement.scrollHeight
+  }
+
+  function openTranscript(toolId: string): void {
+    if (!sessionId) return
+
+    requestedTranscriptId = `${sessionId}:${toolId}`
+    requestedTranscriptSequence += 1
+    transcriptPanelOpen = true
+  }
+
+  function closeTranscriptTabs(): void {
+    transcriptPanelOpen = false
   }
 
   function retryResume(): void {
@@ -147,8 +171,19 @@
   {:else}
     <div class={transcriptClass}>
       {#each messages as message, index (message.id)}
-        <Message {message} {sessionId} {onOpenPreview} isLast={index === messages.length - 1} />
+        <Message {message} {sessionId} {onOpenPreview} onOpenTranscript={openTranscript} isLast={index === messages.length - 1} />
       {/each}
+
+      {#if transcriptPanelOpen && remoteTranscripts.length > 0}
+        <div class="mx-auto mt-3 w-full max-w-4xl px-4">
+          <RemoteTranscriptTabs
+            transcripts={remoteTranscripts}
+            requestedTranscriptId={requestedTranscriptId}
+            requestedTranscriptSequence={requestedTranscriptSequence}
+            onClose={closeTranscriptTabs}
+          />
+        </div>
+      {/if}
 
       {#if sessionId}
         <Approval {sessionId} />
