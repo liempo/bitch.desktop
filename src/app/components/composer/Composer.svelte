@@ -16,8 +16,10 @@
     interruptComposerSession,
     loadCommandCatalog,
     markComposerInterrupted,
+    recallComposerPromptHistory,
     refreshComposerModels,
     removeComposerAttachment,
+    resetComposerPromptHistoryNavigation,
     selectComposerFastMode,
     selectComposerModel,
     selectComposerReasoningEffort,
@@ -25,14 +27,17 @@
     shouldDispatchSlashImmediately,
     slashSuggestions,
     submitPrompt,
+    type ComposerPromptHistoryDirection,
     type ComposerSessionState,
     type ReasoningEffort
   } from '$lib/hermes/composer'
   import {
     getQueuedPromptState,
+    moveQueuedPrompt,
     removeQueuedPrompt,
     shouldAutoDrainOnSettle,
     subscribeQueuedPrompts,
+    updateQueuedPrompt,
     type QueuedPromptEntry
   } from '$lib/hermes/composer'
   import { conversationForSession } from '$lib/hermes/conversations'
@@ -49,6 +54,7 @@
   import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
+  import { composerHistoryDirectionForKeydown, queuedPromptActionState } from './composer-interactions'
   import ModelPicker from './ModelPicker.svelte'
   import type { ProfileInfo } from '$lib/types/hermes'
 
@@ -143,7 +149,8 @@
   const queueLabel = $derived(queuedPrompts.length === 1 ? '1 queued prompt' : `${queuedPrompts.length} queued prompts`)
   const queueCardClass = `${cardClass} mb-2 border-warning/30 !bg-warning/5 p-2`
   const suggestionCardClass = `${cardClass} mb-2 border-primary/30 !bg-primary/5 p-2`
-  const queueItemClass = `${terminalClass} flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink`
+  const queueItemClass = `${terminalClass} flex flex-col gap-2 px-3 py-2 text-xs text-ink sm:flex-row sm:items-start sm:justify-between`
+  const queueEditorClass = `${textareaClass} min-h-10 border-line/70 !bg-surface/55 px-2 py-1.5 text-xs leading-5 text-ink-bright placeholder:text-ink-muted/70`
   const attachmentCardClass = `${cardClass} flex items-center gap-2 p-1.5 pr-2 text-xs text-ink`
   const composerShellClass = $derived(
     compact
@@ -254,6 +261,7 @@
   }
 
   function handleDraftInput(event: Event): void {
+    resetComposerPromptHistoryNavigation(sessionId)
     setComposerDraft(sessionId, (event.currentTarget as HTMLTextAreaElement).value)
   }
 
@@ -278,6 +286,19 @@
   }
 
   function handleKeydown(event: KeyboardEvent): void {
+    const target = event.currentTarget as HTMLTextAreaElement
+    const historyDirection = composerHistoryDirectionForKeydown(event, {
+      draft: composer.draft,
+      selectionEnd: target.selectionEnd,
+      selectionStart: target.selectionStart
+    })
+
+    if (historyDirection) {
+      event.preventDefault()
+      handleHistoryNavigation(historyDirection)
+      return
+    }
+
     if (event.key !== 'Enter' || event.shiftKey) return
 
     event.preventDefault()
@@ -333,14 +354,43 @@
     focusTextarea()
   }
 
+  function handleHistoryNavigation(direction: ComposerPromptHistoryDirection): void {
+    const nextDraft = recallComposerPromptHistory(sessionId, direction, composer.draft)
+    if (nextDraft === null) return
+
+    setComposerDraft(sessionId, nextDraft)
+    void tick().then(() => {
+      textareaElement?.setSelectionRange(nextDraft.length, nextDraft.length)
+      resizeTextarea()
+    })
+  }
+
   async function handleInterrupt(): Promise<void> {
     await interruptComposerSession(sessionId)
+  }
+
+  function updateQueueEntryText(entry: QueuedPromptEntry, text: string): void {
+    if (!queueKey) return
+
+    updateQueuedPrompt(queueKey, entry.id, { text })
+  }
+
+  function moveQueueEntry(entry: QueuedPromptEntry, direction: 'down' | 'up'): void {
+    if (!queueKey) return
+
+    moveQueuedPrompt(queueKey, entry.id, direction)
   }
 
   function removeQueueEntry(entry: QueuedPromptEntry): void {
     if (!queueKey) return
 
     removeQueuedPrompt(queueKey, entry.id)
+  }
+
+  function queueAttachmentSummary(entry: QueuedPromptEntry): string {
+    if (entry.attachments.length === 0) return ''
+    if (entry.attachments.length === 1) return `1 attachment: ${entry.attachments[0]?.label ?? 'attachment'}`
+    return `${entry.attachments.length} attachments`
   }
 
   function attachmentSummary(): string {
@@ -359,18 +409,52 @@
           <span>{busy ? 'will drain after current turn' : 'ready to drain'}</span>
         </div>
         <ol class="space-y-1">
-          {#each queuedPrompts as entry (entry.id)}
+          {#each queuedPrompts as entry, index (entry.id)}
+            {@const actions = queuedPromptActionState(index, queuedPrompts.length)}
             <li class={queueItemClass}>
-              <span class="min-w-0 flex-1 truncate">
-                {entry.text || `${entry.attachments.length} attachment${entry.attachments.length === 1 ? '' : 's'}`}
-              </span>
-              <Button
-                chrome="ghost"
-                size="sm"
-                onclick={() => removeQueueEntry(entry)}
-              >
-                Remove
-              </Button>
+              <div class="min-w-0 flex-1">
+                <textarea
+                  class={queueEditorClass}
+                  rows={entry.text.includes('\n') ? 3 : 2}
+                  value={entry.text}
+                  placeholder={entry.attachments.length > 0 ? 'Attachment-only queued prompt' : 'Queued prompt text'}
+                  aria-label={actions.editLabel}
+                  oninput={(event) => updateQueueEntryText(entry, (event.currentTarget as HTMLTextAreaElement).value)}
+                ></textarea>
+                {#if entry.attachments.length > 0}
+                  <p class="mt-1 truncate text-[0.65rem] text-ink-muted/75">{queueAttachmentSummary(entry)}</p>
+                {/if}
+              </div>
+              <div class="flex shrink-0 flex-wrap items-center gap-1 self-end sm:self-start">
+                <Button
+                  chrome="ghost"
+                  size="icon"
+                  onclick={() => moveQueueEntry(entry, 'up')}
+                  disabled={!actions.canMoveUp}
+                  aria-label={actions.moveUpLabel}
+                  title={actions.moveUpLabel}
+                >
+                  <Icon name="arrowUp" class="text-[0.9rem]" />
+                </Button>
+                <Button
+                  chrome="ghost"
+                  size="icon"
+                  onclick={() => moveQueueEntry(entry, 'down')}
+                  disabled={!actions.canMoveDown}
+                  aria-label={actions.moveDownLabel}
+                  title={actions.moveDownLabel}
+                >
+                  <Icon name="arrowDown" class="text-[0.9rem]" />
+                </Button>
+                <Button
+                  chrome="ghost"
+                  size="sm"
+                  onclick={() => removeQueueEntry(entry)}
+                  aria-label={actions.removeLabel}
+                >
+                  Remove
+                </Button>
+              </div>
             </li>
           {/each}
         </ol>
