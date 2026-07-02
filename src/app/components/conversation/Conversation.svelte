@@ -142,12 +142,7 @@
     </div>
   {:else if messages.length === 0}
     <div class={emptyStateClass}>
-      <Panel title="Empty Buffer" titleClass="text-secondary" class="max-w-md" contentClass="p-5 text-center" padded={false} fullHeight={false}>
-        <h2 class="text-xl font-semibold tracking-[0.08em] text-ink-bright">No messages yet</h2>
-        <p class="mt-3 text-sm leading-6 text-ink-muted">
-          History will appear here. Type in the composer below; the gateway will receive the message once the chromed courier lane is clear.
-        </p>
-      </Panel>
+      <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
     </div>
   {:else}
     <div class={transcriptClass}>
