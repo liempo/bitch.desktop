@@ -54,3 +54,26 @@ Beszel metrics come from PocketBase collection records, not `/api/health`. The h
 npm install
 npm run dev
 ```
+
+## Local app install
+
+```bash
+npm run install
+```
+
+That command is intentionally the simple path: it runs `npm run build`, copies the built BITCH bundle into `~/Applications`, then migrates legacy `.env` values into `~/.bitch/config.yaml` if the YAML file does not already exist.
+
+The migration is one-time and non-destructive by default:
+
+- if `~/.bitch/config.yaml` already exists, it is left untouched;
+- if a repo `.env` or `src-tauri/.env` exists, known keys are moved into `connection`, `hermes`, `monitoring`, and `calendar` sections;
+- unknown legacy keys are preserved as top-level YAML keys;
+- secret values are written to the local YAML file but are not printed in installer output.
+
+Useful installer options:
+
+```bash
+npm run install -- --config-only      # migrate .env only
+npm run install -- --skip-build       # copy an existing build and migrate config
+npm run install -- --force-config     # rewrite config.yaml from legacy .env
+```
