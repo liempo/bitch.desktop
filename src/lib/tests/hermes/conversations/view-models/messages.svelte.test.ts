@@ -614,6 +614,68 @@ describe('message session id mapping', () => {
     })
   })
 
+  it('preserves terminal transcript fields from live gateway tool events', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal', timestamp: 1_782_974_900, tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: {
+        exit_code: 0,
+        name: 'terminal',
+        output: 'tests passed\n',
+        stderr: 'warn: stderr stream\n',
+        timestamp: 1_782_975_000,
+        tool_id: 'tool-1'
+      },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(conversationForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+      completedAt: 1_782_975_000,
+      exitStatus: 0,
+      id: 'tool-1',
+      startedAt: 1_782_974_900,
+      stderr: 'warn: stderr stream\n',
+      stdout: 'tests passed\n'
+    })
+  })
+
+  it('appends remote terminal progress chunks to transcript scrollback', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { context: 'npm run test', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.start'
+    })
+    handleGatewayEvent({
+      payload: { chunk: 'first line\n', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.progress'
+    })
+    handleGatewayEvent({
+      payload: { chunk: 'second line\n', name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.progress'
+    })
+    handleGatewayEvent({
+      payload: { exit_code: 0, name: 'terminal', tool_id: 'tool-1' },
+      session_id: liveSid,
+      type: 'tool.complete'
+    })
+
+    expect(conversationForSession(storedKey)?.messages[0]?.tools[0]).toMatchObject({
+      exitStatus: 0,
+      output: 'first line\nsecond line\n',
+      stdout: 'first line\nsecond line\n'
+    })
+  })
+
   it('splits reasoning blocks around tool events so they interleave like rehydration', () => {
     rememberRuntimeSession(storedKey, liveSid)
 
