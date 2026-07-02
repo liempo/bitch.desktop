@@ -4,6 +4,7 @@
   import {
     addAttachmentFiles,
     applySlashSuggestion,
+    buildContextStatusViewModel,
     clearComposerAttachments,
     composerForSession,
     composerState,
@@ -42,7 +43,7 @@
     selectNewSessionProfile,
     sortByProfileOrder
   } from '$lib/hermes/profiles'
-  import { sessionState } from '$lib/hermes/sessions'
+  import { lineageIdForSessionId, sessionState } from '$lib/hermes/sessions'
   import BracketTrigger from '@/app/components/ui/BracketTrigger.svelte'
   import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
@@ -50,6 +51,7 @@
   import Panel from '@/app/components/ui/Panel.svelte'
   import { cardClass, menuItemClass, popoverClass, terminalClass, textareaClass } from '@/app/components/ui/styles'
   import ModelPicker from './ModelPicker.svelte'
+  import ContextStatusPopover from './ContextStatusPopover.svelte'
   import type { ProfileInfo } from '$lib/types/hermes'
 
   interface Props {
@@ -140,6 +142,25 @@
   )
   const reasoningSupported = $derived(currentModelOption?.capabilities?.reasoning !== false)
   const fastSupported = $derived(currentModelOption?.capabilities?.fast === true)
+  const selectedLineageId = $derived(sessionId ? lineageIdForSessionId(sessionId) : null)
+  const lineageSegmentCount = $derived(
+    selectedLineageId ? (sessionState.sessionLineageIdsByRootId[selectedLineageId]?.length ?? 1) : 0
+  )
+  const contextStatus = $derived(
+    buildContextStatusViewModel({
+      attachmentsCount: composer.attachments.length,
+      connected,
+      conversation,
+      lineageSegmentCount,
+      modelError: composerState.model.error,
+      modelInfo: composerState.model.info,
+      profileName: activeProfileName,
+      runtimeSessionId: sessionId ? (sessionState.runtimeIdsByStoredSessionId[sessionId] ?? null) : sessionState.activeSessionId,
+      selectedSession: selectedSessionInfo,
+      sessionId,
+      storedSessionId: sessionState.storedSessionId
+    })
+  )
   const queueLabel = $derived(queuedPrompts.length === 1 ? '1 queued prompt' : `${queuedPrompts.length} queued prompts`)
   const queueCardClass = `${cardClass} mb-2 border-warning/30 !bg-warning/5 p-2`
   const suggestionCardClass = `${cardClass} mb-2 border-primary/30 !bg-primary/5 p-2`
@@ -542,6 +563,8 @@
             </div>
 
             <div class="flex min-w-0 items-center gap-2">
+              <ContextStatusPopover compact={compact || responsiveCompact} viewModel={contextStatus} />
+
               <ModelPicker
                 busy={busy}
                 compact={compact}
