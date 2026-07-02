@@ -4,8 +4,9 @@
   import { tick } from 'svelte'
   import { marked, Renderer, type Tokens } from 'marked'
   import DOMPurify from 'dompurify'
+  import DiffCards from './DiffCards.svelte'
   import { isRemoteGatewayMediaPath, mediaName, renderPreviewMediaReferences } from '$lib/hermes/files'
-  import { previewFromRemoteFilePath, type ConversationPreview } from '$lib/hermes/conversations'
+  import { extractDiffCardSegments, previewFromRemoteFilePath, type ConversationPreview } from '$lib/hermes/conversations'
   import { readRemoteFileDataUrl, remoteFileSourceFromHref, viewerKindForRemoteFile } from '$lib/hermes/files'
   import './markdown.css'
 
@@ -32,8 +33,8 @@
   let activeMediaOverlayLoading = $state(false)
   let mediaOverlaySequence = 0
 
-  const html = $derived(renderMarkdown(text))
-  const renderSignature = $derived(`${html}\u0000${profile ?? ''}`)
+  const segments = $derived(extractDiffCardSegments(text))
+  const renderSignature = $derived(`${text}\u0000${profile ?? ''}`)
 
   $effect(() => {
     const signature = renderSignature
@@ -313,7 +314,13 @@
   data-streaming={streaming ? 'true' : undefined}
   bind:this={containerElement}
 >
-  {@html html}
+  {#each segments as segment, index (`${segment.type}-${index}`)}
+    {#if segment.type === 'markdown'}
+      {@html renderMarkdown(segment.text)}
+    {:else}
+      <DiffCards card={segment.card} {onOpenPreview} {profile} />
+    {/if}
+  {/each}
 </div>
 
 {#if activeMediaOverlay}

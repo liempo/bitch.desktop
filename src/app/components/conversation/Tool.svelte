@@ -2,15 +2,18 @@
   import { onDestroy } from 'svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
+  import DiffCards from './DiffCards.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import type { ConversationTool, ConversationToolStatus } from '$lib/hermes/conversations'
+  import { parseDiffCards, type ConversationPreview, type ConversationTool, type ConversationToolStatus } from '$lib/hermes/conversations'
 
   interface Props {
+    onOpenPreview?: (preview: ConversationPreview) => void
+    profile?: null | string
     tool: ConversationTool
   }
 
-  let { tool }: Props = $props()
+  let { onOpenPreview, profile = null, tool }: Props = $props()
 
   let expanded = $state(false)
   let elapsed = $state(0)
@@ -23,6 +26,8 @@
   const statusLabel = $derived(toolStatusLabel(tool.name, tool.status, hasError, Boolean(contextPreview)))
   const fallbackSummary = $derived(!contextPreview && tool.summary && !hasDetail ? tool.summary : '')
   const elapsedText = $derived(formatElapsed(elapsed))
+  const outputDiffCard = $derived(tool.output ? parseDiffCards(tool.output) : null)
+  const hasOutputDiff = $derived((outputDiffCard?.files.length ?? 0) > 0)
   const toolCardClass = $derived(
     `${cardClass} my-1.5 overflow-hidden border-dashed ${hasError ? 'border-danger/35 !bg-danger/5' : 'border-line'} text-xs`
   )
@@ -175,7 +180,11 @@
           <p class="mb-1 text-[0.65rem] font-medium uppercase tracking-[0.08em] text-ink-muted/70">
             Output
           </p>
-          <TerminalBlock class="max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.output}</TerminalBlock>
+          {#if hasOutputDiff && outputDiffCard}
+            <DiffCards card={outputDiffCard} {onOpenPreview} {profile} />
+          {:else}
+            <TerminalBlock class="max-h-20 overflow-auto px-2 py-1.5 text-[0.7rem] leading-relaxed text-ink-muted">{tool.output}</TerminalBlock>
+          {/if}
         </div>
       {/if}
 
