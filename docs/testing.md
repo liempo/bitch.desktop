@@ -25,6 +25,22 @@ BITCH uses a layered test pyramid so Hermes Desktop-inspired features land behin
 - Harness: Playwright starts the Vite renderer with `npm run frontend:dev`, installs a mocked Tauri/dashboard environment before app code runs, and exercises real browser routes without a live Hermes gateway or live Beszel hub.
 - Purpose: smoke MAIN, AGENT, ASSETS, CRON, KANBAN, SETTINGS, and CALENDAR routes; cover mobile and desktop breakpoints; prove route-level rendering, not just raw source strings.
 
+## Route-level UI coverage matrix
+
+`src/app/tests/routes/route-interactions.ui.ts` extends the basic route smoke probe with rendered interaction coverage against mocked remote services:
+
+| Route    | Viewports | Representative checks                                                                                                                                                         |
+| -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MAIN     | mobile    | Primary navigation popover opens and changes routes without a live gateway.                                                                                                   |
+| AGENT    | mobile    | Session picker dialog opens by keyboard, lists mocked remote sessions, and hydrates a selected session through mocked dashboard history plus gateway resume.                  |
+| ASSETS   | desktop   | Authenticated remote filesystem previews cover `/opt/data` text files and `/box/.hermes/cache/canvases` HTML media through `/api/fs/*`; `/tmp` is not used as the proof path. |
+| CALENDAR | desktop   | Mocked CalDAV config/events render the month grid, next-month navigation, Today reset, and event detail links.                                                                |
+| CRON     | desktop   | Mocked scheduler APIs exercise loading, job, run-failure, and backend-error states.                                                                                           |
+| KANBAN   | desktop   | Mocked board data exercises lane collapse/expand and card detail inspection.                                                                                                  |
+| SETTINGS | mobile    | Theme selection and the VS Code Marketplace theme picker dialog render under the compact viewport.                                                                            |
+
+Generated Playwright screenshots, traces, videos, and HTML reports must stay under `test-results/**` or `playwright-report/**`; both directories are ignored by git and Knip so local failure artifacts do not leak into review.
+
 ## Source-contract allowlist
 
 Raw-source tests (`?raw`, `import.meta.glob(..., query: '?raw')`, or direct file-text checks) are a small allowlist, not a substitute for behavior coverage. Keep them only when the reviewed source text is the product contract and a DOM/unit/UI test would be weaker, slower, or misleading. Every source-contract test must name its owner layer and the invariant it protects.
