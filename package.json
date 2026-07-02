@@ -12,6 +12,7 @@
     "dev": "bash scripts/rust-wrapper.sh tauri dev",
     "setup:rust": "bash scripts/rust-setup.sh",
     "build": "bash scripts/rust-wrapper.sh tauri build",
+    "install": "node scripts/install.mjs",
     "frontend:dev": "vite --host 127.0.0.1 --port 5173",
     "frontend:build": "vite build",
     "icon:generate": "node scripts/generate-glyph-icon.mjs",

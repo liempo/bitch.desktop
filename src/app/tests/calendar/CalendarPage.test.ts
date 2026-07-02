@@ -329,13 +329,14 @@ describe('Calendar page source contract', () => {
     expect(calendarPageSource).toContain('function highlightedMonthKey')
     expect(calendarPageSource).toContain('function monthGridScrollTop')
     expect(calendarPageSource).toContain('function monthWeekRowHeight')
+    expect(calendarPageSource).toContain('const firstFullVisibleIndex = clamp(')
     expect(calendarPageSource).toContain(
-      'const firstVisibleIndex = clamp(Math.floor(monthGridScrollTop(scroller) / rowHeight), 0, monthVirtualGrid.weekCount - 1)'
+      'Math.ceil((monthGridScrollTop(scroller) - monthFullRowVisibilityEpsilonPx) / rowHeight)'
     )
-    expect(calendarPageSource).toContain('monthWeekAtIndex(monthVirtualGrid, index)')
-    expect(calendarPageSource).toContain('const scores = new Map<string, VisibleMonthScore>()')
-    expect(calendarPageSource).toContain('score.count += 1')
-    expect(calendarPageSource).toContain('const countDelta = right[1].count - left[1].count')
+    expect(calendarPageSource).toContain('dominantMonthKey(monthWeekAtIndex(monthVirtualGrid, firstFullVisibleIndex))')
+    expect(calendarPageSource).not.toContain('const scores = new Map<string, VisibleMonthScore>()')
+    expect(calendarPageSource).not.toContain('score.count += 1')
+    expect(calendarPageSource).not.toContain('const countDelta = right[1].count - left[1].count')
     expect(calendarPageSource).toContain('data-calendar-day-month={monthStartKey(cell.dateKey)}')
     expect(calendarPageSource).toContain('data-calendar-weekday-header')
     expect(calendarPageSource).not.toContain('function highlightedMonthRow')

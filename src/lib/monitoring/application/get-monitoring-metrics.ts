@@ -26,7 +26,7 @@ async function fetchCollectionRecords(
 }
 
 function monitoringAuthHint(): string {
-  return 'Set MONITORING_AUTH_TOKEN or MONITORING_EMAIL/MONITORING_PASSWORD, and set MONITORING_SYSTEM_ID to target a specific Beszel system.'
+  return 'Set monitoring.authToken or monitoring.email/monitoring.password, and set monitoring.systemId to target a specific Beszel system in ~/.bitch/config.yaml.'
 }
 
 function errorMessage(error: unknown): string {
@@ -38,7 +38,7 @@ async function fetchConfiguredSystem(config: MonitoringConfig, requestJson: Moni
     return await requestJson(collectionRecordPath(BESZEL_COLLECTIONS.systems, config.systemId))
   } catch (error) {
     throw new Error(
-      `Beszel system "${config.systemId}" is not visible to the app. Check MONITORING_SYSTEM_ID and Beszel auth. ${monitoringAuthHint()} ${errorMessage(error)}`
+      `Beszel system "${config.systemId}" is not visible to the app. Check monitoring.systemId and Beszel auth. ${monitoringAuthHint()} ${errorMessage(error)}`
     )
   }
 }

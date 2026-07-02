@@ -146,13 +146,15 @@ describe('Main dashboard source contract', () => {
     expect(`${mainGlyphPanelSource}\n${glyphSource}`).not.toMatch(/#8be9fd|#bd93f9|#ff79c6/)
   })
 
-  it('loads Beszel monitoring endpoint config from MONITORING_URL', () => {
+  it('loads Beszel monitoring endpoint config from ~/.bitch/config.yaml through the Tauri bridge', () => {
     const monitoringSource = `${monitoringAdapterSource}\n${monitoringMetricsApplicationSource}`
 
-    expect(monitoringAdapterSource).toContain('__MONITORING_SYSTEM_ID__')
-    expect(monitoringAdapterSource).toContain('__MONITORING_URL__')
+    expect(monitoringAdapterSource).toContain('get_monitoring_config')
+    expect(monitoringAdapterSource).toContain('loadMonitoringConfig')
     expect(monitoringAdapterSource).toContain('monitoring_request')
     expect(monitoringAdapterSource).toContain('http://homestation:8090')
+    expect(monitoringAdapterSource).not.toContain('__MONITORING_SYSTEM_ID__')
+    expect(monitoringAdapterSource).not.toContain('__MONITORING_URL__')
     expect(monitoringSource).toContain('/api/collections')
     expect(monitoringSource).toContain('BESZEL_COLLECTIONS')
     expect(monitoringSource).toContain("containers: 'containers'")

@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::config::config_value;
 
 pub const CALDAV_CONFIG_HINT: &str =
-    "Set CALDAV_URL to a CalDAV endpoint or calendar collection URL, plus CALDAV_USERNAME and CALDAV_PASSWORD.";
+    "Set calendar.url, calendar.username, and calendar.password in ~/.bitch/config.yaml.";
 
 #[derive(Clone, Debug)]
 pub struct CalDavConfig {
@@ -160,7 +160,9 @@ mod tests {
 
     #[test]
     fn rejects_missing_or_non_http_caldav_config() {
-        assert!(resolve_with_values(&[]).unwrap_err().contains("CALDAV_URL"));
+        assert!(resolve_with_values(&[])
+            .unwrap_err()
+            .contains("calendar.url"));
         assert!(resolve_with_values(&[
             ("CALDAV_URL", "file:///calendar"),
             ("CALDAV_USERNAME", "operator"),

@@ -13,6 +13,7 @@
     formatBytes,
     formatPercent,
     formatUptime,
+    loadMonitoringConfig,
     monitoringConfig,
     type MonitoringMetrics
   } from '$lib/monitoring'
@@ -34,10 +35,10 @@
 
   let lastLoadedScope: null | string = null
   let profileRefreshStarted = false
+  let monitoring = $state(monitoringConfig())
   let monitoringMetrics = $state<MonitoringMetrics>(EMPTY_MONITORING_METRICS)
   let monitoringError = $state('')
 
-  const monitoring = monitoringConfig()
 
   const connectionState = $derived(gatewayState.connectionState)
   const recentSessions = $derived(recentDashboardSessions(sessionState.sessions, 3))
@@ -121,6 +122,7 @@
 
   async function refreshMonitoring(): Promise<void> {
     try {
+      monitoring = await loadMonitoringConfig()
       monitoringMetrics = await fetchMonitoringMetrics(monitoring)
       monitoringError = ''
     } catch (error) {

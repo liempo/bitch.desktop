@@ -103,6 +103,7 @@ describe('Rust bridge backend lanes', () => {
     expect(libSource).toContain('commands::gateway::connect_ws')
     expect(libSource).toContain('commands::calendar::list_calendar_events')
     expect(libSource).toContain('commands::calendar::sync_calendar_events')
+    expect(libSource).toContain('commands::monitoring::get_monitoring_config')
     expect(libSource).toContain('commands::monitoring::monitoring_request')
     expect(libSource).not.toMatch(/fn\s+resolve_gateway_config/)
     expect(libSource).not.toMatch(/fn\s+monitoring_auth_token/)

@@ -13,6 +13,7 @@ import {
   formatBytes,
   formatPercent,
   formatUptime,
+  loadMonitoringConfig,
   monitoringConfig,
   normalizeBeszelContainers,
   normalizeMonitoringMetrics,
@@ -103,7 +104,7 @@ describe('monitoring helpers', () => {
     mockInvoke.mockReset()
   })
 
-  it('builds a Beszel collection API URL from a full MONITORING_URL value', () => {
+  it('builds a Beszel collection API URL from a full monitoring URL value', () => {
     expect(monitoringConfig({ systemId: '', url: 'http://homestation:8090' })).toEqual({
       baseUrl: 'http://homestation:8090',
       metricsUrl: 'http://homestation:8090/api/collections',
@@ -353,6 +354,21 @@ describe('monitoring helpers', () => {
     expect(metrics.cpu.usagePercent).toBe(22.5)
   })
 
+  it('loads runtime monitoring config from ~/.bitch/config.yaml through the Tauri bridge', async () => {
+    mockInvoke.mockResolvedValueOnce({
+      baseUrl: 'https://monitoring.airplane-skilift.ts.net',
+      systemId: 'el6ygn9w6w41w41'
+    })
+
+    await expect(loadMonitoringConfig()).resolves.toEqual({
+      baseUrl: 'https://monitoring.airplane-skilift.ts.net',
+      metricsUrl: 'https://monitoring.airplane-skilift.ts.net/api/collections',
+      port: '443',
+      systemId: 'el6ygn9w6w41w41'
+    })
+    expect(mockInvoke).toHaveBeenCalledWith('get_monitoring_config', undefined)
+  })
+
   it('uses the Tauri monitoring command for default requests', async () => {
     mockInvoke.mockResolvedValueOnce({ items: [] })
 
@@ -379,6 +395,6 @@ describe('monitoring helpers', () => {
         },
         requestJson
       )
-    ).rejects.toThrow(/MONITORING_EMAIL\/MONITORING_PASSWORD/)
+    ).rejects.toThrow(/monitoring.email\/monitoring.password/)
   })
 })

@@ -24,7 +24,7 @@ Manual testing confirmed three core flows working:
 - **Chat conversation** — Messages stream in real-time (`message.start` → `message.delta` → `message.complete`). Tool rows, reasoning blocks, markdown rendering, and auto-scroll all functional.
 - **Session management** — Sidebar lists sessions with search, session resume via URL hash, create new session, rename, archive, and delete all operational.
 
-**Blocking gap:** No multi-profile support. The app connects to a single gateway URL from `.env` with a single session token. Profile selection (bitch / bitch-a / bitch-t) needs architecture decisions.
+**Blocking gap:** No multi-profile support. Earlier builds connected to a single gateway URL from local app config with one session token. Profile selection (bitch / bitch-a / bitch-t) needs architecture decisions.
 
 **Research findings** (upstream issue [#37713](https://github.com/NousResearch/hermes-agent/issues/37713)):
 

@@ -44,7 +44,7 @@ Responsibilities:
 - window setup and macOS traffic-light behavior;
 - external URL opening;
 - connection configuration storage;
-- generic env/.env configuration helpers;
+- generic `~/.bitch/config.yaml` configuration helpers and legacy connection migration;
 - generic HTTP client and response helpers;
 - shared error/result helpers.
 
