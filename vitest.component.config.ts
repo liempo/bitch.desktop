@@ -20,30 +20,9 @@ export default defineConfig(({ mode }) => {
       __MONITORING_SYSTEM_ID__: JSON.stringify(env.MONITORING_SYSTEM_ID ?? ''),
       __MONITORING_URL__: JSON.stringify(env.MONITORING_URL ?? 'http://homestation:8090')
     },
-    build: {
-      rolldownOptions: {
-        output: {
-          codeSplitting: {
-            groups: [
-              {
-                name: 'three',
-                test: /node_modules\/three\//,
-                maxSize: 480_000
-              }
-            ]
-          }
-        }
-      }
-    },
-    clearScreen: false,
-    server: {
-      host: '127.0.0.1',
-      port: 5173,
-      strictPort: true
-    },
     test: {
-      include: ['src/**/*.{test,spec}.ts'],
-      environment: 'node',
+      environment: 'jsdom',
+      include: ['src/**/*.component.test.ts'],
       setupFiles: ['src/lib/tests/support/component-dom-setup.ts']
     }
   }

@@ -14,6 +14,7 @@ items under its `## Feature checklist` are task sources.
 | Calendar / CalDAV                   | [`calendar/caldav.md`](calendar/caldav.md)               | `src/lib/calendar/*`, `src-tauri/src/calendar/*`, `commands/calendar.rs`                                        |
 | Platform / native bridge            | [`platform/native-bridge.md`](platform/native-bridge.md) | `src/lib/platform/*`, `src-tauri/src/platform/*`, shared Rust `config/errors/http` helpers                      |
 | Shared conventions and future lanes | [`shared/backend-revamp.md`](shared/backend-revamp.md)   | architecture-boundary tests, migration rules, future lane pattern                                               |
+| Testing                             | [`testing.md`](testing.md)                               | unit, component DOM, route UI, remote mock, and fixture ownership conventions                                   |
 | Roadmap                             | [`roadmap.md`](roadmap.md)                               | scannable feature checklist and delivered/backlog history                                                       |
 | Devlog                              | [`devlog.md`](devlog.md)                                 | chronological historical notes                                                                                  |
 
@@ -44,6 +45,8 @@ items under its `## Feature checklist` are task sources.
   history plus reusable Clean MVVM / Ports & Adapters rules.
 - [`ui-componentization-audit.md`](ui-componentization-audit.md) — renderer UI
   componentization scan, Bits UI candidates, and deferred extraction plan.
+- [`testing.md`](testing.md) — BITCH test pyramid, remote-only mocks,
+  fixture ownership, and validation scripts.
 - [`platform/native-bridge.md`](platform/native-bridge.md) — Rust bridge lane
   responsibilities and stable Tauri command wrapper policy.
 
