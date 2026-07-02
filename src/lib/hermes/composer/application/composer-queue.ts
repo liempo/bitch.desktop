@@ -168,6 +168,52 @@ export function removeQueuedPrompt(key: null | string | undefined, id: string): 
   return true
 }
 
+export function updateQueuedPrompt(
+  key: null | string | undefined,
+  id: string,
+  patch: { attachments?: ComposerAttachment[]; text?: string }
+): boolean {
+  const sessionKey = sessionKeyOf(key)
+  if (!sessionKey) return false
+
+  const queue = queueFor(sessionKey)
+  const index = queue.findIndex(entry => entry.id === id)
+  if (index < 0) return false
+
+  const next = queue.map((entry, entryIndex) =>
+    entryIndex === index
+      ? {
+          ...entry,
+          ...(patch.text !== undefined ? { text: patch.text } : {}),
+          ...(patch.attachments !== undefined ? { attachments: patch.attachments.map(cloneAttachment) } : {})
+        }
+      : entry
+  )
+
+  writeSession(sessionKey, next)
+  return true
+}
+
+export function moveQueuedPrompt(key: null | string | undefined, id: string, direction: 'down' | 'up'): boolean {
+  const sessionKey = sessionKeyOf(key)
+  if (!sessionKey) return false
+
+  const queue = queueFor(sessionKey)
+  const index = queue.findIndex(entry => entry.id === id)
+  if (index < 0) return false
+
+  const targetIndex = direction === 'up' ? index - 1 : index + 1
+  if (targetIndex < 0 || targetIndex >= queue.length) return false
+
+  const next = queue.slice()
+  const [entry] = next.splice(index, 1)
+  if (!entry) return false
+  next.splice(targetIndex, 0, entry)
+
+  writeSession(sessionKey, next)
+  return true
+}
+
 export function clearQueuedPrompts(key: null | string | undefined): void {
   const sessionKey = sessionKeyOf(key)
   if (!sessionKey || !(sessionKey in queuedPromptsBySession)) return

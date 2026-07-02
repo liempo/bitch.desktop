@@ -64,7 +64,12 @@ import {
   submitPrompt,
   type ComposerAttachment
 } from '$lib/hermes/composer'
-import { clearQueuedPrompts, getQueuedPrompts } from '$lib/hermes/composer'
+import {
+  clearComposerPromptHistory,
+  clearQueuedPrompts,
+  getQueuedPrompts,
+  recallComposerPromptHistory
+} from '$lib/hermes/composer'
 import { messageState, setConversationBusy, conversationForSession } from '$lib/hermes/conversations'
 import { profileState } from '$lib/hermes/profiles'
 import { rememberRuntimeSession, sessionState } from '$lib/hermes/sessions'
@@ -116,6 +121,7 @@ describe('composer runtime targeting', () => {
     mockRouterState.route = 'session'
     mockRouterState.sessionId = 'other-stored'
     composerState.sessions = {}
+    clearComposerPromptHistory('stored-A')
     composerState.lineageFastSelections = {}
     composerState.lineageModelSelections = {}
     composerState.lineageReasoningSelections = {}
@@ -146,6 +152,7 @@ describe('composer runtime targeting', () => {
       text: 'hello cached runtime'
     })
     expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual(['hello cached runtime'])
+    expect(recallComposerPromptHistory('stored-A', 'previous', '')).toBe('hello cached runtime')
     expect(messageState.sessions['live-A']).toBeUndefined()
   })
 
@@ -748,6 +755,7 @@ describe('composer runtime targeting', () => {
     await expect(executeSlashCommand('stored-A', '/profile crypto')).resolves.toBe(true)
 
     expect(mockRequestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+    expect(recallComposerPromptHistory('stored-A', 'previous', '')).toBe('/profile crypto')
     expect(profileState.newChatProfile).toBe('crypto')
     expect(mockEnsureGatewayForProfile).toHaveBeenCalledWith('crypto')
     expect(conversationForSession('stored-A')?.messages.map(message => message.text)).toEqual([

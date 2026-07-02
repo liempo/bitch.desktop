@@ -48,6 +48,7 @@ import type {
 } from '$lib/types/hermes'
 
 import { dequeueQueuedPrompt, enqueueQueuedPrompt, type QueuedPromptEntry } from '../application/composer-queue'
+import { recordComposerPromptHistory } from '../application/composer-history'
 
 export { shouldDispatchSlashImmediately }
 export type { SlashCommandItem }
@@ -156,6 +157,7 @@ export interface ComposerRouteOptions {
 export interface SubmitPromptOptions extends ComposerRouteOptions {
   attachments?: ComposerAttachment[]
   fromQueue?: boolean
+  history?: boolean
   queue?: boolean
   text?: string
 }
@@ -1021,6 +1023,7 @@ export async function executeSlashCommand(
 
   if (!command.startsWith('/') || !parsed.name) return false
 
+  recordComposerPromptHistory(displayKey ?? sessionId ?? NEW_SESSION_KEY, command)
   composer.submitting = true
   composer.error = null
   clearComposerPayload(targetComposerKey)
@@ -1175,7 +1178,12 @@ async function executeCommandDispatch(options: {
         renderSlashOutput(options.command, { output: `loading skill: ${dispatch.name}` })
       )
       seedConversationRuntimeSelections(options.targetSessionId, options.runtimeOptions ?? {})
-      return submitPrompt(options.sessionId, { commitRoute: options.commitRoute, queue: false, text: message })
+      return submitPrompt(options.sessionId, {
+        commitRoute: options.commitRoute,
+        history: false,
+        queue: false,
+        text: message
+      })
     }
 
     case 'send': {
@@ -1194,7 +1202,12 @@ async function executeCommandDispatch(options: {
       }
       seedConversationRuntimeSelections(options.targetSessionId, options.runtimeOptions ?? {})
 
-      return submitPrompt(options.sessionId, { commitRoute: options.commitRoute, queue: false, text: message })
+      return submitPrompt(options.sessionId, {
+        commitRoute: options.commitRoute,
+        history: false,
+        queue: false,
+        text: message
+      })
     }
   }
 }
@@ -1463,6 +1476,10 @@ export async function submitPrompt(
 
   if (!hasPayload) return false
 
+  if (!options.fromQueue && options.history !== false && visibleText) {
+    recordComposerPromptHistory(displaySessionKey(sessionId) ?? sessionId ?? NEW_SESSION_KEY, visibleText)
+  }
+
   const activeThread = conversationForSession(sessionId)
 
   if (allowQueue && !options.fromQueue && sessionId && activeThread?.busy) {
@@ -1575,6 +1592,7 @@ export async function drainNextQueuedPrompt(
     attachments: entry.attachments,
     commitRoute: options.commitRoute,
     fromQueue: true,
+    history: false,
     text: entry.text
   })
 }
