@@ -91,14 +91,17 @@ If you later decide to copy more upstream code, add it here explicitly and keep 
 
 ## Validation expectations
 
-When a change touches the renderer, run the relevant focused layer first, then the normal renderer gates. For broad UI/test-harness changes, use the full pyramid from `docs/testing.md`:
+When a change touches the renderer, write behavior-first tests at the right layer before production code, run the relevant focused layer first, then the normal renderer gates. For broad UI/test-harness changes, use the full pyramid from `docs/testing.md`:
 
 ```bash
 npm run test:all
+npm run test:source-contracts
 npm run type-check
 npm run lint
 npm run frontend:build
 ```
+
+For final PR validation, run `npm run validate:full` unless a platform blocker is documented with equivalent command evidence.
 
 When a change touches Rust/Tauri code, use the repo-local wrapper if global Cargo is unavailable:
 
@@ -137,13 +140,14 @@ bash scripts/rust-wrapper.sh cargo audit --manifest-path src-tauri/Cargo.toml
 
 ## Testing
 
-Write tests when they materially improve stability — especially for gateway wiring, auth/session handling, JSON-RPC transport behavior, and Tauri bridge logic that is easy to regress.
+Behavior-first tests are the default for behavior changes. Write tests when they materially improve stability — especially for gateway wiring, auth/session handling, JSON-RPC transport behavior, and Tauri bridge logic that is easy to regress.
 
 - Add or extend tests alongside behavior changes; do not land features or fixes without coverage when a reasonable automated check exists.
 - Prefer focused unit tests on pure TypeScript/Rust helpers; use integration-style checks only where they catch real cross-layer failures.
 - Keep tests runnable in CI: document the command in the PR if a new script is added (for example `npm test`, `npm run test:ui`, or `bash scripts/rust-wrapper.sh cargo test --manifest-path src-tauri/Cargo.toml`).
 - Keep renderer tests out of runtime folders: app/UI tests belong under `src/app/tests/` using the same subtree as `src/app/`, and library tests belong under `src/lib/tests/` using the same subtree as `src/lib/`. Test-only support helpers belong under `src/lib/tests/support/`.
-- Follow `docs/testing.md` for the BITCH test pyramid: source-contract/unit tests, Svelte component DOM tests, route-level UI tests, remote-only Tauri/dashboard mocks, and fixture ownership.
+- Follow `docs/testing.md` for the BITCH test pyramid: behavior-first tests, source-contract/unit tests, Svelte component DOM tests, route-level UI tests, remote-only Tauri/dashboard mocks, and fixture ownership.
+- Raw-source/file-text tests (`?raw`, `import.meta.glob(..., query: '?raw')`, `readFileSync`, or `readFile`) are only allowlisted architecture tripwires. Add executable unit/component/UI behavior coverage instead; if a source-contract test is truly required, update `docs/testing.md` and `scripts/check-source-contracts.mjs` in the same PR.
 - Do not add test frameworks or debug-only harnesses unless the tests they enable are maintained and run as part of normal validation.
 
 ## Repo-local Rust setup
