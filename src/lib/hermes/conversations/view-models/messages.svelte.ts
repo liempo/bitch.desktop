@@ -894,10 +894,22 @@ export function shouldPreserveLiveConversation(sessionId: string, snapshotLength
   return false
 }
 
-export function syncRunningFromResume(sessionId: string, info?: { running?: boolean }): void {
-  if (typeof info?.running === 'boolean') {
-    setConversationBusy(sessionId, info.running)
+export function syncRunningFromResume(
+  sessionId: string,
+  info?: {
+    branch?: string
+    cwd?: string
+    fast?: boolean
+    model?: string
+    provider?: string
+    reasoning_effort?: string
+    running?: boolean
+    usage?: Partial<UsageStats>
   }
+): void {
+  if (!info) return
+
+  applyRuntimeInfo(sessionId, info as GatewayPayload)
 }
 
 export function setConversationBusy(sessionId: string, busy: boolean): void {

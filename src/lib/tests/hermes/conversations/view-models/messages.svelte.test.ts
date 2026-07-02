@@ -31,6 +31,7 @@ import {
   hydrateSessionMessagesFromGateway,
   messageState,
   setConversationBusy,
+  syncRunningFromResume,
   conversationForSession
 } from '$lib/hermes/conversations'
 import { sessionMessagesLoaded, shouldShowSessionSidebarLoader } from '$lib/hermes/sessions'
@@ -135,6 +136,43 @@ describe('message session id mapping', () => {
     expect(messageState.sessions['background-live']).toBeUndefined()
     expect(sessionState.workingSessionIds).toContain('background-stored')
     expect(sessionState.workingSessionIds).not.toContain('background-live')
+  })
+
+  it('hydrates resume runtime info beyond the running flag', () => {
+    syncRunningFromResume(storedKey, {
+      branch: 'feat/context-usage-popover',
+      cwd: '/box/project',
+      fast: true,
+      model: 'gpt-5.5',
+      provider: 'openai',
+      reasoning_effort: 'high',
+      running: true,
+      usage: {
+        calls: 1,
+        context_max: 32_000,
+        context_percent: 12.5,
+        context_used: 4_000,
+        input: 1_000,
+        output: 250,
+        total: 1_250
+      }
+    })
+
+    expect(conversationForSession(storedKey)).toMatchObject({
+      branch: 'feat/context-usage-popover',
+      busy: true,
+      cwd: '/box/project',
+      fast: true,
+      model: 'gpt-5.5',
+      provider: 'openai',
+      reasoningEffort: 'high',
+      usage: {
+        context_max: 32_000,
+        context_percent: 12.5,
+        context_used: 4_000,
+        total: 1_250
+      }
+    })
   })
 
   it('renders optimistic user messages in the stored visible conversation even when submit uses the live sid', () => {
