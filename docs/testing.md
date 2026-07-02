@@ -2,6 +2,12 @@
 
 BITCH uses a layered test pyramid so Hermes Desktop-inspired features land behind repeatable checks instead of optimism wearing a lab coat. Keep the app remote-only in every layer: tests may mock the Tauri bridge and remote dashboard APIs, but they must not start a local Hermes server, expose dashboard secrets to the browser, or rely on public file-server/Dufs fallbacks.
 
+## Behavior-first testing
+
+Behavior-first testing is the default. Start with the smallest executable check that observes user-visible or domain behavior, watch it fail, then make the production change. Prefer pure unit tests for rules, Svelte component DOM tests for rendered controls, and Playwright route tests for navigation/workflow behavior. Raw-source checks are CI-allowlisted architecture tripwires only; they are not a way to avoid rendering the component or exercising the route.
+
+The guard command `npm run test:source-contracts` inventories every test that uses `?raw`, `import.meta.glob(..., query: '?raw')`, `readFileSync`, or `readFile`, compares it to the allowlist below, and fails when a new non-allowlisted source-sniffing test appears. If a raw/file-text test is truly the right tool, add it here with an owner layer, disposition, and rationale in the same PR.
+
 ## Test pyramid
 
 ### Pure unit and source-contract tests
@@ -43,7 +49,7 @@ Generated Playwright screenshots, traces, videos, and HTML reports must stay und
 
 ## Source-contract allowlist
 
-Raw-source tests (`?raw`, `import.meta.glob(..., query: '?raw')`, or direct file-text checks) are a small allowlist, not a substitute for behavior coverage. Keep them only when the reviewed source text is the product contract and a DOM/unit/UI test would be weaker, slower, or misleading. Every source-contract test must name its owner layer and the invariant it protects.
+Raw-source tests (`?raw`, `import.meta.glob(..., query: '?raw')`, or direct file-text checks) are a small CI-checked allowlist, not a substitute for behavior coverage. Keep them only when the reviewed source text is the product contract and a DOM/unit/UI test would be weaker, slower, or misleading. Every source-contract test must name its owner layer and the invariant it protects, and every allowlisted path must also appear in `scripts/check-source-contracts.mjs`.
 
 ### Allowed source-contract categories
 
@@ -70,7 +76,7 @@ Raw-source tests (`?raw`, `import.meta.glob(..., query: '?raw')`, or direct file
 
 ### Current source-contract inventory
 
-Updated on 2026-07-02 against `origin/main` at `0dba697`, with component DOM conversions on `chore/bitch-test-behavior-coverage`. The inventory excludes production SVG raw imports in `src/lib/theme/icons.ts` and the `src/app/tests/ui/node-source-shims.d.ts` declaration shim because neither is a test.
+Updated on 2026-07-02 against `origin/main` at `debc971`, after the component DOM and route UI conversion PRs. `npm run test:source-contracts` currently inventories 21 source-contract/file-text test files: 14 `KEEP` allowlisted tripwires and 7 migration rows that must not grow. The inventory excludes production SVG raw imports in `src/lib/theme/icons.ts` and the `src/app/tests/ui/node-source-shims.d.ts` declaration shim because neither is a test.
 
 | Test file                                                 | Raw/file-text target                            | Disposition              | Owner layer                         | Rationale / migration                                                                                                                                                                                                                                                                  |
 | --------------------------------------------------------- | ----------------------------------------------- | ------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,7 +104,7 @@ Updated on 2026-07-02 against `origin/main` at `0dba697`, with component DOM con
 
 Converted source-contract rows are removed from this inventory once their raw-source tests are deleted. The current component DOM replacements are `src/app/tests/navigation/AppNavbar.component.test.ts`, `src/app/tests/settings/SettingsPage.component.test.ts`, `src/app/tests/components/conversation/MessageAttachments.component.test.ts`, `src/app/tests/components/ui/Icon.component.test.ts`, `src/app/tests/agent/sessions/AgentSessionRow.component.test.ts`, and `src/app/tests/agent/preview/AgentPreviewSidebar.component.test.ts`; the raw navbar assertion in `src/app/tests/router.test.ts` was folded into AppNavbar behavior coverage.
 
-No current file is classified `DELETE` outright; every remaining non-allowlisted source check either owns behavior that needs a stronger replacement or contains a smaller invariant that should move into one of the kept tripwires.
+No current file is classified `DELETE` outright; every remaining migration-disposition source check either owns behavior that needs a stronger replacement or contains a smaller invariant that should move into one of the kept tripwires.
 
 ## Remote-only mocks
 
@@ -122,7 +128,7 @@ Never add Dufs, `VITE_BOX_BASE_URL`, browser-held dashboard secrets, local Herme
 
 ## CI validation
 
-The GitHub Actions workflow at `.github/workflows/validation.yml` runs the same foundation stack on pull requests and pushes to `main`: install with `npm ci`, install Chromium for Playwright route tests, then run formatting, type-check, lint, Vitest, route UI smoke tests, renderer build, npm audit, Knip, and whitespace checks.
+The GitHub Actions workflow at `.github/workflows/validation.yml` runs the same foundation stack on pull requests and pushes to `main`: install with `npm ci --ignore-scripts`, install Chromium for Playwright route tests, then run formatting, type-check, lint, the source-contract allowlist guard, Vitest, component DOM tests, route UI smoke tests, renderer build, npm audit, Knip, and whitespace checks.
 
 ## Routine validation
 
@@ -132,7 +138,9 @@ Use focused commands while developing, then run the full stack before a PR:
 npm run fmt:check
 npm run type-check
 npm run lint
+npm run test:source-contracts
 npm test
+npm run test:component
 npm run test:ui
 npm run frontend:build
 npm audit --audit-level=moderate
@@ -140,4 +148,4 @@ npx --yes knip --reporter json
 git diff --check
 ```
 
-`npm run test:all` is the quick pyramid sweep: unit/source-contract tests, component DOM tests, then route-level UI tests.
+`npm run test:all` is the quick pyramid sweep: unit/source-contract tests, component DOM tests, then route-level UI tests. `npm run validate:full` runs the complete local PR gate, including formatting, type-checking, lint, the source-contract guard, tests, build, npm audit, Knip, and whitespace checks.

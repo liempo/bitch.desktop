@@ -38,8 +38,14 @@ jobs:
       - name: Lint renderer
         run: npm run lint
 
+      - name: Check source-contract allowlist
+        run: npm run test:source-contracts
+
       - name: Run Vitest suite
         run: npm test
+
+      - name: Run component DOM tests
+        run: npm run test:component
 
       - name: Run route UI smoke tests
         run: npm run test:ui

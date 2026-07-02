@@ -89,6 +89,8 @@ npm run install -- --force-config     # rewrite config.yaml from legacy .env
 - `npm run test:unit` — run pure unit and source-contract tests only.
 - `npm run test:component` — run Svelte component DOM tests with jsdom.
 - `npm run test:ui` — run Playwright route-level UI tests with mocked Tauri/dashboard services.
+- `npm run test:source-contracts` — inventory raw-source/file-text tests and fail when a non-allowlisted source-contract check appears.
 - `npm run test:all` — run the full test pyramid: unit, component, then route UI.
+- `npm run validate:full` — run the full PR validation stack: format, type-check, lint, source-contract guard, tests, build, npm audit, Knip, and whitespace checks.
 
-See [`docs/testing.md`](docs/testing.md) for mock ownership, remote-only fixture rules, and the full validation sequence.
+See [`docs/testing.md`](docs/testing.md) for behavior-first testing, mock ownership, remote-only fixture rules, the source-contract allowlist, and the full validation sequence.

@@ -16,7 +16,7 @@ async function openMockedRoute(page: Page, hash: string): Promise<void> {
   await installTauriDashboardMock(page)
   await page.goto(`/${hash}`)
   await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible()
-  await expect(page.locator('main')).toBeVisible()
+  await expect(page.locator('main').first()).toBeVisible()
 }
 
 test.describe('BITCH route-level smoke tests with remote mocks', () => {
