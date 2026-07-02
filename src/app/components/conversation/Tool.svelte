@@ -1,16 +1,18 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import Button from '@/app/components/ui/Button.svelte'
   import Icon from '@/app/components/ui/Icon.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import TerminalBlock from '@/app/components/ui/TerminalBlock.svelte'
   import { cardClass } from '@/app/components/ui/styles'
-  import type { ConversationTool, ConversationToolStatus } from '$lib/hermes/conversations'
+  import { canOpenRemoteToolTranscript, type ConversationTool, type ConversationToolStatus } from '$lib/hermes/conversations'
 
   interface Props {
+    onOpenTranscript?: (toolId: string) => void | Promise<unknown>
     tool: ConversationTool
   }
 
-  let { tool }: Props = $props()
+  let { onOpenTranscript, tool }: Props = $props()
 
   let expanded = $state(false)
   let elapsed = $state(0)
@@ -18,7 +20,8 @@
 
   const running = $derived(tool.status === 'running')
   const hasError = $derived(Boolean(tool.error))
-  const hasDetail = $derived(Boolean(tool.input || tool.output || tool.error))
+  const hasDetail = $derived(Boolean(tool.input || tool.output || tool.stdout || tool.stderr || tool.error))
+  const hasTranscript = $derived(Boolean(onOpenTranscript && canOpenRemoteToolTranscript(tool)))
   const contextPreview = $derived(previewText(tool.context))
   const statusLabel = $derived(toolStatusLabel(tool.name, tool.status, hasError, Boolean(contextPreview)))
   const fallbackSummary = $derived(!contextPreview && tool.summary && !hasDetail ? tool.summary : '')
@@ -50,6 +53,10 @@
 
   function toggle(): void {
     if (hasDetail) expanded = !expanded
+  }
+
+  function openTranscript(): void {
+    void onOpenTranscript?.(tool.id)
   }
 
   function previewText(value: string | undefined): string {
@@ -112,48 +119,55 @@
 </script>
 
 <div class={toolCardClass}>
-  <button
-    class="flex w-full items-center gap-2 bg-transparent px-3 py-2 text-left {hasDetail
-      ? 'cursor-pointer'
-      : 'cursor-default'}"
-    onclick={toggle}
-    type="button"
-    disabled={!hasDetail}
-    aria-expanded={hasDetail ? expanded : undefined}
-  >
-    {#if running || hasError}
-      <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
-        {#if running}
-          <Loader />
-        {:else if hasError}
-          <Icon name="error" label="Error" decorative={false} class="h-3.5 w-3.5 text-danger" />
-        {/if}
-      </span>
-    {/if}
+  <div class="flex w-full items-center gap-2 bg-transparent px-3 py-2">
+    <button
+      class="flex min-w-0 flex-1 items-center gap-2 bg-transparent text-left {hasDetail
+        ? 'cursor-pointer'
+        : 'cursor-default'}"
+      onclick={toggle}
+      type="button"
+      disabled={!hasDetail}
+      aria-expanded={hasDetail ? expanded : undefined}
+    >
+      {#if running || hasError}
+        <span class="grid h-3.5 w-3.5 shrink-0 place-items-center">
+          {#if running}
+            <Loader />
+          {:else if hasError}
+            <Icon name="error" label="Error" decorative={false} class="h-3.5 w-3.5 text-danger" />
+          {/if}
+        </span>
+      {/if}
 
       {#if hasDetail}
-        <Icon name="chevronRight" class="h-3 w-3 text-ink-muted/70 {expanded ? 'rotate-90' : ''}" />
+        <Icon name="chevronRight" class="h-3 w-3 shrink-0 text-ink-muted/70 {expanded ? 'rotate-90' : ''}" />
       {/if}
 
-    <span class="min-w-0 flex-1">
-      <span class="flex min-w-0 items-baseline gap-1.5">
-        <span class="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] {running ? 'text-primary' : hasError ? 'text-danger' : 'text-ink'}">
-          {statusLabel}
+      <span class="min-w-0 flex-1">
+        <span class="flex min-w-0 items-baseline gap-1.5">
+          <span class="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] {running ? 'text-primary' : hasError ? 'text-danger' : 'text-ink'}">
+            {statusLabel}
+          </span>
+          {#if contextPreview}
+            <span class="truncate text-ink-muted">· {contextPreview}</span>
+          {/if}
         </span>
-        {#if contextPreview}
-          <span class="truncate text-ink-muted">· {contextPreview}</span>
+        {#if fallbackSummary}
+          <span class="mt-0.5 block truncate text-ink-muted">{fallbackSummary}</span>
         {/if}
       </span>
-      {#if fallbackSummary}
-        <span class="mt-0.5 block truncate text-ink-muted">{fallbackSummary}</span>
+
+      {#if running}
+        <span class="shrink-0 tabular-nums text-ink-muted/70">{elapsedText}</span>
       {/if}
-    </span>
+    </button>
 
-    {#if running}
-      <span class="shrink-0 tabular-nums text-ink-muted/70">{elapsedText}</span>
+    {#if hasTranscript}
+      <Button size="sm" variant="secondary" onclick={openTranscript} aria-label={`Open transcript for ${statusLabel}`}>
+        Transcript
+      </Button>
     {/if}
-
-  </button>
+  </div>
 
   {#if expanded && hasDetail}
     <div class="space-y-2 border-t border-line/50 px-3 py-2">
