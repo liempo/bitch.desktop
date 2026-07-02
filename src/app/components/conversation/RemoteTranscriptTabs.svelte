@@ -7,13 +7,14 @@
   interface Props {
     onClose?: () => void
     requestedTranscriptId?: null | string
+    requestedTranscriptSequence?: number
     transcripts: RemoteToolTranscript[]
   }
 
-  let { onClose, requestedTranscriptId = null, transcripts }: Props = $props()
+  let { onClose, requestedTranscriptId = null, requestedTranscriptSequence = 0, transcripts }: Props = $props()
 
   let selectedId = $state<string | null>(null)
-  let lastAppliedRequestId = $state<string | null>(null)
+  let lastAppliedRequestSequence = $state<number | null>(null)
   let copyStatus = $state<'copied' | 'failed' | null>(null)
 
   const selectedTranscript = $derived(transcripts.find(transcript => transcript.id === selectedId) ?? transcripts[0] ?? null)
@@ -21,9 +22,13 @@
   $effect(() => {
     const availableIds = transcripts.map(transcript => transcript.id)
 
-    if (requestedTranscriptId && requestedTranscriptId !== lastAppliedRequestId && availableIds.includes(requestedTranscriptId)) {
+    if (
+      requestedTranscriptId &&
+      requestedTranscriptSequence !== lastAppliedRequestSequence &&
+      availableIds.includes(requestedTranscriptId)
+    ) {
       selectedId = requestedTranscriptId
-      lastAppliedRequestId = requestedTranscriptId
+      lastAppliedRequestSequence = requestedTranscriptSequence
       copyStatus = null
       return
     }

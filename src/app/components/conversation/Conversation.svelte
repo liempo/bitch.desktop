@@ -26,6 +26,7 @@
   let stickToBottom = $state(true)
   let transcriptPanelOpen = $state(false)
   let requestedTranscriptId = $state<string | null>(null)
+  let requestedTranscriptSequence = $state(0)
 
   const conversation = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(conversation?.messages ?? [])
@@ -112,6 +113,7 @@
     if (!sessionId) return
 
     requestedTranscriptId = `${sessionId}:${toolId}`
+    requestedTranscriptSequence += 1
     transcriptPanelOpen = true
   }
 
@@ -182,6 +184,7 @@
           <RemoteTranscriptTabs
             transcripts={remoteTranscripts}
             requestedTranscriptId={requestedTranscriptId}
+            requestedTranscriptSequence={requestedTranscriptSequence}
             onClose={closeTranscriptTabs}
           />
         </div>

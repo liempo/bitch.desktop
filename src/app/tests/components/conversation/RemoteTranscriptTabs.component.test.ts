@@ -59,6 +59,26 @@ describe('RemoteTranscriptTabs component', () => {
     )
   })
 
+  it('reselects a transcript when a tool row requests the same tab again', async () => {
+    const first = transcript('terminal-a', 'npm run test', 'alpha output')
+    const second = transcript('code-b', 'python check.py', 'beta output')
+
+    const { rerender } = render(RemoteTranscriptTabs, {
+      props: { requestedTranscriptId: first.id, requestedTranscriptSequence: 1, transcripts: [first, second] }
+    })
+
+    await fireEvent.click(screen.getByRole('tab', { name: /execute code.*python check\.py/i }))
+    expect(screen.getByRole('tab', { name: /execute code.*python check\.py/i })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+
+    await rerender({ requestedTranscriptId: first.id, requestedTranscriptSequence: 2, transcripts: [first, second] })
+
+    expect(screen.getByRole('tab', { name: /terminal.*npm run test/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel', { name: /terminal.*npm run test/i })).toHaveTextContent('alpha output')
+  })
+
   it('renders clipped large scrollback while explaining that copy keeps the full transcript', () => {
     const longOutput = Array.from({ length: 8 }, (_, index) => `line ${index + 1}`).join('\n')
     render(RemoteTranscriptTabs, {
