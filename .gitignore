@@ -14,3 +14,5 @@ Thumbs.db
 .idea/
 *.log
 .bin/
+test-results/
+playwright-report/
