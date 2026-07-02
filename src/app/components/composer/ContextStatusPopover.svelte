@@ -55,7 +55,7 @@
     {/snippet}
   </Popover.Trigger>
 
-  <Popover.ContentStatic class={contentClass} sideOffset={6} align="end" forceMount={true}>
+  <Popover.Content class={contentClass} sideOffset={6} align="end" forceMount={true}>
     <Panel title="Context status" fullHeight={false} padded={false} class="!bg-canvas" contentClass="p-0">
       <p class={summaryClass}>{viewModel.summary}</p>
 
@@ -77,5 +77,5 @@
         <span class={`${tagClass} border-line-strong/70 text-[0.58rem]`}>honest metadata only</span>
       </div>
     </Panel>
-  </Popover.ContentStatic>
+  </Popover.Content>
 </Popover.Root>
