@@ -4,9 +4,11 @@
   import Panel from '@/app/components/ui/Panel.svelte'
   import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'
   import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'
+  import { NOTIFICATION_PREFERENCE_ITEMS, loadNotificationPreferences, setNotificationPreference } from '$lib/platform/notifications'
 
   let themeImportStatus = $state('')
   let themePickerOpen = $state(false)
+  let notificationPreferences = $state(loadNotificationPreferences())
 
   function installedThemes() {
     return installedThemeOptions()
@@ -17,6 +19,16 @@
     if (!(target instanceof HTMLSelectElement)) return
 
     selectTheme(target.value)
+  }
+
+  function handleNotificationPreferenceChange(
+    category: (typeof NOTIFICATION_PREFERENCE_ITEMS)[number]['category'],
+    event: Event
+  ): void {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLInputElement)) return
+
+    notificationPreferences = setNotificationPreference(category, target.checked)
   }
 
   function handleUninstallTheme(themeId: string): void {
@@ -82,6 +94,34 @@
         >
           Open VS Code theme picker
         </Button>
+      </div>
+    </Panel>
+
+    <Panel title="Notifications" fullHeight={false} contentClass="space-y-3 sm:space-y-4">
+      <div>
+        <p class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-bright">
+          Desktop notification categories
+        </p>
+        <p class="mt-1 text-xs leading-5 text-ink-muted">
+          Choose which background events can ask macOS for attention. Click payloads still route through the platform adapter.
+        </p>
+      </div>
+
+      <div class="grid gap-2">
+        {#each NOTIFICATION_PREFERENCE_ITEMS as { category, description, label } (category)}
+          <label class="grid min-w-0 cursor-pointer gap-3 rounded-panel border border-line bg-surface-muted p-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+            <input
+              type="checkbox"
+              class="mt-0.5 h-4 w-4 accent-primary"
+              checked={notificationPreferences[category]}
+              onchange={event => handleNotificationPreferenceChange(category, event)}
+            />
+            <span class="min-w-0">
+              <span class="block font-hud text-[0.68rem] font-bold uppercase tracking-[0.14em] text-ink-bright">{label}</span>
+              <span class="mt-1 block text-xs leading-5 text-ink-muted">{description}</span>
+            </span>
+          </label>
+        {/each}
       </div>
     </Panel>
   </div>

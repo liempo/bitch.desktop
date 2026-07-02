@@ -221,6 +221,10 @@ function queueMacosNotification(notification: ReturnType<typeof buildAssistantCo
   })
 }
 
+function inputNeededNotificationCategory(eventType: GatewayEvent['type']) {
+  return eventType === 'clarify.request' ? 'clarifyNeeded' : 'approvalNeeded'
+}
+
 function inputNeededNotificationText(eventType: GatewayEvent['type'], payload: GatewayPayload): string {
   if (eventType === 'clarify.request') {
     return firstText(payload.question)
@@ -1026,7 +1030,13 @@ export function handleGatewayEvent(event: GatewayEvent): void {
   ) {
     recordInteractivePrompt(event.type, sessionId, payload)
     setNeedsInput(sessionId, true)
-    queueMacosNotification(buildInputNeededNotification(inputNeededNotificationText(event.type, payload), sessionId))
+    queueMacosNotification(
+      buildInputNeededNotification(
+        inputNeededNotificationText(event.type, payload),
+        sessionId,
+        inputNeededNotificationCategory(event.type)
+      )
+    )
   } else if (event.type === 'error') {
     clearAllPrompts()
     setNeedsInput(sessionId, false)
