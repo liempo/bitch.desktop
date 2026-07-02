@@ -29,6 +29,9 @@ describe('settings page route contract', () => {
     expect(settingsPageSource).toContain(
       "import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'"
     )
+    expect(settingsPageSource).toContain(
+      "import { NOTIFICATION_PREFERENCE_ITEMS, loadNotificationPreferences, setNotificationPreference } from '$lib/platform/notifications'"
+    )
     expect(settingsPageSource).toContain('aria-label="Settings"')
     expect(settingsPageSource).toContain('Appearance')
     expect(settingsPageSource).toContain('bind:value={themeState.selectedThemeId}')
@@ -43,6 +46,15 @@ describe('settings page route contract', () => {
     expect(settingsPageSource).not.toContain('Browse extension folder')
     expect(settingsPageSource).not.toContain('Browse theme JSON')
     expect(settingsPageSource).toContain('<MarketplaceThemeBrowser />')
+  })
+
+  it('renders per-category desktop notification controls on the Settings page', () => {
+    expect(settingsPageSource).toContain('Panel title="Notifications"')
+    expect(settingsPageSource).toContain('notificationPreferences = $state(loadNotificationPreferences())')
+    expect(settingsPageSource).toContain('NOTIFICATION_PREFERENCE_ITEMS')
+    expect(settingsPageSource).toContain('type="checkbox"')
+    expect(settingsPageSource).toContain('setNotificationPreference(category, target.checked)')
+    expect(settingsPageSource).toContain('Desktop notification categories')
   })
 
   it('lets Marketplace theme browser install VSIX color themes into the local selector', () => {

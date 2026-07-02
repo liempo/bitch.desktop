@@ -19,9 +19,10 @@ vi.mock('$lib/platform/notifications', () => ({
     body: error || text || 'Agent response completed.',
     sessionId
   }),
-  buildInputNeededNotification: (text: string | null | undefined, sessionId?: string | null) => ({
+  buildInputNeededNotification: (text: string | null | undefined, sessionId?: string | null, category?: string) => ({
     title: 'BITCH needs input',
     body: text || 'The agent is waiting for your response.',
+    category,
     sessionId
   }),
   sendMacosNotification: mockSendMacosNotification
@@ -447,8 +448,42 @@ describe('message session id mapping', () => {
     expect(mockSendMacosNotification).toHaveBeenCalledWith({
       title: 'BITCH needs input',
       body: 'Pick a color',
+      category: 'clarifyNeeded',
       sessionId: storedKey
     })
+  })
+
+  it('marks approval, sudo, and secret prompts as approval-needed notifications', () => {
+    rememberRuntimeSession(storedKey, liveSid)
+
+    handleGatewayEvent({
+      payload: { command: 'rm demo', description: 'dangerous command' },
+      session_id: liveSid,
+      type: 'approval.request'
+    })
+    handleGatewayEvent({
+      payload: { request_id: 'sudo-1' },
+      session_id: liveSid,
+      type: 'sudo.request'
+    })
+    handleGatewayEvent({
+      payload: { env_var: 'TOKEN', prompt: 'Enter token', request_id: 'secret-1' },
+      session_id: liveSid,
+      type: 'secret.request'
+    })
+
+    expect(mockSendMacosNotification).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ body: 'dangerous command', category: 'approvalNeeded', sessionId: storedKey })
+    )
+    expect(mockSendMacosNotification).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ body: 'Sudo password required', category: 'approvalNeeded', sessionId: storedKey })
+    )
+    expect(mockSendMacosNotification).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ body: 'Enter token', category: 'approvalNeeded', sessionId: storedKey })
+    )
   })
 
   it('keeps gateway tool context on running rows and preserves it after completion', () => {

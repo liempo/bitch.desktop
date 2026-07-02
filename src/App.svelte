@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import AppShell from './app/AppShell.svelte'
-  import { agentRoute } from './app/router.svelte'
+  import { notificationRouteHash } from './app/router.svelte'
   import { installCustomScrollbars, SPLASH_REMOVE_AFTER_MS, STARTUP_SPLASH_COMPLETE_EVENT } from '$lib/layout'
   import { installMacosNotificationClickHandler, openExternalUrl } from '$lib/platform'
   import { connectGateway, disconnectGateway } from '$lib/hermes/gateway'
@@ -47,8 +47,8 @@
     window.addEventListener(STARTUP_SPLASH_COMPLETE_EVENT, installScrollbars, { once: true })
     startMessageStream()
 
-    void installMacosNotificationClickHandler(sessionId => {
-      window.location.hash = agentRoute(sessionId)
+    void installMacosNotificationClickHandler(target => {
+      window.location.hash = notificationRouteHash(target)
     })
       .then(unlisten => {
         uninstallNotificationClickHandler = unlisten
