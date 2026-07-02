@@ -6,12 +6,18 @@
   import Button from '@/app/components/ui/Button.svelte'
   import Loader from '@/app/components/ui/Loader.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
+  import ConversationTimelineRail from './ConversationTimelineRail.svelte'
   import Message from './Message.svelte'
   import RemoteTranscriptTabs from './RemoteTranscriptTabs.svelte'
-  import { extractRemoteToolTranscriptsFromMessages, messageState } from '$lib/hermes/conversations'
+  import {
+    extractConversationTimelineMarkers,
+    extractRemoteToolTranscriptsFromMessages,
+    messageState
+  } from '$lib/hermes/conversations'
   import { sessionState } from '$lib/hermes/sessions'
   import { resumeAndHydrateStoredSession } from '$lib/hermes/sessions'
-  import type { ConversationPreview } from '$lib/hermes/conversations'
+  import { clarifyRequestForSession, promptsState } from '$lib/hermes/prompts'
+  import type { ConversationPreview, ConversationTimelineMarker, ConversationTimelinePromptKind } from '$lib/hermes/conversations'
 
   interface Props {
     compact?: boolean
@@ -31,6 +37,16 @@
   const conversation = $derived(sessionId ? (messageState.sessions[sessionId] ?? null) : null)
   const messages = $derived(conversation?.messages ?? [])
   const remoteTranscripts = $derived(sessionId ? extractRemoteToolTranscriptsFromMessages(sessionId, messages) : [])
+  const approvalRequest = $derived(promptsState.approvalRequest)
+  const clarifyRequest = $derived(sessionId ? clarifyRequestForSession(sessionId) : null)
+  const approvalVisible = $derived(Boolean(approvalRequest && (!approvalRequest.sessionId || !sessionId || approvalRequest.sessionId === sessionId)))
+  const pendingPrompt = $derived.by<ConversationTimelinePromptKind | null>(() => {
+    if (approvalVisible) return 'approval'
+    if (clarifyRequest) return 'clarify'
+    if (conversation?.needsInput) return 'input'
+    return null
+  })
+  const timelineMarkers = $derived(extractConversationTimelineMarkers(messages, { pendingPrompt }))
   const resumeExhausted = $derived(Boolean(sessionId) && sessionState.resumeExhaustedSessionId === sessionId)
   const loadingSession = $derived(
     Boolean(sessionId) &&
@@ -39,6 +55,8 @@
       (conversation?.loading || sessionState.resumingSessionId === sessionId)
   )
 
+  const shellClass = 'relative flex min-h-0 flex-1 overflow-hidden'
+  const showTimeline = $derived(!compact && timelineMarkers.length > 0)
   const sectionClass = 'flex-1 overflow-y-auto bg-transparent'
   const emptyStateClass = $derived(
     compact
@@ -121,6 +139,24 @@
     transcriptPanelOpen = false
   }
 
+  function findTimelineAnchor(messageId: string): HTMLElement | null {
+    if (!scrollElement) return null
+
+    return (
+      Array.from(scrollElement.querySelectorAll<HTMLElement>('[data-conversation-message-id]')).find(
+        element => element.dataset.conversationMessageId === messageId
+      ) ?? null
+    )
+  }
+
+  function scrollToTimelineMarker(marker: ConversationTimelineMarker): void {
+    const target = findTimelineAnchor(marker.messageId)
+    if (!target) return
+
+    stickToBottom = false
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }
+
   function retryResume(): void {
     if (!sessionId) return
     sessionState.resumeFailedSessionId = null
@@ -132,63 +168,73 @@
 
 </script>
 
-<section
-  class={sectionClass}
-  data-selectable="true"
-  bind:this={scrollElement}
-  onscroll={handleScroll}
-  aria-label="Message conversation"
->
-  {#if !sessionId}
-    <div class={emptyStateClass}>
-      <GlyphCanvas class={glyphClass} />
-    </div>
-  {:else if loadingSession}
-    <div class={emptyStateClass}>
-      <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
-    </div>
-  {:else if resumeExhausted}
-    <div class={emptyStateClass}>
-      <Panel title="Resume Failed" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
-        <p class="font-semibold uppercase tracking-[0.12em]">Could not resume this session.</p>
-        <p class="mt-2 text-danger/80">
-          The gateway resume path failed after bounded retries. Retry will request a fresh runtime session for the same stored conversation.
-        </p>
-        <Button class="mt-4" variant="secondary" onclick={retryResume}>Retry resume</Button>
-      </Panel>
-    </div>
-  {:else if conversation?.error && messages.length === 0}
-    <div class={emptyStateClass}>
-      <Panel title="Transcript Error" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
-        <p class="font-semibold uppercase tracking-[0.12em]">Could not load the transcript.</p>
-        <p class="mt-2 text-danger/80">{conversation.error}</p>
-      </Panel>
-    </div>
-  {:else if messages.length === 0}
-    <div class={emptyStateClass}>
-      <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
-    </div>
-  {:else}
-    <div class={transcriptClass}>
-      {#each messages as message, index (message.id)}
-        <Message {message} {sessionId} {onOpenPreview} onOpenTranscript={openTranscript} isLast={index === messages.length - 1} />
-      {/each}
+<div class={shellClass}>
+  <section
+    class={sectionClass}
+    data-selectable="true"
+    bind:this={scrollElement}
+    onscroll={handleScroll}
+    aria-label="Message conversation"
+  >
+    {#if !sessionId}
+      <div class={emptyStateClass}>
+        <GlyphCanvas class={glyphClass} />
+      </div>
+    {:else if loadingSession}
+      <div class={emptyStateClass}>
+        <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
+      </div>
+    {:else if resumeExhausted}
+      <div class={emptyStateClass}>
+        <Panel title="Resume Failed" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
+          <p class="font-semibold uppercase tracking-[0.12em]">Could not resume this session.</p>
+          <p class="mt-2 text-danger/80">
+            The gateway resume path failed after bounded retries. Retry will request a fresh runtime session for the same stored conversation.
+          </p>
+          <Button class="mt-4" variant="secondary" onclick={retryResume}>Retry resume</Button>
+        </Panel>
+      </div>
+    {:else if conversation?.error && messages.length === 0}
+      <div class={emptyStateClass}>
+        <Panel title="Transcript Error" titleClass="text-danger" class="max-w-lg border-danger/40 bg-danger/10!" contentClass="p-5 text-sm leading-6 text-danger" padded={false} fullHeight={false}>
+          <p class="font-semibold uppercase tracking-[0.12em]">Could not load the transcript.</p>
+          <p class="mt-2 text-danger/80">{conversation.error}</p>
+        </Panel>
+      </div>
+    {:else if messages.length === 0}
+      <div class={emptyStateClass}>
+        <Loader size={compact || responsiveCompact ? 'md' : 'xl'} label="Loading session" />
+      </div>
+    {:else}
+      <div class={transcriptClass}>
+        {#each messages as message, index (message.id)}
+          <div data-conversation-message-id={message.id}>
+            <Message {message} {sessionId} {onOpenPreview} onOpenTranscript={openTranscript} isLast={index === messages.length - 1} />
+          </div>
+        {/each}
 
-      {#if transcriptPanelOpen && remoteTranscripts.length > 0}
-        <div class="mx-auto mt-3 w-full max-w-4xl px-4">
-          <RemoteTranscriptTabs
-            transcripts={remoteTranscripts}
-            requestedTranscriptId={requestedTranscriptId}
-            requestedTranscriptSequence={requestedTranscriptSequence}
-            onClose={closeTranscriptTabs}
-          />
-        </div>
-      {/if}
+        {#if transcriptPanelOpen && remoteTranscripts.length > 0}
+          <div class="mx-auto mt-3 w-full max-w-4xl px-4">
+            <RemoteTranscriptTabs
+              transcripts={remoteTranscripts}
+              requestedTranscriptId={requestedTranscriptId}
+              requestedTranscriptSequence={requestedTranscriptSequence}
+              onClose={closeTranscriptTabs}
+            />
+          </div>
+        {/if}
 
-      {#if sessionId}
-        <Approval {sessionId} />
-        <ClarifyCard {sessionId} />
-      {/if}
-    </div>
+        {#if sessionId}
+          <div data-conversation-message-id="conversation-prompt">
+            <Approval {sessionId} />
+            <ClarifyCard {sessionId} />
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </section>
+
+  {#if showTimeline}
+    <ConversationTimelineRail markers={timelineMarkers} onActivate={scrollToTimelineMarker} />
   {/if}
-</section>
+</div>
