@@ -74,7 +74,11 @@ describe('settings page route contract', () => {
   it('exposes a source updater panel without versioning UI', () => {
     expect(settingsPageSource).toContain('Source updater')
     expect(settingsPageSource).toContain('BITCH_SRC_DIR')
-    expect(settingsPageSource).toContain('Update from main')
+    expect(settingsPageSource).toContain('Source main install')
+    expect(settingsPageSource).toContain('npm install')
+    expect(settingsPageSource).toContain('Install latest main')
+    expect(settingsPageSource).toContain('sourceUpdateSteps')
+    expect(settingsPageSource).toContain('Source updater steps')
     expect(settingsPageSource).toContain('checkSourceUpdate')
     expect(settingsPageSource).toContain('runSourceUpdate')
     expect(settingsPageSource).not.toMatch(/version/i)
