@@ -1,10 +1,19 @@
 use crate::config::config_value;
 use serde::Serialize;
 use std::{
-    fs,
+    fs, io,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
 };
+
+const COMMAND_PATH_PREFIXES: &[&str] = &[
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+];
 
 const DEFAULT_REPO_URL: &str = "https://github.com/liempo/bitch.git";
 const SOURCE_DIR_ENV: &str = "BITCH_SRC_DIR";
@@ -118,6 +127,11 @@ pub fn source_update_plan(
                 .into_iter()
                 .map(String::from)
                 .collect(),
+        },
+        SourceUpdateStep {
+            label: "Install dependencies".to_string(),
+            command: "npm".to_string(),
+            args: vec!["install"].into_iter().map(String::from).collect(),
         },
         SourceUpdateStep {
             label: "Build application".to_string(),
@@ -261,6 +275,13 @@ fn run_update_on_main(
         "Pull latest main",
         "git",
         &["pull", "--ff-only", "origin", "main"],
+        steps,
+    )?;
+    run_step(
+        source_dir,
+        "Install dependencies",
+        "npm",
+        &["install"],
         steps,
     )?;
     run_step(
@@ -466,11 +487,14 @@ fn run_step(
 }
 
 fn run_command_in(cwd: &Path, command: &str, args: &[&str]) -> Result<CommandOutput, String> {
-    let output = Command::new(command)
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("Failed to run {command}: {e}"))?;
+    let output = run_raw_command_in(cwd, command, args).or_else(|error| {
+        if command == "npm" && error.kind() == io::ErrorKind::NotFound {
+            return run_npm_from_shell(cwd, args)
+                .map_err(|fallback| format!("Failed to run npm: {error}. {fallback}"));
+        }
+
+        Err(format!("Failed to run {command}: {error}"))
+    })?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = [stdout.trim(), stderr.trim()]
@@ -484,6 +508,97 @@ fn run_command_in(cwd: &Path, command: &str, args: &[&str]) -> Result<CommandOut
     }
 
     Ok(CommandOutput { output: combined })
+}
+
+fn run_raw_command_in(cwd: &Path, command: &str, args: &[&str]) -> io::Result<Output> {
+    Command::new(resolve_command(command))
+        .args(args)
+        .current_dir(cwd)
+        .env("PATH", augmented_command_path())
+        .output()
+}
+
+fn run_npm_from_shell(cwd: &Path, args: &[&str]) -> Result<Output, String> {
+    let mut errors = Vec::new();
+    for shell in shell_candidates() {
+        let output = Command::new(&shell)
+            .args(["-lc", "npm \"$@\"", "npm"])
+            .args(args)
+            .current_dir(cwd)
+            .env("PATH", augmented_command_path())
+            .output();
+
+        match output {
+            Ok(output) => return Ok(output),
+            Err(error) => errors.push(format!("{}: {error}", shell.display())),
+        }
+    }
+
+    Err(format!(
+        "Tried login shells for npm and none could start: {}",
+        errors.join("; ")
+    ))
+}
+
+fn shell_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Some(shell) = std::env::var_os("SHELL").map(PathBuf::from) {
+        candidates.push(shell);
+    }
+
+    candidates.extend(
+        ["/bin/zsh", "/bin/bash", "/bin/sh"]
+            .into_iter()
+            .map(PathBuf::from),
+    );
+    candidates.sort();
+    candidates.dedup();
+    candidates
+        .into_iter()
+        .filter(|candidate| candidate.exists())
+        .collect()
+}
+
+fn augmented_command_path() -> String {
+    augmented_command_path_from(std::env::var("PATH").ok().as_deref())
+}
+
+fn resolve_command(command: &str) -> PathBuf {
+    if command.contains(std::path::MAIN_SEPARATOR) {
+        return PathBuf::from(command);
+    }
+
+    for entry in augmented_command_path().split(':') {
+        let candidate = Path::new(entry).join(command);
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+
+    PathBuf::from(command)
+}
+
+fn augmented_command_path_from(current: Option<&str>) -> String {
+    let mut entries = Vec::new();
+    for entry in COMMAND_PATH_PREFIXES {
+        push_path_entry(&mut entries, entry);
+    }
+
+    if let Some(current) = current {
+        for entry in current.split(':') {
+            push_path_entry(&mut entries, entry);
+        }
+    }
+
+    entries.join(":")
+}
+
+fn push_path_entry(entries: &mut Vec<String>, entry: &str) {
+    let entry = entry.trim();
+    if !entry.is_empty() && !entries.iter().any(|existing| existing == entry) {
+        entries.push(entry.to_string());
+    }
 }
 
 fn configured_source_dir() -> Result<PathBuf, String> {
@@ -546,6 +661,12 @@ mod tests {
         assert!(plan
             .steps
             .iter()
+            .any(|step| step.label == "Install dependencies"
+                && step.command == "npm"
+                && step.args == ["install"]));
+        assert!(plan
+            .steps
+            .iter()
             .any(|step| step.label == "Build application"
                 && step.command == "npm"
                 && step.args == ["run", "build"]));
@@ -568,6 +689,7 @@ mod tests {
                 "Stash local changes",
                 "Checkout main",
                 "Pull latest main",
+                "Install dependencies",
                 "Build application",
                 "Install application bundle",
                 "Restore previous branch",
@@ -584,5 +706,19 @@ mod tests {
             .iter()
             .any(|step| step.command == "git"
                 && step.args == ["pull", "--ff-only", "origin", "main"]));
+    }
+
+    #[test]
+    fn augments_gui_app_path_with_common_tool_locations() {
+        let path = augmented_command_path_from(Some("/custom/bin:/usr/bin"));
+        let entries: Vec<&str> = path.split(':').collect();
+
+        assert_eq!(entries.first(), Some(&"/opt/homebrew/bin"));
+        assert!(entries.contains(&"/usr/local/bin"));
+        assert!(entries.contains(&"/custom/bin"));
+        assert_eq!(
+            entries.iter().filter(|entry| **entry == "/usr/bin").count(),
+            1
+        );
     }
 }
