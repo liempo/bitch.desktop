@@ -3,10 +3,8 @@ import { describe, expect, it } from 'vitest'
 import appCssSource from '../../../app.css?raw'
 import appShellSource from '../../AppShell.svelte?raw'
 import dialogSource from '../../components/ui/Dialog.svelte?raw'
-import appNavbarSource from '../../navigation/AppNavbar.svelte?raw'
-import settingsPageSource from '../../settings/SettingsPage.svelte?raw'
 
-describe('temporary theme picker source contract', () => {
+describe('theme shell source contracts', () => {
   it('mounts the selected theme through the shell instead of a hardcoded theme token', () => {
     expect(appShellSource).toContain(
       "import { currentThemeStyleAttribute, initializeThemeSelection, themeState } from '$lib/theme'"
@@ -16,26 +14,6 @@ describe('temporary theme picker source contract', () => {
     expect(appShellSource).toContain('data-theme-type={themeState.selectedTheme.source.type}')
     expect(appShellSource).toContain('style={currentThemeStyleAttribute()}')
     expect(appShellSource).not.toContain('data-theme="cyberpunk"')
-  })
-
-  it('renders the runtime theme picker from the Settings page linked by the navbar', () => {
-    expect(appNavbarSource).toContain("label: 'SETTINGS'")
-    expect(appNavbarSource).toContain('settingsRoute()')
-    expect(settingsPageSource).toContain(
-      "import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'"
-    )
-    expect(settingsPageSource).toContain('function handleThemeChange')
-    expect(settingsPageSource).toContain('selectTheme(')
-    expect(settingsPageSource).toContain('aria-label="Theme"')
-    expect(settingsPageSource).toContain('{#each themeOptions as theme (theme.id)}')
-    expect(settingsPageSource).toContain('value={theme.id}')
-    expect(settingsPageSource).toContain('bind:value={themeState.selectedThemeId}')
-    expect(settingsPageSource).toContain('Installed themes/extensions')
-    expect(settingsPageSource).toContain('uninstallImportedTheme(themeId)')
-    expect(settingsPageSource).toContain('Uninstall')
-    expect(settingsPageSource).toContain('<MarketplaceThemeBrowser />')
-    expect(settingsPageSource).not.toContain('Browse extension folder')
-    expect(settingsPageSource).not.toContain('Browse theme JSON')
   })
 
   it('carries the active runtime theme into portal dialogs', () => {

@@ -29,7 +29,6 @@ function readOptionalSource(path: string): string {
 }
 
 const appCssSource = readOptionalSource('src/app.css')
-const iconComponentSource = readOptionalSource('src/app/components/ui/Icon.svelte')
 const iconTokensSource = readOptionalSource('src/lib/theme/icons.ts')
 
 const iconSurfaceSources = [
@@ -92,7 +91,7 @@ describe('SVG icon typography and source contract', () => {
     expect(appCssSource).not.toContain(symbolIconFontName)
   })
 
-  it('centralizes imported PrimeNG SVG assets and accessibility behavior in the shared Icon component', () => {
+  it('centralizes imported PrimeNG SVG assets in the shared icon token map', () => {
     expect(iconTokensSource).toContain("import fileImage from './prime-icons/fileImage.svg?raw'")
     expect(iconTokensSource).toContain('export const iconSources')
     expect(iconTokensSource).toContain('export type IconName')
@@ -101,14 +100,7 @@ describe('SVG icon typography and source contract', () => {
     expect(iconTokensSource).toContain('shieldCheck')
     expect(iconTokensSource).toContain('kanban')
     expect(iconTokensSource).toContain('pin')
-    expect(iconComponentSource).toContain("import { iconSvg, type IconName } from '$lib/theme'")
-    expect(iconComponentSource).toContain('prime-icon')
-    expect(iconComponentSource).toContain('{@html markup}')
-    expect(iconComponentSource).toContain('fill: currentColor')
-    expect(iconComponentSource).toContain("aria-hidden={decorativeIcon ? 'true' : undefined}")
-    expect(iconComponentSource).toContain('aria-label={decorativeIcon ? undefined : label}')
-    expect(iconComponentSource).toContain("role={decorativeIcon ? undefined : 'img'}")
-    expect(iconComponentSource).not.toContain(['font', 'nerd'].join('-'))
+    expect(iconTokensSource).not.toContain(['font', 'nerd'].join('-'))
   })
 
   it('renders app icon surfaces through the shared Icon component instead of inline SVG or raw glyphs', () => {

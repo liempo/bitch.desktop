@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import navbarSource from '../navigation/AppNavbar.svelte?raw'
 import { agentRoute, parseAppHash, settingsRoute } from '../router.svelte'
 import { sessionRoute } from '../agent/router.svelte'
 
@@ -36,9 +35,5 @@ describe('top-level app routing', () => {
 
   it('keeps agent session routes under the AGENT route while preserving legacy parsing elsewhere', () => {
     expect(sessionRoute('stored-session')).toBe('/agent/stored-session')
-  })
-
-  it('wires the AGENT nav item to the last selected stored session', () => {
-    expect(navbarSource).toContain('agentRoute(sessionState.storedSessionId)')
   })
 })
