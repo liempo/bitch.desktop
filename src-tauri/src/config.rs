@@ -7,7 +7,6 @@ use std::{
 
 const APP_CONFIG_DIR: &str = ".bitch";
 const APP_CONFIG_FILE: &str = "config.yaml";
-const LEGACY_CONNECTION_CONFIG_DIRS: &[&str] = &["bitch", "bitch.desktop"];
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -241,53 +240,6 @@ fn yaml_value_to_string(value: &serde_yaml::Value) -> Option<String> {
         serde_yaml::Value::Number(value) => Some(value.to_string()),
         serde_yaml::Value::Bool(value) => Some(value.to_string()),
         _ => None,
-    }
-}
-
-fn xdg_config_base_dir() -> Result<PathBuf, String> {
-    if let Some(config_home) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Ok(PathBuf::from(config_home));
-    }
-
-    Ok(home_dir()?.join(".config"))
-}
-
-fn legacy_connection_config_path_for(app_dir: impl AsRef<Path>) -> Result<PathBuf, String> {
-    Ok(xdg_config_base_dir()?.join(app_dir).join("connection.json"))
-}
-
-fn legacy_connection_config_paths() -> Result<Vec<PathBuf>, String> {
-    LEGACY_CONNECTION_CONFIG_DIRS
-        .iter()
-        .map(legacy_connection_config_path_for)
-        .collect()
-}
-
-fn read_connection_config_at(path: &Path) -> Result<ConnectionConfig, String> {
-    let contents =
-        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-
-    serde_json::from_str::<ConnectionConfig>(&contents)
-        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))
-}
-
-fn remove_legacy_connection_config_file(path: &Path) {
-    if path.exists() {
-        let _ = fs::remove_file(path);
-    }
-
-    if let Some(parent) = path.parent() {
-        let _ = fs::remove_dir(parent);
-    }
-}
-
-fn remove_legacy_connection_config_files() {
-    let Ok(paths) = legacy_connection_config_paths() else {
-        return;
-    };
-
-    for path in paths {
-        remove_legacy_connection_config_file(&path);
     }
 }
 
@@ -564,78 +516,14 @@ fn calendar_config_from_dotenv_values(
     }
 }
 
-fn connection_config_from_legacy_env(config: &AppConfig) -> Option<ConnectionConfig> {
-    let url = config
-        .legacy_config_value("HERMES_DASHBOARD_URL")
-        .or_else(|| config.legacy_config_value("BITCH_DASHBOARD_URL"));
-    let token = config
-        .legacy_config_value("HERMES_DASHBOARD_SESSION_TOKEN")
-        .or_else(|| config.legacy_config_value("BITCH_DASHBOARD_SESSION_TOKEN"));
-    let username = config
-        .legacy_config_value("HERMES_DASHBOARD_USERNAME")
-        .or_else(|| config.legacy_config_value("BITCH_DASHBOARD_USERNAME"));
-    let password = config
-        .legacy_config_value("HERMES_DASHBOARD_PASSWORD")
-        .or_else(|| config.legacy_config_value("BITCH_DASHBOARD_PASSWORD"));
-
-    if url.is_none() && token.is_none() && (username.is_none() || password.is_none()) {
-        return None;
-    }
-
-    let auth_mode = if token.is_some() || username.is_none() || password.is_none() {
-        "token"
-    } else {
-        "session"
-    };
-
-    Some(ConnectionConfig {
-        auth_mode: Some(auth_mode.to_string()),
-        mode: Some("remote".to_string()),
-        profiles: None,
-        token,
-        url,
-    })
-}
-
-fn migrate_legacy_connection_config(
-    config: &mut AppConfig,
-) -> Result<Option<ConnectionConfig>, String> {
-    if config.connection.is_some() {
-        return Ok(config.connection.clone());
-    }
-
-    if let Some(connection) = connection_config_from_legacy_env(config) {
-        config.connection = Some(connection.clone());
-        write_app_config(config)?;
-        remove_legacy_connection_config_files();
-        return Ok(Some(connection));
-    }
-
-    for legacy_path in legacy_connection_config_paths()? {
-        if !legacy_path.exists() {
-            continue;
-        }
-
-        let connection = read_connection_config_at(&legacy_path)?;
-        config.connection = Some(connection.clone());
-        write_app_config(config)?;
-        remove_legacy_connection_config_files();
-        return Ok(Some(connection));
-    }
-
-    Ok(None)
-}
-
 pub fn read_saved_connection_config() -> Result<Option<ConnectionConfig>, String> {
-    let mut config = read_app_config()?;
-    migrate_legacy_connection_config(&mut config)
+    Ok(read_app_config()?.connection)
 }
 
 pub fn save_connection_config_to_disk(config: &ConnectionConfig) -> Result<(), String> {
     let mut app_config = read_app_config()?;
     app_config.connection = Some(config.clone());
     write_app_config(&app_config)?;
-    remove_legacy_connection_config_files();
 
     Ok(())
 }
@@ -650,7 +538,7 @@ mod tests {
             IGNORED=value
             export BITCH_TEST='quoted value'
             OTHER=after
-            DOUBLE="line\\nvalue"
+            DOUBLE="line\nvalue"
         "#;
         let values = parse_dotenv(contents);
 
@@ -813,22 +701,5 @@ CALDAV_SYNC_INTERVAL: 120
             config.config_value("CALDAV_SYNC_INTERVAL").as_deref(),
             Some("120")
         );
-    }
-
-    #[test]
-    fn builds_connection_config_from_legacy_env_style_yaml() {
-        let config = serde_yaml::from_str::<AppConfig>(
-            r#"
-HERMES_DASHBOARD_URL: http://127.0.0.1:9119
-HERMES_DASHBOARD_SESSION_TOKEN: session-token
-"#,
-        )
-        .unwrap();
-
-        let connection = connection_config_from_legacy_env(&config).unwrap();
-
-        assert_eq!(connection.auth_mode.as_deref(), Some("token"));
-        assert_eq!(connection.url.as_deref(), Some("http://127.0.0.1:9119"));
-        assert_eq!(connection.token.as_deref(), Some("session-token"));
     }
 }

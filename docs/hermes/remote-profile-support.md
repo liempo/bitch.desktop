@@ -45,7 +45,7 @@ and `src-tauri/src/lib.rs` share the same remote-only config shape:
 }
 ```
 
-Tauri stores the connection under the `connection` section in `~/.bitch/config.yaml`. On first read, Rust migrates legacy `$XDG_CONFIG_HOME/bitch/connection.json` or `~/.config/bitch/connection.json` data into that YAML file and removes the old connection JSON.
+Tauri stores the connection under the `connection` section in `~/.bitch/config.yaml`.
 
 Optional password-login credentials live under the sibling `hermes` section:
 
