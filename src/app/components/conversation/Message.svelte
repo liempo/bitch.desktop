@@ -79,7 +79,7 @@
   <!-- Tool result message — grouped tool rows -->
   <div class="mx-auto w-full max-w-4xl px-4" data-role="tool">
     {#each message.tools as toolRow (toolRow.id)}
-      <Tool tool={toolRow} />
+      <Tool tool={toolRow} {onOpenPreview} profile={messageProfile} />
     {/each}
   </div>
 {:else if system}
@@ -119,7 +119,7 @@
                 <Reasoning text={part.text} pending={isRunning && index === parts.length - 1} />
               {:else if part.type === 'tool'}
                 <div class="mt-1.5">
-                  <Tool tool={part.tool} />
+                  <Tool tool={part.tool} {onOpenPreview} profile={messageProfile} />
                 </div>
               {:else if part.type === 'text'}
                 <Markdown text={part.text} streaming={isRunning && index === parts.length - 1} profile={messageProfile} {onOpenPreview} />
@@ -137,7 +137,7 @@
           {#if message.tools.length > 0}
             <div class="mt-1.5">
               {#each message.tools as toolRow (toolRow.id)}
-                <Tool tool={toolRow} />
+                <Tool tool={toolRow} {onOpenPreview} profile={messageProfile} />
               {/each}
             </div>
           {/if}
