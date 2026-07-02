@@ -1,54 +1,82 @@
 # BITCH
 
-Remote-only Tauri + Svelte client for the Hermes dashboard gateway.
-
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the backend lane model and [`docs/README.md`](docs/README.md) for feature-organized documentation.
-
-This repo is remote-only: it does not bootstrap or run a local Hermes server. The renderer uses the upstream Hermes JSON-RPC transport through a Tauri WebSocket shim, while the Rust backend owns gateway auth and native WebSocket connection setup.
-
-## Stack
-
-- Tauri v2
-- Svelte 5
-- TypeScript + Vite
-- Tailwind CSS for renderer styling
-- Rust gateway bridge for status probing, WebSocket ticket minting, auth headers, and native WebSocket proxying
-- Hermes JSON-RPC gateway transport copied from upstream and normalized with this repo's formatter
+BITCH is a minimal Tauri + Svelte client for Hermes remote dashboard gateway access. It stays remote-only: the desktop app connects to existing Hermes dashboard backends instead of starting local Hermes processes.
 
 ## Configuration
 
-Create a local `.env` from `.env.example` and set:
+BITCH reads local desktop configuration from:
 
 ```bash
-HERMES_DASHBOARD_URL=http://127.0.0.1:9119
-HERMES_DASHBOARD_SESSION_TOKEN=replace-me
-MONITORING_URL=https://monitoring.airplane-skilift.ts.net
-MONITORING_SYSTEM_ID=replace-with-system-id
-MONITORING_EMAIL=beszel-user@example.com
-MONITORING_PASSWORD=replace-me
+~/.bitch/config.yaml
 ```
 
-`HERMES_DASHBOARD_URL` points at the Hermes dashboard HTTP origin. Remote file preview and inline media use the authenticated Hermes filesystem APIs through the Tauri bridge; the renderer does not fetch a public file-server origin or own dashboard auth headers. `HERMES_DASHBOARD_SESSION_TOKEN` is consumed by the Tauri backend so the browser renderer does not need to set Hermes auth headers directly.
+Start from the tracked example:
 
-`MONITORING_URL` points at the Beszel hub HTTP origin used by the main dashboard. It should include the scheme and port in one value, for example `https://monitoring.airplane-skilift.ts.net` or `http://homestation:8090`; do not add a separate port setting. If you accidentally paste a Beszel page URL such as `/system/<id>`, the app will use the origin and derive the system ID.
+```bash
+mkdir -p ~/.bitch
+cp config.example.yaml ~/.bitch/config.yaml
+```
 
-Beszel metrics come from PocketBase collection records, not `/api/health`. The health endpoint only proves the hub is alive; `systems` and `system_stats` records usually require auth. Set either `MONITORING_AUTH_TOKEN` or `MONITORING_EMAIL`/`MONITORING_PASSWORD` in `.env`. These secrets are consumed by the Tauri bridge and are not exposed through Vite. `MONITORING_SYSTEM_ID` is optional but useful when the dashboard should target one known system.
+If `~/.bitch/config.yaml` does not exist, the Tauri bridge performs a one-time import from an existing project `.env`: known BITCH keys are mapped into the sections below and unknown keys are preserved in the YAML. After that import, runtime reads the YAML file only.
+
+The primary sections are:
+
+```yaml
+connection:
+  mode: remote
+  url: http://127.0.0.1:9119
+  authMode: token
+  token: replace-me
+
+monitoring:
+  url: http://homestation:8090
+  # systemId: replace-with-beszel-system-id
+  # authToken: replace-me
+  # email: beszel-user@example.com
+  # password: replace-me
+
+calendar:
+  url: https://calendar.example.test/dav/user/
+  username: replace-me
+  password: replace-me
+  syncIntervalSeconds: 1800
+```
+
+`connection.url` points at the Hermes dashboard HTTP origin. Remote file preview and inline media use authenticated Hermes filesystem APIs through the Tauri bridge; the renderer does not fetch a public file-server origin or own dashboard auth headers. `connection.token` is consumed by the Tauri backend so the browser renderer does not need to set Hermes auth headers directly.
+
+`monitoring.url` points at the Beszel hub HTTP origin used by the main dashboard. It should include the scheme and port in one value, for example `https://monitoring.airplane-skilift.ts.net` or `http://homestation:8090`; do not add a separate port setting. If you accidentally paste a Beszel page URL such as `/system/<id>`, the app will use the origin and derive the system ID.
+
+Beszel metrics come from PocketBase collection records, not `/api/health`. The health endpoint only proves the hub is alive; `systems` and `system_stats` records usually require auth. Set either `monitoring.authToken` or `monitoring.email`/`monitoring.password` in `~/.bitch/config.yaml`. These secrets are consumed by the Tauri bridge and are not exposed through Vite. `monitoring.systemId` is optional but useful when the dashboard should target one known system.
 
 ## Development
 
 ```bash
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-`npm run dev` uses `scripts/rust-wrapper.sh`, which keeps Rust state in the repo-local `.cargo/` and `.rustup/` directories. To preinstall that local Rust toolchain before running the app:
+## Local app install
 
 ```bash
-npm run setup:rust
+npm run install
 ```
 
-macOS still needs Xcode Command Line Tools.
+That command is intentionally the simple path: it runs `npm run build`, copies the built BITCH bundle into `~/Applications`, then migrates legacy `.env` values into `~/.bitch/config.yaml` if the YAML file does not already exist.
+
+The migration is one-time and non-destructive by default:
+
+- if `~/.bitch/config.yaml` already exists, it is left untouched;
+- if a repo `.env` or `src-tauri/.env` exists, known keys are moved into `connection`, `hermes`, `monitoring`, and `calendar` sections;
+- unknown legacy keys are preserved as top-level YAML keys;
+- secret values are written to the local YAML file but are not printed in installer output.
+
+Useful installer options:
+
+```bash
+npm run install -- --config-only      # migrate .env only
+npm run install -- --skip-build       # copy an existing build and migrate config
+npm run install -- --force-config     # rewrite config.yaml from legacy .env
+```
 
 ## Useful scripts
 

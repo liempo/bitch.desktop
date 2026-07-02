@@ -80,7 +80,7 @@ pub async fn mint_ws_ticket(
 
     if !status.is_success() {
         let message = if config.uses_session_auth() && status == reqwest::StatusCode::UNAUTHORIZED {
-            "Remote Hermes session expired or login was rejected; check HERMES_DASHBOARD_USERNAME and HERMES_DASHBOARD_PASSWORD, then try again".to_string()
+            "Remote Hermes session expired or login was rejected; check hermes.username and hermes.password in ~/.bitch/config.yaml, then try again".to_string()
         } else {
             format!(
                 "ws-ticket endpoint returned {status}: {}",

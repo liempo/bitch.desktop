@@ -11,5 +11,5 @@ It follows the same Clean MVVM / Ports & Adapters split as the other feature lan
 
 CalDAV credentials, multi-calendar discovery, whole-calendar background sync, cache persistence, and recurrence expansion stay behind the Tauri bridge. Renderer code calls
 `get_caldav_config_status`, `list_calendar_events`, and `sync_calendar_events`; it does not read
-`CALDAV_PASSWORD`, import Hermes dashboard clients, or tunnel through
+`calendar.password`, import Hermes dashboard clients, or tunnel through
 `dashboard_request`.

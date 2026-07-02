@@ -23,7 +23,7 @@ impl GatewayConfig {
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| {
-                "HERMES_DASHBOARD_SESSION_TOKEN is not set in connection config, environment, or .env"
+                "HERMES_DASHBOARD_SESSION_TOKEN is not set in ~/.bitch/config.yaml connection config"
                     .to_string()
             })
     }
@@ -74,7 +74,7 @@ fn normalize_auth_mode(auth_mode: Option<&str>) -> String {
     }
 }
 
-fn env_password_login_credentials_present() -> bool {
+fn password_login_credentials_present() -> bool {
     config_value("HERMES_DASHBOARD_USERNAME").is_some()
         && config_value("HERMES_DASHBOARD_PASSWORD").is_some()
 }
@@ -93,9 +93,9 @@ pub fn ws_profile_key(profile: Option<&str>) -> String {
     connection_scope_key(profile).unwrap_or_else(|| "default".to_string())
 }
 
-fn env_connection_config() -> ConnectionConfig {
+fn default_connection_config() -> ConnectionConfig {
     let token = config_value("HERMES_DASHBOARD_SESSION_TOKEN");
-    let auth_mode = if token.is_some() || !env_password_login_credentials_present() {
+    let auth_mode = if token.is_some() || !password_login_credentials_present() {
         "token"
     } else {
         "session"
@@ -113,7 +113,7 @@ fn env_connection_config() -> ConnectionConfig {
 }
 
 pub fn load_connection_config() -> Result<ConnectionConfig, String> {
-    Ok(read_saved_connection_config()?.unwrap_or_else(env_connection_config))
+    Ok(read_saved_connection_config()?.unwrap_or_else(default_connection_config))
 }
 
 fn profile_remote_override<'a>(
@@ -153,13 +153,13 @@ pub fn resolve_gateway_config(profile: Option<&str>) -> Result<GatewayConfig, St
         .or(config.auth_mode.as_deref());
     let mut auth_mode = normalize_auth_mode(configured_auth_mode);
 
-    if auth_mode == "token" && token.is_none() && env_password_login_credentials_present() {
+    if auth_mode == "token" && token.is_none() && password_login_credentials_present() {
         auth_mode = "session".to_string();
     }
 
     if auth_mode == "token" && token.is_none() {
         return Err(
-            "HERMES_DASHBOARD_SESSION_TOKEN is not set in connection config, environment, or .env"
+            "HERMES_DASHBOARD_SESSION_TOKEN is not set in ~/.bitch/config.yaml connection config"
                 .to_string(),
         );
     }
