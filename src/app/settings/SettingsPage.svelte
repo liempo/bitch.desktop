@@ -3,10 +3,14 @@
   import Dialog from '@/app/components/ui/Dialog.svelte'
   import Panel from '@/app/components/ui/Panel.svelte'
   import MarketplaceThemeBrowser from './MarketplaceThemeBrowser.svelte'
+  import { checkSourceUpdate, runSourceUpdate, type SourceUpdateStatus } from '$lib/platform/updater'
   import { installedThemeOptions, selectTheme, themeOptions, themeState, uninstallImportedTheme } from '$lib/theme'
 
   let themeImportStatus = $state('')
   let themePickerOpen = $state(false)
+  let sourceUpdateStatus = $state('')
+  let sourceUpdateDetails = $state<SourceUpdateStatus | null>(null)
+  let sourceUpdateBusy = $state(false)
 
   function installedThemes() {
     return installedThemeOptions()
@@ -23,6 +27,43 @@
     const themeName = themeOptions.find(theme => theme.id === themeId)?.source.name ?? 'theme'
     uninstallImportedTheme(themeId)
     themeImportStatus = `Uninstalled ${themeName}.`
+  }
+
+  function sourceUpdateSummary(status: SourceUpdateStatus): string {
+    if (!status.sourceExists) {
+      return `Source clone will be created at ${status.sourceDir}.`
+    }
+
+    return status.updateAvailable
+      ? `Update available from origin/main for ${status.sourceDir}.`
+      : `Source checkout is already aligned with origin/main at ${status.sourceDir}.`
+  }
+
+  async function handleCheckSourceUpdate(): Promise<void> {
+    sourceUpdateBusy = true
+    sourceUpdateStatus = 'Checking source updater state…'
+    try {
+      sourceUpdateDetails = await checkSourceUpdate()
+      sourceUpdateStatus = sourceUpdateSummary(sourceUpdateDetails)
+    } catch (error) {
+      sourceUpdateStatus = error instanceof Error ? error.message : String(error)
+    } finally {
+      sourceUpdateBusy = false
+    }
+  }
+
+  async function handleRunSourceUpdate(): Promise<void> {
+    sourceUpdateBusy = true
+    sourceUpdateStatus = 'Updating from main. The app may need to be restarted after install.'
+    try {
+      const result = await runSourceUpdate()
+      sourceUpdateStatus = `Installed update to ${result.installPath}. Restart BITCH to use the refreshed app.`
+      sourceUpdateDetails = await checkSourceUpdate()
+    } catch (error) {
+      sourceUpdateStatus = error instanceof Error ? error.message : String(error)
+    } finally {
+      sourceUpdateBusy = false
+    }
   }
 </script>
 
@@ -84,6 +125,48 @@
         </Button>
       </div>
     </Panel>
+
+    <Panel title="Source updater" fullHeight={false} contentClass="space-y-3 sm:space-y-4">
+      <div class="grid min-w-0 gap-3 rounded-panel border border-line bg-surface-muted p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <div class="min-w-0">
+          <p class="font-hud text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ink-bright">
+            Update from main
+          </p>
+          <p class="mt-1 text-xs leading-5 text-ink-muted">
+            Builds the latest repository main branch locally, installs the app bundle into ~/Applications, then restores your previous source branch and stashed work.
+            Set <code class="rounded-control border border-line bg-input px-1 py-0.5 font-mono text-[10px] text-primary">BITCH_SRC_DIR</code>
+            in .env to use an existing checkout.
+          </p>
+          {#if sourceUpdateDetails}
+            <dl class="mt-3 grid gap-1 text-xs leading-5 text-ink-muted">
+              <div class="min-w-0 sm:flex sm:gap-2">
+                <dt class="font-hud uppercase tracking-[0.12em] text-ink-bright">Source</dt>
+                <dd class="break-all">{sourceUpdateDetails.sourceDir}</dd>
+              </div>
+              <div class="min-w-0 sm:flex sm:gap-2">
+                <dt class="font-hud uppercase tracking-[0.12em] text-ink-bright">Install target</dt>
+                <dd class="break-all">{sourceUpdateDetails.installPath}</dd>
+              </div>
+              <div class="sm:flex sm:gap-2">
+                <dt class="font-hud uppercase tracking-[0.12em] text-ink-bright">State</dt>
+                <dd>{sourceUpdateDetails.sourceExists ? (sourceUpdateDetails.updateAvailable ? 'main has changes' : 'aligned with main') : 'source clone missing'}</dd>
+              </div>
+            </dl>
+          {/if}
+          {#if sourceUpdateStatus}
+            <p class="mt-3 rounded-control border border-line bg-input px-3 py-2 text-xs leading-5 text-ink-muted" role="status">
+              {sourceUpdateStatus}
+            </p>
+          {/if}
+        </div>
+
+        <div class="grid gap-2 sm:min-w-48">
+          <Button variant="secondary" class="w-full" disabled={sourceUpdateBusy} onclick={handleCheckSourceUpdate}>Check source</Button>
+          <Button variant="primary" class="w-full" disabled={sourceUpdateBusy} onclick={handleRunSourceUpdate}>Update from main</Button>
+        </div>
+      </div>
+    </Panel>
+
   </div>
 
   <Dialog

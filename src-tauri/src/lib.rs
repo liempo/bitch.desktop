@@ -6,6 +6,7 @@ mod hermes;
 mod http;
 mod monitoring;
 mod platform;
+mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -37,7 +38,9 @@ pub fn run() {
             commands::gateway::connect_ws,
             commands::gateway::send_ws_message,
             commands::gateway::close_ws,
-            commands::platform::open_external_url
+            commands::platform::open_external_url,
+            commands::updater::check_source_update,
+            commands::updater::run_source_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -70,4 +70,13 @@ describe('settings page route contract', () => {
       'w-full whitespace-normal py-2 !leading-tight disabled:cursor-wait'
     ])
   })
+
+  it('exposes a source updater panel without versioning UI', () => {
+    expect(settingsPageSource).toContain('Source updater')
+    expect(settingsPageSource).toContain('BITCH_SRC_DIR')
+    expect(settingsPageSource).toContain('Update from main')
+    expect(settingsPageSource).toContain('checkSourceUpdate')
+    expect(settingsPageSource).toContain('runSourceUpdate')
+    expect(settingsPageSource).not.toMatch(/version/i)
+  })
 })
